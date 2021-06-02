@@ -1,3 +1,4 @@
+from timeit import default_timer as timer
 import pandas as pd
 from web3 import Web3
 
@@ -8,6 +9,7 @@ CONTRACT_ADDRESSES_CSV = 'exploring/contract_address.csv'
 def analyze_block_gas_usage(block_number):
     w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_ADDRESS))
     block = w3.eth.get_block(block_number, True)
+
     block_trace = w3.provider.make_request(
         'debug_traceBlockByNumber', [Web3.toHex(block.number), {'tracer': "callTracer"}]
     )
@@ -42,16 +44,21 @@ def analyze_latest_block_gas():
         print('=== Block Info ===')
         print('Block Number - {}'.format(block.number))
         print('Block Transaction Count - {}'.format(len(block.transactions)))
-        print('\n=== Known Contract Gas Used ===')
+        start_time = timer()
         result = analyze_block_gas_usage(block.number)
-        print(result)
         dapp_grouped = result.groupby(['dapp',]).agg(
             gasUsed=('gasUsed', 'sum'), blocktransactions=('blocktransactions', 'sum'))
+        end_time = timer()
+
+        print('\n=== Known Contract Gas Used ===')
+        print(result)
         print('\n=== Summary ===')
         print(dapp_grouped)
         known_gasUsed = dapp_grouped['gasUsed'].sum()
 
-        print('\nTotal Block Gas Used - {}'.format(block.get('gasUsed')))
+        print('\n=== Debug Info ===')
+        print('Analyzed Block Data in {:.3f}s'.format(end_time - start_time))
+        print('Total Block Gas Used - {}'.format(block.get('gasUsed')))
         print('Known Block Gas Used - {}'.format(known_gasUsed))
         known_gasUsed_percent = 'Known Gas Used Percent - {:.0%}'.format((known_gasUsed / block.get('gasUsed')))
         print(known_gasUsed_percent)
