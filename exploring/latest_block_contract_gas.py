@@ -2,7 +2,7 @@ import pandas as pd
 from web3 import Web3
 
 WEB3_PROVIDER_ADDRESS = 'http://192.168.1.104:8545'
-CONTRACT_ADDRESSES_CSV = 'contract_address.csv'
+CONTRACT_ADDRESSES_CSV = 'exploring/contract_address.csv'
 
 
 def analyze_block_gas_usage(block_number):
@@ -30,6 +30,7 @@ def analyze_block_gas_usage(block_number):
 
         #  merge transaction receipts with dapp contract addresses
         result = block_transactions.merge(contract_addresses, left_on='to', right_on='address')
+
     else:
         result = 'No Transactions'
     return result
@@ -40,7 +41,13 @@ def analyze_latest_block_gas():
     if not w3.eth.is_syncing():
         print('Block Number - {}'.format(block.number))
         print('Block Transaction Count - {}'.format(len(block.transactions)))
-        print(analyze_block_gas_usage(block.number))
+        print('Contract Gas Used')
+        result = analyze_block_gas_usage(block.number)
+        print(result)
+        dapp_grouped = result.groupby(['dapp',]).agg(
+            gasUsed=('gasUsed', 'sum'), blocktransactions=('blocktransactions', 'sum'))
+        print('Summary')
+        print(dapp_grouped)
     else:
         print(w3.eth.is_syncing())
 
