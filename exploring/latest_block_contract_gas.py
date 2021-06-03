@@ -1,7 +1,7 @@
 from timeit import default_timer as timer
 import pandas as pd
 from web3 import Web3
-# WEB3_PROVIDER_ADDRESS = 'https://mainnet.infura.io/v3/ff78861e0d034bb78485a76fc24dcd20'
+
 WEB3_PROVIDER_ADDRESS = 'http://192.168.1.104:8545'
 CONTRACT_ADDRESSES_CSV = 'exploring/contract_address.csv'
 
