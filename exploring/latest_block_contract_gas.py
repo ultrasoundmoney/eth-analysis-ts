@@ -4,6 +4,7 @@ from web3 import Web3
 
 WEB3_PROVIDER_ADDRESS = 'http://192.168.1.104:8545'
 CONTRACT_ADDRESSES_CSV = 'exploring/master_list.csv'
+ANON_BOTS_LIST_CSV = 'exploring/anon_bots_list.csv'
 
 def analyze_block_transaction_recipts(block_number):
     w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_ADDRESS))
@@ -25,23 +26,43 @@ def analyze_latest_block_gas():
         block_trx_df = pd.DataFrame(block_trx_data)
         block_trx_summary = block_trx_df.groupby(['to', ]).agg(
                 gasUsed=('gasUsed', 'sum'), trxs=('to', 'count'))
-        simple_trx = block_trx_df['gasUsed'] == 21000
-        simple_trx_gas_used = simple_trx.sum() * 21000
+        """
+        Attribute simple transaction gas used
+        """
+        simple_trx = block_trx_df[block_trx_df['gasUsed'].apply(lambda x: x == 21000)]
+        simple_trx_gas_used = simple_trx['gasUsed'].sum()
 
+        """
+        Attribute known contract addresses
+        """
         # format contract addresses to catch inconsistencies before merging data
         contract_addresses = pd.read_csv(CONTRACT_ADDRESSES_CSV)
         contract_addresses['address'] = contract_addresses['address'].apply(lambda x: str(x).lower())
         # drop any duplicates, keep the first
         contract_addresses = contract_addresses.drop_duplicates(subset='address', keep='first')
-
         #  merge transaction receipts with dapp contract addresses
         result = block_trx_summary.merge(contract_addresses, left_on='to', right_on='address')
+        """
+        Attribute anon bot addresses
+        """
+        # format anon bot addresses to catch inconsistencies before merging data
+        anon_bot_addresses = pd.read_csv(ANON_BOTS_LIST_CSV)
+        anon_bot_addresses['address'] = anon_bot_addresses['address'].apply(lambda x: str(x).lower())
+        # drop any duplicates, keep the first
+        anon_bot_addresses = anon_bot_addresses.drop_duplicates(subset='address', keep='first')
+        anon_bots_usage = block_trx_summary.merge(anon_bot_addresses, left_on='to', right_on='address')
+        total_anon_bots_usage = anon_bots_usage['gasUsed'].sum()
 
         print('\n=== Block Info ===')
         print('Block Number - {}'.format(block.number))
         print('Block Transactions - {}'.format(len(block.transactions)))
+        print('Block Gas Used - {}'.format(block.get('gasUsed')))
+
         print('\n=== Simple Transaction Gas Used ===')
         print(simple_trx_gas_used)
+
+        print('\n=== Anon Bots Gas Used ===')
+        print(total_anon_bots_usage)
 
         print('\n=== Dapp Contract Gas Used ===')
         print(result)
@@ -59,10 +80,12 @@ def analyze_latest_block_gas():
         print('Pulled Block Data in {:.3f}s'.format(end_time - start_time))
         print('Total Block Gas Used - {}'.format(block.get('gasUsed')))
         print('Simple Transaction Gas Used - {}'.format(simple_trx_gas_used))
+        print('Anon Bot Gas Used - {}'.format(total_anon_bots_usage))
         print('Dapp Block Gas Used - {}'.format(dapp_grouped['gasUsed'].sum()))
         print('Simple Transaction Gas Used Percent - {:.0%}'.format((simple_trx_gas_used / block.get('gasUsed'))))
+        print('Anon Bot Gas Used Percent - {:.0%}'.format((total_anon_bots_usage / block.get('gasUsed'))))
         print('Dapp Gas Used Percent - {:.0%}'.format((dapp_gas_used / block.get('gasUsed'))))
-        print('Attributed Gas Used Percent - {:.0%}'.format(((dapp_gas_used + simple_trx_gas_used) / block.get('gasUsed'))))
+        print('Attributed Gas Used Percent - {:.0%}'.format(((dapp_gas_used + simple_trx_gas_used + total_anon_bots_usage) / block.get('gasUsed'))))
 
     else:
         print(w3.eth.is_syncing())

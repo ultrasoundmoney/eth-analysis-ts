@@ -4392,3 +4392,4 @@ TransparentUpgradeableProxy,TransparentUpgradeableProxy,0x15874d65e649880c2614e7
 Proxy,Proxy,0x8eca806aecc86ce90da803b080ca4e3a9b8097ad
 GPv2Settlement,GPv2Settlement,0x3328f5f2cecaf00a2443082b657cedeaf70bfaef
 Uniswap V3,Uniswap V3:  Migrator,0xa5644e29708357803b5a882d272c41cc0df92b34
+Aave,Aave: Lending Pool V2,0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9
