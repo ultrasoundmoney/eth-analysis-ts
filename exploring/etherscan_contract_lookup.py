@@ -6,7 +6,7 @@ import time
 import pandas as pd
 from bs4 import BeautifulSoup
 
-CONTRACT_ADDRESSES_CSV = 'exploring/contract_address.csv'
+CONTRACT_ADDRESSES_CSV = 'exploring/top-100.csv'
 
 def random_user_agent():
     uastrings = [
@@ -49,7 +49,7 @@ def create_contract_address_list():
         result = get_contract_name_from_etherscan(row['address'])
         etherscan_contract_addresses_data.append(result)
         # continously write to a csv file so we can track progress if fails
-        with open('exploring/new_list.csv', 'a', newline='') as file:
+        with open('exploring/output_list.csv', 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([result.get('dapp', ''), result.get('contract', ''), result.get('address','')])
         time.sleep(0.25)
