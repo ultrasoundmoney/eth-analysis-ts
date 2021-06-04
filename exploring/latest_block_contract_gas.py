@@ -3,7 +3,7 @@ import pandas as pd
 from web3 import Web3
 
 WEB3_PROVIDER_ADDRESS = 'http://192.168.1.104:8545'
-CONTRACT_ADDRESSES_CSV = 'exploring/contract_address.csv'
+CONTRACT_ADDRESSES_CSV = 'exploring/contract_addresses.csv'
 
 def analyze_block_transaction_recipts(block_number):
     w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_ADDRESS))
