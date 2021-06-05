@@ -6,7 +6,7 @@ import time
 import pandas as pd
 from bs4 import BeautifulSoup
 
-CONTRACT_ADDRESSES_CSV = 'exploring/top-100.csv'
+CONTRACT_ADDRESSES_CSV = 'exploring/anon_bots_list.csv'
 
 def random_user_agent():
     uastrings = [
