@@ -72,7 +72,7 @@ export type TopGasUsers = FeeUser[];
 // ~6.88 days
 const weekOfBlocksCount = 45000;
 
-export const getTopTenGasUsers = async (): Promise<TopGasUsers> => {
+export const getTopTenFeeUsers = async (): Promise<TopGasUsers> => {
   const feesPaidForBlocks = await sql<{ feesPaid: FeesPaid }[]>`
       SELECT fees_paid
       FROM gas_use_per_block

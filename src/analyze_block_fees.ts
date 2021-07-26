@@ -1,4 +1,4 @@
-import * as GasUse from "./gas_use";
+import * as FeeUse from "./fee_use";
 import * as Log from "./log";
 import * as Transactions from "./transactions";
 import { eth } from "./web3";
@@ -37,7 +37,7 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
 // TODO: update implementation to analyze mainnet after fork block.
 
 (async () => {
-  const latestGasUseBlockNumber = await GasUse.getLatestGasUseBlockNumber();
+  const latestGasUseBlockNumber = await FeeUse.getLatestGasUseBlockNumber();
   const latestBlock = await eth.getBlock("latest");
 
   // Figure out which blocks we'd like to analyze.
@@ -68,13 +68,13 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
     const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
       segmentTxrs(txrs);
 
-    const ethTransferFees = GasUse.calcTxrFees(ethTransferTxrs);
+    const ethTransferFees = FeeUse.calcTxrFees(ethTransferTxrs);
 
-    const contractCreationFees = GasUse.calcTxrFees(contractCreationTxrs);
+    const contractCreationFees = FeeUse.calcTxrFees(contractCreationTxrs);
 
-    const feePerContract = GasUse.calcContractUseFees(contractUseTxrs);
+    const feePerContract = FeeUse.calcContractUseFees(contractUseTxrs);
 
-    const feesPaid: GasUse.FeesPaid = {
+    const feesPaid: FeeUse.FeesPaid = {
       transfers: ethTransferFees,
       contract_use_fees: feePerContract,
       contract_creation_fees: contractCreationFees,
@@ -88,7 +88,7 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
       );
     Log.debug(`>> fees paid for block ${blockNumber} - ${sumFees} ETH`);
 
-    await GasUse.storeFeesPaidForBlock(block.hash, block.number, feesPaid);
+    await FeeUse.storeFeesPaidForBlock(block.hash, block.number, feesPaid);
   }
 })()
   .then(async () => {

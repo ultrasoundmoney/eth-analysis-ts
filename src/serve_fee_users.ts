@@ -1,30 +1,30 @@
 import * as Log from "./log.js";
 import QuickLru from "quick-lru";
 import Koa, { Middleware } from "koa";
-import * as GasUse from "./gas_use.js";
+import * as FeeUse from "./fee_use.js";
 
-const topGasUserCache = new QuickLru({ maxSize: 1, maxAge: 3600000 });
-const topGasUserCacheKey = "top-gas-users-key";
+const topFeeUserCache = new QuickLru({ maxSize: 1, maxAge: 3600000 });
+const topFeeUserCacheKey = "top-fee-users-key";
 
 const handleAnyRequest: Middleware = async (ctx) => {
   // Respond from cache if we can.
-  const cTopGasUsers = topGasUserCache.get(topGasUserCacheKey);
-  if (cTopGasUsers !== undefined) {
+  const cTopFeeUsers = topFeeUserCache.get(topFeeUserCacheKey);
+  if (cTopFeeUsers !== undefined) {
     ctx.res.writeHead(200, {
       "Content-Type": "application/json",
     });
-    ctx.res.end(cTopGasUsers);
+    ctx.res.end(cTopFeeUsers);
     return;
   }
 
-  const topTenGasUsers = await GasUse.getTopTenGasUsers();
+  const topTenFeeUsers = await FeeUse.getTopTenFeeUsers();
 
   // Cache the response
-  const topTenGasUsersJson = JSON.stringify(topTenGasUsers);
-  topGasUserCache.set(topGasUserCacheKey, topTenGasUsersJson);
+  const topTenFeeUsersJson = JSON.stringify(topTenFeeUsers);
+  topFeeUserCache.set(topFeeUserCacheKey, topTenFeeUsersJson);
 
   ctx.res.writeHead(200, { "Content-Type": "application/json" });
-  ctx.res.end(topTenGasUsersJson);
+  ctx.res.end(topTenFeeUsersJson);
 };
 
 const port = process.env.PORT || 8080;

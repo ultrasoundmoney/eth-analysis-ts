@@ -3,7 +3,7 @@ services:
   db:
     image: postgres:13
     environment:
-      POSTGRES_DB: defaultdb
+      POSTGRES_DB: ropsten
       POSTGRES_PASSWORD: deflationary
       POSTGRES_USER: postgres
     ports:
@@ -12,8 +12,8 @@ services:
       - db-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  serve-burn:
-    image: serve-burn
+  serve-fee-users:
+    image: serve-fee-users
     build: .
     ports:
       - "8080:8080"
@@ -21,7 +21,7 @@ services:
       - db
     restart: always
     environment:
-      PGDATABASE: defaultdb
+      PGDATABASE: ropsten
       PGHOST: db
       PGPASSWORD: deflationary
       PGUSER: postgres
