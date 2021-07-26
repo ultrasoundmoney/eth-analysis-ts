@@ -61,8 +61,9 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
     }
 
     const block = await eth.getBlock(blockNumber);
+    Log.debug(`>> fetched block ${blockNumber}`);
+    Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
     const txrs = await Transactions.getTxrs1559(block.transactions)();
-    Log.debug(`>> fetched ${txrs.length} transaction receipts`);
 
     const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
       segmentTxrs(txrs);

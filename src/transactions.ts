@@ -1,7 +1,9 @@
-import { eth } from "./web3";
+import { eth } from "./web3.js";
 import type { TransactionReceipt as TxRWeb3 } from "web3-eth/types/index";
-import { pipe } from "fp-ts/lib/function";
+import { flow, pipe } from "fp-ts/lib/function";
 import T from "fp-ts/lib/Task";
+import ProgressBar from "progress";
+import Config from "./config.js";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
@@ -25,5 +27,31 @@ export const getTxrs = (txHashes: string[]): T.Task<readonly TxRWeb3[]> =>
 
 export const getTxrs1559 = (
   txHashes: string[],
-): T.Task<readonly TxRWeb3London[]> =>
-  pipe(txHashes, T.traverseSeqArray(getTxr1559));
+): T.Task<readonly TxRWeb3London[]> => {
+  // On dev show progress fetching transaction receipts.
+  let bar: ProgressBar | undefined = undefined;
+  if (Config.env === "dev") {
+    bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
+      total: txHashes.length,
+    });
+    const timer = setInterval(() => {
+      bar?.tick();
+      if (bar?.complete) {
+        clearInterval(timer);
+      }
+    }, 100);
+  }
+
+  return pipe(
+    txHashes,
+    T.traverseSeqArray(
+      flow(
+        getTxr1559,
+        T.chainFirst(() => {
+          // bar?.tick();
+          return T.of(undefined);
+        }),
+      ),
+    ),
+  );
+};
