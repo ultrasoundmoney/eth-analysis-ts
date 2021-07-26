@@ -51,7 +51,7 @@ if [ "$SERVICE" = "serve-fee-users" ]; then
   aws ecs update-service --cluster ultrasound --service "$SERVICE" --task-definition "$SERVICE" > /dev/null
 
   echo "> waiting for $SERVICE to stabilize"
-  aws ecs wait services-stable --cluster ultrasound --services $SERVICE
+  aws ecs wait services-stable --cluster ultrasound --services "$SERVICE"
 
   echo "> done"
 fi
