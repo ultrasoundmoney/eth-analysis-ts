@@ -37,13 +37,13 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
 // TODO: update implementation to analyze mainnet after fork block.
 
 (async () => {
-  const latestGasUseBlockNumber = await FeeUse.getLatestGasUseBlockNumber();
+  const latestAnalyzedBlockNumber = await FeeUse.getLatestAnalyzedBlockNumber();
   const latestBlock = await eth.getBlock("latest");
 
   // Figure out which blocks we'd like to analyze.
   const blocksMissingCount =
     latestBlock.number -
-    (latestGasUseBlockNumber || blockNumberFirstOfJulyRopsten);
+    (latestAnalyzedBlockNumber || blockNumberFirstOfJulyRopsten);
   const blocksToAnalyze = new Array(blocksMissingCount)
     .fill(undefined)
     .map((_, i) => latestBlock.number - i)

@@ -13,9 +13,9 @@ export type FeesPaid = {
   contract_creation_fees: number;
 };
 
-export const getLatestGasUseBlockNumber = (): Promise<number | undefined> =>
+export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
   sql`
-    SELECT max(number) AS number FROM gas_use_per_block
+    SELECT max(number) AS number FROM fees_per_block
   `.then((result) => result[0]?.number || undefined);
 
 export const storeFeesPaidForBlock = (
@@ -24,7 +24,7 @@ export const storeFeesPaidForBlock = (
   feesPaid: FeesPaid,
 ): Promise<void> =>
   sql`
-    INSERT INTO gas_use_per_block
+    INSERT INTO fees_per_block
       (hash, number, fees_paid)
     VALUES (${hash}, ${number}, ${sql.json(feesPaid)})
 `.then(() => undefined);
@@ -67,19 +67,19 @@ export type FeeUser = {
 };
 
 // Length is less than or equal to ten.
-export type TopGasUsers = FeeUser[];
+export type TopFeeUsers = FeeUser[];
 
 // ~6.88 days
 const weekOfBlocksCount = 45000;
 
-export const getTopTenFeeUsers = async (): Promise<TopGasUsers> => {
+export const getTopTenFeeUsers = async (): Promise<TopFeeUsers> => {
   const feesPaidForBlocks = await sql<{ feesPaid: FeesPaid }[]>`
       SELECT fees_paid
-      FROM gas_use_per_block
+      FROM fees_per_block
       LIMIT ${weekOfBlocksCount}
   `.then((result) => {
     if (result.length === 0) {
-      Log.warn("tried to determine top gas users but found no analyzed blocks");
+      Log.warn("tried to determine top fee users but found no analyzed blocks");
       return [];
     }
 
