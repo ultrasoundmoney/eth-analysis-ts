@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { camelCase } from "change-case";
-import Config from "./config";
+import Config from "./config.js";
 
 const database = Config.network === "ropsten" ? "ropsten" : "defaultdb";
 

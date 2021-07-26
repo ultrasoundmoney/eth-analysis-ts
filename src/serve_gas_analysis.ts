@@ -1,7 +1,7 @@
-import * as Log from "./log";
+import * as Log from "./log.js";
 import QuickLru from "quick-lru";
 import Koa, { Middleware } from "koa";
-import * as GasUse from "./gas_use";
+import * as GasUse from "./gas_use.js";
 
 const topGasUserCache = new QuickLru({ maxSize: 1, maxAge: 3600000 });
 const topGasUserCacheKey = "top-gas-users-key";

@@ -1,13 +1,14 @@
 {
   "extends": "./node_modules/gts/tsconfig-google.json",
   "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "lib": ["ES2019"],
-    "module": "CommonJS",
+    "lib": ["ES2021"],
+    "module": "ES2020",
     "moduleResolution": "node",
     "outDir": "build",
-    "rootDir": ".",
-    "target": "ESNext"
+    "rootDir": "src",
+    "target": "ES2021"
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

@@ -7,6 +7,7 @@
   "author": "ultrasound money <ultrasoundmoney0@gmail.com>",
   "license": "MIT",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@alch/alchemy-web3": "^1.1.1",
     "change-case": "^4.1.2",
@@ -31,8 +32,9 @@
     "typescript": "^4.0.3"
   },
   "scripts": {
+    "build": "tsc",
     "lint": "gts lint",
     "clean": "gts clean",
-    "start": "esrun src/serve_gas_analysis.ts"
+    "start": "node build/serve_gas_analysis.js"
   }
 }

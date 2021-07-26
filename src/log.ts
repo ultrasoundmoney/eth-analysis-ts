@@ -1,4 +1,4 @@
-import { pipe } from "fp-ts/lib/function";
+import { pipe } from "fp-ts/lib/function.js";
 import kleur from "kleur";
 
 /**

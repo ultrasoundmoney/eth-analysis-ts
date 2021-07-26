@@ -1,8 +1,8 @@
-import { sql } from "./db";
-import { TxRWeb3London } from "./transactions";
-import A from "fp-ts/lib/Array";
-import { pipe } from "fp-ts/lib/function";
-import * as Log from "./log";
+import { sql } from "./db.js";
+import type { TxRWeb3London } from "./transactions";
+import A from "fp-ts/lib/Array.js";
+import { pipe } from "fp-ts/lib/function.js";
+import * as Log from "./log.js";
 
 export type FeesPaid = {
   // fees paid for simple transfers.
