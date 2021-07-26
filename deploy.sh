@@ -25,7 +25,7 @@ echo $(git show --oneline --no-patch)
 echo "> building image"
 echo -n "> image hash: "
 docker build -q -t gas-analysis .
-docker tag spidey 198772674094.dkr.ecr.us-east-2.amazonaws.com/gas-analysis:$COMMIT
+docker tag gas-analysis 198772674094.dkr.ecr.us-east-2.amazonaws.com/gas-analysis:$COMMIT
 echo -n "> pushing image, id.. "
 docker push -q 198772674094.dkr.ecr.us-east-2.amazonaws.com/gas-analysis:$COMMIT
 
