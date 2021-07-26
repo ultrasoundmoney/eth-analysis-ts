@@ -31,6 +31,16 @@ const port = process.env.PORT || 8080;
 
 const app = new Koa();
 
+// Health check middleware
+app.use(async (ctx, next) => {
+  if (ctx.path === "/health") {
+    ctx.res.writeHead(200);
+    ctx.res.end();
+    return;
+  }
+  await next();
+});
+
 app.use(handleAnyRequest);
 
 app.listen(port, () => {
