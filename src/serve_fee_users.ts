@@ -2,6 +2,7 @@ import * as Log from "./log.js";
 import QuickLru from "quick-lru";
 import Koa, { Middleware } from "koa";
 import * as FeeUse from "./fee_use.js";
+import cors from "cors";
 
 const topFeeUserCache = new QuickLru({ maxSize: 1, maxAge: 3600000 });
 const topFeeUserCacheKey = "top-fee-users-key";
@@ -30,6 +31,8 @@ const handleAnyRequest: Middleware = async (ctx) => {
 const port = process.env.PORT || 8080;
 
 const app = new Koa();
+
+app.use((ctx, next) => cors()(ctx.req, ctx.res, next));
 
 // Health check middleware
 app.use(async (ctx, next) => {
