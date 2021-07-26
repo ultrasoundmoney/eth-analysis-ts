@@ -92,11 +92,19 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
   }
 })()
   .then(async () => {
-    Log.info(`> done analyzing gas`);
+    Log.info("> done analyzing gas");
+    // The websocket connection keeps the process from exiting. Alchemy doesn't expose any method to close the connection. We use undocumented values.
+    if (
+      typeof eth.currentProvider !== "string" &&
+      eth.currentProvider !== null &&
+      "ws" in eth.currentProvider
+    ) {
+      (eth.currentProvider as any).stopHeartbeatAndBackfill();
+      (eth.currentProvider as any).ws.disposeSocket();
+    }
     await sql.end();
-    process.exit();
   })
   .catch((error) => {
-    Log.error(`> error analyzing gas`, { error });
-    process.exit(1);
+    Log.error("> error analyzing gas", { error });
+    throw error;
   });
