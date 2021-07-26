@@ -11,6 +11,10 @@ RUN ["yarn", "build"]
 FROM node:16-alpine as run
 WORKDIR /app
 
+# Add AWS RDS certificate authority
+ENV NODE_EXTRA_CA_CERTS=/app/global-bundle.pem
+COPY global-bundle.pem .
+
 COPY package.json .
 COPY yarn.lock .
 RUN ["yarn", "install", "--production"]
