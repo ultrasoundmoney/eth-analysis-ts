@@ -1,12 +1,7 @@
-CREATE TABLE "blocks" (
+CREATE TABLE "gas_use_per_block" (
   "hash" text PRIMARY KEY,
   "number" int UNIQUE NOT NULL,
-  "json" jsonb NOT NULL
+  "fees_paid" jsonb
 );
 
-CREATE TABLE "transaction_receipts" (
-  "hash" text PRIMARY KEY,
-  "json" jsonb NOT NULL
-);
-
-CREATE INDEX ON "blocks" ("number");
+COMMENT ON COLUMN "gas_use_per_block"."fees_paid" IS 'document describing fees paid';

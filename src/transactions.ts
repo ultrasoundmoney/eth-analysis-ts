@@ -1,72 +1,29 @@
-import { Row, RowList } from "postgres";
-import { sql } from "./db";
 import { eth } from "./web3";
-import type { TransactionReceipt as TransactionReceiptWeb3 } from "web3-eth/types/index";
-import * as Log from "./log";
+import type { TransactionReceipt as TxRWeb3 } from "web3-eth/types/index";
+import { pipe } from "fp-ts/lib/function";
+import T from "fp-ts/lib/Task";
 
-// TODO: don't count failed transactions
-
-const storeReceipt = (
-  transactionReceipt: TransactionReceiptWeb3,
-): Promise<RowList<Row[]>> =>
-  sql`
-    INSERT INTO transaction_receipts (hash, json)
-    VALUES (
-      ${transactionReceipt.transactionHash},
-      ${sql.json(transactionReceipt)}
-    )
-    ON CONFLICT DO NOTHING`;
-
-export const storeTransactionReceipts = (
-  transactionReceipts: TransactionReceiptWeb3[],
-): Promise<RowList<Row[]>> =>
-  sql`
-    INSERT INTO transaction_receipts (hash, json)
-    VALUES ${sql(
-      transactionReceipts.map(
-        (transactionReceipt) =>
-          `${transactionReceipt.transactionHash}, ${sql.json(
-            transactionReceipt,
-          )}`,
-      ),
-    )}
-    ON CONFLICT DO NOTHING
-`;
-
-export const syncTransactionReceipts = async (
-  transactionHashes: string[],
-): Promise<void> => {
-  for (const hash of transactionHashes) {
-    const receiptWeb3 = await eth.getTransactionReceipt(hash);
-    await storeReceipt(receiptWeb3);
-  }
-  Log.debug(`> fetched ${transactionHashes.length} transaction receipts`);
-};
-
-export type TransactionReceipt = {
-  from: string;
+/**
+ * A post London hardfork transaction receipt with an effective gas price.
+ */
+export type TxRWeb3London = TxRWeb3 & {
   to: string | null;
-  gasUsed: number;
-  effectiveGasPrice: number;
+  effectiveGasPrice: string;
 };
 
-export const getTransactionReceipts = (
-  transactionHashes: string[],
-): Promise<TransactionReceipt[]> =>
-  sql<
-    { effectiveGasPrice: string; from: string; to: string; gasUsed: number }[]
-  >`
-    SELECT
-      hash,
-      json -> 'from' AS from,
-      json -> 'to' AS to,
-      json -> 'gasUsed' AS gas_used,
-      json -> 'effectiveGasPrice' as effective_gas_price
-    FROM transaction_receipts
-    WHERE hash = ANY (${sql.array(transactionHashes)})
-  `.then((result) =>
-    result.map((row) => ({
-      ...row,
-      effectiveGasPrice: Number.parseInt(row.effectiveGasPrice, 16),
-    })),
-  );
+// Depending on 'when' you call the next two functions the receipt looks different. We leave it up to the caller to call this function at the right time.
+const getTxr =
+  (txHash: string): T.Task<TxRWeb3> =>
+  () =>
+    eth.getTransactionReceipt(txHash);
+
+const getTxr1559 = (txHash: string): T.Task<TxRWeb3London> =>
+  getTxr(txHash) as T.Task<TxRWeb3London>;
+
+export const getTxrs = (txHashes: string[]): T.Task<readonly TxRWeb3[]> =>
+  pipe(txHashes, T.traverseSeqArray(getTxr));
+
+export const getTxrs1559 = (
+  txHashes: string[],
+): T.Task<readonly TxRWeb3London[]> =>
+  pipe(txHashes, T.traverseSeqArray(getTxr1559));
