@@ -99,8 +99,12 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
       eth.currentProvider !== null &&
       "ws" in eth.currentProvider
     ) {
-      (eth.currentProvider as any).stopHeartbeatAndBackfill();
-      (eth.currentProvider as any).ws.disposeSocket();
+      (
+        eth.currentProvider as { stopHeartbeatAndBackfill: () => void }
+      ).stopHeartbeatAndBackfill();
+      (
+        eth.currentProvider as { ws: { disposeSocket: () => void } }
+      ).ws.disposeSocket();
     }
     await sql.end();
   })
