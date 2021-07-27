@@ -35,3 +35,27 @@ export const getTxrs1559 = (
     txHashes,
     T.traverseArray((txHash) => () => txrsPQ.add(getTxr1559(txHash))),
   );
+
+export type TxrSegments = {
+  contractCreationTxrs: TxRWeb3London[];
+  ethTransferTxrs: TxRWeb3London[];
+  contractUseTxrs: TxRWeb3London[];
+};
+
+export const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
+  const contractUseTxrs: TxRWeb3London[] = [];
+  const contractCreationTxrs: TxRWeb3London[] = [];
+  const ethTransferTxrs: TxRWeb3London[] = [];
+
+  txrs.forEach((txr) => {
+    if (txr.to === null) {
+      contractCreationTxrs.push(txr);
+    } else if (txr.gasUsed === 21000) {
+      ethTransferTxrs.push(txr);
+    } else {
+      contractUseTxrs.push(txr);
+    }
+  });
+
+  return { contractCreationTxrs, contractUseTxrs, ethTransferTxrs };
+};

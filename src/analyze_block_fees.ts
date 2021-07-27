@@ -4,36 +4,16 @@ import * as Transactions from "./transactions";
 import { eth } from "./web3";
 import Config from "./config";
 import { sql } from "./db";
-import type { TxRWeb3London } from "./transactions";
 import ProgressBar from "progress";
+import { BlockTransactionString as BlockWeb3 } from "web3-eth/types/index";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
 const blockNumberFirstOfJulyRopsten = 10543930;
 const blockNumberOneWeekAgoRopsten = 10671342;
 
-type TxrSegments = {
-  contractCreationTxrs: TxRWeb3London[];
-  ethTransferTxrs: TxRWeb3London[];
-  contractUseTxrs: TxRWeb3London[];
-};
-
-const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
-  const contractUseTxrs: TxRWeb3London[] = [];
-  const contractCreationTxrs: TxRWeb3London[] = [];
-  const ethTransferTxrs: TxRWeb3London[] = [];
-
-  txrs.forEach((txr) => {
-    if (txr.to === null) {
-      contractCreationTxrs.push(txr);
-    } else if (txr.gasUsed === 21000) {
-      ethTransferTxrs.push(txr);
-    } else {
-      contractUseTxrs.push(txr);
-    }
-  });
-
-  return { contractCreationTxrs, contractUseTxrs, ethTransferTxrs };
+type BlockWeb3London = BlockWeb3 & {
+  baseFeePerGas: string;
 };
 
 // TODO: update implementation to analyze mainnet after fork block.
@@ -76,19 +56,28 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
       throw new Error("tried to analyze non-1559 block");
     }
 
-    const block = await eth.getBlock(blockNumber);
+    const block = (await eth.getBlock(blockNumber)) as BlockWeb3London;
     Log.debug(`>> fetched block ${blockNumber}`);
     Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
     const txrs = await Transactions.getTxrs1559(block.transactions)();
 
     const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
-      segmentTxrs(txrs);
+      Transactions.segmentTxrs(txrs);
 
-    const ethTransferFees = FeeUse.calcTxrFees(ethTransferTxrs);
+    const ethTransferFees = FeeUse.calcTxrBaseFee(
+      block.baseFeePerGas,
+      ethTransferTxrs,
+    );
 
-    const contractCreationFees = FeeUse.calcTxrFees(contractCreationTxrs);
+    const contractCreationFees = FeeUse.calcTxrBaseFee(
+      block.baseFeePerGas,
+      contractCreationTxrs,
+    );
 
-    const feePerContract = FeeUse.calcContractUseFees(contractUseTxrs);
+    const feePerContract = FeeUse.calcContractUseBaseFees(
+      block.baseFeePerGas,
+      contractUseTxrs,
+    );
 
     const feesPaid: FeeUse.FeesPaid = {
       transfers: ethTransferFees,

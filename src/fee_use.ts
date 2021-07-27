@@ -30,19 +30,31 @@ export const storeFeesPaidForBlock = (
 `.then(() => undefined);
 
 const hexToNumber = (hex: string) => Number.parseInt(hex, 16);
+const weiToEth = (wei: number): number => wei / 10 ** 18;
 
-const calculateFee = (txr: TxRWeb3London): number =>
-  (txr.gasUsed * hexToNumber(txr.effectiveGasPrice)) / 10 ** 18;
+const calculateBaseFee = (baseFee: string, txr: TxRWeb3London): number =>
+  pipe(
+    baseFee,
+    hexToNumber,
+    weiToEth,
+    (baseFeePerGas) => baseFeePerGas * txr.gasUsed,
+  );
 
-export const calcTxrFees = (txrs: TxRWeb3London[]): number =>
+export const calcTxrBaseFee = (
+  baseFee: string,
+  txrs: TxRWeb3London[],
+): number =>
   pipe(
     txrs,
-    A.reduce(0, (feesPaid, txr) => feesPaid + calculateFee(txr)),
+    A.reduce(0, (feesPaid, txr) => feesPaid + calculateBaseFee(baseFee, txr)),
   );
 
 type FeePerContractMap = Record<string, number>;
 
-export const calcContractUseFees = (txrs: TxRWeb3London[]): FeePerContractMap =>
+export const calcContractUseBaseFees = (
+  baseFee: string,
+  txrs: TxRWeb3London[],
+): FeePerContractMap =>
   pipe(
     txrs,
     A.reduce({} as FeePerContractMap, (aggFee, txr) => {
@@ -52,7 +64,7 @@ export const calcContractUseFees = (txrs: TxRWeb3London[]): FeePerContractMap =>
       }
 
       const feesPaid = aggFee[txr.to] || 0;
-      aggFee[txr.to] = feesPaid + calculateFee(txr);
+      aggFee[txr.to] = feesPaid + calculateBaseFee(baseFee, txr);
 
       return aggFee;
     }),
