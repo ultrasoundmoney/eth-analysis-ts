@@ -1,12 +1,12 @@
-import * as BaseFeeBurn from "./base_fee_burn";
-import * as Log from "./log";
-import * as Transactions from "./transactions";
-import { eth } from "./web3";
-import Config from "./config";
-import { sql } from "./db";
-import ProgressBar from "progress";
+import * as BaseFeeBurn from "./base_fee_burn.js";
+import * as Log from "./log.js";
+import * as Transactions from "./transactions.js";
+import { eth } from "./web3.js";
+import Config from "./config.js";
+import { sql } from "./db.js";
 import { BlockTransactionString as BlockWeb3 } from "web3-eth/types/index";
-import { BaseFees } from "./base_fee_burn";
+import { BaseFees } from "./base_fee_burn.js";
+import * as DisplayProgress from "./display_progress.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
@@ -28,24 +28,16 @@ type BlockWeb3London = BlockWeb3 & {
   const blocksMissingCount =
     latestBlock.number -
     (latestAnalyzedBlockNumber || blockNumberOneWeekAgoRopsten);
+
+  if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
+    DisplayProgress.start(blocksMissingCount);
+  }
+
   const blocksToAnalyze = new Array(blocksMissingCount)
     .fill(undefined)
     .map((_, i) => latestBlock.number - i)
     .reverse();
   Log.info(`> ${blocksMissingCount} blocks to analyze`);
-
-  // On dev show progress fetching blocks.
-  let bar: ProgressBar | undefined = undefined;
-  if (Config.env === "dev" && process.env.LOG_LEVEL === "INFO") {
-    bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
-      total: blocksToAnalyze.length,
-    });
-    const timer = setInterval(() => {
-      if (bar?.complete) {
-        clearInterval(timer);
-      }
-    }, 100);
-  }
 
   for (const blockNumber of blocksToAnalyze) {
     Log.debug(`> analyzing block ${blockNumber}`);
@@ -97,7 +89,9 @@ type BlockWeb3London = BlockWeb3 & {
 
     BaseFeeBurn.storeBaseFeesForBlock(block.hash, block.number, baseFees);
 
-    bar?.tick();
+    if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
+      DisplayProgress.onBlockAnalyzed();
+    }
   }
 })()
   .then(async () => {
