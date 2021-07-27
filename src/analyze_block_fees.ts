@@ -5,10 +5,12 @@ import { eth } from "./web3";
 import Config from "./config";
 import { sql } from "./db";
 import type { TxRWeb3London } from "./transactions";
+import ProgressBar from "progress";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
 const blockNumberFirstOfJulyRopsten = 10543930;
+const blockNumberOneWeekAgoRopsten = 10671342;
 
 type TxrSegments = {
   contractCreationTxrs: TxRWeb3London[];
@@ -43,15 +45,29 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
   // Figure out which blocks we'd like to analyze.
   const blocksMissingCount =
     latestBlock.number -
-    (latestAnalyzedBlockNumber || blockNumberFirstOfJulyRopsten);
+    (latestAnalyzedBlockNumber || blockNumberOneWeekAgoRopsten);
   const blocksToAnalyze = new Array(blocksMissingCount)
     .fill(undefined)
     .map((_, i) => latestBlock.number - i)
     .reverse();
   Log.info(`> ${blocksMissingCount} blocks to analyze`);
 
+  // On dev show progress fetching blocks.
+  let bar: ProgressBar | undefined = undefined;
+  if (Config.env === "dev" && process.env.LOG_LEVEL === "INFO") {
+    bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
+      total: blocksToAnalyze.length,
+    });
+    const timer = setInterval(() => {
+      if (bar?.complete) {
+        clearInterval(timer);
+      }
+    }, 100);
+  }
+
   for (const blockNumber of blocksToAnalyze) {
     Log.debug(`> analyzing block ${blockNumber}`);
+
     // We only know how to analyze 1559 blocks, guard against other blocks.
     if (
       Config.network === "mainnet" &&
@@ -88,7 +104,9 @@ const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
       );
     Log.debug(`>> fees paid for block ${blockNumber} - ${sumFees} ETH`);
 
-    await FeeUse.storeFeesPaidForBlock(block.hash, block.number, feesPaid);
+    FeeUse.storeFeesPaidForBlock(block.hash, block.number, feesPaid);
+
+    bar?.tick();
   }
 })()
   .then(async () => {
