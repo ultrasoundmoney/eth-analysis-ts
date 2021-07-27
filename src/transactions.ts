@@ -1,6 +1,6 @@
 import { eth } from "./web3.js";
 import type { TransactionReceipt as TxRWeb3 } from "web3-eth/types/index";
-import { flow, pipe } from "fp-ts/lib/function";
+import { pipe } from "fp-ts/lib/function";
 import T from "fp-ts/lib/Task";
 import PQueue from "p-queue";
 

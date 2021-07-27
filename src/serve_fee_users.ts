@@ -2,6 +2,7 @@ import * as Log from "./log.js";
 import QuickLru from "quick-lru";
 import Koa, { Middleware } from "koa";
 import * as FeeUse from "./fee_use.js";
+import type { TimeFrame } from "./fee_use.js";
 
 const getMilisFromMinutes = (minutes: number) => minutes * 60 * 1000;
 
@@ -9,11 +10,29 @@ const topFeeUserCache = new QuickLru({
   maxSize: 1,
   maxAge: getMilisFromMinutes(1),
 });
-const topFeeUserCacheKey = "top-fee-users-key";
+
+const getIsTimeFrame = (raw: unknown): raw is TimeFrame =>
+  raw === "24h" || raw === "7d" || raw === "30d" || raw === "all";
 
 const handleAnyRequest: Middleware = async (ctx) => {
+  if (ctx.path !== "/fees") {
+    Log.debug(ctx.path);
+    Log.debug("qs", ctx.query);
+    return;
+  }
+
+  const timeFrame = ctx.request.query["timeframe"];
+
+  if (!getIsTimeFrame(timeFrame)) {
+    ctx.status = 400;
+    ctx.body = {
+      msg: "missing 'timeframe' query param, one of '24h', '7d', '30d' or 'all'",
+    };
+    return;
+  }
+
   // Respond from cache if we can.
-  const cTopFeeUsers = topFeeUserCache.get(topFeeUserCacheKey);
+  const cTopFeeUsers = topFeeUserCache.get(timeFrame);
   if (cTopFeeUsers !== undefined) {
     ctx.res.writeHead(200, {
       "Cache-Control": "max-age=900, stale-while-revalidate=3600",
@@ -23,11 +42,11 @@ const handleAnyRequest: Middleware = async (ctx) => {
     return;
   }
 
-  const topTenFeeUsers = await FeeUse.getTopTenFeeUsers();
+  const topTenFeeUsers = await FeeUse.getTopTenFeeUsers(timeFrame);
 
   // Cache the response
   const topTenFeeUsersJson = JSON.stringify(topTenFeeUsers);
-  topFeeUserCache.set(topFeeUserCacheKey, topTenFeeUsersJson);
+  topFeeUserCache.set(timeFrame, topTenFeeUsersJson);
 
   ctx.res.writeHead(200, {
     "Cache-Control": "max-age=900, stale-while-revalidate=3600",

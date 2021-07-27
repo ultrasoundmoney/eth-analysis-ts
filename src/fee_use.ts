@@ -69,14 +69,24 @@ export type FeeUser = {
 // Length is less than or equal to ten.
 export type TopFeeUsers = FeeUser[];
 
-// ~6.88 days
-const weekOfBlocksCount = 45000;
+// As block time changes these counts become inaccurate. It'd be better to store actual datetimes for blocks so precise time questions could be answered.
+export type TimeFrame = "24h" | "7d" | "30d" | "all";
+const timeFrameBlockCountMap: Record<TimeFrame, number> = {
+  "24h": 6545,
+  "7d": 45818,
+  "30d": 196364,
+  // NOTE: We use 100d as the current hard limit
+  all: 654545,
+};
 
-export const getTopTenFeeUsers = async (): Promise<TopFeeUsers> => {
+export const getTopTenFeeUsers = async (
+  timeFrame: TimeFrame,
+): Promise<TopFeeUsers> => {
+  const blocksToSumCount = timeFrameBlockCountMap[timeFrame];
   const feesPaidForBlocks = await sql<{ feesPaid: FeesPaid }[]>`
       SELECT fees_paid
       FROM fees_per_block
-      LIMIT ${weekOfBlocksCount}
+      LIMIT ${blocksToSumCount}
   `.then((result) => {
     if (result.length === 0) {
       Log.warn("tried to determine top fee users but found no analyzed blocks");
