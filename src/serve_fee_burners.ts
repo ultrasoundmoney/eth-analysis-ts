@@ -1,24 +1,21 @@
 import * as Log from "./log.js";
-import QuickLru from "quick-lru";
+import QuickLRU from "quick-lru";
 import Koa, { Middleware } from "koa";
 import * as BaseFeeBurn from "./base_fee_burn.js";
 import type { TimeFrame } from "./base_fee_burn.js";
+import Router from "@koa/router";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
-const topFeeBurnerCache = new QuickLru({
-  maxSize: 1,
+const topFeeBurnerCache = new QuickLRU<string, string>({
+  maxSize: 4,
   maxAge: milisFromSeconds(10),
 });
 
 const getIsTimeFrame = (raw: unknown): raw is TimeFrame =>
   raw === "24h" || raw === "7d" || raw === "30d" || raw === "all";
 
-const handleAnyRequest: Middleware = async (ctx) => {
-  if (ctx.path !== "/fees/leaderboard") {
-    return;
-  }
-
+const handleGetTopBurners: Middleware = async (ctx) => {
   const timeFrame = ctx.request.query["timeframe"];
 
   if (!getIsTimeFrame(timeFrame)) {
@@ -72,7 +69,42 @@ app.use(async (ctx, next) => {
   await next();
 });
 
-app.use(handleAnyRequest);
+const totalFeesBurnedCache = new QuickLRU<string, string>({
+  maxSize: 1,
+  maxAge: 300,
+});
+const totalFeesBurnedKey = "total-fees-burned";
+
+const handleGetFeesBurned: Middleware = async (ctx) => {
+  const cTotalFeesBurned = totalFeesBurnedCache.get(totalFeesBurnedKey);
+
+  if (cTotalFeesBurned !== undefined) {
+    ctx.res.writeHead(200, {
+      "Cache-Control": "max-age=5, stale-while-revalidate=18",
+      "Content-Type": "application/json",
+    });
+    ctx.res.end(cTotalFeesBurned);
+  }
+
+  const totalFeesBurned = await BaseFeeBurn.getTotalFeesBurned();
+  const totalFeesBurnedJson = JSON.stringify({ totalFeesBurned });
+
+  totalFeesBurnedCache.set(totalFeesBurnedKey, totalFeesBurnedJson);
+
+  ctx.res.writeHead(200, {
+    "Cache-Control": "max-age=5, stale-while-revalidate=18",
+    "Content-Type": "application/json",
+  });
+  ctx.res.end(totalFeesBurnedJson);
+};
+
+const router = new Router();
+
+router.get("/fees/leaderboard", handleGetTopBurners);
+router.get("/fees/total", handleGetFeesBurned);
+
+app.use(router.routes());
+app.use(router.allowedMethods());
 
 app.listen(port, () => {
   Log.info(`> listening on ${port}`);

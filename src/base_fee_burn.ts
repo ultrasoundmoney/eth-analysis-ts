@@ -171,3 +171,31 @@ export const getTopTenFeeBurners = async (
     A.takeLeft(10),
   );
 };
+
+const getSum = (numbers: number[]): number =>
+  numbers.reduce((sum, num) => sum + num, 0);
+
+export const getTotalFeesBurned = async (): Promise<number> => {
+  const baseFeesPerBlock = await sql<{ baseFees: BaseFees }[]>`
+      SELECT base_fees
+      FROM base_fees_per_block
+  `.then((rows) => {
+    if (rows.length === 0) {
+      Log.warn(
+        "tried to determine top fee burners but found no analyzed blocks",
+      );
+      return [];
+    }
+
+    return rows.map((row) => row.baseFees);
+  });
+
+  return baseFeesPerBlock.reduce(
+    (sum, baseFees) =>
+      sum +
+      baseFees.transfers +
+      getSum(Object.values(baseFees.contract_use_fees)) +
+      baseFees.contract_creation_fees,
+    0,
+  );
+};
