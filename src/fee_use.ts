@@ -137,13 +137,13 @@ export const getTopTenFeeUsers = async (
     [
       {
         image: undefined,
-        name: "eth transfer fees",
+        name: "ETH transfers",
         fees: ethTransferFeesTotal,
         address: undefined,
       },
       {
         image: undefined,
-        name: "contract creation fees",
+        name: "Contract deployments",
         fees: contractCreationFeesPaidTotal,
         address: undefined,
       },
