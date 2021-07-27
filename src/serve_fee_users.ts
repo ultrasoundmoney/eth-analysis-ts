@@ -4,11 +4,11 @@ import Koa, { Middleware } from "koa";
 import * as FeeUse from "./fee_use.js";
 import type { TimeFrame } from "./fee_use.js";
 
-const getMilisFromMinutes = (minutes: number) => minutes * 60 * 1000;
+const milisFromSeconds = (seconds: number) => seconds * 1000;
 
 const topFeeUserCache = new QuickLru({
   maxSize: 1,
-  maxAge: getMilisFromMinutes(1),
+  maxAge: milisFromSeconds(10),
 });
 
 const getIsTimeFrame = (raw: unknown): raw is TimeFrame =>
@@ -33,7 +33,7 @@ const handleAnyRequest: Middleware = async (ctx) => {
   const cTopFeeUsers = topFeeUserCache.get(timeFrame);
   if (cTopFeeUsers !== undefined) {
     ctx.res.writeHead(200, {
-      "Cache-Control": "max-age=900, stale-while-revalidate=3600",
+      "Cache-Control": "max-age=5, stale-while-revalidate=18",
       "Content-Type": "application/json",
     });
     ctx.res.end(cTopFeeUsers);
@@ -47,7 +47,7 @@ const handleAnyRequest: Middleware = async (ctx) => {
   topFeeUserCache.set(timeFrame, topTenFeeUsersJson);
 
   ctx.res.writeHead(200, {
-    "Cache-Control": "max-age=900, stale-while-revalidate=3600",
+    "Cache-Control": "max-age=5, stale-while-revalidate=18",
     "Content-Type": "application/json",
   });
   ctx.res.end(topTenFeeUsersJson);
