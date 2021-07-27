@@ -15,7 +15,7 @@ const getIsTimeFrame = (raw: unknown): raw is TimeFrame =>
   raw === "24h" || raw === "7d" || raw === "30d" || raw === "all";
 
 const handleAnyRequest: Middleware = async (ctx) => {
-  if (ctx.path !== "/fees") {
+  if (ctx.path !== "/fees/leaderboard") {
     Log.debug(ctx.path);
     Log.debug("qs", ctx.query);
     return;
