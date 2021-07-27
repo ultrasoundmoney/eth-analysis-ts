@@ -3,11 +3,11 @@ import QuickLru from "quick-lru";
 import Koa, { Middleware } from "koa";
 import * as FeeUse from "./fee_use.js";
 
-const getMilisFromHours = (hours: number) => hours * 60 * 60 * 1000;
+const getMilisFromMinutes = (minutes: number) => minutes * 60 * 1000;
 
 const topFeeUserCache = new QuickLru({
   maxSize: 1,
-  maxAge: getMilisFromHours(1),
+  maxAge: getMilisFromMinutes(1),
 });
 const topFeeUserCacheKey = "top-fee-users-key";
 
