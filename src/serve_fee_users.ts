@@ -11,6 +11,7 @@ const handleAnyRequest: Middleware = async (ctx) => {
   const cTopFeeUsers = topFeeUserCache.get(topFeeUserCacheKey);
   if (cTopFeeUsers !== undefined) {
     ctx.res.writeHead(200, {
+      "Cache-Control": "max-age=900, stale-while-revalidate=3600",
       "Content-Type": "application/json",
     });
     ctx.res.end(cTopFeeUsers);
@@ -23,7 +24,10 @@ const handleAnyRequest: Middleware = async (ctx) => {
   const topTenFeeUsersJson = JSON.stringify(topTenFeeUsers);
   topFeeUserCache.set(topFeeUserCacheKey, topTenFeeUsersJson);
 
-  ctx.res.writeHead(200, { "Content-Type": "application/json" });
+  ctx.res.writeHead(200, {
+    "Cache-Control": "max-age=900, stale-while-revalidate=3600",
+    "Content-Type": "application/json",
+  });
   ctx.res.end(topTenFeeUsersJson);
 };
 
