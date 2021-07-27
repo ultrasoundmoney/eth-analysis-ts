@@ -35,7 +35,6 @@ export const getTxrs1559 = (
       total: txHashes.length,
     });
     const timer = setInterval(() => {
-      bar?.tick();
       if (bar?.complete) {
         clearInterval(timer);
       }
@@ -48,7 +47,7 @@ export const getTxrs1559 = (
       flow(
         getTxr1559,
         T.chainFirst(() => {
-          // bar?.tick();
+          bar?.tick();
           return T.of(undefined);
         }),
       ),
