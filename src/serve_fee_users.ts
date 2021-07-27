@@ -36,7 +36,7 @@ const port = process.env.PORT || 8080;
 const app = new Koa();
 
 app.use(async (ctx, next) => {
-  ctx.res.setHeader("Access-Control-Allow-Origin", "https://ultrasound.money");
+  ctx.res.setHeader("Access-Control-Allow-Origin", "*");
   await next();
 });
 
