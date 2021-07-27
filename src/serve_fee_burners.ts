@@ -1,12 +1,12 @@
 import * as Log from "./log.js";
 import QuickLru from "quick-lru";
 import Koa, { Middleware } from "koa";
-import * as FeeUse from "./fee_use.js";
-import type { TimeFrame } from "./fee_use.js";
+import * as BaseFeeBurn from "./base_fee_burn.js";
+import type { TimeFrame } from "./base_fee_burn.js";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
-const topFeeUserCache = new QuickLru({
+const topFeeBurnerCache = new QuickLru({
   maxSize: 1,
   maxAge: milisFromSeconds(10),
 });
@@ -30,27 +30,27 @@ const handleAnyRequest: Middleware = async (ctx) => {
   }
 
   // Respond from cache if we can.
-  const cTopFeeUsers = topFeeUserCache.get(timeFrame);
-  if (cTopFeeUsers !== undefined) {
+  const cTopFeeBurners = topFeeBurnerCache.get(timeFrame);
+  if (cTopFeeBurners !== undefined) {
     ctx.res.writeHead(200, {
       "Cache-Control": "max-age=5, stale-while-revalidate=18",
       "Content-Type": "application/json",
     });
-    ctx.res.end(cTopFeeUsers);
+    ctx.res.end(cTopFeeBurners);
     return;
   }
 
-  const topTenFeeUsers = await FeeUse.getTopTenFeeUsers(timeFrame);
+  const topTenFeeBurners = await BaseFeeBurn.getTopTenFeeBurners(timeFrame);
 
   // Cache the response
-  const topTenFeeUsersJson = JSON.stringify(topTenFeeUsers);
-  topFeeUserCache.set(timeFrame, topTenFeeUsersJson);
+  const topTenFeeBurnersJson = JSON.stringify(topTenFeeBurners);
+  topFeeBurnerCache.set(timeFrame, topTenFeeBurnersJson);
 
   ctx.res.writeHead(200, {
     "Cache-Control": "max-age=5, stale-while-revalidate=18",
     "Content-Type": "application/json",
   });
-  ctx.res.end(topTenFeeUsersJson);
+  ctx.res.end(topTenFeeBurnersJson);
 };
 
 const port = process.env.PORT || 8080;

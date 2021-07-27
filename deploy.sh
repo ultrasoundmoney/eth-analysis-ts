@@ -6,7 +6,7 @@ COMMIT=$(git rev-parse --short HEAD)
 SERVICE=$1
 
 if [ -z "$SERVICE" ]; then
-  echo "pass service argument, 'serve-fee-users' or 'analyze-blocks'"
+  echo "pass service argument, 'serve-fee-burners' or 'analyze-blocks'"
   exit 1;
 fi
 
@@ -42,7 +42,7 @@ update_task() {
   echo $NEW_REVISION
 }
 
-if [ "$SERVICE" = "serve-fee-users" ]; then
+if [ "$SERVICE" = "serve-fee-burners" ]; then
   NEW_REVISION=$(update_task "$SERVICE")
 
   echo $NEW_REVISION

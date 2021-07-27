@@ -21,4 +21,4 @@ RUN ["yarn", "install", "--production"]
 
 COPY --from=build /app/build/ build
 
-CMD ["node", "build/serve_fee_users.js"]
+CMD ["node", "build/serve_fee_burners.js"]

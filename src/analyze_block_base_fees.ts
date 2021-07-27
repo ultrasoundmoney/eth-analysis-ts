@@ -1,4 +1,4 @@
-import * as FeeUse from "./fee_use";
+import * as BaseFeeBurn from "./base_fee_burn";
 import * as Log from "./log";
 import * as Transactions from "./transactions";
 import { eth } from "./web3";
@@ -6,6 +6,7 @@ import Config from "./config";
 import { sql } from "./db";
 import ProgressBar from "progress";
 import { BlockTransactionString as BlockWeb3 } from "web3-eth/types/index";
+import { BaseFees } from "./base_fee_burn";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
@@ -19,7 +20,8 @@ type BlockWeb3London = BlockWeb3 & {
 // TODO: update implementation to analyze mainnet after fork block.
 
 (async () => {
-  const latestAnalyzedBlockNumber = await FeeUse.getLatestAnalyzedBlockNumber();
+  const latestAnalyzedBlockNumber =
+    await BaseFeeBurn.getLatestAnalyzedBlockNumber();
   const latestBlock = await eth.getBlock("latest");
 
   // Figure out which blocks we'd like to analyze.
@@ -64,36 +66,36 @@ type BlockWeb3London = BlockWeb3 & {
     const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
       Transactions.segmentTxrs(txrs);
 
-    const ethTransferFees = FeeUse.calcTxrBaseFee(
+    const ethTransferFees = BaseFeeBurn.calcTxrBaseFee(
       block.baseFeePerGas,
       ethTransferTxrs,
     );
 
-    const contractCreationFees = FeeUse.calcTxrBaseFee(
+    const contractCreationFees = BaseFeeBurn.calcTxrBaseFee(
       block.baseFeePerGas,
       contractCreationTxrs,
     );
 
-    const feePerContract = FeeUse.calcContractUseBaseFees(
+    const feePerContract = BaseFeeBurn.calcContractUseBaseFees(
       block.baseFeePerGas,
       contractUseTxrs,
     );
 
-    const feesPaid: FeeUse.FeesPaid = {
+    const baseFees: BaseFees = {
       transfers: ethTransferFees,
       contract_use_fees: feePerContract,
       contract_creation_fees: contractCreationFees,
     };
 
     const sumFees =
-      feesPaid.transfers +
-      Object.values(feesPaid.contract_use_fees).reduce(
+      baseFees.transfers +
+      Object.values(baseFees.contract_use_fees).reduce(
         (sum, fee) => sum + fee,
         0,
       );
-    Log.debug(`>> fees paid for block ${blockNumber} - ${sumFees} ETH`);
+    Log.debug(`>> fees burned for block ${blockNumber} - ${sumFees} ETH`);
 
-    FeeUse.storeFeesPaidForBlock(block.hash, block.number, feesPaid);
+    BaseFeeBurn.storeBaseFeesForBlock(block.hash, block.number, baseFees);
 
     bar?.tick();
   }
