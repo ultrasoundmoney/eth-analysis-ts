@@ -87,13 +87,13 @@ export const getTopTenFeeUsers = async (
       SELECT fees_paid
       FROM fees_per_block
       LIMIT ${blocksToSumCount}
-  `.then((result) => {
-    if (result.length === 0) {
+  `.then((rows) => {
+    if (rows.length === 0) {
       Log.warn("tried to determine top fee users but found no analyzed blocks");
       return [];
     }
 
-    return result.map((row) => row.feesPaid);
+    return rows.map((row) => row.feesPaid);
   });
 
   const ethTransferFeesPaid = feesPaidForBlocks.map(
