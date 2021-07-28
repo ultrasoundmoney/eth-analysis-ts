@@ -11,6 +11,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { BlockBaseFees } from "./base_fees.js";
 import PQueue from "p-queue";
 import { closeWeb3Ws } from "./web3.js";
+import { delay } from "./delay.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
@@ -84,36 +85,41 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
 };
 
 (async () => {
-  Log.info("> starting gas analysis");
-  Log.info(`> chain: ${Config.chain}`);
-  await eth.webSocketOpen;
+  while (true) {
+    Log.info("> starting gas analysis");
+    Log.info(`> chain: ${Config.chain}`);
+    await eth.webSocketOpen;
 
-  const latestAnalyzedBlockNumber =
-    await BaseFees.getLatestAnalyzedBlockNumber();
-  const latestBlock = await eth.getBlock("latest");
+    const latestAnalyzedBlockNumber =
+      await BaseFees.getLatestAnalyzedBlockNumber();
+    const latestBlock = await eth.getBlock("latest");
 
-  const backstopBlockNumber =
-    Config.chain === "ropsten"
-      ? blockNumberRopstenFirst1559Block
-      : blockNumberOneWeekAgo;
+    const backstopBlockNumber =
+      Config.chain === "ropsten"
+        ? blockNumberRopstenFirst1559Block
+        : blockNumberOneWeekAgo;
 
-  // Figure out which blocks we'd like to analyze.
-  const blocksMissingCount =
-    latestBlock.number - (latestAnalyzedBlockNumber || backstopBlockNumber);
+    // Figure out which blocks we'd like to analyze.
+    const blocksMissingCount =
+      latestBlock.number - (latestAnalyzedBlockNumber || backstopBlockNumber);
 
-  if (Config.env === "dev" && process.env.SHOW_PROGRESS !== undefined) {
-    DisplayProgress.start(blocksMissingCount);
+    if (Config.env === "dev" && process.env.SHOW_PROGRESS !== undefined) {
+      DisplayProgress.start(blocksMissingCount);
+    }
+
+    const blocksToAnalyze = new Array(blocksMissingCount)
+      .fill(undefined)
+      .map((_, i) => latestBlock.number - i)
+      .reverse();
+    Log.info(`> ${blocksMissingCount} blocks to analyze`);
+
+    await blockAnalysisQueue.addAll(
+      blocksToAnalyze.map((blockNumber) => () => analyzeBlock(blockNumber)),
+    );
+
+    // Wait 1s before checking for new blocks to analyze
+    await delay(1000);
   }
-
-  const blocksToAnalyze = new Array(blocksMissingCount)
-    .fill(undefined)
-    .map((_, i) => latestBlock.number - i)
-    .reverse();
-  Log.info(`> ${blocksMissingCount} blocks to analyze`);
-
-  await blockAnalysisQueue.addAll(
-    blocksToAnalyze.map((blockNumber) => () => analyzeBlock(blockNumber)),
-  );
 })()
   .then(async () => {
     Log.info("> done analyzing gas");
