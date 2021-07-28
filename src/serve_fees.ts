@@ -168,8 +168,13 @@ const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
 
 sql.listen("base-fee-updates", dOnBaseFeeUpdate);
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   const id = req.socket.remoteAddress;
+
+  if (id === undefined) {
+    Log.error("socket has no remote address, can't id connection, dropping ws");
+    return;
+  }
 
   addBaseFeeListener(id, (number: number, baseFeePerGas: number) => {
     ws.send(JSON.stringify({ number, baseFeePerGas }));
