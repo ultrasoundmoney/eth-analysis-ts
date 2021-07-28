@@ -168,6 +168,8 @@ const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
 
 sql.listen("base-fee-updates", dOnBaseFeeUpdate);
 
+wss.on("error", (error) => Log.error("> wss error", { error }));
+
 wss.on("connection", (ws, req) => {
   const id = req.socket.remoteAddress;
 
