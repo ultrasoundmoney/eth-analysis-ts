@@ -11,7 +11,6 @@ import { pipe } from "fp-ts/lib/function.js";
 import { BlockBaseFees } from "./base_fees.js";
 import PQueue from "p-queue";
 import { closeWeb3Ws } from "./web3.js";
-import { delay } from "./delay.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
