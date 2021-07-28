@@ -19,6 +19,8 @@ const blockNumberLondonHardFork = 12965000;
 const blockNumberOneWeekAgoRopsten = 10677000;
 // ~21 July
 const blockNumberOneWeekAgo = 12870000;
+// first ropsten eip1559 block
+const blockNumberRopstenFirst1559Block = 10499401;
 
 // TODO: update implementation to analyze mainnet after fork block.
 
@@ -93,7 +95,7 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
 
   const backstopBlockNumber =
     Config.chain === "ropsten"
-      ? blockNumberOneWeekAgoRopsten
+      ? blockNumberRopstenFirst1559Block
       : blockNumberOneWeekAgo;
 
   // Figure out which blocks we'd like to analyze.
