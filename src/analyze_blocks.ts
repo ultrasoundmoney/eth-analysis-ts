@@ -1,15 +1,15 @@
-import * as BaseFeeBurn from "./base_fee_burn.js";
+import * as BaseFees from "./base_fees.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
 import { eth } from "./web3.js";
 import Config from "./config.js";
 import { sql } from "./db.js";
 import { BlockTransactionString as BlockWeb3 } from "web3-eth/types/index";
-import { BaseFees } from "./base_fee_burn.js";
 import * as DisplayProgress from "./display_progress.js";
 import { hexToNumber, sum } from "./numbers.js";
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function";
+import { BlockBaseFees } from "./base_fees.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
@@ -29,7 +29,7 @@ type BlockWeb3London = BlockWeb3 & {
   Log.info(`> chain: ${Config.chain}`);
 
   const latestAnalyzedBlockNumber =
-    await BaseFeeBurn.getLatestAnalyzedBlockNumber();
+    await BaseFees.getLatestAnalyzedBlockNumber();
   const latestBlock = await eth.getBlock("latest");
 
   const backstopBlockNumber =
@@ -69,22 +69,22 @@ type BlockWeb3London = BlockWeb3 & {
 
     const ethTransferFees = pipe(
       ethTransferTxrs,
-      A.map((txr) => BaseFeeBurn.calcTxrBaseFee(block.baseFeePerGas, txr)),
+      A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
       sum,
     );
 
     const contractCreationFees = pipe(
       contractCreationTxrs,
-      A.map((txr) => BaseFeeBurn.calcTxrBaseFee(block.baseFeePerGas, txr)),
+      A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
       sum,
     );
 
-    const feePerContract = BaseFeeBurn.calcBaseFeePerContract(
+    const feePerContract = BaseFees.calcBaseFeePerContract(
       block.baseFeePerGas,
       contractUseTxrs,
     );
 
-    const baseFees: BaseFees = {
+    const baseFees: BlockBaseFees = {
       transfers: ethTransferFees,
       contract_use_fees: feePerContract,
       contract_creation_fees: contractCreationFees,
@@ -104,10 +104,10 @@ type BlockWeb3London = BlockWeb3 & {
         ? hexToNumber(block.timestamp)
         : block.timestamp;
 
-    BaseFeeBurn.storeBaseFeesForBlock({
+    BaseFees.storeBaseFeesForBlock({
       hash: block.hash,
       number: block.number,
-      baseFees: baseFees,
+      baseFees,
       minedAt: timestampNumber,
     });
 

@@ -9,7 +9,7 @@ import * as Log from "./log.js";
 import { hexToNumber, sum, weiToEth } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
 
-export type BaseFees = {
+export type BlockBaseFees = {
   // fees burned for simple transfers.
   transfers: number;
   // fees burned for use of contracts.
@@ -26,7 +26,7 @@ export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
 type AnalyzedBlock = {
   hash: string;
   number: number;
-  baseFees: BaseFees;
+  baseFees: BlockBaseFees;
   minedAt: number;
 };
 
@@ -110,7 +110,7 @@ export const getTopTenFeeBurners = async (
   timeFrame: TimeFrame,
 ): Promise<BaseFeeBurner[]> => {
   const blocksToSumCount = timeFrameBlockCountMap[timeFrame];
-  const baseFeesPerBlock = await sql<{ baseFees: BaseFees }[]>`
+  const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
       SELECT base_fees
       FROM base_fees_per_block
       LIMIT ${blocksToSumCount}
@@ -181,13 +181,13 @@ export const getTopTenFeeBurners = async (
   );
 };
 
-const calcBlockBaseFees = (baseFees: BaseFees): number =>
+const calcBlockBaseFees = (baseFees: BlockBaseFees): number =>
   baseFees.transfers +
   sum(Object.values(baseFees.contract_use_fees)) +
   baseFees.contract_creation_fees;
 
 export const getTotalFeesBurned = async (): Promise<number> => {
-  const baseFeesPerBlock = await sql<{ baseFees: BaseFees }[]>`
+  const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
       SELECT base_fees
       FROM base_fees_per_block
   `.then((rows) => {
@@ -204,7 +204,7 @@ export const getTotalFeesBurned = async (): Promise<number> => {
 export type FeesBurnedPerDay = Record<string, number>;
 
 export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
-  const rows = await sql<{ baseFees: BaseFees; minedAt: Date }[]>`
+  const rows = await sql<{ baseFees: BlockBaseFees; minedAt: Date }[]>`
       SELECT base_fees, mined_at
       FROM base_fees_per_block
   `.then((rows) => {

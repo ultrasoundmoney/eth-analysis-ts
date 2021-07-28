@@ -1,8 +1,8 @@
 import * as Log from "./log.js";
 import QuickLRU from "quick-lru";
 import Koa, { Middleware } from "koa";
-import * as BaseFeeBurn from "./base_fee_burn.js";
-import type { TimeFrame } from "./base_fee_burn.js";
+import * as BaseFees from "./base_fees.js";
+import type { TimeFrame } from "./base_fees.js";
 import Router from "@koa/router";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
@@ -37,7 +37,7 @@ const handleGetTopBurners: Middleware = async (ctx) => {
     return;
   }
 
-  const topTenFeeBurners = await BaseFeeBurn.getTopTenFeeBurners(timeFrame);
+  const topTenFeeBurners = await BaseFees.getTopTenFeeBurners(timeFrame);
 
   // Cache the response
   const topTenFeeBurnersJson = JSON.stringify(topTenFeeBurners);
@@ -86,7 +86,7 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
     ctx.res.end(cTotalFeesBurned);
   }
 
-  const totalFeesBurned = await BaseFeeBurn.getTotalFeesBurned();
+  const totalFeesBurned = await BaseFees.getTotalFeesBurned();
   const totalFeesBurnedJson = JSON.stringify({ totalFeesBurned });
 
   totalFeesBurnedCache.set(totalFeesBurnedKey, totalFeesBurnedJson);
@@ -99,7 +99,7 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
 };
 
 const handleGetFeesBurnedPerDay: Middleware = async (ctx) => {
-  const feesBurnedPerDay = await BaseFeeBurn.getFeesBurnedPerDay();
+  const feesBurnedPerDay = await BaseFees.getFeesBurnedPerDay();
   ctx.res.writeHead(200, {
     "Cache-Control": "max-age=43200, stale-while-revalidate=86400",
     "Content-Type": "application/json",
