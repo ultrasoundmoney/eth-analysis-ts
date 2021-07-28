@@ -21,11 +21,12 @@ services:
       - db
     restart: always
     environment:
+      ENV: dev
+      LOG_LEVEL: debug
       PGDATABASE: ropsten
       PGHOST: db
       PGPASSWORD: deflationary
       PGUSER: postgres
-      LOG_LEVEL: debug
 
 volumes:
   db-data:
