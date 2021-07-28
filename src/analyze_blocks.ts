@@ -85,9 +85,10 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
 };
 
 (async () => {
+  Log.info("> starting gas analysis");
+  Log.info(`> chain: ${Config.chain}`);
+
   while (true) {
-    Log.info("> starting gas analysis");
-    Log.info(`> chain: ${Config.chain}`);
     await eth.webSocketOpen;
 
     const latestAnalyzedBlockNumber =
@@ -118,7 +119,7 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
     );
 
     // Wait 1s before checking for new blocks to analyze
-    await delay(1000);
+    await delay(2000);
   }
 })()
   .then(async () => {
