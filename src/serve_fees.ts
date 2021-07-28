@@ -5,7 +5,6 @@ import * as BaseFees from "./base_fees.js";
 import type { TimeFrame } from "./base_fees.js";
 import Router from "@koa/router";
 import ws from "ws";
-import { nanoid } from "nanoid";
 import { sql } from "./db.js";
 const { Server: WebSocketServer } = ws;
 import debounce from "debounce-fn";
@@ -170,7 +169,7 @@ const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
 sql.listen("base-fee-updates", dOnBaseFeeUpdate);
 
 wss.on("connection", (ws) => {
-  const id = nanoid(8);
+  const id = req.socket.remoteAddress;
 
   addBaseFeeListener(id, (number: number, baseFeePerGas: number) => {
     ws.send(JSON.stringify({ number, baseFeePerGas }));
