@@ -104,7 +104,7 @@ const handleGetFeesBurnedPerDay: Middleware = async (ctx) => {
     "Cache-Control": "max-age=43200, stale-while-revalidate=86400",
     "Content-Type": "application/json",
   });
-  ctx.res.end(JSON.stringify(feesBurnedPerDay));
+  ctx.res.end(JSON.stringify({ feesBurnedPerDay }));
 };
 
 const router = new Router();
