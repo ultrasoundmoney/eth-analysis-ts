@@ -76,7 +76,6 @@ export const calcTxrBaseFee = (
   pipe(
     baseFeePerGas,
     hexToNumber,
-    weiToEth,
     (baseFeePerGasNum) => baseFeePerGasNum * txr.gasUsed,
   );
 
@@ -262,7 +261,7 @@ export const notifyNewBaseFee = (block: BlockLondon): Promise<void> =>
       "base-fee-updates",
       JSON.stringify({
         number: block.number,
-        baseFeePerGas: weiToEth(hexToNumber(block.baseFeePerGas)),
+        baseFeePerGas: hexToNumber(block.baseFeePerGas),
       }),
     )
     .then(() => undefined);
