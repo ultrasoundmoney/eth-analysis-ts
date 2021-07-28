@@ -1,4 +1,4 @@
-import { eth } from "./web3.js";
+import * as eth from "./web3.js";
 import type { TransactionReceipt as TxRWeb3 } from "web3-eth/types/index";
 import { pipe } from "fp-ts/lib/function.js";
 import T from "fp-ts/lib/Task.js";
@@ -25,7 +25,7 @@ export const getTxrs = (txHashes: string[]): T.Task<readonly TxRWeb3[]> =>
   pipe(txHashes, T.traverseSeqArray(getTxr));
 
 const txrsPQ = new PQueue({
-  concurrency: 4,
+  concurrency: 200,
 });
 
 export const getTxrs1559 = (

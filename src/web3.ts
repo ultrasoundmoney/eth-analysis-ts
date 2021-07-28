@@ -1,29 +1,242 @@
-import { createAlchemyWeb3 } from "@alch/alchemy-web3";
+import WebSocket from "ws";
 import Config from "./config.js";
+import { hexToNumber, numberToHex } from "./numbers.js";
+import { TxRWeb3London } from "./transactions.js";
+import { Log } from "web3-core";
 
-// "wss://eth-ropsten.alchemyapi.io/v2/Ocbe7IDoukMM0J2AQ4m92r9s9tG4W60N",
-// "wss://eth-mainnet.alchemyapi.io/v2/Z6_3CNslo_t0o0yvHs6fel4UqRMo5Ixu",
+const ropstenNode = "ws://18.220.53.200:8546/";
+const mainnetNode = "ws://18.219.176.5:8546/";
 
-const ropstenNodeWs = "ws://18.220.53.200:8546/";
-const mainnetNodeWs = "ws://18.219.176.5:8546/";
+const endpoint = Config.chain === "ropsten" ? ropstenNode : mainnetNode;
+const ws = new WebSocket(endpoint);
 
-export const web3 = createAlchemyWeb3(
-  Config.chain === "ropsten" ? ropstenNodeWs : mainnetNodeWs,
-);
+type MessageErr = { code: number; message: string };
 
-export const eth = web3.eth;
-export const closeWeb3Ws = () => {
-  // The websocket connection keeps the process from exiting. Alchemy doesn't expose any method to close the connection. We use undocumented values.
-  if (
-    typeof eth.currentProvider !== "string" &&
-    eth.currentProvider !== null &&
-    "ws" in eth.currentProvider
-  ) {
-    (
-      eth.currentProvider as { stopHeartbeatAndBackfill: () => void }
-    ).stopHeartbeatAndBackfill();
-    (
-      eth.currentProvider as { ws: { disposeSocket: () => void } }
-    ).ws.disposeSocket();
+let randomInts: number[] = [];
+
+const getNewMessageId = (): number => {
+  if (randomInts.length === 0) {
+    randomInts = new Array(10000).fill(undefined).map((_, i) => i);
   }
+
+  // We fill the array when it's empty above. pop() can't return undefined.
+  return randomInts.pop()!;
 };
+
+const messageListners = new Map();
+
+const registerMessageListener = <A>(): [number, Promise<A>] => {
+  const id = getNewMessageId();
+  const messageP: Promise<A> = new Promise((resolve, reject) => {
+    messageListners.set(id, (err: MessageErr, data: A) => {
+      messageListners.delete(id);
+      if (err !== null) {
+        reject(err);
+      } else {
+        resolve(data);
+      }
+    });
+  });
+
+  return [id, messageP];
+};
+
+const send = (message: Record<string, unknown>) => {
+  ws.send(JSON.stringify(message));
+};
+
+type RawBlock = {
+  baseFeePerGas: string;
+  gasUsed: string;
+  difficulty: string;
+  extraData: string;
+  gasLimit: string;
+  hash: string;
+  logsBloom: string;
+  miner: string;
+  mixHash: string;
+  nonce: string;
+  number: string;
+  parentHash: string;
+  reciptsRoot: string;
+  sha3Uncles: string;
+  size: string;
+  stateRoot: string;
+  timestamp: string;
+  totalDifficulty: string;
+  transactions: string[];
+  transactionsRoot: string;
+  uncles: string[];
+};
+
+export type BlockLondon = {
+  baseFeePerGas: string;
+  difficulty: string;
+  extraData: string;
+  gasLimit: number;
+  gasUsed: number;
+  hash: string;
+  logsBloom: string;
+  miner: string;
+  mixHash: string;
+  nonce: string;
+  number: number;
+  parentHash: string;
+  reciptsRoot: string;
+  sha3Uncles: string;
+  size: number;
+  stateRoot: string;
+  timestamp: number;
+  totalDifficulty: string;
+  transactions: string[];
+  transactionsRoot: string;
+  uncles: string[];
+};
+
+// Mimics web3.js translation of fields.
+const translateBlock = (rawBlock: RawBlock): BlockLondon => ({
+  ...rawBlock,
+  baseFeePerGas: rawBlock.baseFeePerGas,
+  gasUsed: hexToNumber(rawBlock.gasUsed),
+  gasLimit: hexToNumber(rawBlock.gasLimit),
+  number: hexToNumber(rawBlock.number),
+  size: hexToNumber(rawBlock.number),
+  timestamp: hexToNumber(rawBlock.timestamp),
+});
+
+export const getBlock = async (
+  number: number | "latest" | string,
+): Promise<BlockLondon> => {
+  const [id, messageP] = registerMessageListener<RawBlock>();
+
+  const numberAsHex =
+    number === "latest"
+      ? "latest"
+      : typeof number === "string"
+      ? number
+      : numberToHex(number);
+
+  send({
+    method: "eth_getBlockByNumber",
+    params: [numberAsHex, false],
+    id,
+    jsonrpc: "2.0",
+  });
+
+  const rawBlock = await messageP;
+  return translateBlock(rawBlock);
+};
+
+type RawTxr = {
+  blockHash: string;
+  blockNumber: string;
+  contractAddress: string | null;
+  cumulativeGasUsed: string;
+  effectiveGasPrice: string;
+  from: string;
+  gasUsed: string;
+  logs: Log[];
+  logsBloom: string;
+  status: string;
+  to: string;
+  transactionHash: string;
+  transactionIndex: string;
+  type: string;
+};
+
+const statusToNumber = (rawStatus: string): boolean => {
+  if (rawStatus === "0") {
+    return false;
+  }
+
+  if (rawStatus !== "1") {
+    return true;
+  }
+
+  throw new Error(`unexpected status string: ${rawStatus}`);
+};
+
+const translateTxr = (rawTrx: RawTxr): TxRWeb3London => ({
+  ...rawTrx,
+  status: statusToNumber(rawTrx.status),
+  transactionIndex: hexToNumber(rawTrx.transactionIndex),
+  blockNumber: hexToNumber(rawTrx.blockNumber),
+  contractAddress: rawTrx.contractAddress || undefined,
+  cumulativeGasUsed: hexToNumber(rawTrx.cumulativeGasUsed),
+  gasUsed: hexToNumber(rawTrx.gasUsed),
+});
+
+export const getTransactionReceipt = async (
+  hash: string,
+): Promise<TxRWeb3London> => {
+  const [id, messageP] = registerMessageListener<RawTxr>();
+
+  send({
+    method: "eth_getTransactionReceipt",
+    params: [hash],
+    id,
+    jsonrpc: "2.0",
+  });
+
+  const rawTrx = await messageP;
+  return translateTxr(rawTrx);
+};
+
+ws.on("message", (event) => {
+  const message: {
+    id: number;
+    result: unknown;
+    error: { code: number; message: string };
+  } = JSON.parse(event.toString());
+  const cb = messageListners.get(message.id);
+  if (cb !== undefined) {
+    if ("error" in message) {
+      cb(message.error);
+    } else {
+      cb(null, message.result);
+    }
+  }
+});
+
+export const closeWeb3Ws = () => {
+  ws.close();
+};
+
+export const webSocketOpen = new Promise((resolve) => {
+  ws.on("open", resolve);
+});
+
+// const blockQueue = new PQueue({ concurrency: 4 });
+// const txrsQueue = new PQueue({ concurrency: 200 });
+
+// ws.on("open", async () => {
+//   try {
+//     console.log("connected!");
+//     const number = Number.parseInt(
+//       (await getBlockByNumber("latest")).number,
+//       16,
+//     );
+//     const hundredLatestBlocks = new Array(1000)
+//       .fill(undefined)
+//       .map((_, i) => number - i);
+//     const blocks = await Promise.all(hundredLatestBlocks.map(getBlockByNumber));
+//     const bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
+//       total: blocks.length,
+//     });
+//     await blockQueue.addAll(
+//       blocks.map((block) => async () => {
+//         await txrsQueue.addAll(
+//           block.transactions.map(
+//             (hash) => () =>
+//               getTransactionReceipt(hash).then((txr) => {
+//                 return txr;
+//               }),
+//           ),
+//         );
+//         bar.tick();
+//       }),
+//     );
+//   } catch (error) {
+//   console.error(error);
+//   }
+// });

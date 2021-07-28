@@ -1,15 +1,17 @@
 import * as BaseFees from "./base_fees.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
-import { closeWeb3Ws, eth } from "./web3.js";
+import * as eth from "./web3.js";
 import Config from "./config.js";
 import { sql } from "./db.js";
 import * as DisplayProgress from "./display_progress.js";
-import { hexToNumber, sum } from "./numbers.js";
+import { sum } from "./numbers.js";
 import A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function";
+import { pipe } from "fp-ts/lib/function.js";
 import { BlockBaseFees } from "./base_fees.js";
-import type { BlockWeb3London } from "./blocks.js";
+import PQueue from "p-queue";
+import { closeWeb3Ws } from "./web3.js";
+import { delay } from "./delay.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
@@ -20,9 +22,70 @@ const blockNumberOneWeekAgo = 12870000;
 
 // TODO: update implementation to analyze mainnet after fork block.
 
+const blockAnalysisQueue = new PQueue({ concurrency: 8 });
+
+const analyzeBlock = async (blockNumber: number): Promise<void> => {
+  Log.debug(`> analyzing block ${blockNumber}`);
+
+  // We only know how to analyze 1559 blocks, guard against other blocks.
+  if (Config.chain === "mainnet" && blockNumber < blockNumberLondonHardFork) {
+    throw new Error("tried to analyze non-1559 block");
+  }
+
+  const block = await eth.getBlock(blockNumber);
+
+  BaseFees.notifyNewBaseFee(block);
+
+  Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
+  const txrs = await Transactions.getTxrs1559(block.transactions)();
+
+  const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
+    Transactions.segmentTxrs(txrs);
+
+  const ethTransferFees = pipe(
+    ethTransferTxrs,
+    A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
+    sum,
+  );
+
+  const contractCreationFees = pipe(
+    contractCreationTxrs,
+    A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
+    sum,
+  );
+
+  const feePerContract = BaseFees.calcBaseFeePerContract(
+    block.baseFeePerGas,
+    contractUseTxrs,
+  );
+
+  const baseFees: BlockBaseFees = {
+    transfers: ethTransferFees,
+    contract_use_fees: feePerContract,
+    contract_creation_fees: contractCreationFees,
+  };
+
+  const totalBaseFees =
+    baseFees.transfers +
+    baseFees.contract_creation_fees +
+    Object.values(baseFees.contract_use_fees).reduce(
+      (sum, fee) => sum + fee,
+      0,
+    );
+
+  Log.debug(`>> fees burned for block ${blockNumber} - ${totalBaseFees} ETH`);
+
+  if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
+    DisplayProgress.onBlockAnalyzed();
+  }
+
+  await BaseFees.storeBaseFeesForBlock(block, baseFees);
+};
+
 (async () => {
   Log.info("> starting gas analysis");
   Log.info(`> chain: ${Config.chain}`);
+  await eth.webSocketOpen;
 
   const latestAnalyzedBlockNumber =
     await BaseFees.getLatestAnalyzedBlockNumber();
@@ -47,62 +110,9 @@ const blockNumberOneWeekAgo = 12870000;
     .reverse();
   Log.info(`> ${blocksMissingCount} blocks to analyze`);
 
-  for (const blockNumber of blocksToAnalyze) {
-    Log.debug(`> analyzing block ${blockNumber}`);
-
-    // We only know how to analyze 1559 blocks, guard against other blocks.
-    if (Config.chain === "mainnet" && blockNumber < blockNumberLondonHardFork) {
-      throw new Error("tried to analyze non-1559 block");
-    }
-
-    const block = (await eth.getBlock(blockNumber)) as BlockWeb3London;
-
-    BaseFees.notifyNewBaseFee(block);
-
-    Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
-    const txrs = await Transactions.getTxrs1559(block.transactions)();
-
-    const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
-      Transactions.segmentTxrs(txrs);
-
-    const ethTransferFees = pipe(
-      ethTransferTxrs,
-      A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
-      sum,
-    );
-
-    const contractCreationFees = pipe(
-      contractCreationTxrs,
-      A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
-      sum,
-    );
-
-    const feePerContract = BaseFees.calcBaseFeePerContract(
-      block.baseFeePerGas,
-      contractUseTxrs,
-    );
-
-    const baseFees: BlockBaseFees = {
-      transfers: ethTransferFees,
-      contract_use_fees: feePerContract,
-      contract_creation_fees: contractCreationFees,
-    };
-
-    const totalBaseFees =
-      baseFees.transfers +
-      baseFees.contract_creation_fees +
-      Object.values(baseFees.contract_use_fees).reduce(
-        (sum, fee) => sum + fee,
-        0,
-      );
-    Log.debug(`>> fees burned for block ${blockNumber} - ${totalBaseFees} ETH`);
-
-    BaseFees.storeBaseFeesForBlock(block, baseFees);
-
-    if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
-      DisplayProgress.onBlockAnalyzed();
-    }
-  }
+  await blockAnalysisQueue.addAll(
+    blocksToAnalyze.map((blockNumber) => () => analyzeBlock(blockNumber)),
+  );
 })()
   .then(async () => {
     Log.info("> done analyzing gas");
