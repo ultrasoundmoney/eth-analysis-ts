@@ -112,7 +112,12 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
       .fill(undefined)
       .map((_, i) => latestBlock.number - i)
       .reverse();
-    Log.info(`> ${blocksMissingCount} blocks to analyze`);
+
+    if (blocksMissingCount === 0) {
+      Log.debug(`> no new blocks to analyze`);
+    } else {
+      Log.info(`> ${blocksMissingCount} blocks to analyze`);
+    }
 
     await blockAnalysisQueue.addAll(
       blocksToAnalyze.map((blockNumber) => () => analyzeBlock(blockNumber)),
