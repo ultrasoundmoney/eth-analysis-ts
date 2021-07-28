@@ -6,7 +6,7 @@ COMMIT=$(git rev-parse --short HEAD)
 SERVICE=$1
 
 if [ -z "$SERVICE" ]; then
-  echo "pass service argument, 'serve-fees' or 'analyze-blocks'"
+  echo "pass service argument, 'serve-fees' or 'serve-fees-ropsten'"
   exit 1;
 fi
 
@@ -54,4 +54,17 @@ if [ "$SERVICE" = "serve-fees" ]; then
   aws ecs wait services-stable --cluster ultrasound --services "$SERVICE"
 
   echo "> done"
+elif [ "$SERVICE" = "serve-fees-ropsten" ]; then
+  NEW_REVISION=$(update_task "$SERVICE")
+
+  echo $NEW_REVISION
+
+  echo "> updating the ecs service"
+  aws ecs update-service --cluster ultrasound --service "$SERVICE" --task-definition "$SERVICE" > /dev/null
+
+  echo "> waiting for $SERVICE to stabilize"
+  aws ecs wait services-stable --cluster ultrasound --services "$SERVICE"
+
+  echo "> done"
+fi
 fi
