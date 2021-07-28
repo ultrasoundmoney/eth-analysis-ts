@@ -25,7 +25,7 @@ export const getTxrs = (txHashes: string[]): T.Task<readonly TxRWeb3[]> =>
   pipe(txHashes, T.traverseSeqArray(getTxr));
 
 const txrsPQ = new PQueue({
-  concurrency: 200,
+  concurrency: 64,
 });
 
 export const getTxrs1559 = (

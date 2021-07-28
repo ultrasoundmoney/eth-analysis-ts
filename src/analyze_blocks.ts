@@ -24,7 +24,7 @@ const blockNumberRopstenFirst1559Block = 10499401;
 
 // TODO: update implementation to analyze mainnet after fork block.
 
-const blockAnalysisQueue = new PQueue({ concurrency: 8 });
+const blockAnalysisQueue = new PQueue({ concurrency: 16 });
 
 const analyzeBlock = async (blockNumber: number): Promise<void> => {
   Log.debug(`> analyzing block ${blockNumber}`);
