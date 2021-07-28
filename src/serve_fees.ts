@@ -9,6 +9,7 @@ import { sql } from "./db.js";
 const { Server: WebSocketServer } = ws;
 import debounce from "debounce-fn";
 import * as EthPrice from "./eth_price.js";
+import Config from "./config.js";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
@@ -123,10 +124,12 @@ const handleGetEthPrice: Middleware = async (ctx) => {
 
 const router = new Router();
 
-router.get("/fees/leaderboard", handleGetTopBurners);
-router.get("/fees/total-burned", handleGetFeesBurned);
-router.get("/fees/burned-per-day", handleGetFeesBurnedPerDay);
-router.get("/fees/eth-price", handleGetEthPrice);
+const routeInfix = Config.chain === "ropsten" ? "-ropsten" : "";
+
+router.get(`/fees${routeInfix}/leaderboard`, handleGetTopBurners);
+router.get(`/fees${routeInfix}/total-burned`, handleGetFeesBurned);
+router.get(`/fees${routeInfix}/burned-per-day`, handleGetFeesBurnedPerDay);
+router.get(`/fees${routeInfix}/eth-price`, handleGetEthPrice);
 
 app.use(router.routes());
 app.use(router.allowedMethods());
