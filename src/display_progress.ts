@@ -19,5 +19,5 @@ export const start = (blocksToAnalyzeCount: number) => {
     if (bar?.complete) {
       clearInterval(timer);
     }
-  }, 100);
+  }, 1000);
 };

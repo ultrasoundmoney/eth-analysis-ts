@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { camelCase } from "change-case";
 import Config from "./config.js";
 
-const database = Config.network === "ropsten" ? "ropsten" : "defaultdb";
+const database = Config.chain === "ropsten" ? "ropsten" : "defaultdb";
 
 export const sql = postgres({
   host: process.env.DB_HOST,

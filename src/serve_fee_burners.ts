@@ -98,10 +98,20 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.res.end(totalFeesBurnedJson);
 };
 
+const handleGetFeesBurnedPerDay: Middleware = async (ctx) => {
+  const feesBurnedPerDay = await BaseFeeBurn.getFeesBurnedPerDay();
+  ctx.res.writeHead(200, {
+    "Cache-Control": "max-age=43200, stale-while-revalidate=86400",
+    "Content-Type": "application/json",
+  });
+  ctx.res.end(JSON.stringify(feesBurnedPerDay));
+};
+
 const router = new Router();
 
 router.get("/fees/leaderboard", handleGetTopBurners);
-router.get("/fees/total", handleGetFeesBurned);
+router.get("/fees/total-burned", handleGetFeesBurned);
+router.get("/fees/burned-per-day", handleGetFeesBurnedPerDay);
 
 app.use(router.routes());
 app.use(router.allowedMethods());

@@ -1,8 +1,13 @@
 import { sql } from "./db.js";
 import type { TxRWeb3London } from "./transactions";
 import A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
+import NEA from "fp-ts/lib/NonEmptyArray.js";
+import O from "fp-ts/lib/Option.js";
+import R from "fp-ts/lib/Record.js";
+import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
+import { hexToNumber, sum, weiToEth } from "./numbers.js";
+import { getUnixTime, startOfDay } from "date-fns";
 
 export type BaseFees = {
   // fees burned for simple transfers.
@@ -18,35 +23,45 @@ export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
     SELECT max(number) AS number FROM base_fees_per_block
   `.then((result) => result[0]?.number || undefined);
 
-export const storeBaseFeesForBlock = (
-  hash: string,
-  number: number,
-  baseFees: BaseFees,
-): Promise<void> =>
+type AnalyzedBlock = {
+  hash: string;
+  number: number;
+  baseFees: BaseFees;
+  minedAt: number;
+};
+
+export const storeBaseFeesForBlock = ({
+  hash,
+  number,
+  baseFees,
+  minedAt,
+}: AnalyzedBlock): Promise<void> =>
   sql`
     INSERT INTO base_fees_per_block
-      (hash, number, base_fees)
-    VALUES (${hash}, ${number}, ${sql.json(baseFees)})
+      (
+        hash,
+        number,
+        base_fees,
+        mined_at
+      )
+    VALUES
+      (
+        ${hash},
+        ${number},
+        ${sql.json(baseFees)},
+        to_timestamp(${minedAt})
+      )
 `.then(() => undefined);
 
-const hexToNumber = (hex: string) => Number.parseInt(hex, 16);
-const weiToEth = (wei: number): number => wei / 10 ** 18;
-
-const calculateBaseFee = (baseFee: string, txr: TxRWeb3London): number =>
-  pipe(
-    baseFee,
-    hexToNumber,
-    weiToEth,
-    (baseFeePerGas) => baseFeePerGas * txr.gasUsed,
-  );
-
 export const calcTxrBaseFee = (
-  baseFee: string,
-  txrs: TxRWeb3London[],
+  baseFeePerGas: string,
+  txr: TxRWeb3London,
 ): number =>
   pipe(
-    txrs,
-    A.reduce(0, (sum, txr) => sum + calculateBaseFee(baseFee, txr)),
+    baseFeePerGas,
+    hexToNumber,
+    weiToEth,
+    (baseFeePerGasNum) => baseFeePerGasNum * txr.gasUsed,
   );
 
 /**
@@ -54,20 +69,20 @@ export const calcTxrBaseFee = (
  */
 type ContractBaseFeeMap = Record<string, number>;
 
-export const calcContractUseBaseFees = (
-  baseFee: string,
+export const calcBaseFeePerContract = (
+  baseFeePerGas: string,
   txrs: TxRWeb3London[],
 ): ContractBaseFeeMap =>
   pipe(
     txrs,
-    A.reduce({} as ContractBaseFeeMap, (feeSumMap, txr) => {
+    A.reduce({} as ContractBaseFeeMap, (feeSumMap, txr: TxRWeb3London) => {
       // Contract creation
       if (txr.to === null) {
         return feeSumMap;
       }
 
       const baseFeeSum = feeSumMap[txr.to] || 0;
-      feeSumMap[txr.to] = baseFeeSum + calculateBaseFee(baseFee, txr);
+      feeSumMap[txr.to] = baseFeeSum + calcTxrBaseFee(baseFeePerGas, txr);
 
       return feeSumMap;
     }),
@@ -110,27 +125,21 @@ export const getTopTenFeeBurners = async (
     return rows.map((row) => row.baseFees);
   });
 
-  const ethTransferBaseFees = baseFeesPerBlock.map(
-    (baseFees) => baseFees.transfers,
+  const ethTransferBaseFees = pipe(
+    baseFeesPerBlock,
+    A.map((baseFees) => baseFees.transfers),
+    sum,
   );
-  const contractCreationBaseFees = baseFeesPerBlock.map(
-    (baseFees) => baseFees.contract_creation_fees,
-  );
-  const contractBaseFeeMaps = baseFeesPerBlock.map(
-    (baseFees) => baseFees.contract_use_fees,
-  );
-
-  const ethTransferBurnTotal = ethTransferBaseFees.reduce(
-    (sum, fee) => sum + fee,
-    0,
-  );
-  const contractCreationBurnTotal = contractCreationBaseFees.reduce(
-    (sum, fee) => sum + fee,
-    0,
+  const contractCreationBaseFees = pipe(
+    baseFeesPerBlock,
+    A.map((baseFees) => baseFees.contract_creation_fees),
+    sum,
   );
 
-  const contractBurnerTotals: BaseFeeBurner[] = pipe(
-    contractBaseFeeMaps,
+  const contractBurnerTotals = pipe(
+    baseFeesPerBlock,
+    A.map((baseFees) => baseFees.contract_use_fees),
+    // We merge Record<address, baseFees>[] here.
     A.reduce({} as Record<string, number>, (agg, contractBaseFeeMap) => {
       Object.entries(contractBaseFeeMap).forEach(([address, fee]) => {
         const sum = agg[address] || 0;
@@ -152,13 +161,13 @@ export const getTopTenFeeBurners = async (
       {
         image: undefined,
         name: "ETH transfers",
-        fees: ethTransferBurnTotal,
+        fees: ethTransferBaseFees,
         address: undefined,
       },
       {
         image: undefined,
         name: "Contract deployments",
-        fees: contractCreationBurnTotal,
+        fees: contractCreationBaseFees,
         address: undefined,
       },
       ...contractBurnerTotals,
@@ -172,8 +181,10 @@ export const getTopTenFeeBurners = async (
   );
 };
 
-const getSum = (numbers: number[]): number =>
-  numbers.reduce((sum, num) => sum + num, 0);
+const calcBlockBaseFees = (baseFees: BaseFees): number =>
+  baseFees.transfers +
+  sum(Object.values(baseFees.contract_use_fees)) +
+  baseFees.contract_creation_fees;
 
 export const getTotalFeesBurned = async (): Promise<number> => {
   const baseFeesPerBlock = await sql<{ baseFees: BaseFees }[]>`
@@ -181,21 +192,50 @@ export const getTotalFeesBurned = async (): Promise<number> => {
       FROM base_fees_per_block
   `.then((rows) => {
     if (rows.length === 0) {
-      Log.warn(
-        "tried to determine top fee burners but found no analyzed blocks",
-      );
-      return [];
+      Log.warn("tried to get top fee burners before any blocks were analyzed");
     }
 
     return rows.map((row) => row.baseFees);
   });
 
-  return baseFeesPerBlock.reduce(
-    (sum, baseFees) =>
-      sum +
-      baseFees.transfers +
-      getSum(Object.values(baseFees.contract_use_fees)) +
-      baseFees.contract_creation_fees,
-    0,
+  return pipe(baseFeesPerBlock, A.map(calcBlockBaseFees), sum);
+};
+
+export type FeesBurnedPerDay = Record<string, number>;
+
+export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
+  const rows = await sql<{ baseFees: BaseFees; minedAt: Date }[]>`
+      SELECT base_fees, mined_at
+      FROM base_fees_per_block
+  `.then((rows) => {
+    if (rows.length === 0) {
+      Log.warn(
+        "tried to determine base fees per day, but found no analyzed blocks",
+      );
+    }
+
+    return rows;
+  });
+
+  const mBlocks = NEA.fromArray(rows);
+
+  if (O.isNone(mBlocks)) {
+    return {};
+  }
+
+  const blocks = mBlocks.value;
+
+  return pipe(
+    blocks,
+    NEA.groupBy((block) =>
+      pipe(block.minedAt, startOfDay, getUnixTime, String),
+    ),
+    R.map(
+      flow(
+        NEA.map((block) => block.baseFees),
+        NEA.map(calcBlockBaseFees),
+        sum,
+      ),
+    ),
   );
 };
