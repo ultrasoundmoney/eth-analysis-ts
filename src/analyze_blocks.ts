@@ -29,11 +29,6 @@ const blockAnalysisQueue = new PQueue({ concurrency: 16 });
 const analyzeBlock = async (blockNumber: number): Promise<void> => {
   Log.debug(`> analyzing block ${blockNumber}`);
 
-  // We only know how to analyze 1559 blocks, guard against other blocks.
-  if (Config.chain === "mainnet" && blockNumber < blockNumberLondonHardFork) {
-    throw new Error("tried to analyze non-1559 block");
-  }
-
   const block = await eth.getBlock(blockNumber);
 
   Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
