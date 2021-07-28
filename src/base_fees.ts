@@ -70,11 +70,11 @@ export const storeBaseFeesForBlocks = async (
 };
 
 export const calcTxrBaseFee = (
-  baseFeePerGas: string,
+  block: BlockLondon,
   txr: TxRWeb3London,
 ): number =>
   pipe(
-    baseFeePerGas,
+    block.baseFeePerGas,
     hexToNumber,
     (baseFeePerGasNum) => baseFeePerGasNum * txr.gasUsed,
   );
@@ -85,7 +85,7 @@ export const calcTxrBaseFee = (
 type ContractBaseFeeMap = Record<string, number>;
 
 export const calcBaseFeePerContract = (
-  baseFeePerGas: string,
+  block: BlockLondon,
   txrs: TxRWeb3London[],
 ): ContractBaseFeeMap =>
   pipe(
@@ -97,7 +97,7 @@ export const calcBaseFeePerContract = (
       }
 
       const baseFeeSum = feeSumMap[txr.to] || 0;
-      feeSumMap[txr.to] = baseFeeSum + calcTxrBaseFee(baseFeePerGas, txr);
+      feeSumMap[txr.to] = baseFeeSum + calcTxrBaseFee(block, txr);
 
       return feeSumMap;
     }),

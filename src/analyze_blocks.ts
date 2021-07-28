@@ -46,18 +46,18 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
 
   const ethTransferFees = pipe(
     ethTransferTxrs,
-    A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
+    A.map((txr) => BaseFees.calcTxrBaseFee(block, txr)),
     sum,
   );
 
   const contractCreationFees = pipe(
     contractCreationTxrs,
-    A.map((txr) => BaseFees.calcTxrBaseFee(block.baseFeePerGas, txr)),
+    A.map((txr) => BaseFees.calcTxrBaseFee(block, txr)),
     sum,
   );
 
   const feePerContract = BaseFees.calcBaseFeePerContract(
-    block.baseFeePerGas,
+    block,
     contractUseTxrs,
   );
 
@@ -70,10 +70,7 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
   const totalBaseFees =
     baseFees.transfers +
     baseFees.contract_creation_fees +
-    Object.values(baseFees.contract_use_fees).reduce(
-      (sum, fee) => sum + fee,
-      0,
-    );
+    sum(Object.values(baseFees.contract_use_fees));
 
   Log.debug(`>> fees burned for block ${blockNumber} - ${totalBaseFees} wei`);
 
