@@ -147,7 +147,8 @@ server.on("upgrade", function upgrade(request, socket, head) {
   }
 });
 
-type BaseFeeListener = (number: number, baseFeePerGas: number) => void;
+// json, number: number, baseFeePerGas: number, totalFeesBurned: number
+type BaseFeeListener = (blockFeeUpdate: string) => void;
 
 const baseFeeListeners: Map<string, BaseFeeListener> = new Map();
 
@@ -165,10 +166,8 @@ const onBaseFeeUpdate = (payload: string | undefined) => {
     return;
   }
 
-  const { number, baseFeePerGas } = JSON.parse(payload);
-
   baseFeeListeners.forEach((fn) => {
-    fn(number, baseFeePerGas);
+    fn(payload);
   });
 };
 
@@ -189,9 +188,7 @@ wss.on("connection", (ws, req) => {
     return;
   }
 
-  addBaseFeeListener(id, (number, baseFeePerGas) => {
-    ws.send(JSON.stringify({ number, baseFeePerGas }));
-  });
+  addBaseFeeListener(id, (payload) => ws.send(payload));
 
   ws.on("close", () => {
     removeBaseFeeListener(id);

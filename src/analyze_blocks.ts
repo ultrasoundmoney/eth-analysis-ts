@@ -36,8 +36,6 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
 
   const block = await eth.getBlock(blockNumber);
 
-  BaseFees.notifyNewBaseFee(block);
-
   Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
   const txrs = await Transactions.getTxrs1559(block.transactions)();
 
@@ -67,18 +65,18 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
     contract_creation_fees: contractCreationFees,
   };
 
-  const totalBaseFees =
-    baseFees.transfers +
-    baseFees.contract_creation_fees +
-    sum(Object.values(baseFees.contract_use_fees));
-
-  Log.debug(`>> fees burned for block ${blockNumber} - ${totalBaseFees} wei`);
+  Log.debug(
+    `>> fees burned for block ${blockNumber} - ${BaseFees.calcBlockBaseFees(
+      baseFees,
+    )} wei`,
+  );
 
   if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
     DisplayProgress.onBlockAnalyzed();
   }
 
   await BaseFees.storeBaseFeesForBlock(block, baseFees);
+  BaseFees.notifyNewBaseFee(block, baseFees);
 };
 
 (async () => {

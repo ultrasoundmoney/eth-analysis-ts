@@ -6,7 +6,7 @@ import O from "fp-ts/lib/Option.js";
 import R from "fp-ts/lib/Record.js";
 import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
-import { hexToNumber, sum, weiToEth } from "./numbers.js";
+import { hexToNumber, sum } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
 import type { BlockLondon } from "./web3.js";
 
@@ -69,15 +69,18 @@ export const storeBaseFeesForBlocks = async (
   `);
 };
 
+// TODO: because we want to analyze mainnet gas use but don't have baseFeePerGas there we pretend gasUsed is baseFeePerGas there.
 export const calcTxrBaseFee = (
   block: BlockLondon,
   txr: TxRWeb3London,
 ): number =>
-  pipe(
-    block.baseFeePerGas,
-    hexToNumber,
-    (baseFeePerGasNum) => baseFeePerGasNum * txr.gasUsed,
-  );
+  typeof block.baseFeePerGas === "string"
+    ? pipe(
+        block.baseFeePerGas,
+        hexToNumber,
+        (baseFeePerGasNum) => baseFeePerGasNum * txr.gasUsed,
+      )
+    : txr.gasUsed;
 
 /**
  * Map of base fees grouped by contract address
@@ -196,10 +199,10 @@ export const getTopTenFeeBurners = async (
   );
 };
 
-const calcBlockBaseFees = (baseFees: BlockBaseFees): number =>
+export const calcBlockBaseFees = (baseFees: BlockBaseFees): number =>
   baseFees.transfers +
-  sum(Object.values(baseFees.contract_use_fees)) +
-  baseFees.contract_creation_fees;
+  baseFees.contract_creation_fees +
+  sum(Object.values(baseFees.contract_use_fees));
 
 export const getTotalFeesBurned = async (): Promise<number> => {
   const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
@@ -255,13 +258,45 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
   );
 };
 
-export const notifyNewBaseFee = (block: BlockLondon): Promise<void> =>
-  sql
-    .notify(
-      "base-fee-updates",
-      JSON.stringify({
-        number: block.number,
-        baseFeePerGas: hexToNumber(block.baseFeePerGas),
-      }),
-    )
-    .then(() => undefined);
+let totalFeesBurned: number | undefined = undefined;
+
+const getRealtimeTotalFeesBurned = async (
+  latestBlockBaseFees: BlockBaseFees,
+) => {
+  if (totalFeesBurned === undefined) {
+    totalFeesBurned = await getTotalFeesBurned();
+  }
+
+  totalFeesBurned = totalFeesBurned + calcBlockBaseFees(latestBlockBaseFees);
+  return totalFeesBurned;
+};
+
+// Cache total fees immediately.
+getRealtimeTotalFeesBurned({
+  contract_use_fees: {},
+  contract_creation_fees: 0,
+  transfers: 0,
+});
+
+export const notifyNewBaseFee = async (
+  block: BlockLondon,
+  latestBlockBaseFees: BlockBaseFees,
+): Promise<void> => {
+  // TODO: when running against mainnet pre-london we need to skip some blocks.
+  if (block.baseFeePerGas === undefined) {
+    return;
+  }
+
+  const totalFeesBurned = await getRealtimeTotalFeesBurned(latestBlockBaseFees);
+
+  await sql.notify(
+    "base-fee-updates",
+    JSON.stringify({
+      number: block.number,
+      baseFeePerGas: hexToNumber(block.baseFeePerGas),
+      totalFeesBurned,
+    }),
+  );
+
+  return;
+};
