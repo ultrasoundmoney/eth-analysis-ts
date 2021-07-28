@@ -1,15 +1,15 @@
 import * as BaseFees from "./base_fees.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
-import { eth } from "./web3.js";
+import { closeWeb3Ws, eth } from "./web3.js";
 import Config from "./config.js";
 import { sql } from "./db.js";
-import { BlockTransactionString as BlockWeb3 } from "web3-eth/types/index";
 import * as DisplayProgress from "./display_progress.js";
 import { hexToNumber, sum } from "./numbers.js";
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function";
 import { BlockBaseFees } from "./base_fees.js";
+import type { BlockWeb3London } from "./blocks.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 const blockNumberLondonHardFork = 12965000;
@@ -17,10 +17,6 @@ const blockNumberLondonHardFork = 12965000;
 const blockNumberOneWeekAgoRopsten = 10677000;
 // ~21 July
 const blockNumberOneWeekAgo = 12870000;
-
-type BlockWeb3London = BlockWeb3 & {
-  baseFeePerGas: string;
-};
 
 // TODO: update implementation to analyze mainnet after fork block.
 
@@ -60,7 +56,9 @@ type BlockWeb3London = BlockWeb3 & {
     }
 
     const block = (await eth.getBlock(blockNumber)) as BlockWeb3London;
-    Log.debug(`>> fetched block ${blockNumber}`);
+
+    BaseFees.notifyNewBaseFee(block);
+
     Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
     const txrs = await Transactions.getTxrs1559(block.transactions)();
 
@@ -99,17 +97,7 @@ type BlockWeb3London = BlockWeb3 & {
       );
     Log.debug(`>> fees burned for block ${blockNumber} - ${totalBaseFees} ETH`);
 
-    const timestampNumber =
-      typeof block.timestamp === "string"
-        ? hexToNumber(block.timestamp)
-        : block.timestamp;
-
-    BaseFees.storeBaseFeesForBlock({
-      hash: block.hash,
-      number: block.number,
-      baseFees,
-      minedAt: timestampNumber,
-    });
+    BaseFees.storeBaseFeesForBlock(block, baseFees);
 
     if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
       DisplayProgress.onBlockAnalyzed();
@@ -118,19 +106,7 @@ type BlockWeb3London = BlockWeb3 & {
 })()
   .then(async () => {
     Log.info("> done analyzing gas");
-    // The websocket connection keeps the process from exiting. Alchemy doesn't expose any method to close the connection. We use undocumented values.
-    if (
-      typeof eth.currentProvider !== "string" &&
-      eth.currentProvider !== null &&
-      "ws" in eth.currentProvider
-    ) {
-      (
-        eth.currentProvider as { stopHeartbeatAndBackfill: () => void }
-      ).stopHeartbeatAndBackfill();
-      (
-        eth.currentProvider as { ws: { disposeSocket: () => void } }
-      ).ws.disposeSocket();
-    }
+    closeWeb3Ws();
     await sql.end();
   })
   .catch((error) => {

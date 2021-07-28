@@ -8,6 +8,7 @@ import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
 import { hexToNumber, sum, weiToEth } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
+import type { BlockWeb3London } from "./blocks.js";
 
 export type BlockBaseFees = {
   // fees burned for simple transfers.
@@ -23,20 +24,16 @@ export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
     SELECT max(number) AS number FROM base_fees_per_block
   `.then((result) => result[0]?.number || undefined);
 
-type AnalyzedBlock = {
-  hash: string;
-  number: number;
-  baseFees: BlockBaseFees;
-  minedAt: number;
-};
+export const storeBaseFeesForBlock = async (
+  block: BlockWeb3London,
+  baseFees: BlockBaseFees,
+): Promise<void> => {
+  const timestampNumber =
+    typeof block.timestamp === "string"
+      ? hexToNumber(block.timestamp)
+      : block.timestamp;
 
-export const storeBaseFeesForBlock = ({
-  hash,
-  number,
-  baseFees,
-  minedAt,
-}: AnalyzedBlock): Promise<void> =>
-  sql`
+  await sql`
     INSERT INTO base_fees_per_block
       (
         hash,
@@ -46,12 +43,15 @@ export const storeBaseFeesForBlock = ({
       )
     VALUES
       (
-        ${hash},
-        ${number},
+        ${block.hash},
+        ${block.number},
         ${sql.json(baseFees)},
-        to_timestamp(${minedAt})
+        to_timestamp(${timestampNumber})
       )
-`.then(() => undefined);
+  `;
+
+  return undefined;
+};
 
 export const calcTxrBaseFee = (
   baseFeePerGas: string,
@@ -239,3 +239,14 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
     ),
   );
 };
+
+export const notifyNewBaseFee = (block: BlockWeb3London): Promise<void> =>
+  sql
+    .notify(
+      "base-fee-updates",
+      JSON.stringify({
+        number: block.number,
+        baseFeePerGas: hexToNumber(block.baseFeePerGas),
+      }),
+    )
+    .then(() => undefined);

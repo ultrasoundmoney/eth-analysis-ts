@@ -4,6 +4,11 @@ import Koa, { Middleware } from "koa";
 import * as BaseFees from "./base_fees.js";
 import type { TimeFrame } from "./base_fees.js";
 import Router from "@koa/router";
+import ws from "ws";
+import { nanoid } from "nanoid";
+import { sql } from "./db.js";
+const { Server: WebSocketServer } = ws;
+import debounce from "debounce-fn";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
@@ -116,6 +121,62 @@ router.get("/fees/burned-per-day", handleGetFeesBurnedPerDay);
 app.use(router.routes());
 app.use(router.allowedMethods());
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   Log.info(`> listening on ${port}`);
+});
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", function upgrade(request, socket, head) {
+  if (request.url === "/fees/base-fee-feed") {
+    wss.handleUpgrade(request, socket, head, function done(ws) {
+      wss.emit("connection", ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+type BaseFeeListener = (number: number, baseFeePerGas: number) => void;
+
+const baseFeeListeners: Map<string, BaseFeeListener> = new Map();
+
+const addBaseFeeListener = (id: string, fn: BaseFeeListener): void => {
+  baseFeeListeners.set(id, fn);
+};
+
+const removeBaseFeeListener = (id: string) => {
+  baseFeeListeners.delete(id);
+};
+
+const onBaseFeeUpdate = (payload: string | undefined) => {
+  if (payload === undefined) {
+    Log.warn("got undefined payload on base-fee-updates channel");
+    return;
+  }
+
+  const { number, baseFeePerGas } = JSON.parse(payload);
+
+  baseFeeListeners.forEach((fn) => {
+    fn(number, baseFeePerGas);
+  });
+};
+
+const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
+  wait: 1000,
+  maxWait: 4000,
+});
+
+sql.listen("base-fee-updates", dOnBaseFeeUpdate);
+
+wss.on("connection", (ws) => {
+  const id = nanoid(8);
+
+  addBaseFeeListener(id, (number: number, baseFeePerGas: number) => {
+    ws.send(JSON.stringify({ number, baseFeePerGas }));
+  });
+
+  ws.on("close", () => {
+    removeBaseFeeListener(id);
+  });
 });
