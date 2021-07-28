@@ -262,7 +262,7 @@ export const notifyNewBaseFee = (block: BlockLondon): Promise<void> =>
       "base-fee-updates",
       JSON.stringify({
         number: block.number,
-        baseFeePerGas: hexToNumber(block.baseFeePerGas),
+        baseFeePerGas: weiToEth(hexToNumber(block.baseFeePerGas)),
       }),
     )
     .then(() => undefined);
