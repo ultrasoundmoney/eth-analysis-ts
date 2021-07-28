@@ -189,7 +189,7 @@ wss.on("connection", (ws, req) => {
     return;
   }
 
-  addBaseFeeListener(id, (number: number, baseFeePerGas: number) => {
+  addBaseFeeListener(id, (number, baseFeePerGas) => {
     ws.send(JSON.stringify({ number, baseFeePerGas }));
   });
 
