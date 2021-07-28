@@ -65,11 +65,9 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
     contract_creation_fees: contractCreationFees,
   };
 
-  Log.debug(
-    `>> fees burned for block ${blockNumber} - ${BaseFees.calcBlockBaseFees(
-      baseFees,
-    )} wei`,
-  );
+  const baseFeesSum = BaseFees.calcBlockBaseFeeSum(baseFees);
+
+  Log.debug(`>> fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
 
   if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
     DisplayProgress.onBlockAnalyzed();

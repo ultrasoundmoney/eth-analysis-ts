@@ -199,7 +199,7 @@ export const getTopTenFeeBurners = async (
   );
 };
 
-export const calcBlockBaseFees = (baseFees: BlockBaseFees): number =>
+export const calcBlockBaseFeeSum = (baseFees: BlockBaseFees): number =>
   baseFees.transfers +
   baseFees.contract_creation_fees +
   sum(Object.values(baseFees.contract_use_fees));
@@ -216,7 +216,7 @@ export const getTotalFeesBurned = async (): Promise<number> => {
     return rows.map((row) => row.baseFees);
   });
 
-  return pipe(baseFeesPerBlock, A.map(calcBlockBaseFees), sum);
+  return pipe(baseFeesPerBlock, A.map(calcBlockBaseFeeSum), sum);
 };
 
 export type FeesBurnedPerDay = Record<string, number>;
@@ -251,7 +251,7 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
     R.map(
       flow(
         NEA.map((block) => block.baseFees),
-        NEA.map(calcBlockBaseFees),
+        NEA.map(calcBlockBaseFeeSum),
         sum,
       ),
     ),
@@ -267,7 +267,7 @@ const getRealtimeTotalFeesBurned = async (
     totalFeesBurned = await getTotalFeesBurned();
   }
 
-  totalFeesBurned = totalFeesBurned + calcBlockBaseFees(latestBlockBaseFees);
+  totalFeesBurned = totalFeesBurned + calcBlockBaseFeeSum(latestBlockBaseFees);
   return totalFeesBurned;
 };
 
