@@ -8,6 +8,7 @@ import ws from "ws";
 import { sql } from "./db.js";
 const { Server: WebSocketServer } = ws;
 import debounce from "debounce-fn";
+import * as EthPrice from "./eth_price.js";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
@@ -111,11 +112,21 @@ const handleGetFeesBurnedPerDay: Middleware = async (ctx) => {
   ctx.res.end(JSON.stringify({ feesBurnedPerDay }));
 };
 
+const handleGetEthPrice: Middleware = async (ctx) => {
+  const ethPrice = await EthPrice.getEthPrice();
+  ctx.res.writeHead(200, {
+    "Cache-Control": "max-age=600, stale-while-revalidate=1800",
+    "Content-Type": "application/json",
+  });
+  ctx.res.end(JSON.stringify(ethPrice));
+};
+
 const router = new Router();
 
 router.get("/fees/leaderboard", handleGetTopBurners);
 router.get("/fees/total-burned", handleGetFeesBurned);
 router.get("/fees/burned-per-day", handleGetFeesBurnedPerDay);
+router.get("/fees/eth-price", handleGetEthPrice);
 
 app.use(router.routes());
 app.use(router.allowedMethods());
