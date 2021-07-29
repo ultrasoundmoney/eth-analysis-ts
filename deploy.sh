@@ -67,4 +67,3 @@ elif [ "$SERVICE" = "serve-fees-ropsten" ]; then
 
   echo "> done"
 fi
-fi
