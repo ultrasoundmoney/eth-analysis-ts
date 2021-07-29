@@ -134,7 +134,7 @@ const timeFrameBlockCountMap: Record<TimeFrame, number> = {
 };
 
 let contractNameMap: Partial<Record<string, string>> | undefined = undefined;
-const getContractNameMap = async () => {
+export const getContractNameMap = async () => {
   if (contractNameMap !== undefined) {
     return contractNameMap;
   }
@@ -143,11 +143,13 @@ const getContractNameMap = async () => {
     await fs.readFile("./master_list.csv"),
   );
 
-  return pipe(
+  contractNameMap = pipe(
     knownContracts,
     NEA.groupBy((knownContract) => knownContract.address),
     R.map((knownContractsForAddress) => knownContractsForAddress[0].dapp),
   );
+
+  return contractNameMap;
 };
 
 export const getTopTenFeeBurners = async (
