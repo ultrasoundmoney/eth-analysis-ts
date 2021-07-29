@@ -14,9 +14,9 @@ import { closeWeb3Ws } from "./web3.js";
 import { delay } from "./delay.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
-const blockNumberLondonHardFork = 12965000;
+// const blockNumberLondonHardFork = 12965000;
 // ~21 July
-const blockNumberOneWeekAgoRopsten = 10677000;
+// const blockNumberOneWeekAgoRopsten = 10677000;
 // ~21 July
 const blockNumberOneWeekAgo = 12870000;
 // first ropsten eip1559 block
@@ -76,6 +76,7 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
   Log.info("> starting gas analysis");
   Log.info(`> chain: ${Config.chain}`);
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     await eth.webSocketOpen;
 
@@ -102,7 +103,7 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
       .reverse();
 
     if (blocksMissingCount === 0) {
-      Log.debug(`> no new blocks to analyze`);
+      Log.debug("> no new blocks to analyze");
     } else {
       Log.info(`> ${blocksMissingCount} blocks to analyze`);
     }

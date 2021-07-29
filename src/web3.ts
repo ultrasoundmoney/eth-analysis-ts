@@ -2,7 +2,6 @@ import WebSocket from "ws";
 import Config from "./config.js";
 import { hexToNumber, numberToHex } from "./numbers.js";
 import { TxRWeb3London } from "./transactions.js";
-import { Log } from "web3-core";
 
 const ropstenNode = "ws://18.220.53.200:8546/";
 const mainnetNode = "ws://18.219.176.5:8546/";
@@ -206,20 +205,17 @@ export const webSocketOpen = new Promise((resolve) => {
   ws.on("open", resolve);
 });
 
+// benchmark fetching
 // const blockQueue = new PQueue({ concurrency: 4 });
 // const txrsQueue = new PQueue({ concurrency: 200 });
-
 // ws.on("open", async () => {
 //   try {
 //     console.log("connected!");
-//     const number = Number.parseInt(
-//       (await getBlockByNumber("latest")).number,
-//       16,
-//     );
-//     const hundredLatestBlocks = new Array(1000)
+//     const number = (await getBlockByNumber("latest")).number;
+//     const blocksToFetch = new Array(1000)
 //       .fill(undefined)
 //       .map((_, i) => number - i);
-//     const blocks = await Promise.all(hundredLatestBlocks.map(getBlockByNumber));
+//     const blocks = await Promise.all(blocksToFetch.map(getBlockByNumber));
 //     const bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
 //       total: blocks.length,
 //     });
@@ -237,6 +233,6 @@ export const webSocketOpen = new Promise((resolve) => {
 //       }),
 //     );
 //   } catch (error) {
-//   console.error(error);
+//     console.error(error);
 //   }
 // });

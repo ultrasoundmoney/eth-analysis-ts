@@ -2,7 +2,6 @@ import { sql } from "./db.js";
 import type { TxRWeb3London } from "./transactions";
 import A from "fp-ts/lib/Array.js";
 import NEA from "fp-ts/lib/NonEmptyArray.js";
-import O from "fp-ts/lib/Option.js";
 import R from "fp-ts/lib/Record.js";
 import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
