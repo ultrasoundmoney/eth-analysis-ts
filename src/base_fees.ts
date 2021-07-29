@@ -9,6 +9,8 @@ import * as Log from "./log.js";
 import { hexToNumber, sum } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
 import type { BlockLondon } from "./web3.js";
+import neatCsv from "neat-csv";
+import fs from "fs/promises";
 
 export type BlockBaseFees = {
   // fees burned for simple transfers.
@@ -130,6 +132,23 @@ const timeFrameBlockCountMap: Record<TimeFrame, number> = {
   all: 654545,
 };
 
+let contractNameMap: Partial<Record<string, string>> | undefined = undefined;
+const getContractNameMap = async () => {
+  if (contractNameMap !== undefined) {
+    return contractNameMap;
+  }
+
+  const knownContracts = await neatCsv<{ dapp: string; address: string }>(
+    await fs.readFile("./master_list.csv"),
+  );
+
+  return pipe(
+    knownContracts,
+    NEA.groupBy((knownContract) => knownContract.address),
+    R.map((knownContractsForAddress) => knownContractsForAddress[0].dapp),
+  );
+};
+
 export const getTopTenFeeBurners = async (
   timeFrame: TimeFrame,
 ): Promise<BaseFeeBurner[]> => {
@@ -160,6 +179,8 @@ export const getTopTenFeeBurners = async (
     sum,
   );
 
+  const contractNameMap = await getContractNameMap();
+
   const contractBurnerTotals = pipe(
     baseFeesPerBlock,
     A.map((baseFees) => baseFees.contract_use_fees),
@@ -174,7 +195,7 @@ export const getTopTenFeeBurners = async (
     Object.entries,
     A.map(([address, fees]) => ({
       image: undefined,
-      name: undefined,
+      name: contractNameMap[address],
       address,
       fees,
     })),
