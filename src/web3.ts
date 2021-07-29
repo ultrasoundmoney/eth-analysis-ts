@@ -2,6 +2,8 @@ import WebSocket from "ws";
 import Config from "./config.js";
 import { hexToNumber, numberToHex } from "./numbers.js";
 import { TxRWeb3London } from "./transactions.js";
+// eslint-disable-next-line node/no-extraneous-import
+import type { Log } from "web3-core";
 
 const ropstenNode = "ws://18.220.53.200:8546/";
 const mainnetNode = "ws://18.219.176.5:8546/";
