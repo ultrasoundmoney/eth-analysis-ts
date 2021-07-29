@@ -120,6 +120,7 @@ export type BaseFeeBurner = {
   address: string | undefined;
   image: string | undefined;
   fees: number;
+  id: string;
 };
 
 // As block time changes these counts become inaccurate. It'd be better to store actual datetimes for blocks so precise time questions could be answered.
@@ -194,26 +195,29 @@ export const getTopTenFeeBurners = async (
     }),
     Object.entries,
     A.map(([address, fees]) => ({
-      image: undefined,
-      name: contractNameMap[address],
       address,
       fees,
+      id: address,
+      image: undefined,
+      name: contractNameMap[address],
     })),
   );
 
   return pipe(
     [
       {
+        address: undefined,
+        fees: ethTransferBaseFees,
+        id: "eth-transfers",
         image: undefined,
         name: "ETH transfers",
-        fees: ethTransferBaseFees,
-        address: undefined,
       },
       {
+        address: undefined,
+        fees: contractCreationBaseFees,
+        id: "contract-deployments",
         image: undefined,
         name: "Contract deployments",
-        fees: contractCreationBaseFees,
-        address: undefined,
       },
       ...contractBurnerTotals,
     ],
