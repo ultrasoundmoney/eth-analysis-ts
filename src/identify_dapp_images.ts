@@ -249,9 +249,11 @@ const identifyContracts = async () => {
     if (iconRes.status === 200) {
       const iconBuffer = await iconRes.buffer();
       const imageExt = new URL(iconUrl).pathname.slice(-3);
-      const imageName = `contract_image_guesses/${shortName}-${baseFeeBurner.address}.${imageExt}`;
+      const imageName = `${shortName
+        .toLowerCase()
+        .replaceAll(" ", "-")}.${imageExt}`;
       Log.info(`> found ${shortName}.${imageExt}`);
-      await fs.writeFile(imageName, iconBuffer);
+      await fs.writeFile(`dapp_image_guesses/${imageName}`, iconBuffer);
       continue;
     }
 
