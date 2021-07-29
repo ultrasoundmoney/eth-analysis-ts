@@ -10,6 +10,7 @@ import { URL } from "url";
 import * as BaseFees from "./base_fees.js";
 import { BaseFeeBurner, BlockBaseFees } from "./base_fees.js";
 import { sql } from "./db.js";
+import { delay } from "./delay.js";
 import * as Log from "./log.js";
 
 const getBaseFeeBurners = async () => {
@@ -213,6 +214,9 @@ const identifyContracts = async () => {
   Log.info(`> ${baseFeeBurners.length} contracts to identify`);
   Log.info("> limiting to top 1000");
   for (const baseFeeBurner of baseFeeBurners.slice(0, 1000)) {
+    // Woah, slow down cowboy 🤠! Unfortunately we start with a delay as there are continue statements below preventing us from delaying at the end.
+    await delay(2000);
+
     Log.info(
       `> trying to identify ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
     );
