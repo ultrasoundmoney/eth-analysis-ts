@@ -81,8 +81,9 @@ const fetchEtherscanName = async (
     (res) => res.text(),
   );
   const { document } = parseHTML(html);
-  const etherscanPublicName: { innerText: string } | null =
-    document.querySelector(".badge-secondary");
+  const etherscanPublicName = document.querySelector(".badge-secondary") as {
+    innerText: string;
+  } | null;
 
   return etherscanPublicName?.innerText;
 };
@@ -105,7 +106,7 @@ const guessOriginFromName = async (name: string): Promise<string> => {
   const firstResultUrl = (await googlePage.$eval(
     // eslint-disable-next-line quotes
     "#search a",
-    (e) => e.href,
+    (e) => (e as HTMLAnchorElement).href,
   )) as unknown as string;
 
   const possibleOrigin = new URL(firstResultUrl).origin;
@@ -188,18 +189,20 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
 
   const html = await fetch(origin).then((res) => res.text());
   const { document } = parseHTML(html);
-  const mIconUrl: { href: string } | null =
+  const mIconUrl =
     // eslint-disable-next-line quotes
-    document.querySelector(`link[rel="icon"]`);
+    document.querySelector(`link[rel="icon"]`) as { href: string } | null;
   if (typeof mIconUrl?.href === "string") {
     // eslint-disable-next-line quotes
     Log.debug(`> link tag with rel="icon" found!`);
     return healMaybeUrl(mIconUrl.href);
   }
 
-  const mIcon2Url: { href: string } | null =
+  const mIcon2Url =
     // eslint-disable-next-line quotes
-    document.querySelector(`link[rel="shortcut icon"]`);
+    document.querySelector(`link[rel="shortcut icon"]`) as {
+      href: string;
+    } | null;
   if (typeof mIcon2Url?.href === "string") {
     // eslint-disable-next-line quotes
     Log.debug(`> link tag with rel="shortcut icon" found!`);
