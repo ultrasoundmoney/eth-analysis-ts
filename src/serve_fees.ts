@@ -140,9 +140,9 @@ const server = app.listen(port, () => {
 
 const wss = new WebSocketServer({ noServer: true });
 
-server.on("upgrade", function upgrade(request, socket, head) {
+server.on("upgrade", (request, socket, head) => {
   if (request.url === `/fees${routeInfix}/base-fee-feed`) {
-    wss.handleUpgrade(request, socket, head, function done(ws) {
+    wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit("connection", ws, request);
     });
   } else {
@@ -163,6 +163,8 @@ const removeBaseFeeListener = (id: string) => {
   baseFeeListeners.delete(id);
 };
 
+let lastUpdate: string | undefined = undefined;
+
 const onBaseFeeUpdate = (payload: string | undefined) => {
   if (payload === undefined) {
     Log.warn("got undefined payload on base-fee-updates channel");
@@ -179,7 +181,10 @@ const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
   maxWait: 4000,
 });
 
-sql.listen("base-fee-updates", dOnBaseFeeUpdate);
+sql.listen("base-fee-updates", (payload) => {
+  lastUpdate = payload;
+  dOnBaseFeeUpdate(payload);
+});
 
 wss.on("error", (error) => Log.error("> wss error", { error }));
 
@@ -192,6 +197,11 @@ wss.on("connection", (ws, req) => {
   }
 
   addBaseFeeListener(id, (payload) => ws.send(payload));
+
+  // To make sure clients immediately have the last known state we send it on connect.
+  if (typeof lastUpdate === "string") {
+    ws.send(lastUpdate);
+  }
 
   ws.on("close", () => {
     removeBaseFeeListener(id);
