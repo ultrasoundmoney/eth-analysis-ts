@@ -77,7 +77,7 @@ app.use(async (ctx, next) => {
 
 const totalFeesBurnedCache = new QuickLRU<string, string>({
   maxSize: 1,
-  maxAge: 300,
+  maxAge: milisFromSeconds(5),
 });
 const totalFeesBurnedKey = "total-fees-burned";
 
