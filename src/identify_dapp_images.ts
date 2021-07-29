@@ -106,7 +106,7 @@ const guessOriginFromName = async (name: string): Promise<string> => {
   const firstResultUrl = (await googlePage.$eval(
     // eslint-disable-next-line quotes
     "#search a",
-    (e) => (e as HTMLAnchorElement).href,
+    (e) => (e as { href: string }).href,
   )) as unknown as string;
 
   const possibleOrigin = new URL(firstResultUrl).origin;
