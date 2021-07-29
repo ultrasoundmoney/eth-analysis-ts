@@ -114,7 +114,11 @@ const guessOriginFromName = async (name: string): Promise<string> => {
 
 const findIconUrl = async (origin: string): Promise<string | undefined> => {
   const healMaybeUrl = (mUrl: string) =>
-    mUrl.startsWith("http") ? mUrl : `${origin}/${mUrl}`;
+    mUrl.startsWith("http")
+      ? mUrl
+      : mUrl.startsWith("/")
+      ? `${origin}${mUrl}`
+      : `${origin}/${mUrl}`;
 
   const mManifestRes = await fetch(`${origin}/manifest.webmanifest`);
   if (mManifestRes.status === 200) {
@@ -188,7 +192,7 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
     document.querySelector(`link[rel="icon"]`);
   if (typeof mIconUrl?.href === "string") {
     // eslint-disable-next-line quotes
-    Log.debug(`link tag with rel="icon" found!`);
+    Log.debug(`> link tag with rel="icon" found!`);
     return healMaybeUrl(mIconUrl.href);
   }
 
@@ -197,7 +201,7 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
     document.querySelector(`link[rel="shortcut icon"]`);
   if (typeof mIcon2Url?.href === "string") {
     // eslint-disable-next-line quotes
-    Log.debug(`link tag with rel="shortcut icon" found!`);
+    Log.debug(`> link tag with rel="shortcut icon" found!`);
     return healMaybeUrl(mIcon2Url.href);
   }
 
