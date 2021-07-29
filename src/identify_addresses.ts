@@ -211,7 +211,8 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
 const identifyContracts = async () => {
   const baseFeeBurners = await getBaseFeeBurners();
   Log.info(`> ${baseFeeBurners.length} contracts to identify`);
-  for (const baseFeeBurner of baseFeeBurners) {
+  Log.info("> limiting to top 1000");
+  for (const baseFeeBurner of baseFeeBurners.slice(0, 1000)) {
     Log.info(
       `> trying to identify ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
     );
