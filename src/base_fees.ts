@@ -249,7 +249,7 @@ export const getTotalFeesBurned = async (): Promise<number> => {
 export type FeesBurnedPerDay = Record<string, number>;
 
 export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
-  const rows = await sql<{ baseFees: BlockBaseFees; minedAt: Date }[]>`
+  const blocks = await sql<{ baseFees: BlockBaseFees; minedAt: Date }[]>`
       SELECT base_fees, mined_at
       FROM base_fees_per_block
   `.then((rows) => {
@@ -262,13 +262,9 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
     return rows;
   });
 
-  const mBlocks = NEA.fromArray(rows);
-
-  if (O.isNone(mBlocks)) {
+  if (blocks.length === 0) {
     return {};
   }
-
-  const blocks = mBlocks.value;
 
   return pipe(
     blocks,
