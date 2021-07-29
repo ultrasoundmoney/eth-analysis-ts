@@ -24,10 +24,16 @@ export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
     SELECT max(number) AS number FROM base_fees_per_block
   `.then((result) => result[0]?.number || undefined);
 
-const getBlockTimestamp = (block: BlockLondon): number =>
-  typeof block.timestamp === "string"
-    ? hexToNumber(block.timestamp)
-    : block.timestamp;
+const getBlockTimestamp = (block: BlockLondon): number => {
+  // TODO: remove this if no errors are reported.
+  if (typeof block.timestamp !== "number") {
+    Log.error(
+      `> block ${block.number} had unexpected timestamp: ${block.timestamp}`,
+    );
+  }
+
+  return block.timestamp;
+};
 
 export const storeBaseFeesForBlock = async (
   block: BlockLondon,
@@ -45,7 +51,7 @@ export const storeBaseFeesForBlock = async (
     )
   `.then(() => undefined);
 
-const toBaseFeeInsertRow = ({
+const toBaseFeeUnsafeInsert = ({
   block,
   baseFees,
 }: {
@@ -56,7 +62,7 @@ const toBaseFeeInsertRow = ({
     '${block.hash}',
     '${String(block.number)}',
     '${JSON.stringify(baseFees)}',
-    to_timestamp('${String(getBlockTimestamp(block))}')
+    to_timestamp('${getBlockTimestamp(block)}')
   )`;
 
 export const storeBaseFeesForBlocks = async (
@@ -65,7 +71,7 @@ export const storeBaseFeesForBlocks = async (
   await sql.unsafe(`
     INSERT INTO base_fees_per_block
       (hash, number, base_fees, mined_at)
-    VALUES ${analyzedBlocks.map(toBaseFeeInsertRow).join(",")}
+    VALUES ${analyzedBlocks.map(toBaseFeeUnsafeInsert).join(",")}
   `);
 };
 
