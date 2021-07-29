@@ -141,7 +141,7 @@ const server = app.listen(port, () => {
 const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", function upgrade(request, socket, head) {
-  if (request.url === "/fees/base-fee-feed") {
+  if (request.url === `/fees${routeInfix}/base-fee-feed`) {
     wss.handleUpgrade(request, socket, head, function done(ws) {
       wss.emit("connection", ws, request);
     });
