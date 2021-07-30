@@ -320,6 +320,7 @@ export const notifyNewBaseFee = async (
   await sql.notify(
     "base-fee-updates",
     JSON.stringify({
+      type: "base-fee-update",
       number: block.number,
       baseFeePerGas: hexToNumber(block.baseFeePerGas),
       totalFeesBurned,
