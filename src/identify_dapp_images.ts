@@ -114,6 +114,8 @@ const guessOriginFromName = async (name: string): Promise<string> => {
   return possibleOrigin;
 };
 
+let findIconPage: Page | undefined = undefined;
+
 const findIconUrl = async (origin: string): Promise<string | undefined> => {
   const healMaybeUrl = (mUrl: string) =>
     mUrl.startsWith("http")
@@ -168,23 +170,31 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
   if (browser === undefined) {
     browser = await puppeteer.launch();
   }
-  const page = await browser.newPage();
-  // Bypasses cloudflare detection.
-  await page.setUserAgent(
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
-  );
-  const res = await page.goto(`${origin}/manifest.json`);
-  if (res.status() === 200) {
-    Log.debug("> found /manifest.json with puppeteer");
-    try {
-      const manifest4 = await res.json();
-      const mIcon = manifest4?.icons?.pop();
-      if (mIcon !== undefined) {
-        return healMaybeUrl(mIcon.src);
+
+  if (findIconPage === undefined) {
+    findIconPage = await browser.newPage();
+    // Bypasses cloudflare detection.
+    await findIconPage.setUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
+    );
+  }
+
+  try {
+    const res = await findIconPage.goto(`${origin}/manifest.json`);
+    if (res.status() === 200) {
+      Log.debug("> found /manifest.json with puppeteer");
+      try {
+        const manifest4 = await res.json();
+        const mIcon = manifest4?.icons?.pop();
+        if (mIcon !== undefined) {
+          return healMaybeUrl(mIcon.src);
+        }
+      } catch {
+        Log.debug("> error decoding manifest.json found by puppeteer");
       }
-    } catch {
-      Log.debug("> error decoding manifest.json found by puppeteer");
     }
+  } catch {
+    Log.debug("> error navigating to manifest page");
   }
 
   const html = await fetch(origin).then((res) => res.text());
