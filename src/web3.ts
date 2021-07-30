@@ -60,7 +60,7 @@ type RawBlock = {
   nonce: string;
   number: string;
   parentHash: string;
-  reciptsRoot: string;
+  receiptsRoot: string;
   sha3Uncles: string;
   size: string;
   stateRoot: string;
@@ -84,7 +84,7 @@ export type BlockLondon = {
   nonce: string;
   number: number;
   parentHash: string;
-  reciptsRoot: string;
+  receiptsRoot: string;
   sha3Uncles: string;
   size: number;
   stateRoot: string;
