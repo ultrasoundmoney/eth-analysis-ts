@@ -299,7 +299,7 @@ const identifyContracts = async () => {
       const imageName = `${shortName
         .toLowerCase()
         .replaceAll(" ", "-")}.${imageExt}`;
-      Log.info(`> found ${shortName}.${imageExt}`);
+      Log.info(`> found ${imageName}`);
       await fs.writeFile(`dapp_image_guesses/${imageName}`, iconBuffer);
       continue;
     }
