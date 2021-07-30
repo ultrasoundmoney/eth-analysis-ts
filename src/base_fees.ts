@@ -122,6 +122,17 @@ export type BaseFeeBurner = {
   id: string;
 };
 
+export const sumFeeMaps = (
+  maps: Record<string, number>[],
+): Record<string, number> =>
+  maps.reduce((sumMap, map) => {
+    Object.entries(map).forEach(([key, num]) => {
+      const sum = sumMap[key] || 0;
+      sumMap[key] = sum + num;
+    });
+    return sumMap;
+  }, {} as Record<string, number>);
+
 // As block time changes these counts become inaccurate. It'd be better to store actual datetimes for blocks so precise time questions could be answered.
 export type TimeFrame = "24h" | "7d" | "30d" | "all";
 const timeFrameBlockCountMap: Record<TimeFrame, number> = {
@@ -187,13 +198,7 @@ export const getTopTenFeeBurners = async (
     baseFeesPerBlock,
     A.map((baseFees) => baseFees.contract_use_fees),
     // We merge Record<address, baseFees>[] here.
-    A.reduce({} as Record<string, number>, (agg, contractBaseFeeMap) => {
-      Object.entries(contractBaseFeeMap).forEach(([address, fee]) => {
-        const sum = agg[address] || 0;
-        agg[address] = sum + fee;
-      });
-      return agg;
-    }),
+    sumFeeMaps,
     Object.entries,
     A.map(([address, fees]) => ({
       address,
