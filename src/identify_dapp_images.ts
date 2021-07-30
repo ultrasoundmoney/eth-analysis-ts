@@ -124,99 +124,103 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
       ? `${origin}${mUrl}`
       : `${origin}/${mUrl}`;
 
-  const mManifestRes = await fetch(`${origin}/manifest.webmanifest`);
-  if (mManifestRes.status === 200) {
-    Log.debug("> /manifest.webmanifest found!");
-    try {
-      const manifest = await mManifestRes.json();
-      const mIcon: { src: string } | undefined = manifest?.icons?.pop();
-      if (mIcon !== undefined) {
-        return healMaybeUrl(mIcon.src);
-      }
-    } catch {
-      Log.debug(`> error on manifest json decode for ${origin}`);
-    }
-  }
-
-  const mManifest2Res = await fetch(`${origin}/manifest.json`);
-  if (mManifest2Res.status === 200) {
-    Log.debug("> /manifest.json found");
-    try {
-      const manifest2 = await mManifest2Res.json();
-      const mIcon = manifest2?.icons?.pop();
-      if (mIcon !== undefined) {
-        return healMaybeUrl(mIcon.src);
-      }
-    } catch {
-      Log.debug(`> error on manifest json decode for ${origin}`);
-    }
-  }
-
-  const mManifest3Res = await fetch(`${origin}/site.webmanifest`);
-  if (mManifest3Res.status === 200) {
-    Log.debug("> /manifest.json found");
-    try {
-      const manifest3 = await mManifest3Res.json();
-      const mIcon = manifest3?.icons?.pop();
-      if (mIcon !== undefined) {
-        return healMaybeUrl(mIcon.src);
-      }
-    } catch {
-      Log.debug(`> error on manifest json decode for ${origin}`);
-    }
-  }
-
-  // Some sites use proctection against reading the manifest programatically 🙈.
-  if (browser === undefined) {
-    browser = await puppeteer.launch();
-  }
-
-  if (findIconPage === undefined) {
-    findIconPage = await browser.newPage();
-    // Bypasses cloudflare detection.
-    await findIconPage.setUserAgent(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
-    );
-  }
-
   try {
-    const res = await findIconPage.goto(`${origin}/manifest.json`);
-    if (res.status() === 200) {
-      Log.debug("> found /manifest.json with puppeteer");
+    const mManifestRes = await fetch(`${origin}/manifest.webmanifest`);
+    if (mManifestRes.status === 200) {
+      Log.debug("> /manifest.webmanifest found!");
       try {
-        const manifest4 = await res.json();
-        const mIcon = manifest4?.icons?.pop();
+        const manifest = await mManifestRes.json();
+        const mIcon: { src: string } | undefined = manifest?.icons?.pop();
         if (mIcon !== undefined) {
           return healMaybeUrl(mIcon.src);
         }
       } catch {
-        Log.debug("> error decoding manifest.json found by puppeteer");
+        Log.debug(`> error on manifest json decode for ${origin}`);
       }
     }
-  } catch {
-    Log.debug("> error navigating to manifest page");
-  }
 
-  const html = await fetch(origin).then((res) => res.text());
-  const { document } = parseHTML(html);
-  const mIconUrl =
-    // eslint-disable-next-line quotes
-    document.querySelector(`link[rel="icon"]`) as { href: string } | null;
-  if (typeof mIconUrl?.href === "string") {
-    // eslint-disable-next-line quotes
-    Log.debug(`> link tag with rel="icon" found!`);
-    return healMaybeUrl(mIconUrl.href);
-  }
+    const mManifest2Res = await fetch(`${origin}/manifest.json`);
+    if (mManifest2Res.status === 200) {
+      Log.debug("> /manifest.json found");
+      try {
+        const manifest2 = await mManifest2Res.json();
+        const mIcon = manifest2?.icons?.pop();
+        if (mIcon !== undefined) {
+          return healMaybeUrl(mIcon.src);
+        }
+      } catch {
+        Log.debug(`> error on manifest json decode for ${origin}`);
+      }
+    }
 
-  const mIcon2Url =
-    // eslint-disable-next-line quotes
-    document.querySelector(`link[rel="shortcut icon"]`) as {
-      href: string;
-    } | null;
-  if (typeof mIcon2Url?.href === "string") {
-    // eslint-disable-next-line quotes
-    Log.debug(`> link tag with rel="shortcut icon" found!`);
-    return healMaybeUrl(mIcon2Url.href);
+    const mManifest3Res = await fetch(`${origin}/site.webmanifest`);
+    if (mManifest3Res.status === 200) {
+      Log.debug("> /manifest.json found");
+      try {
+        const manifest3 = await mManifest3Res.json();
+        const mIcon = manifest3?.icons?.pop();
+        if (mIcon !== undefined) {
+          return healMaybeUrl(mIcon.src);
+        }
+      } catch {
+        Log.debug(`> error on manifest json decode for ${origin}`);
+      }
+    }
+
+    // Some sites use proctection against reading the manifest programatically 🙈.
+    if (browser === undefined) {
+      browser = await puppeteer.launch();
+    }
+
+    if (findIconPage === undefined) {
+      findIconPage = await browser.newPage();
+      // Bypasses cloudflare detection.
+      await findIconPage.setUserAgent(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
+      );
+    }
+
+    try {
+      const res = await findIconPage.goto(`${origin}/manifest.json`);
+      if (res.status() === 200) {
+        Log.debug("> found /manifest.json with puppeteer");
+        try {
+          const manifest4 = await res.json();
+          const mIcon = manifest4?.icons?.pop();
+          if (mIcon !== undefined) {
+            return healMaybeUrl(mIcon.src);
+          }
+        } catch {
+          Log.debug("> error decoding manifest.json found by puppeteer");
+        }
+      }
+    } catch {
+      Log.debug("> error navigating to manifest page");
+    }
+
+    const html = await fetch(origin).then((res) => res.text());
+    const { document } = parseHTML(html);
+    const mIconUrl =
+      // eslint-disable-next-line quotes
+      document.querySelector(`link[rel="icon"]`) as { href: string } | null;
+    if (typeof mIconUrl?.href === "string") {
+      // eslint-disable-next-line quotes
+      Log.debug(`> link tag with rel="icon" found!`);
+      return healMaybeUrl(mIconUrl.href);
+    }
+
+    const mIcon2Url =
+      // eslint-disable-next-line quotes
+      document.querySelector(`link[rel="shortcut icon"]`) as {
+        href: string;
+      } | null;
+    if (typeof mIcon2Url?.href === "string") {
+      // eslint-disable-next-line quotes
+      Log.debug(`> link tag with rel="shortcut icon" found!`);
+      return healMaybeUrl(mIcon2Url.href);
+    }
+  } catch (error) {
+    Log.error("> unexpected error finding icon", error);
   }
 
   return undefined;
@@ -228,7 +232,7 @@ const identifyContracts = async () => {
   Log.info("> limiting to top 1000");
   for (const baseFeeBurner of baseFeeBurners.slice(0, 1000)) {
     // Woah, slow down cowboy 🤠! Unfortunately we start with a delay as there are continue statements below preventing us from delaying at the end.
-    await delay(2000);
+    await delay(4000);
 
     Log.info(
       `> trying to identify ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
@@ -245,6 +249,36 @@ const identifyContracts = async () => {
     const colonIndex = name.indexOf(":");
     const shortName = name.includes(":") ? name.slice(0, colonIndex) : name;
     Log.debug(`> shortname: ${shortName}`);
+
+    const getImageExists = async () => {
+      try {
+        await fs.access(`dapp_image_guesses/${shortName}.png`);
+        return true;
+      } catch {
+        // do nothing
+      }
+
+      try {
+        await fs.access(`dapp_image_guesses/${shortName}.ico`);
+        return true;
+      } catch {
+        // do nothing
+      }
+
+      try {
+        await fs.access(`dapp_image_guesses/${shortName}.svg`);
+        return true;
+      } catch {
+        // do nothing
+      }
+
+      return false;
+    };
+
+    // If we have an image already let's skip.
+    if (await getImageExists()) {
+      continue;
+    }
 
     const origin = await guessOriginFromName(shortName);
     Log.debug(`> origin: ${origin}`);
