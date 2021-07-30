@@ -134,8 +134,8 @@ export const sumFeeMaps = (
   }, {} as Record<string, number>);
 
 // As block time changes these counts become inaccurate. It'd be better to store actual datetimes for blocks so precise time questions could be answered.
-export type TimeFrame = "24h" | "7d" | "30d" | "all";
-const timeFrameBlockCountMap: Record<TimeFrame, number> = {
+export type Timeframe = "24h" | "7d" | "30d" | "all";
+const timeFrameBlockCountMap: Record<Timeframe, number> = {
   "24h": 6545,
   "7d": 45818,
   "30d": 196364,
@@ -163,7 +163,7 @@ export const getContractNameMap = async () => {
 };
 
 export const getTopTenFeeBurners = async (
-  timeFrame: TimeFrame,
+  timeFrame: Timeframe,
 ): Promise<BaseFeeBurner[]> => {
   const blocksToSumCount = timeFrameBlockCountMap[timeFrame];
   const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`

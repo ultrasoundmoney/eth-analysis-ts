@@ -2,7 +2,7 @@ import * as Log from "./log.js";
 import QuickLRU from "quick-lru";
 import Koa, { Middleware } from "koa";
 import * as BaseFees from "./base_fees.js";
-import type { TimeFrame } from "./base_fees.js";
+import type { Timeframe } from "./base_fees.js";
 import Router from "@koa/router";
 import ws from "ws";
 import { sql } from "./db.js";
@@ -18,13 +18,13 @@ const topFeeBurnerCache = new QuickLRU<string, string>({
   maxAge: milisFromSeconds(10),
 });
 
-const getIsTimeFrame = (raw: unknown): raw is TimeFrame =>
+const getIsTimeFrame = (raw: unknown): raw is Timeframe =>
   raw === "24h" || raw === "7d" || raw === "30d" || raw === "all";
 
 const handleGetTopBurners: Middleware = async (ctx) => {
-  const timeFrame = ctx.request.query["timeframe"];
+  const timeframe = ctx.request.query["timeframe"];
 
-  if (!getIsTimeFrame(timeFrame)) {
+  if (!getIsTimeFrame(timeframe)) {
     ctx.status = 400;
     ctx.body = {
       msg: "missing 'timeframe' query param, one of '24h', '7d', '30d' or 'all'",
@@ -33,7 +33,7 @@ const handleGetTopBurners: Middleware = async (ctx) => {
   }
 
   // Respond from cache if we can.
-  const cTopFeeBurners = topFeeBurnerCache.get(timeFrame);
+  const cTopFeeBurners = topFeeBurnerCache.get(timeframe);
   if (cTopFeeBurners !== undefined) {
     ctx.res.writeHead(200, {
       "Cache-Control": "max-age=5, stale-while-revalidate=18",
@@ -43,11 +43,11 @@ const handleGetTopBurners: Middleware = async (ctx) => {
     return;
   }
 
-  const topTenFeeBurners = await BaseFees.getTopTenFeeBurners(timeFrame);
+  const topTenFeeBurners = await BaseFees.getTopTenFeeBurners(timeframe);
 
   // Cache the response
   const topTenFeeBurnersJson = JSON.stringify(topTenFeeBurners);
-  topFeeBurnerCache.set(timeFrame, topTenFeeBurnersJson);
+  topFeeBurnerCache.set(timeframe, topTenFeeBurnersJson);
 
   ctx.res.writeHead(200, {
     "Cache-Control": "max-age=5, stale-while-revalidate=18",
