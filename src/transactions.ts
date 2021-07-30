@@ -2,6 +2,8 @@ import * as eth from "./web3.js";
 import type { TransactionReceipt as TxRWeb3 } from "web3-eth/types/index";
 import { pipe } from "fp-ts/lib/function.js";
 import T from "fp-ts/lib/Task.js";
+import ROA from "fp-ts/lib/ReadonlyArray.js";
+import O from "fp-ts/lib/Option.js";
 import PQueue from "p-queue";
 
 /**
@@ -13,16 +15,15 @@ export type TxRWeb3London = TxRWeb3 & {
 };
 
 // Depending on 'when' you call the next two functions the receipt looks different. We leave it up to the caller to call this function at the right time.
-const getTxr =
-  (txHash: string): T.Task<TxRWeb3> =>
-  () =>
-    eth.getTransactionReceipt(txHash);
+const getTxr = (txHash: string): T.Task<O.Option<TxRWeb3>> =>
+  pipe(() => eth.getTransactionReceipt(txHash), T.map(O.fromNullable));
 
-const getTxr1559 = (txHash: string): T.Task<TxRWeb3London> =>
-  getTxr(txHash) as T.Task<TxRWeb3London>;
+const getTxr1559 = (txHash: string): T.Task<O.Option<TxRWeb3London>> =>
+  getTxr(txHash) as T.Task<O.Option<TxRWeb3London>>;
 
 export const getTxrs = (txHashes: string[]): T.Task<readonly TxRWeb3[]> =>
-  pipe(txHashes, T.traverseSeqArray(getTxr));
+  // NOTE: we skip null transactions. See web3 module for details.
+  pipe(txHashes, T.traverseSeqArray(getTxr), T.map(ROA.compact));
 
 const txrsPQ = new PQueue({
   concurrency: 64,
@@ -34,6 +35,8 @@ export const getTxrs1559 = (
   pipe(
     txHashes,
     T.traverseArray((txHash) => () => txrsPQ.add(getTxr1559(txHash))),
+    // NOTE: we skip null transactions. See web3 module for details.
+    T.map(ROA.compact),
   );
 
 export type TxrSegments = {

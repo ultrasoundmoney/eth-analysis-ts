@@ -182,7 +182,7 @@ export const getTransactionReceipt = async (
 
   const rawTxr = await messageP;
 
-  // Seen in production. Unclear why this would happen. Should we retry? Are some transactions not executed resulting in `null` transaction receipts? Needs investigation.
+  // NOTE: Seen in production. Unclear why this would happen. Should we retry? Are some transactions not executed resulting in `null` transaction receipts? Needs investigation.
   if (rawTxr === null) {
     Log.warn("txr was null!", { hash });
     return rawTxr;
