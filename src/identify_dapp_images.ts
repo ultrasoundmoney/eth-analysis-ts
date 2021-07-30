@@ -247,26 +247,26 @@ const identifyContracts = async () => {
 
     // Better odds guessing the origin without the contract bit. We usually end up on etherscan if we include that.
     const colonIndex = name.indexOf(":");
-    const shortName = name.includes(":") ? name.slice(0, colonIndex) : name;
-    Log.debug(`> shortname: ${shortName}`);
+    const shortname = name.includes(":") ? name.slice(0, colonIndex) : name;
+    Log.debug(`> shortname: ${shortname}`);
 
     const getImageExists = async () => {
       try {
-        await fs.access(`dapp_image_guesses/${shortName}.png`);
+        await fs.access(`dapp_image_guesses/${shortname}.png`);
         return true;
       } catch {
         // do nothing
       }
 
       try {
-        await fs.access(`dapp_image_guesses/${shortName}.ico`);
+        await fs.access(`dapp_image_guesses/${shortname}.ico`);
         return true;
       } catch {
         // do nothing
       }
 
       try {
-        await fs.access(`dapp_image_guesses/${shortName}.svg`);
+        await fs.access(`dapp_image_guesses/${shortname}.svg`);
         return true;
       } catch {
         // do nothing
@@ -280,7 +280,7 @@ const identifyContracts = async () => {
       continue;
     }
 
-    const origin = await guessOriginFromName(shortName);
+    const origin = await guessOriginFromName(shortname);
     Log.debug(`> origin: ${origin}`);
 
     const iconUrl = await findIconUrl(origin);
@@ -296,7 +296,7 @@ const identifyContracts = async () => {
     if (iconRes.status === 200) {
       const iconBuffer = await iconRes.buffer();
       const imageExt = new URL(iconUrl).pathname.slice(-3);
-      const imageName = `${shortName
+      const imageName = `${shortname
         .toLowerCase()
         .replaceAll(" ", "-")}.${imageExt}`;
       Log.info(`> found ${imageName}`);
