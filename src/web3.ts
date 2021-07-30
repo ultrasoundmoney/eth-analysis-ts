@@ -3,7 +3,8 @@ import Config from "./config.js";
 import { hexToNumber, numberToHex } from "./numbers.js";
 import { TxRWeb3London } from "./transactions.js";
 // eslint-disable-next-line node/no-extraneous-import
-import type { Log } from "web3-core";
+import type { Log as LogWeb3 } from "web3-core";
+import * as Log from "./log.js";
 
 const ropstenNode = "ws://18.220.53.200:8546/";
 const mainnetNode = "ws://18.219.176.5:8546/";
@@ -136,7 +137,7 @@ type RawTxr = {
   effectiveGasPrice: string;
   from: string;
   gasUsed: string;
-  logs: Log[];
+  logs: LogWeb3[];
   logsBloom: string;
   status: string;
   to: string;
@@ -169,7 +170,7 @@ const translateTxr = (rawTrx: RawTxr): TxRWeb3London => ({
 
 export const getTransactionReceipt = async (
   hash: string,
-): Promise<TxRWeb3London> => {
+): Promise<TxRWeb3London | null> => {
   const [id, messageP] = registerMessageListener<RawTxr>();
 
   send({
@@ -179,8 +180,15 @@ export const getTransactionReceipt = async (
     jsonrpc: "2.0",
   });
 
-  const rawTrx = await messageP;
-  return translateTxr(rawTrx);
+  const rawTxr = await messageP;
+
+  // Seen in production. Unclear why this would happen. Should we retry? Are some transactions not executed resulting in `null` transaction receipts? Needs investigation.
+  if (rawTxr === null) {
+    Log.warn("txr was null!", { hash });
+    return rawTxr;
+  }
+
+  return translateTxr(rawTxr);
 };
 
 ws.on("message", (event) => {
