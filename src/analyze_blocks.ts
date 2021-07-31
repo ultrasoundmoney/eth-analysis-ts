@@ -14,15 +14,6 @@ import { closeWeb3Ws } from "./web3.js";
 import { delay } from "./delay.js";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 
-// const blockNumberFirstOfJulyMainnet = 12738509;
-// const blockNumberLondonHardFork = 12965000;
-// ~21 July
-// const blockNumberOneWeekAgoRopsten = 10677000;
-// ~21 July
-const blockNumberOneWeekAgo = 12870000;
-// first ropsten eip1559 block
-const blockNumberRopstenFirst1559Block = 10499401;
-
 // TODO: update implementation to analyze mainnet after fork block.
 
 const blockAnalysisQueue = new PQueue({ concurrency: 1 });
@@ -76,7 +67,12 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
   BaseFees.notifyNewBaseFee(block, baseFees);
 };
 
-(async () => {
+// const blockNumberLondonHardFork = 12965000;
+// first ropsten eip1559 block
+const blockNumberRopstenFirst1559Block = 10499401;
+const monthOfBlocksCount = 196364;
+
+const main = async () => {
   Log.info("> starting gas analysis");
   Log.info(`> chain: ${Config.chain}`);
 
@@ -91,7 +87,8 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
     const backstopBlockNumber =
       Config.chain === "ropsten"
         ? blockNumberRopstenFirst1559Block
-        : blockNumberOneWeekAgo;
+        : // TODO: London hardfork block number after London hardfork
+          latestBlock.number - monthOfBlocksCount;
 
     // Figure out which blocks we'd like to analyze.
     const blocksMissingCount =
@@ -119,7 +116,9 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
     // Wait 1s before checking for new blocks to analyze
     await delay(2000);
   }
-})()
+};
+
+main()
   .then(async () => {
     Log.info("> done analyzing gas");
     closeWeb3Ws();
