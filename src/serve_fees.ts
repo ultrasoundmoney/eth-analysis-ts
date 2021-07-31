@@ -2,7 +2,6 @@ import * as Log from "./log.js";
 import QuickLRU from "quick-lru";
 import Koa, { Middleware } from "koa";
 import * as BaseFees from "./base_fees.js";
-import type { Timeframe } from "./base_fees.js";
 import Router from "@koa/router";
 import ws from "ws";
 import { sql } from "./db.js";
@@ -13,48 +12,48 @@ import Config from "./config.js";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
-const topFeeBurnerCache = new QuickLRU<string, string>({
-  maxSize: 4,
-  maxAge: milisFromSeconds(10),
-});
+// const topFeeBurnerCache = new QuickLRU<string, string>({
+//   maxSize: 4,
+//   maxAge: milisFromSeconds(10),
+// });
 
-const getIsTimeFrame = (raw: unknown): raw is Timeframe =>
-  raw === "24h" || raw === "7d" || raw === "30d" || raw === "all";
+// const getIsTimeFrame = (raw: unknown): raw is Timeframe =>
+//   raw === "24h" || raw === "7d" || raw === "30d" || raw === "all";
 
-const handleGetTopBurners: Middleware = async (ctx) => {
-  const timeframe = ctx.request.query["timeframe"];
+// const handleGetTopBurners: Middleware = async (ctx) => {
+//   const timeframe = ctx.request.query["timeframe"];
 
-  if (!getIsTimeFrame(timeframe)) {
-    ctx.status = 400;
-    ctx.body = {
-      msg: "missing 'timeframe' query param, one of '24h', '7d', '30d' or 'all'",
-    };
-    return;
-  }
+//   if (!getIsTimeFrame(timeframe)) {
+//     ctx.status = 400;
+//     ctx.body = {
+//       msg: "missing 'timeframe' query param, one of '24h', '7d', '30d' or 'all'",
+//     };
+//     return;
+//   }
 
-  // Respond from cache if we can.
-  const cTopFeeBurners = topFeeBurnerCache.get(timeframe);
-  if (cTopFeeBurners !== undefined) {
-    ctx.res.writeHead(200, {
-      "Cache-Control": "max-age=5, stale-while-revalidate=18",
-      "Content-Type": "application/json",
-    });
-    ctx.res.end(cTopFeeBurners);
-    return;
-  }
+//   // Respond from cache if we can.
+//   const cTopFeeBurners = topFeeBurnerCache.get(timeframe);
+//   if (cTopFeeBurners !== undefined) {
+//     ctx.res.writeHead(200, {
+//       "Cache-Control": "max-age=5, stale-while-revalidate=18",
+//       "Content-Type": "application/json",
+//     });
+//     ctx.res.end(cTopFeeBurners);
+//     return;
+//   }
 
-  const topTenFeeBurners = await BaseFees.getTopTenFeeBurners(timeframe);
+//   const topTenFeeBurners = await BaseFeeTotals.getTopTenFeeBurners(timeframe);
 
-  // Cache the response
-  const topTenFeeBurnersJson = JSON.stringify(topTenFeeBurners);
-  topFeeBurnerCache.set(timeframe, topTenFeeBurnersJson);
+//   // Cache the response
+//   const topTenFeeBurnersJson = JSON.stringify(topTenFeeBurners);
+//   topFeeBurnerCache.set(timeframe, topTenFeeBurnersJson);
 
-  ctx.res.writeHead(200, {
-    "Cache-Control": "max-age=5, stale-while-revalidate=18",
-    "Content-Type": "application/json",
-  });
-  ctx.res.end(topTenFeeBurnersJson);
-};
+//   ctx.res.writeHead(200, {
+//     "Cache-Control": "max-age=5, stale-while-revalidate=18",
+//     "Content-Type": "application/json",
+//   });
+//   ctx.res.end(topTenFeeBurnersJson);
+// };
 
 const port = process.env.PORT || 8080;
 
@@ -126,7 +125,7 @@ const router = new Router();
 
 const routeInfix = Config.chain === "ropsten" ? "-ropsten" : "";
 
-router.get(`/fees${routeInfix}/leaderboard`, handleGetTopBurners);
+// router.get(`/fees${routeInfix}/leaderboard`, handleGetTopBurners);
 router.get(`/fees${routeInfix}/total-burned`, handleGetFeesBurned);
 router.get(`/fees${routeInfix}/burned-per-day`, handleGetFeesBurnedPerDay);
 router.get(`/fees${routeInfix}/eth-price`, handleGetEthPrice);
@@ -163,7 +162,8 @@ const removeBaseFeeListener = (id: string) => {
   baseFeeListeners.delete(id);
 };
 
-let lastUpdate: string | undefined = undefined;
+let lastFeeUpdate: string | undefined = undefined;
+let lastLeaderboardUpdate: string | undefined = undefined;
 
 const onBaseFeeUpdate = (payload: string | undefined) => {
   if (payload === undefined) {
@@ -182,7 +182,12 @@ const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
 });
 
 sql.listen("base-fee-updates", (payload) => {
-  lastUpdate = payload;
+  if (JSON.parse(payload!).type === "base-fee-update") {
+    lastFeeUpdate = payload;
+  }
+  if (JSON.parse(payload!).type === "leaderboard-update") {
+    lastLeaderboardUpdate = payload;
+  }
   dOnBaseFeeUpdate(payload);
 });
 
@@ -199,8 +204,12 @@ wss.on("connection", (ws, req) => {
   addBaseFeeListener(id, (payload) => ws.send(payload));
 
   // To make sure clients immediately have the last known state we send it on connect.
-  if (typeof lastUpdate === "string") {
-    ws.send(lastUpdate);
+  if (typeof lastFeeUpdate === "string") {
+    ws.send(lastFeeUpdate);
+  }
+
+  if (typeof lastLeaderboardUpdate === "string") {
+    ws.send(lastLeaderboardUpdate);
   }
 
   ws.on("close", () => {

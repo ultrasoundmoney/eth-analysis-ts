@@ -15,7 +15,7 @@ export type BlockBaseFees = {
   // fees burned for simple transfers.
   transfers: number;
   // fees burned for use of contracts.
-  contract_use_fees: Record<string, number>;
+  contract_use_fees: Partial<Record<string, number>>;
   // fees burned for the creation of contracts.
   contract_creation_fees: number;
 };
@@ -116,32 +116,23 @@ export const calcBaseFeePerContract = (
 // Name is undefined because we don't always know the name for a contract. Image is undefined because we don't always have an image for a contract. Address is undefined because base fees paid for ETH transfers are shared between many addresses.
 export type BaseFeeBurner = {
   name: string | undefined;
-  address: string | undefined;
   image: string | undefined;
   fees: number;
   id: string;
 };
 
 export const sumFeeMaps = (
-  maps: Record<string, number>[],
+  maps: Partial<Record<string, number>>[],
 ): Record<string, number> =>
-  maps.reduce((sumMap, map) => {
-    Object.entries(map).forEach(([key, num]) => {
+  (maps as Record<string, number>[]).reduce((sumMap, map) => {
+    Object.entries(map as Record<string, number>).forEach(([key, num]) => {
       const sum = sumMap[key] || 0;
       sumMap[key] = sum + num;
     });
     return sumMap;
   }, {} as Record<string, number>);
 
-// As block time changes these counts become inaccurate. It'd be better to store actual datetimes for blocks so precise time questions could be answered.
 export type Timeframe = "24h" | "7d" | "30d" | "all";
-const timeFrameBlockCountMap: Record<Timeframe, number> = {
-  "24h": 6545,
-  "7d": 45818,
-  "30d": 196364,
-  // NOTE: We use 100d as the current hard limit
-  all: 654545,
-};
 
 let contractNameMap: Partial<Record<string, string>> | undefined = undefined;
 export const getContractNameMap = async () => {
@@ -162,84 +153,10 @@ export const getContractNameMap = async () => {
   return contractNameMap;
 };
 
-export const getTopTenFeeBurners = async (
-  timeFrame: Timeframe,
-): Promise<BaseFeeBurner[]> => {
-  const blocksToSumCount = timeFrameBlockCountMap[timeFrame];
-  const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
-      SELECT base_fees
-      FROM base_fees_per_block
-      LIMIT ${blocksToSumCount}
-  `.then((rows) => {
-    if (rows.length === 0) {
-      Log.warn(
-        "tried to determine top fee burners but found no analyzed blocks",
-      );
-      return [];
-    }
-
-    return rows.map((row) => row.baseFees);
-  });
-
-  const ethTransferBaseFees = pipe(
-    baseFeesPerBlock,
-    A.map((baseFees) => baseFees.transfers),
-    sum,
-  );
-  const contractCreationBaseFees = pipe(
-    baseFeesPerBlock,
-    A.map((baseFees) => baseFees.contract_creation_fees),
-    sum,
-  );
-
-  const contractNameMap = await getContractNameMap();
-
-  const contractBurnerTotals = pipe(
-    baseFeesPerBlock,
-    A.map((baseFees) => baseFees.contract_use_fees),
-    // We merge Record<address, baseFees>[] here.
-    sumFeeMaps,
-    Object.entries,
-    A.map(([address, fees]) => ({
-      address,
-      fees,
-      id: address,
-      image: undefined,
-      name: contractNameMap[address],
-    })),
-  );
-
-  return pipe(
-    [
-      {
-        address: undefined,
-        fees: ethTransferBaseFees,
-        id: "eth-transfers",
-        image: undefined,
-        name: "ETH transfers",
-      },
-      {
-        address: undefined,
-        fees: contractCreationBaseFees,
-        id: "contract-deployments",
-        image: undefined,
-        name: "Contract deployments",
-      },
-      ...contractBurnerTotals,
-    ],
-    A.sort<BaseFeeBurner>({
-      compare: (first, second) =>
-        first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
-      equals: (first, second) => first.fees === second.fees,
-    }),
-    A.takeLeft(10),
-  );
-};
-
 export const calcBlockBaseFeeSum = (baseFees: BlockBaseFees): number =>
   baseFees.transfers +
   baseFees.contract_creation_fees +
-  sum(Object.values(baseFees.contract_use_fees));
+  sum(Object.values(baseFees.contract_use_fees) as number[]);
 
 export const getTotalFeesBurned = async (): Promise<number> => {
   const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`

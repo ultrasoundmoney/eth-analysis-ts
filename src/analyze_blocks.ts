@@ -62,7 +62,9 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
 
   await BaseFees.storeBaseFeesForBlock(block, baseFees);
   if (process.env.NO_UPDATE_TOTALS === undefined) {
-    BaseFeeTotals.updateTotalsWithFees(block, baseFees);
+    BaseFeeTotals.updateTotalsWithFees(block, baseFees).then(
+      BaseFeeTotals.notifyNewLeaderboard,
+    );
   }
   BaseFees.notifyNewBaseFee(block, baseFees);
 };

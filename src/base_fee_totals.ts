@@ -5,7 +5,11 @@ import T from "fp-ts/lib/Task.js";
 import A from "fp-ts/lib/Array.js";
 import { flow, pipe } from "fp-ts/lib/function";
 import { sql } from "./db";
-import type { BlockBaseFees, Timeframe as Timeframe } from "./base_fees.js";
+import type {
+  BaseFeeBurner,
+  BlockBaseFees,
+  Timeframe as Timeframe,
+} from "./base_fees.js";
 import { differenceInHours } from "date-fns";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
@@ -279,7 +283,10 @@ export const updateTotalsWithFees = async (
     await writeTotal("all", address, useBaseFee, "contract");
   };
 
-  const useBaseFees = Object.entries(baseFees.contract_use_fees);
+  const useBaseFees = Object.entries(baseFees.contract_use_fees) as [
+    string,
+    number,
+  ][];
   // TODO: handle case of not seen before contract
   for (const [address, useBaseFee] of useBaseFees) {
     const dapp = dappAddressMap[address];
@@ -336,7 +343,9 @@ const subtractStaleBaseFees = async (
     A.map(
       flow(
         (block) =>
-          addresses.map((address) => block.baseFees.contract_use_fees[address]),
+          addresses.map(
+            (address) => block.baseFees.contract_use_fees[address] || 0,
+          ),
         sum,
       ),
     ),
@@ -344,10 +353,11 @@ const subtractStaleBaseFees = async (
   );
 
   await sql`
-      UPDATE ${sql(table)}
-      SET fee_total = fee_total - ${staleSum}
-      SET oldest_included_block = ${oldestFreshBlockNumber}
-      WHERE ${sql(totalIdColumnMap[totalType])} = ${id}`;
+    UPDATE ${sql(table)}
+    SET
+      fee_total = fee_total - ${staleSum},
+      oldest_included_block = ${oldestFreshBlockNumber}
+    WHERE ${sql(totalIdColumnMap[totalType])} = ${id}`;
 };
 
 const ensureFreshTotal = async (
@@ -356,7 +366,6 @@ const ensureFreshTotal = async (
   totalType: TotalType,
   id: string,
 ) => {
-  Log.debug(`> ensuring freshness for ${totalType} - ${id}`);
   const table = getTableName(totalType, timeframe);
   const idColumn = totalIdColumnMap[totalType];
   const [dappTotal] = await sql<
@@ -374,8 +383,6 @@ const ensureFreshTotal = async (
     throw new Error(`> missing dapp total for ${totalType} ${id}`);
   }
 
-  Log.debug(`> current fee total is ${dappTotal.feeTotal}`);
-
   await subtractStaleBaseFees(
     dappToAdressesMap,
     timeframe,
@@ -383,13 +390,6 @@ const ensureFreshTotal = async (
     totalType,
     id,
   );
-
-  const [newTotal] = await sql<{ feeTotal: number }[]>`
-    SELECT fee_total
-    FROM ${sql(table)}
-    WHERE ${sql(totalIdColumnMap[totalType])} = ${id}`;
-
-  Log.debug(`> fee total after stale removal ${newTotal.feeTotal}`);
 };
 
 const ensureFreshTotals = async (totalType: TotalType, id: string) => {
@@ -402,3 +402,154 @@ const ensureFreshTotals = async (totalType: TotalType, id: string) => {
 
 // periodically update all totals to make sure they don't go stale.
 export const updateAllStaleTotals = async () => {};
+
+type DappName = { dapp_id: string; name: string };
+type DappNameMap = Partial<Record<string, string>>;
+let cDappNameMap: DappNameMap | undefined = undefined;
+const getDappNameMap = async (): Promise<DappNameMap> => {
+  if (cDappNameMap !== undefined) {
+    return cDappNameMap;
+  }
+
+  return pipe(
+    readFile("./dapp_names.csv"),
+    T.chain((csv) => readCsv<DappName>(csv)),
+    T.map(A.map(({ dapp_id, name }) => [dapp_id, name])),
+    T.map(Object.fromEntries),
+    T.map((dappNameMap) => {
+      cDappNameMap = dappNameMap;
+      return dappNameMap;
+    }),
+  )();
+};
+
+export const getTopTenFeeBurners = async (
+  timeframe: Timeframe,
+): Promise<BaseFeeBurner[]> => {
+  // const maxHours = timeframeHoursMap[timeframe];
+  // const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
+  //     SELECT base_fees
+  //     FROM base_fees_per_block
+  //     WHERE now() - mined_at >= interval '${sql(String(maxHours))} hours'
+  // `.then((rows) => {
+  //   if (rows.length === 0) {
+  //     Log.warn(
+  //       "tried to determine top fee burners but found no analyzed blocks",
+  //     );
+  //     return [];
+  //   }
+
+  //   return rows.map((row) => row.baseFees);
+  // });
+
+  // const ethTransferBaseFees = pipe(
+  //   baseFeesPerBlock,
+  //   A.map((baseFees) => baseFees.transfers),
+  //   sum,
+  // );
+  // const contractCreationBaseFees = pipe(
+  //   baseFeesPerBlock,
+  //   A.map((baseFees) => baseFees.contract_creation_fees),
+  //   sum,
+  // );
+
+  const tableDapps = getTableName("dapp", timeframe);
+  const tableContracts = getTableName("contract", timeframe);
+
+  const dappBurnerCandidatesRaw = await sql<
+    { dappId: string; feeTotal: number }[]
+  >`
+    SELECT dapp_id, fee_total FROM ${sql(tableDapps)}
+    ORDER BY fee_total DESC
+    LIMIT 10
+  `;
+  Log.debug("> dapp query done");
+
+  const dappNameMap = await getDappNameMap();
+  const missingDappNames: string[] = [];
+  const getDappName = (dappId: string): string => {
+    const dappName = dappNameMap[dappId];
+    if (dappName === undefined) {
+      missingDappNames.push(dappId);
+      return dappId;
+    }
+
+    return dappName;
+  };
+
+  const dappBurnerCandidates: BaseFeeBurner[] = dappBurnerCandidatesRaw.map(
+    ({ dappId, feeTotal }) => ({
+      fees: feeTotal,
+      id: dappId,
+      name: getDappName(dappId),
+      image: undefined,
+    }),
+  );
+
+  const contractBurnerCandidatesRaw = await sql<
+    { contractAddress: string; feeTotal: number }[]
+  >`
+    SELECT contract_address, fee_total FROM ${sql(tableContracts)}
+    ORDER BY fee_total DESC
+    LIMIT 10
+  `;
+  Log.debug("> contract query done");
+  const contractBurnerCandidates: BaseFeeBurner[] =
+    contractBurnerCandidatesRaw.map(({ contractAddress, feeTotal }) => ({
+      fees: feeTotal,
+      id: contractAddress,
+      name: contractAddress,
+      image: undefined,
+    }));
+
+  // const topUseBurnerTotals =
+  fs.appendFile("./missingDappNames.txt", missingDappNames.join("\n"));
+
+  return pipe(
+    [
+      // {
+      //   fees: ethTransferBaseFees,
+      //   id: "eth-transfers",
+      //   image: undefined,
+      //   name: "ETH transfers",
+      // },
+      // {
+      //   fees: contractCreationBaseFees,
+      //   id: "contract-deployments",
+      //   image: undefined,
+      //   name: "Contract deployments",
+      // },
+      ...dappBurnerCandidates,
+      ...contractBurnerCandidates,
+    ],
+    A.sort<BaseFeeBurner>({
+      compare: (first, second) =>
+        first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
+      equals: (first, second) => first.fees === second.fees,
+    }),
+    A.takeLeft(10),
+  );
+};
+
+export const notifyNewLeaderboard = async (): Promise<void> => {
+  const [leaderboard24h, leaderboard7d, leaderboard30d, leaderboardAll] =
+    await Promise.all([
+      getTopTenFeeBurners("24h"),
+      getTopTenFeeBurners("7d"),
+      getTopTenFeeBurners("30d"),
+      getTopTenFeeBurners("all"),
+    ]);
+
+  await sql.notify(
+    "base-fee-updates",
+    JSON.stringify({
+      type: "leaderboard-update",
+      leaderboard24h,
+      leaderboard7d,
+      leaderboard30d,
+      leaderboardAll,
+    }),
+  );
+
+  return;
+};
