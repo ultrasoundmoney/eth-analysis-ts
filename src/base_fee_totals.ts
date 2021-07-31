@@ -1,4 +1,3 @@
-import type { BlockLondon } from "./web3";
 import neatCsv from "neat-csv";
 import type { Options as NeatCsvOptions } from "neat-csv";
 import fs from "fs/promises";
@@ -6,15 +5,17 @@ import T from "fp-ts/lib/Task.js";
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function";
 import { sql } from "./db";
-import type { BlockBaseFees } from "./base_fees.js";
+import type { BlockBaseFees, Timeframe as Timeframe } from "./base_fees.js";
 import { differenceInHours } from "date-fns";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
+import NEA from "fp-ts/lib/NonEmptyArray.js";
+import R from "fp-ts/lib/Record.js";
+import { sum } from "./numbers";
 
 type DappAddress = { dapp_id: string; address: string };
-type DappAddresses = DappAddress[];
-type DappAddressMap = Partial<Record<string, string>>;
-let cDappAddressMap: DappAddressMap | undefined = undefined;
+type AddressToDappMap = Partial<Record<string, string>>;
+let cAddressToDappMap: AddressToDappMap | undefined = undefined;
 
 const readFile =
   (path: string): T.Task<Buffer> =>
@@ -26,34 +27,48 @@ const readCsv =
   () =>
     neatCsv<A>(csv, options);
 
-const buildDappAddressMap = (dappAddresses: DappAddresses) =>
-  pipe(
-    dappAddresses,
-    A.reduce({} as DappAddressMap, (map, { dapp_id, address }) => {
-      map[address] = dapp_id;
-      return map;
-    }),
-  );
-
-const getDappAddressMap = async () => {
-  if (cDappAddressMap !== undefined) {
-    return cDappAddressMap;
+const getAddressToDappMap = async () => {
+  if (cAddressToDappMap !== undefined) {
+    return cAddressToDappMap;
   }
 
-  const dappAddressMap = await pipe(
+  return pipe(
     readFile("./dapp_addresses.csv"),
     T.chain((csv) => readCsv<DappAddress>(csv)),
-    T.map(buildDappAddressMap),
-    T.map((dappAddressMap) => {
-      cDappAddressMap = dappAddressMap;
-      return dappAddressMap;
+    T.map(
+      A.reduce({} as AddressToDappMap, (map, { dapp_id, address }) => {
+        map[address] = dapp_id;
+        return map;
+      }),
+    ),
+    T.map((addressToDappMap) => {
+      cAddressToDappMap = addressToDappMap;
+      return addressToDappMap;
+    }),
+  )();
+};
+
+type DappToAddressesMap = Partial<Record<string, string[]>>;
+let cDappToAddressesMap: DappToAddressesMap | undefined = undefined;
+const getDappToAddressesMap = async () => {
+  if (cDappToAddressesMap !== undefined) {
+    return cDappToAddressesMap;
+  }
+
+  const dappToAddressesMap = await pipe(
+    readFile("./dapp_addresses.csv"),
+    T.chain((csv) => readCsv<DappAddress>(csv)),
+    T.map(NEA.groupBy((dappAddress) => dappAddress.dapp_id)),
+    T.map(R.map(A.map((dappAddress) => dappAddress.address))),
+    T.map((dappToAdressesMap) => {
+      cDappToAddressesMap = dappToAdressesMap;
+      return dappToAdressesMap;
     }),
   )();
 
-  // cache dapp address map.
-  cDappAddressMap = dappAddressMap;
+  cDappToAddressesMap = dappToAddressesMap;
 
-  return dappAddressMap;
+  return dappToAddressesMap;
 };
 
 type AnalyzedBlock = {
@@ -104,7 +119,7 @@ const getTimeframeSegments = (blocks: AnalyzedBlock[]): Segments => {
 };
 
 const groupByDapp = (
-  dappAddressMap: DappAddressMap,
+  dappAddressMap: AddressToDappMap,
   sumsByContract: Record<string, number>,
 ) => {
   const dappSums = new Map();
@@ -126,8 +141,8 @@ const groupByDapp = (
   return { dappSums, contractSums };
 };
 
-export const initDappTotals = async () => {
-  const dappAddressMap = await getDappAddressMap();
+export const calcTotals = async () => {
+  const dappAddressMap = await getAddressToDappMap();
   await sql.begin(async (sql) => {
     await sql`TRUNCATE dapp_24h_totals;`;
     await sql`TRUNCATE dapp_7d_totals;`;
@@ -185,12 +200,12 @@ export const initDappTotals = async () => {
       groupByDapp(dappAddressMap, sumByContractAll);
 
     const writeDappSums = (
-      table: string,
+      timeframe: Timeframe,
       dappSums: Map<string, string>,
       oldestIncludedBlock: number,
     ) =>
       sql`
-      INSERT INTO ${sql(table)}
+      INSERT INTO ${sql(timeframeTableMap[timeframe])}
       ${sql(
         Array.from(dappSums).map(([dappId, feeTotal]) => ({
           dapp_id: dappId,
@@ -198,19 +213,15 @@ export const initDappTotals = async () => {
           fee_total: feeTotal,
           oldest_included_block: oldestIncludedBlock,
         })),
-        "dapp_id",
-        "contract_address",
-        "fee_total",
-        "oldest_included_block",
       )}
     `;
 
     const writeContractSums = (
-      table: string,
+      timeframe: Timeframe,
       contractSums: Map<string, string>,
       oldestIncludedBlock: number,
     ) => sql`
-      INSERT INTO ${sql(table)}
+      INSERT INTO ${sql(timeframeTableMap[timeframe])}
       ${sql(
         Array.from(contractSums).map(([address, feeTotal]) => ({
           dapp_id: null,
@@ -222,51 +233,144 @@ export const initDappTotals = async () => {
     `;
 
     const writeSums = async (
-      table: string,
+      timeframe: Timeframe,
       dappSums: Map<string, string>,
       contractSums: Map<string, string>,
       oldestIncludedBlock: number,
     ) => {
-      await writeDappSums(table, dappSums, oldestIncludedBlock);
-      await writeContractSums(table, contractSums, oldestIncludedBlock);
+      await writeDappSums(timeframe, dappSums, oldestIncludedBlock);
+      await writeContractSums(timeframe, contractSums, oldestIncludedBlock);
     };
 
-    await writeSums(
-      "dapp_24h_totals",
-      dappSums24h,
-      contractSums24h,
-      oldestBlock24h.number,
-    );
-    await writeSums(
-      "dapp_7d_totals",
-      dappSums7d,
-      contractSums7d,
-      oldestBlock7d.number,
-    );
-    await writeSums(
-      "dapp_30d_totals",
-      dappSums30d,
-      contractSums30d,
-      oldestBlock30d.number,
-    );
-    await writeSums(
-      "dapp_totals",
-      dappSumsAll,
-      contractSumsAll,
-      oldestBlockAll.number,
-    );
+    await writeSums("24h", dappSums24h, contractSums24h, oldestBlock24h.number);
+    await writeSums("7d", dappSums7d, contractSums7d, oldestBlock7d.number);
+    await writeSums("30d", dappSums30d, contractSums30d, oldestBlock30d.number);
+    await writeSums("all", dappSumsAll, contractSumsAll, oldestBlockAll.number);
   });
 
   Log.info("> done inserting totals");
 };
 
-export const updateDappTotalsWithFees = async (
-  block: BlockLondon,
-  baseFees: BlockBaseFees,
+const timeframeTableMap: Record<Timeframe, string> = {
+  "24h": "dapp_24h_totals",
+  "7d": "dapp_7d_totals",
+  "30d": "dapp_30d_totals",
+  all: "dapp_totals",
+};
+
+export const updateTotalsWithFees = async (baseFees: BlockBaseFees) => {
+  const dappAddressMap = await getAddressToDappMap();
+
+  const writeTotal = (
+    timeframe: Timeframe,
+    dapp: string,
+    feeTotal: number,
+    idType: DappTotalId,
+  ) => sql`
+    UPDATE ${sql(timeframeTableMap[timeframe])}
+    SET ${sql({ fee_total: feeTotal }, "fee_total")}
+    WHERE ${sql(idType)} = ${dapp}`;
+
+  const writeDappTotals = async (dapp: string, feeTotal: number) => {
+    await writeTotal("24h", dapp, feeTotal, "dapp_id");
+    await writeTotal("7d", dapp, feeTotal, "dapp_id");
+    await writeTotal("30d", dapp, feeTotal, "dapp_id");
+    await writeTotal("all", dapp, feeTotal, "dapp_id");
+  };
+
+  const writeContractTotals = async (address: string, feeTotal: number) => {
+    await writeTotal("24h", address, feeTotal, "contract_address");
+    await writeTotal("7d", address, feeTotal, "contract_address");
+    await writeTotal("30d", address, feeTotal, "contract_address");
+    await writeTotal("all", address, feeTotal, "contract_address");
+  };
+
+  const useBaseFees = Object.entries(baseFees.contract_use_fees);
+  for (const [address, feeTotal] of useBaseFees) {
+    const dapp = dappAddressMap[address];
+    if (dapp) {
+      await writeDappTotals(dapp, feeTotal);
+      await ensureFreshTotals("dapp_id", dapp);
+    } else {
+      await writeContractTotals(address, feeTotal);
+      await ensureFreshTotals("contract_address", address);
+    }
+  }
+};
+
+type DappTotalId = "dapp_id" | "contract_address";
+
+const timeframeHoursMap: Record<Timeframe, number> = {
+  "24h": 24,
+  "7d": 24 * 7,
+  "30d": 24 * 30,
+  all: Number.POSITIVE_INFINITY,
+};
+
+const ensureFreshTotal = async (
+  timeframe: Timeframe,
+  type: DappTotalId,
+  id: string,
 ) => {
-  // load contract address dapp map
-  // if the contract is not in our map add new totals under the contract address
-  //
+  const table = timeframeTableMap[timeframe];
+  const { oldestIncludedBlock, minedAt, baseFees, feeTotal } = await sql<
+    {
+      oldestIncludedBlock: number;
+      minedAt: Date;
+      baseFees: BlockBaseFees;
+      feeTotal: number;
+    }[]
+  >`
+    SELECT oldest_included_block, mined_at, base_fees, fee_total
+    FROM ${sql(table)}
+    JOIN base_fees_per_block ON oldest_included_block = number
+    WHERE ${sql(type)} = ${id}`.then((rows) => rows[0]);
+
+  const dappToAdressesMap = await getDappToAddressesMap();
+  const now = new Date();
+  const oldestBlockHoursAge = differenceInHours(now, minedAt);
+  const maxHourAge = timeframeHoursMap[timeframe];
+  if (oldestBlockHoursAge > maxHourAge) {
+    if (type === "dapp_id") {
+      const contracts = dappToAdressesMap[id];
+      if (contracts === undefined) {
+        throw new Error(
+          "> tried to ensure freshnesh for dapp but no adresses found",
+        );
+      }
+      const staleFees = pipe(
+        contracts,
+        A.map((address) => baseFees.contract_use_fees[address]),
+        sum,
+      );
+
+      await sql`
+        UPDATE ${sql(table)}
+        SET
+          fee_total = ${feeTotal - staleFees},
+          oldest_included_block = ${oldestIncludedBlock + 1}
+        WHERE ${sql(type)} = ${id}
+      `;
+    } else {
+      const staleFees = baseFees.contract_use_fees[id];
+
+      await sql`
+        UPDATE ${sql(table)}
+        SET
+          fee_total = ${feeTotal - staleFees},
+          oldest_included_block = ${oldestIncludedBlock + 1}
+        WHERE ${sql(type)} = ${id}
+      `;
+    }
+  }
+
+  console.log(oldestIncludedBlock, minedAt);
+};
+
+const ensureFreshTotals = async (type: DappTotalId, id: string) => {
+  await ensureFreshTotal("24h", type, id);
+  await ensureFreshTotal("7d", type, id);
+  await ensureFreshTotal("30d", type, id);
 };
 
 // periodically update all totals to make sure they don't go stale.

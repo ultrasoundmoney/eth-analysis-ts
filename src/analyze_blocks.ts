@@ -12,6 +12,7 @@ import { BlockBaseFees } from "./base_fees.js";
 import PQueue from "p-queue";
 import { closeWeb3Ws } from "./web3.js";
 import { delay } from "./delay.js";
+import * as BaseFeeTotals from "./base_fee_totals.js";
 
 // const blockNumberFirstOfJulyMainnet = 12738509;
 // const blockNumberLondonHardFork = 12965000;
@@ -24,7 +25,7 @@ const blockNumberRopstenFirst1559Block = 10499401;
 
 // TODO: update implementation to analyze mainnet after fork block.
 
-const blockAnalysisQueue = new PQueue({ concurrency: 16 });
+const blockAnalysisQueue = new PQueue({ concurrency: 1 });
 
 const analyzeBlock = async (blockNumber: number): Promise<void> => {
   Log.debug(`> analyzing block ${blockNumber}`);
@@ -69,6 +70,9 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
   }
 
   await BaseFees.storeBaseFeesForBlock(block, baseFees);
+  if (process.env.NO_UPDATE_TOTALS === undefined) {
+    BaseFeeTotals.updateTotalsWithFees(baseFees);
+  }
   BaseFees.notifyNewBaseFee(block, baseFees);
 };
 
