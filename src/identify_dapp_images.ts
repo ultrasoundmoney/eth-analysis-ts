@@ -51,28 +51,6 @@ const getBaseFeeBurners = async () => {
 };
 
 let browser: Browser | undefined = undefined;
-// let blockscanPage: Page | undefined = undefined;
-
-// const fetchEtherscanName = async (
-//   address: string,
-// ): Promise<string | undefined> => {
-//   if (browser === undefined) {
-//     browser = await puppeteer.launch();
-//   }
-
-//   if (blockscanPage === undefined) {
-//     blockscanPage = await browser.newPage();
-//   }
-
-//   await blockscanPage.goto(`https://blockscan.com/address/${address}`);
-//   const mEtherscanPublicName = await blockscanPage.$(".badge-secondary");
-
-//   if (mEtherscanPublicName === null) {
-//     return undefined;
-//   }
-
-//   return mEtherscanPublicName.evaluate((e) => e.innerText);
-// };
 
 const fetchEtherscanName = async (
   address: string,
