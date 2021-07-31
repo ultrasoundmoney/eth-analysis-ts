@@ -2,6 +2,10 @@
   "extends": "./node_modules/gts/",
   "rules": {
     "quotes": ["warn", "double", { "avoidEscape": true }],
-    "prettier/prettier": "off"
+    "prettier/prettier": "off",
+    "node/no-unsupported-features/es-builtins": ["error", {
+        "version": ">=16.0.0",
+        "ignores": []
+    }]
   }
 }
