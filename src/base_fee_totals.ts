@@ -570,7 +570,6 @@ export const getTopTenFeeBurners = async (
       image: undefined,
     }));
 
-  // const topUseBurnerTotals =
   fs.appendFile("./missingDappNames.txt", missingDappNames.join("\n"));
 
   return pipe(
