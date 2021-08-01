@@ -269,19 +269,21 @@ export const updateTotalsWithFees = async (
         SET fee_total = t.fee_total + ${useBaseFee}`;
   };
 
-  const writeDappTotals = async (dapp: string, useBaseFee: number) => {
-    await writeTotal("24h", dapp, useBaseFee, "dapp");
-    await writeTotal("7d", dapp, useBaseFee, "dapp");
-    await writeTotal("30d", dapp, useBaseFee, "dapp");
-    await writeTotal("all", dapp, useBaseFee, "dapp");
-  };
+  const writeDappTotals = async (dapp: string, useBaseFee: number) =>
+    Promise.all([
+      writeTotal("24h", dapp, useBaseFee, "dapp"),
+      writeTotal("7d", dapp, useBaseFee, "dapp"),
+      writeTotal("30d", dapp, useBaseFee, "dapp"),
+      writeTotal("all", dapp, useBaseFee, "dapp"),
+    ]);
 
-  const writeContractTotals = async (address: string, useBaseFee: number) => {
-    await writeTotal("24h", address, useBaseFee, "contract");
-    await writeTotal("7d", address, useBaseFee, "contract");
-    await writeTotal("30d", address, useBaseFee, "contract");
-    await writeTotal("all", address, useBaseFee, "contract");
-  };
+  const writeContractTotals = async (address: string, useBaseFee: number) =>
+    Promise.all([
+      writeTotal("24h", address, useBaseFee, "contract"),
+      writeTotal("7d", address, useBaseFee, "contract"),
+      writeTotal("30d", address, useBaseFee, "contract"),
+      writeTotal("all", address, useBaseFee, "contract"),
+    ]);
 
   const useBaseFees = Object.entries(baseFees.contract_use_fees) as [
     string,
@@ -291,12 +293,28 @@ export const updateTotalsWithFees = async (
   for (const [address, useBaseFee] of useBaseFees) {
     const dapp = dappAddressMap[address];
     if (dapp) {
-      await writeDappTotals(dapp, useBaseFee);
-      await ensureFreshTotals("dapp", dapp);
+      await Promise.all([
+        writeDappTotals(dapp, useBaseFee).then(() => {
+          Log.debug(`> added fees for ${dapp} in block ${block.number}`);
+        }),
+        ensureFreshTotals("dapp", dapp).then(() => {
+          Log.debug(
+            `> removed stale fees for ${dapp} in block ${block.number}`,
+          );
+        }),
+      ]);
       // await subtractOldestIncludedBlock("dapp_id", dapp);
     } else {
-      await writeContractTotals(address, useBaseFee);
-      await ensureFreshTotals("contract", address);
+      await Promise.all([
+        writeContractTotals(address, useBaseFee).then(() => {
+          Log.debug(`> added fees for ${address} in block ${block.number}`);
+        }),
+        ensureFreshTotals("contract", address).then(() => {
+          Log.debug(
+            `> removed stale fees for ${address} in block ${block.number}`,
+          );
+        }),
+      ]);
       // await subtractOldestIncludedBlock("contract_address", address);
     }
   }
@@ -395,9 +413,11 @@ const ensureFreshTotal = async (
 const ensureFreshTotals = async (totalType: TotalType, id: string) => {
   const dappToAdressesMap = await getDappToAddressesMap();
 
-  await ensureFreshTotal(dappToAdressesMap, "24h", totalType, id);
-  await ensureFreshTotal(dappToAdressesMap, "7d", totalType, id);
-  await ensureFreshTotal(dappToAdressesMap, "30d", totalType, id);
+  await Promise.all([
+    ensureFreshTotal(dappToAdressesMap, "24h", totalType, id),
+    ensureFreshTotal(dappToAdressesMap, "7d", totalType, id),
+    ensureFreshTotal(dappToAdressesMap, "30d", totalType, id),
+  ]);
 };
 
 // periodically update all totals to make sure they don't go stale.
