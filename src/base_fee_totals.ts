@@ -16,7 +16,10 @@ import * as BaseFees from "./base_fees.js";
 import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
 import { sum } from "./numbers";
+import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
+import Config from "./config.js";
+import { delay } from "./delay";
 
 type DappAddress = { dapp_id: string; address: string };
 type AddressToDappMap = Partial<Record<string, string>>;
@@ -208,6 +211,11 @@ export const calcTotals = async () => {
     const { dappSums: dappSumsAll, contractSums: contractSumsAll } =
       groupByDapp(dappAddressMap, sumByContractAll);
 
+    Log.debug(`> found ${dappSumsAll.size} dapps with accumulated base fees`);
+    Log.debug(
+      `> found ${contractSumsAll.size} unknown contracts with accumulated base fees`,
+    );
+
     const writeSums = async (
       timeframe: Timeframe,
       sums: Map<string, string>,
@@ -244,21 +252,16 @@ export const calcTotals = async () => {
 const getTableName = (totalType: TotalType, timeframe: Timeframe) =>
   `${totalType}_${timeframe}_totals`;
 
-export const updateTotalsWithFees = async (
+const writeTotal = async (
   block: BlockLondon,
-  baseFees: BlockBaseFees,
-) => {
-  const dappAddressMap = await getAddressToDappMap();
-
-  const writeTotal = (
-    timeframe: Timeframe,
-    id: string,
-    useBaseFee: number,
-    totalType: TotalType,
-  ) => {
-    const table = getTableName(totalType, timeframe);
-    const idColumn = totalIdColumnMap[totalType];
-    return sql`
+  timeframe: Timeframe,
+  id: string,
+  useBaseFee: number,
+  totalType: TotalType,
+): Promise<void> => {
+  const table = getTableName(totalType, timeframe);
+  const idColumn = totalIdColumnMap[totalType];
+  await sql`
       INSERT INTO ${sql(table)} AS t (
         ${sql(idColumn)},
         fee_total,
@@ -267,57 +270,74 @@ export const updateTotalsWithFees = async (
       VALUES (${id}, ${useBaseFee}, ${block.number})
       ON CONFLICT (${sql(idColumn)}) DO UPDATE
         SET fee_total = t.fee_total + ${useBaseFee}`;
-  };
+  return undefined;
+};
 
-  const writeDappTotals = async (dapp: string, useBaseFee: number) =>
-    Promise.all([
-      writeTotal("24h", dapp, useBaseFee, "dapp"),
-      writeTotal("7d", dapp, useBaseFee, "dapp"),
-      writeTotal("30d", dapp, useBaseFee, "dapp"),
-      writeTotal("all", dapp, useBaseFee, "dapp"),
-    ]);
+const writeDappTotals = async (
+  block: BlockLondon,
+  dapp: string,
+  useBaseFee: number,
+): Promise<void> =>
+  Promise.all([
+    writeTotal(block, "24h", dapp, useBaseFee, "dapp"),
+    writeTotal(block, "7d", dapp, useBaseFee, "dapp"),
+    writeTotal(block, "30d", dapp, useBaseFee, "dapp"),
+    writeTotal(block, "all", dapp, useBaseFee, "dapp"),
+  ]).then(() => undefined);
 
-  const writeContractTotals = async (address: string, useBaseFee: number) =>
-    Promise.all([
-      writeTotal("24h", address, useBaseFee, "contract"),
-      writeTotal("7d", address, useBaseFee, "contract"),
-      writeTotal("30d", address, useBaseFee, "contract"),
-      writeTotal("all", address, useBaseFee, "contract"),
-    ]);
+const writeContractTotals = async (
+  block: BlockLondon,
+  address: string,
+  useBaseFee: number,
+): Promise<void> =>
+  Promise.all([
+    writeTotal(block, "24h", address, useBaseFee, "contract"),
+    writeTotal(block, "7d", address, useBaseFee, "contract"),
+    writeTotal(block, "30d", address, useBaseFee, "contract"),
+    writeTotal(block, "all", address, useBaseFee, "contract"),
+  ]).then(() => undefined);
 
+const segmentBaseFeeTotalType = (
+  addressToDappMap: AddressToDappMap,
+  baseFees: BlockBaseFees,
+): { dappFees: [string, number][]; unknownDappFees: [string, number][] } => {
   const useBaseFees = Object.entries(baseFees.contract_use_fees) as [
     string,
     number,
   ][];
-  // TODO: handle case of not seen before contract
-  for (const [address, useBaseFee] of useBaseFees) {
-    const dapp = dappAddressMap[address];
-    if (dapp) {
-      await Promise.all([
-        writeDappTotals(dapp, useBaseFee).then(() => {
-          Log.debug(`> added fees for ${dapp} in block ${block.number}`);
-        }),
-        ensureFreshTotals("dapp", dapp).then(() => {
-          Log.debug(
-            `> removed stale fees for ${dapp} in block ${block.number}`,
-          );
-        }),
-      ]);
-      // await subtractOldestIncludedBlock("dapp_id", dapp);
-    } else {
-      await Promise.all([
-        writeContractTotals(address, useBaseFee).then(() => {
-          Log.debug(`> added fees for ${address} in block ${block.number}`);
-        }),
-        ensureFreshTotals("contract", address).then(() => {
-          Log.debug(
-            `> removed stale fees for ${address} in block ${block.number}`,
-          );
-        }),
-      ]);
-      // await subtractOldestIncludedBlock("contract_address", address);
-    }
-  }
+
+  const dappFees = useBaseFees
+    .filter(([address]) => addressToDappMap[address] !== undefined)
+    .map(([address, useBaseFees]): [string, number] => [
+      addressToDappMap[address]!,
+      useBaseFees,
+    ]);
+  const unknownDappFees = useBaseFees.filter(
+    ([address]) => addressToDappMap[address] === undefined,
+  );
+
+  return { dappFees, unknownDappFees };
+};
+
+export const updateTotalsWithFees = async (
+  block: BlockLondon,
+  baseFees: BlockBaseFees,
+) => {
+  const addressToDappMap = await getAddressToDappMap();
+
+  const { dappFees, unknownDappFees } = segmentBaseFeeTotalType(
+    addressToDappMap,
+    baseFees,
+  );
+
+  await Promise.all([
+    ...dappFees.map(([dapp, fee]) => writeDappTotals(block, dapp, fee)),
+    ...unknownDappFees.map(([address, fee]) =>
+      writeContractTotals(block, address, fee),
+    ),
+    ensureFreshTotals("dapp", Object.keys(dappFees)),
+    ensureFreshTotals("contract", Object.keys(unknownDappFees)),
+  ]);
 };
 
 type TotalType = "dapp" | "contract";
@@ -382,46 +402,74 @@ const ensureFreshTotal = async (
   dappToAdressesMap: DappToAddressesMap,
   timeframe: Timeframe,
   totalType: TotalType,
-  id: string,
-) => {
+  ids: string[],
+): Promise<void> => {
   const table = getTableName(totalType, timeframe);
-  const idColumn = totalIdColumnMap[totalType];
-  const [dappTotal] = await sql<
-    {
-      oldestIncludedBlock: number;
-      feeTotal: number;
-    }[]
-  >`
-    SELECT oldest_included_block, fee_total
-    FROM ${sql(table)}
-    JOIN base_fees_per_block ON oldest_included_block = number
-    WHERE ${sql(idColumn)} = ${id}`;
+  if (totalType === "dapp") {
+    const dappTotals = await sql<
+      {
+        dappId: string;
+        oldestIncludedBlock: number;
+      }[]
+    >`
+      SELECT oldest_included_block, dapp_id
+      FROM ${sql(table)}
+      JOIN base_fees_per_block ON oldest_included_block = number
+      WHERE dapp_id = ANY ${sql.array(ids)}`;
 
-  if (dappTotal === undefined) {
-    throw new Error(`> missing dapp total for ${totalType} ${id}`);
+    Log.debug(`> removing stale fees for ${ids.length} dapps`);
+
+    await Promise.all(
+      dappTotals.map((dappTotal) =>
+        subtractStaleBaseFees(
+          dappToAdressesMap,
+          timeframe,
+          dappTotal.oldestIncludedBlock,
+          "dapp",
+          dappTotal.dappId,
+        ),
+      ),
+    );
   }
 
-  await subtractStaleBaseFees(
-    dappToAdressesMap,
-    timeframe,
-    dappTotal.oldestIncludedBlock,
-    totalType,
-    id,
+  const contractTotals = await sql<
+    {
+      contractAddress: string;
+      oldestIncludedBlock: number;
+    }[]
+  >`
+      SELECT oldest_included_block, contract_address
+      FROM ${sql(table)}
+      JOIN base_fees_per_block ON oldest_included_block = number
+      WHERE contract_address = ANY ${sql.array(ids)}`;
+
+  Log.debug(`> removing stale fees for ${ids.length} contracts`);
+
+  await Promise.all(
+    contractTotals.map((contractTotal) =>
+      subtractStaleBaseFees(
+        dappToAdressesMap,
+        timeframe,
+        contractTotal.oldestIncludedBlock,
+        "contract",
+        contractTotal.contractAddress,
+      ),
+    ),
   );
 };
 
-const ensureFreshTotals = async (totalType: TotalType, id: string) => {
+const ensureFreshTotals = async (
+  totalType: TotalType,
+  dappsOrAddresses: string[],
+) => {
   const dappToAdressesMap = await getDappToAddressesMap();
 
   await Promise.all([
-    ensureFreshTotal(dappToAdressesMap, "24h", totalType, id),
-    ensureFreshTotal(dappToAdressesMap, "7d", totalType, id),
-    ensureFreshTotal(dappToAdressesMap, "30d", totalType, id),
+    ensureFreshTotal(dappToAdressesMap, "24h", totalType, dappsOrAddresses),
+    ensureFreshTotal(dappToAdressesMap, "7d", totalType, dappsOrAddresses),
+    ensureFreshTotal(dappToAdressesMap, "30d", totalType, dappsOrAddresses),
   ]);
 };
-
-// periodically update all totals to make sure they don't go stale.
-export const updateAllStaleTotals = async () => {};
 
 type DappName = { dapp_id: string; name: string };
 type DappNameMap = Partial<Record<string, string>>;
@@ -572,4 +620,51 @@ export const notifyNewLeaderboard = async (): Promise<void> => {
   );
 
   return;
+};
+
+export const watchAndAnalyzeBlocks = async () => {
+  Log.info("> starting base fee total analysis");
+  Log.info(`> chain: ${Config.chain}`);
+
+  Log.debug("> calculating base fee totals for all known dapps");
+  await calcTotals();
+  Log.debug("> done calculating fresh base fee totals");
+
+  let latestAnalyzedBlockNumber = await BaseFees.getLatestAnalyzedBlockNumber();
+
+  if (latestAnalyzedBlockNumber === undefined) {
+    throw new Error("> no analyzed blocks, cannot calculate base fee totals");
+  }
+
+  await eth.webSocketOpen;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const latestBlock = await eth.getBlock("latest");
+
+    if (latestBlock.number === latestAnalyzedBlockNumber) {
+      // if we've already updated totals for the latest block, wait 2s and try again.
+      await delay(2000);
+      continue;
+    }
+
+    // Next block to analyze
+    const blockNumber = latestAnalyzedBlockNumber + 1;
+    const block = await eth.getBlock(blockNumber);
+
+    const baseFees = await BaseFees.calcBlockBaseFees(block);
+    const addressToDappMap = await getAddressToDappMap();
+    const { dappFees, unknownDappFees } = segmentBaseFeeTotalType(
+      addressToDappMap,
+      baseFees,
+    );
+
+    await Promise.all([
+      updateTotalsWithFees(block, baseFees),
+      ensureFreshTotals("dapp", Object.keys(dappFees)),
+      ensureFreshTotals("contract", Object.keys(unknownDappFees)),
+    ]);
+
+    latestAnalyzedBlockNumber = latestAnalyzedBlockNumber + 1;
+  }
 };
