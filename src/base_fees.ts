@@ -7,16 +7,17 @@ import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
 import { hexToNumber, sum } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
-import type { BlockLondon } from "./web3.js";
+import { BlockLondon } from "./web3.js";
 import neatCsv from "neat-csv";
 import fs from "fs/promises";
+import * as Transactions from "./transactions.js";
 
 export type BlockBaseFees = {
-  // fees burned for simple transfers.
+  /** fees burned for simple transfers. */
   transfers: number;
-  // fees burned for use of contracts.
+  /** fees burned for use of contracts. */
   contract_use_fees: Partial<Record<string, number>>;
-  // fees burned for the creation of contracts.
+  /** fees burned for the creation of contracts. */
   contract_creation_fees: number;
 };
 
@@ -254,4 +255,34 @@ export const notifyNewBaseFee = async (
   );
 
   return;
+};
+
+export const calcBlockBaseFees = async (
+  block: BlockLondon,
+): Promise<BlockBaseFees> => {
+  Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
+  const txrs = await Transactions.getTxrs1559(block.transactions)();
+
+  const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
+    Transactions.segmentTxrs(txrs);
+
+  const ethTransferFees = pipe(
+    ethTransferTxrs,
+    A.map((txr) => calcTxrBaseFee(block, txr)),
+    sum,
+  );
+
+  const contractCreationFees = pipe(
+    contractCreationTxrs,
+    A.map((txr) => calcTxrBaseFee(block, txr)),
+    sum,
+  );
+
+  const feePerContract = calcBaseFeePerContract(block, contractUseTxrs);
+
+  return {
+    transfers: ethTransferFees,
+    contract_use_fees: feePerContract,
+    contract_creation_fees: contractCreationFees,
+  };
 };

@@ -1,57 +1,21 @@
 import * as BaseFees from "./base_fees.js";
 import * as Log from "./log.js";
-import * as Transactions from "./transactions.js";
 import * as eth from "./web3.js";
 import Config from "./config.js";
 import { sql } from "./db.js";
 import * as DisplayProgress from "./display_progress.js";
-import { sum } from "./numbers.js";
-import A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
-import { BlockBaseFees } from "./base_fees.js";
 import PQueue from "p-queue";
 import { closeWeb3Ws } from "./web3.js";
 import { delay } from "./delay.js";
-import * as BaseFeeTotals from "./base_fee_totals.js";
 
 // TODO: update implementation to analyze mainnet after fork block.
 
-const blockAnalysisQueue = new PQueue({ concurrency: 1 });
+const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 
 const analyzeBlock = async (blockNumber: number): Promise<void> => {
   Log.debug(`> analyzing block ${blockNumber}`);
-
   const block = await eth.getBlock(blockNumber);
-
-  Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
-  const txrs = await Transactions.getTxrs1559(block.transactions)();
-
-  const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
-    Transactions.segmentTxrs(txrs);
-
-  const ethTransferFees = pipe(
-    ethTransferTxrs,
-    A.map((txr) => BaseFees.calcTxrBaseFee(block, txr)),
-    sum,
-  );
-
-  const contractCreationFees = pipe(
-    contractCreationTxrs,
-    A.map((txr) => BaseFees.calcTxrBaseFee(block, txr)),
-    sum,
-  );
-
-  const feePerContract = BaseFees.calcBaseFeePerContract(
-    block,
-    contractUseTxrs,
-  );
-
-  const baseFees: BlockBaseFees = {
-    transfers: ethTransferFees,
-    contract_use_fees: feePerContract,
-    contract_creation_fees: contractCreationFees,
-  };
-
+  const baseFees = await BaseFees.calcBlockBaseFees(block);
   const baseFeesSum = BaseFees.calcBlockBaseFeeSum(baseFees);
 
   Log.debug(`>> fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
@@ -61,11 +25,6 @@ const analyzeBlock = async (blockNumber: number): Promise<void> => {
   }
 
   await BaseFees.storeBaseFeesForBlock(block, baseFees);
-  if (process.env.NO_UPDATE_TOTALS === undefined) {
-    BaseFeeTotals.updateTotalsWithFees(block, baseFees).then(
-      BaseFeeTotals.notifyNewLeaderboard,
-    );
-  }
   BaseFees.notifyNewBaseFee(block, baseFees);
 };
 
@@ -77,11 +36,10 @@ const monthOfBlocksCount = 196364;
 const main = async () => {
   Log.info("> starting gas analysis");
   Log.info(`> chain: ${Config.chain}`);
+  await eth.webSocketOpen;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    await eth.webSocketOpen;
-
     const latestAnalyzedBlockNumber =
       await BaseFees.getLatestAnalyzedBlockNumber();
     const latestBlock = await eth.getBlock("latest");
