@@ -52,28 +52,32 @@ export const storeBaseFeesForBlock = async (
     )
   `.then(() => undefined);
 
-const toBaseFeeUnsafeInsert = ({
+const toBaseFeeInsert = ({
   block,
   baseFees,
 }: {
   block: BlockLondon;
   baseFees: BlockBaseFees;
-}) => `
-  (
-    '${block.hash}',
-    '${String(block.number)}',
-    '${JSON.stringify(baseFees)}',
-    to_timestamp('${getBlockTimestamp(block)}')
-  )`;
+}) => ({
+  hash: block.hash,
+  number: block.number,
+  base_fees: sql.json(baseFees),
+  mined_at: new Date(getBlockTimestamp(block) * 1000),
+});
 
 export const storeBaseFeesForBlocks = async (
   analyzedBlocks: { block: BlockLondon; baseFees: BlockBaseFees }[],
 ): Promise<void> => {
-  await sql.unsafe(`
+  await sql`
     INSERT INTO base_fees_per_block
-      (hash, number, base_fees, mined_at)
-    VALUES ${analyzedBlocks.map(toBaseFeeUnsafeInsert).join(",")}
-  `);
+    ${sql(
+      analyzedBlocks.map(toBaseFeeInsert),
+      "hash",
+      "number",
+      "base_fees",
+      "mined_at",
+    )}
+  `;
 };
 
 // TODO: because we want to analyze mainnet gas use but don't have baseFeePerGas there we pretend gasUsed is baseFeePerGas there.
