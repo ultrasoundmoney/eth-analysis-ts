@@ -171,10 +171,10 @@ export const calcTotals = async () => {
     `;
 
     const timeframeSegments = getTimeframeSegments(blocks);
-    const oldestBlock24h = timeframeSegments.b24h[0];
-    const oldestBlock7d = timeframeSegments.b7d[0];
-    const oldestBlock30d = timeframeSegments.b30d[0];
-    const oldestBlockAll = timeframeSegments.all[0];
+    const [oldestBlock24h] = timeframeSegments.b24h;
+    const [oldestBlock7d] = timeframeSegments.b7d;
+    const [oldestBlock30d] = timeframeSegments.b30d;
+    const [oldestBlockAll] = timeframeSegments.all;
 
     const sumByContract24h = pipe(
       timeframeSegments.b24h,
@@ -236,13 +236,22 @@ export const calcTotals = async () => {
       }
     };
 
-    await writeSums("24h", dappSums24h, oldestBlock24h.number, "dapp");
+    if (oldestBlock24h !== undefined) {
+      await writeSums("24h", dappSums24h, oldestBlock24h.number, "dapp");
+      await writeSums(
+        "24h",
+        contractSums24h,
+        oldestBlock24h.number,
+        "contract",
+      );
+    } else {
+      Log.warn("no oldest block within 24h found! are we 24h behind?");
+    }
     await writeSums("7d", dappSums7d, oldestBlock7d.number, "dapp");
-    await writeSums("30d", dappSums30d, oldestBlock30d.number, "dapp");
-    await writeSums("all", dappSumsAll, oldestBlockAll.number, "dapp");
-    await writeSums("24h", contractSums24h, oldestBlock24h.number, "contract");
     await writeSums("7d", contractSums7d, oldestBlock7d.number, "contract");
+    await writeSums("30d", dappSums30d, oldestBlock30d.number, "dapp");
     await writeSums("30d", contractSums30d, oldestBlock30d.number, "contract");
+    await writeSums("all", dappSumsAll, oldestBlockAll.number, "dapp");
     await writeSums("all", contractSumsAll, oldestBlockAll.number, "contract");
   });
 
