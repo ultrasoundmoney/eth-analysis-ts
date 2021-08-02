@@ -17,6 +17,7 @@ declare module "ws" {
   import { URL } from "url";
   import { ZlibOptions } from "zlib";
 
+  export default WebSocket;
   export const createWebSocketStream = WebSocket.createWebSocketStream;
   export const WebSocketServer = WebSocket.Server;
 
