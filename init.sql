@@ -5,13 +5,6 @@ CREATE TABLE "base_fees_per_block" (
   "mined_at" timestamptz NOT NULL
 );
 
-CREATE TABLE "base_fees_per_block" (
-  "hash" text PRIMARY KEY,
-  "number" int UNIQUE NOT NULL,
-  "base_fees" jsonb NOT NULL,
-  "mined_at" timestamptz NOT NULL
-);
-
 CREATE TABLE "dapp_24h_totals" (
   "dapp_id" text PRIMARY KEY,
   "fee_total" numeric,
