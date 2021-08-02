@@ -3,8 +3,8 @@ import type { Options as NeatCsvOptions } from "neat-csv";
 import fs from "fs/promises";
 import T from "fp-ts/lib/Task.js";
 import A from "fp-ts/lib/Array.js";
-import { flow, pipe } from "fp-ts/lib/function";
-import { sql } from "./db";
+import { flow, pipe } from "fp-ts/lib/function.js";
+import { sql } from "./db.js";
 import type {
   BaseFeeBurner,
   BlockBaseFees,
@@ -15,11 +15,11 @@ import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
 import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
-import { sum } from "./numbers";
+import { sum } from "./numbers.js";
 import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
 import Config from "./config.js";
-import { delay } from "./delay";
+import { delay } from "./delay.js";
 
 type DappAddress = { dapp_id: string; address: string };
 type AddressToDappMap = Partial<Record<string, string>>;
