@@ -653,12 +653,14 @@ export const watchAndAnalyzeBlocks = async () => {
 
     if (latestBlock.number === latestAnalyzedBlockNumber) {
       // if we've already updated totals for the latest block, wait 2s and try again.
+      Log.info("> all totals up to date, waiting 2s to check for new block");
       await delay(2000);
       continue;
     }
 
     // Next block to analyze
     const blockNumber = latestAnalyzedBlockNumber + 1;
+    Log.info(`> analyzing block ${blockNumber} to update fee totals`);
     const block = await eth.getBlock(blockNumber);
 
     const baseFees = await BaseFees.calcBlockBaseFees(block);
