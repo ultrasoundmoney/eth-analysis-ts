@@ -28,10 +28,12 @@ const getBaseFeeBurners = async () => {
     A.map((baseFees) => baseFees.contract_use_fees),
     // We merge Record<address, baseFees>[] here.
     A.reduce({} as Record<string, number>, (agg, contractBaseFeeMap) => {
-      Object.entries(contractBaseFeeMap).forEach(([address, fee]) => {
-        const sum = agg[address] || 0;
-        agg[address] = sum + fee;
-      });
+      Object.entries(contractBaseFeeMap as Record<string, number>).forEach(
+        ([address, fee]) => {
+          const sum = agg[address] || 0;
+          agg[address] = sum + fee;
+        },
+      );
       return agg;
     }),
     Object.entries,
