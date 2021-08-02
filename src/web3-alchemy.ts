@@ -1,4 +1,12 @@
-import { createAlchemyWeb3 } from "@alch/alchemy-web3";
+// import { createAlchemyWeb3 } from "@alch/alchemy-web3";
+const createAlchemyWeb3 = (_: string) => ({
+  eth: {
+    currentProvider: {
+      ws: { disposeSocket: () => undefined },
+      stopHeartbeatAndBackfill: () => undefined,
+    },
+  },
+});
 import Config from "./config.js";
 
 const ropstenUrl =
@@ -26,11 +34,3 @@ export const closeWeb3Ws = () => {
     ).ws.disposeSocket();
   }
 };
-
-(async () => {
-  console.log(
-    await eth.getTransactionReceipt(
-      "0x13bc37171628d19bf73f28a4d44ae8612ab598f972848bdbb410d7ce0f9f6aeb",
-    ),
-  );
-})();
