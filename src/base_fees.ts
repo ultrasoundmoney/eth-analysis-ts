@@ -213,16 +213,21 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
   );
 };
 
-let totalFeesBurned: number | undefined = undefined;
-
+// Ideally callers get a quick answer, for this we need to keep a running total and update block by block. For now we do this in memory with a promise that is initially calculated from an expensive DB query and then updated block by block.
+let totalFeesBurned: Promise<number> | undefined = undefined;
 export const getRealtimeTotalFeesBurned = async (
   latestBlockBaseFees: BlockBaseFees,
 ) => {
   if (totalFeesBurned === undefined) {
-    totalFeesBurned = await getTotalFeesBurned();
+    totalFeesBurned = new Promise((resolve) => {
+      resolve(getTotalFeesBurned());
+    });
+    return totalFeesBurned;
   }
 
-  totalFeesBurned = totalFeesBurned + calcBlockBaseFeeSum(latestBlockBaseFees);
+  totalFeesBurned = Promise.resolve(
+    (await totalFeesBurned) + calcBlockBaseFeeSum(latestBlockBaseFees),
+  );
   return totalFeesBurned;
 };
 

@@ -149,7 +149,7 @@ const groupByDapp = (
   return { dappSums, contractSums };
 };
 
-export const calcTotals = async () => {
+export const calcTotals = async (upToIncludingBlockNumber: number) => {
   const dappAddressMap = await getAddressToDappMap();
   await sql.begin(async (sql) => {
     await sql`TRUNCATE dapp_24h_totals;`;
@@ -167,6 +167,7 @@ export const calcTotals = async () => {
         base_fees,
         mined_at
       FROM base_fees_per_block
+      WHERE number <= ${upToIncludingBlockNumber}
       ORDER BY number ASC
     `;
 
@@ -635,33 +636,41 @@ export const watchAndAnalyzeBlocks = async () => {
   Log.info("> starting base fee total analysis");
   Log.info(`> chain: ${Config.chain}`);
 
-  Log.debug("> calculating base fee totals for all known dapps");
-  await calcTotals();
-  Log.debug("> done calculating fresh base fee totals");
-
-  let latestAnalyzedBlockNumber = await BaseFees.getLatestAnalyzedBlockNumber();
-
-  if (latestAnalyzedBlockNumber === undefined) {
+  // We can only analyze up to the latest base fee analyzed block. So we check continuously to see if more blocks have been analyzed for fees, and thus fee totals need to be updated.
+  const latestBlockNumberAtStart =
+    await BaseFees.getLatestAnalyzedBlockNumber();
+  if (latestBlockNumberAtStart === undefined) {
     throw new Error("> no analyzed blocks, cannot calculate base fee totals");
   }
+
+  Log.debug("> calculating base fee totals for all known dapps");
+  await calcTotals(latestBlockNumberAtStart);
+  Log.debug("> done calculating fresh base fee totals");
+
+  let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
 
   await eth.webSocketOpen;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const latestBlock = await eth.getBlock("latest");
+    const latestAnalyzedBlockNumber =
+      await BaseFees.getLatestAnalyzedBlockNumber();
 
-    if (latestBlock.number === latestAnalyzedBlockNumber) {
-      // if we've already updated totals for the latest block, wait 2s and try again.
+    if (latestAnalyzedBlockNumber === undefined) {
+      throw new Error("> no analyzed blocks, cannot calculate base fee totals");
+    }
+
+    if (nextBlockNumberToAnalyze > latestAnalyzedBlockNumber) {
+      // If we've already updated totals for the latest block, wait 2s and try again.
       Log.info("> all totals up to date, waiting 2s to check for new block");
       await delay(2000);
       continue;
     }
 
-    // Next block to analyze
-    const blockNumber = latestAnalyzedBlockNumber + 1;
-    Log.info(`> analyzing block ${blockNumber} to update fee totals`);
-    const block = await eth.getBlock(blockNumber);
+    Log.info(
+      `> analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
+    );
+    const block = await eth.getBlock(nextBlockNumberToAnalyze);
 
     const baseFees = await BaseFees.calcBlockBaseFees(block);
     const addressToDappMap = await getAddressToDappMap();
@@ -676,6 +685,7 @@ export const watchAndAnalyzeBlocks = async () => {
       ensureFreshTotals("contract", Object.keys(unknownDappFees)),
     ]);
 
-    latestAnalyzedBlockNumber = latestAnalyzedBlockNumber + 1;
+
+    nextBlockNumberToAnalyze = nextBlockNumberToAnalyze + 1;
   }
 };
