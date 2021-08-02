@@ -439,6 +439,7 @@ const ensureFreshTotal = async (
         ),
       ),
     );
+    return;
   }
 
   const contractTotals = await sql<
