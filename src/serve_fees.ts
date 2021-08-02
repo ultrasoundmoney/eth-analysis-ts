@@ -12,49 +12,6 @@ import Config from "./config.js";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
-// const topFeeBurnerCache = new QuickLRU<string, string>({
-//   maxSize: 4,
-//   maxAge: milisFromSeconds(10),
-// });
-
-// const getIsTimeFrame = (raw: unknown): raw is Timeframe =>
-//   raw === "24h" || raw === "7d" || raw === "30d" || raw === "all";
-
-// const handleGetTopBurners: Middleware = async (ctx) => {
-//   const timeframe = ctx.request.query["timeframe"];
-
-//   if (!getIsTimeFrame(timeframe)) {
-//     ctx.status = 400;
-//     ctx.body = {
-//       msg: "missing 'timeframe' query param, one of '24h', '7d', '30d' or 'all'",
-//     };
-//     return;
-//   }
-
-//   // Respond from cache if we can.
-//   const cTopFeeBurners = topFeeBurnerCache.get(timeframe);
-//   if (cTopFeeBurners !== undefined) {
-//     ctx.res.writeHead(200, {
-//       "Cache-Control": "max-age=5, stale-while-revalidate=18",
-//       "Content-Type": "application/json",
-//     });
-//     ctx.res.end(cTopFeeBurners);
-//     return;
-//   }
-
-//   const topTenFeeBurners = await BaseFeeTotals.getTopTenFeeBurners(timeframe);
-
-//   // Cache the response
-//   const topTenFeeBurnersJson = JSON.stringify(topTenFeeBurners);
-//   topFeeBurnerCache.set(timeframe, topTenFeeBurnersJson);
-
-//   ctx.res.writeHead(200, {
-//     "Cache-Control": "max-age=5, stale-while-revalidate=18",
-//     "Content-Type": "application/json",
-//   });
-//   ctx.res.end(topTenFeeBurnersJson);
-// };
-
 const port = process.env.PORT || 8080;
 
 const app = new Koa();
@@ -125,7 +82,6 @@ const router = new Router();
 
 const routeInfix = Config.chain === "ropsten" ? "-ropsten" : "";
 
-// router.get(`/fees${routeInfix}/leaderboard`, handleGetTopBurners);
 router.get(`/fees${routeInfix}/total-burned`, handleGetFeesBurned);
 router.get(`/fees${routeInfix}/burned-per-day`, handleGetFeesBurnedPerDay);
 router.get(`/fees${routeInfix}/eth-price`, handleGetEthPrice);
