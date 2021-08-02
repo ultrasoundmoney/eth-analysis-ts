@@ -215,7 +215,7 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
 
 let totalFeesBurned: number | undefined = undefined;
 
-const getRealtimeTotalFeesBurned = async (
+export const getRealtimeTotalFeesBurned = async (
   latestBlockBaseFees: BlockBaseFees,
 ) => {
   if (totalFeesBurned === undefined) {
@@ -225,13 +225,6 @@ const getRealtimeTotalFeesBurned = async (
   totalFeesBurned = totalFeesBurned + calcBlockBaseFeeSum(latestBlockBaseFees);
   return totalFeesBurned;
 };
-
-// Cache total fees immediately.
-getRealtimeTotalFeesBurned({
-  contract_use_fees: {},
-  contract_creation_fees: 0,
-  transfers: 0,
-});
 
 export const notifyNewBaseFee = async (
   block: BlockLondon,

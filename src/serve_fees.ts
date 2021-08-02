@@ -216,3 +216,10 @@ wss.on("connection", (ws, req) => {
     removeBaseFeeListener(id);
   });
 });
+
+// Cache total fees immediately.
+BaseFees.getRealtimeTotalFeesBurned({
+  contract_use_fees: {},
+  contract_creation_fees: 0,
+  transfers: 0,
+});
