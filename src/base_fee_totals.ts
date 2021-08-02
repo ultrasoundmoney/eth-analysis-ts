@@ -685,6 +685,7 @@ export const watchAndAnalyzeBlocks = async () => {
       ensureFreshTotals("contract", Object.keys(unknownDappFees)),
     ]);
 
+    notifyNewLeaderboard();
 
     nextBlockNumberToAnalyze = nextBlockNumberToAnalyze + 1;
   }
