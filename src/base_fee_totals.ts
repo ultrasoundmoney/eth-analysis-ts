@@ -424,7 +424,7 @@ const ensureFreshTotal = async (
       SELECT oldest_included_block, dapp_id
       FROM ${sql(table)}
       JOIN base_fees_per_block ON oldest_included_block = number
-      WHERE dapp_id = ANY ${sql.array(ids)}`;
+      WHERE dapp_id = ANY (${sql.array(ids)})`;
 
     Log.debug(`> removing stale fees for ${ids.length} dapps`);
 
@@ -450,7 +450,7 @@ const ensureFreshTotal = async (
       SELECT oldest_included_block, contract_address
       FROM ${sql(table)}
       JOIN base_fees_per_block ON oldest_included_block = number
-      WHERE contract_address = ANY ${sql.array(ids)}`;
+      WHERE contract_address = ANY (${sql.array(ids)})`;
 
   Log.debug(`> removing stale fees for ${ids.length} contracts`);
 
