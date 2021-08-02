@@ -43,6 +43,7 @@ const main = async () => {
     const latestAnalyzedBlockNumber =
       await BaseFees.getLatestAnalyzedBlockNumber();
     const latestBlock = await eth.getBlock("latest");
+    Log.debug(`> latest block is ${latestBlock.number}`);
 
     const backstopBlockNumber =
       Config.chain === "ropsten"
