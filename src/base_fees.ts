@@ -250,6 +250,7 @@ export const notifyNewBaseFee = async (
       type: "base-fee-update",
       number: block.number,
       baseFeePerGas: hexToNumber(block.baseFeePerGas),
+      fees: calcBlockBaseFeeSum(latestBlockBaseFees),
       totalFeesBurned,
     }),
   );
