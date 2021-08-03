@@ -3,7 +3,7 @@ import * as eth from "./web3.js";
 import * as Log from "./log.js";
 import { sql } from "./db.js";
 
-BaseFeeTotals.watchAndAnalyzeBlocks()
+BaseFeeTotals.watchAndCalcTotalFees()
   .then(async () => {
     Log.info("> done analyzing blocks for base fee totals");
     eth.closeWeb3Ws();

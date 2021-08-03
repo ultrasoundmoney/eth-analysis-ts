@@ -632,7 +632,7 @@ export const notifyNewLeaderboard = async (): Promise<void> => {
   return;
 };
 
-export const watchAndAnalyzeBlocks = async () => {
+export const watchAndCalcTotalFees = async () => {
   Log.info("> starting base fee total analysis");
   Log.info(`> chain: ${Config.chain}`);
 

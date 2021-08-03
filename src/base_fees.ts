@@ -11,6 +11,11 @@ import { BlockLondon } from "./web3.js";
 import neatCsv from "neat-csv";
 import fs from "fs/promises";
 import * as Transactions from "./transactions.js";
+import * as eth from "./web3.js";
+import Config from "./config.js";
+import { delay } from "./delay.js";
+import * as DisplayProgress from "./display_progress.js";
+import PQueue from "p-queue";
 
 export type BlockBaseFees = {
   /** fees burned for simple transfers. */
@@ -37,7 +42,7 @@ const getBlockTimestamp = (block: BlockLondon): number => {
   return block.timestamp;
 };
 
-export const storeBaseFeesForBlock = async (
+const storeBaseFeesForBlock = async (
   block: BlockLondon,
   baseFees: BlockBaseFees,
 ): Promise<void> =>
@@ -53,39 +58,36 @@ export const storeBaseFeesForBlock = async (
     )
   `.then(() => undefined);
 
-const toBaseFeeInsert = ({
-  block,
-  baseFees,
-}: {
-  block: BlockLondon;
-  baseFees: BlockBaseFees;
-}) => ({
-  hash: block.hash,
-  number: block.number,
-  base_fees: sql.json(baseFees),
-  mined_at: new Date(getBlockTimestamp(block) * 1000),
-});
+// const toBaseFeeInsert = ({
+//   block,
+//   baseFees,
+// }: {
+//   block: BlockLondon;
+//   baseFees: BlockBaseFees;
+// }) => ({
+//   hash: block.hash,
+//   number: block.number,
+//   base_fees: sql.json(baseFees),
+//   mined_at: new Date(getBlockTimestamp(block) * 1000),
+// });
 
-export const storeBaseFeesForBlocks = async (
-  analyzedBlocks: { block: BlockLondon; baseFees: BlockBaseFees }[],
-): Promise<void> => {
-  await sql`
-    INSERT INTO base_fees_per_block
-    ${sql(
-      analyzedBlocks.map(toBaseFeeInsert),
-      "hash",
-      "number",
-      "base_fees",
-      "mined_at",
-    )}
-  `;
-};
+// const storeBaseFeesForBlocks = async (
+//   analyzedBlocks: { block: BlockLondon; baseFees: BlockBaseFees }[],
+// ): Promise<void> => {
+//   await sql`
+//     INSERT INTO base_fees_per_block
+//     ${sql(
+//       analyzedBlocks.map(toBaseFeeInsert),
+//       "hash",
+//       "number",
+//       "base_fees",
+//       "mined_at",
+//     )}
+//   `;
+// };
 
 // TODO: because we want to analyze mainnet gas use but don't have baseFeePerGas there we pretend gasUsed is baseFeePerGas there.
-export const calcTxrBaseFee = (
-  block: BlockLondon,
-  txr: TxRWeb3London,
-): number =>
+const calcTxrBaseFee = (block: BlockLondon, txr: TxRWeb3London): number =>
   typeof block.baseFeePerGas === "string"
     ? pipe(
         block.baseFeePerGas,
@@ -99,7 +101,7 @@ export const calcTxrBaseFee = (
  */
 type ContractBaseFeeMap = Record<string, number>;
 
-export const calcBaseFeePerContract = (
+const calcBaseFeePerContract = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
 ): ContractBaseFeeMap =>
@@ -158,7 +160,7 @@ export const getContractNameMap = async () => {
   return contractNameMap;
 };
 
-export const calcBlockBaseFeeSum = (baseFees: BlockBaseFees): number =>
+const calcBlockBaseFeeSum = (baseFees: BlockBaseFees): number =>
   baseFees.transfers +
   baseFees.contract_creation_fees +
   sum(Object.values(baseFees.contract_use_fees) as number[]);
@@ -283,4 +285,78 @@ export const calcBlockBaseFees = async (
     contract_use_fees: feePerContract,
     contract_creation_fees: contractCreationFees,
   };
+};
+
+const blockAnalysisQueue = new PQueue({ concurrency: 8 });
+
+export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
+  new Array(toAndIncluding - from + 1)
+    .fill(undefined)
+    .map((_, i) => toAndIncluding - i)
+    .reverse();
+
+const calcBaseFeesForBlockNumber = async (
+  blockNumber: number,
+): Promise<void> => {
+  Log.debug(`> analyzing block ${blockNumber}`);
+  const block = await eth.getBlock(blockNumber);
+  const baseFees = await calcBlockBaseFees(block);
+  const baseFeesSum = calcBlockBaseFeeSum(baseFees);
+
+  Log.debug(`>> fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
+
+  if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
+    DisplayProgress.onBlockAnalyzed();
+  }
+
+  await storeBaseFeesForBlock(block, baseFees);
+  notifyNewBaseFee(block, baseFees);
+};
+
+// const blockNumberLondonHardFork = 12965000;
+// first ropsten eip1559 block
+const blockNumberRopstenFirst1559Block = 10499401;
+const monthOfBlocksCount = 196364;
+
+export const watchAndCalcBaseFees = async () => {
+  Log.info("> starting gas analysis");
+  Log.info(`> chain: ${Config.chain}`);
+  await eth.webSocketOpen;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const latestAnalyzedBlockNumber = await getLatestAnalyzedBlockNumber();
+    const latestBlock = await eth.getBlock("latest");
+    Log.debug(`> latest block is ${latestBlock.number}`);
+
+    const backstopBlockNumber =
+      Config.chain === "ropsten"
+        ? blockNumberRopstenFirst1559Block
+        : // TODO: London hardfork block number after London hardfork
+          latestBlock.number - monthOfBlocksCount;
+
+    // Figure out which blocks we'd like to analyze.
+    const latestAnalyzed = latestAnalyzedBlockNumber || backstopBlockNumber;
+
+    const blocksToAnalyze = getBlockRange(latestAnalyzed, latestBlock.number);
+
+    if (Config.env === "dev" && process.env.SHOW_PROGRESS !== undefined) {
+      DisplayProgress.start(blocksToAnalyze.length);
+    }
+
+    if (blocksToAnalyze.length === 0) {
+      Log.debug("> no new blocks to analyze");
+    } else {
+      Log.info(`> ${blocksToAnalyze.length} blocks to analyze`);
+    }
+
+    await blockAnalysisQueue.addAll(
+      blocksToAnalyze.map(
+        (blockNumber) => () => calcBaseFeesForBlockNumber(blockNumber),
+      ),
+    );
+
+    // Wait 1s before checking for new blocks to analyze
+    await delay(2000);
+  }
 };
