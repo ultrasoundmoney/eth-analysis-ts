@@ -183,6 +183,11 @@ const writeSums = async (
 
 export const calcTotals = async (upToIncludingBlockNumber: number) => {
   const dappAddressMap = await getAddressToDappMap();
+
+  Log.debug(
+    `> fetching all base fees per block up to and including: ${upToIncludingBlockNumber}`,
+  );
+
   const blocks = await sql<AnalyzedBlock[]>`
       SELECT
         number,
@@ -192,6 +197,8 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
       WHERE number <= ${upToIncludingBlockNumber}
       ORDER BY number ASC
     `;
+
+  Log.debug("> done fetching all base fees per block");
 
   const timeframeSegments = getTimeframeSegments(blocks);
   const [oldestBlock24h] = timeframeSegments.b24h;
