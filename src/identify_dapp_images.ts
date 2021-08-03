@@ -1,7 +1,6 @@
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function";
 import fs from "fs/promises";
-// eslint-disable-next-line node/no-unpublished-import
 import { parseHTML } from "linkedom";
 import fetch from "node-fetch";
 // eslint-disable-next-line node/no-unpublished-import
@@ -12,6 +11,7 @@ import { BaseFeeBurner, BlockBaseFees } from "./base_fees.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
 import * as Log from "./log.js";
+import * as Contracts from "./contracts.js";
 
 const getBaseFeeBurners = async () => {
   const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
@@ -53,20 +53,6 @@ const getBaseFeeBurners = async () => {
 };
 
 let browser: Browser | undefined = undefined;
-
-const fetchEtherscanName = async (
-  address: string,
-): Promise<string | undefined> => {
-  const html = await fetch(`https://blockscan.com/address/${address}`).then(
-    (res) => res.text(),
-  );
-  const { document } = parseHTML(html);
-  const etherscanPublicName = document.querySelector(".badge-secondary") as {
-    innerText: string;
-  } | null;
-
-  return etherscanPublicName?.innerText;
-};
 
 let googlePage: Page | undefined = undefined;
 const guessOriginFromName = async (name: string): Promise<string> => {
@@ -217,7 +203,7 @@ const identifyContracts = async () => {
     Log.info(
       `> trying to identify ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
     );
-    const name = await fetchEtherscanName(baseFeeBurner.address);
+    const name = await Contracts.fetchEtherscanName(baseFeeBurner.address);
     if (name === undefined) {
       Log.warn(
         `> failed to find etherscan name for ${baseFeeBurner.name} - ${baseFeeBurner.address}`,

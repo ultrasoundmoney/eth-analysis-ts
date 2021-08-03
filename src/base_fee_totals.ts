@@ -536,6 +536,7 @@ export const getTopTenFeeBurners = async (
 
   const tableDapps = getTableName("dapp", timeframe);
   const tableContracts = getTableName("contract", timeframe);
+  const tableContractsSql = sql(tableContracts);
 
   const dappBurnerCandidatesRaw = await sql<
     { dappId: string; feeTotal: number }[]
@@ -568,18 +569,20 @@ export const getTopTenFeeBurners = async (
   );
 
   const contractBurnerCandidatesRaw = await sql<
-    { contractAddress: string; feeTotal: number }[]
+    { contractAddress: string; feeTotal: number; name: string | null }[]
   >`
-    SELECT contract_address, fee_total FROM ${sql(tableContracts)}
+    SELECT contract_address, fee_total, name FROM ${tableContractsSql}
+    JOIN contracts
+      ON ${tableContractsSql}.contract_address = contracts.address
     ORDER BY fee_total DESC
     LIMIT 10
   `;
   Log.debug("> contract query done");
   const contractBurnerCandidates: BaseFeeBurner[] =
-    contractBurnerCandidatesRaw.map(({ contractAddress, feeTotal }) => ({
+    contractBurnerCandidatesRaw.map(({ contractAddress, feeTotal, name }) => ({
       fees: feeTotal,
       id: contractAddress,
-      name: contractAddress,
+      name: name || contractAddress,
       image: undefined,
     }));
 
