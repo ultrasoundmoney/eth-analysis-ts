@@ -170,9 +170,9 @@ const writeSums = async (
     await sql`INSERT INTO ${sql(table)} ${sql(sumsInsertsChunk)}`;
     chunksDone += 1;
     Log.debug(
-      `> done inserting sums chunk ${chunksDone} / ${
-        sumsInserts.length / 1000
-      }`,
+      `> done inserting sums chunk ${chunksDone} / ${Math.ceil(
+        sumsInserts.length / 1000,
+      )}`,
     );
   }
 
