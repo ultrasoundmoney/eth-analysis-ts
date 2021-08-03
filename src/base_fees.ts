@@ -313,10 +313,11 @@ const calcBaseFeesForBlockNumber = async (
   notifyNewBaseFee(block, baseFees);
 };
 
-// const blockNumberLondonHardFork = 12965000;
+const blockNumberLondonHardFork = 12965000;
 // first ropsten eip1559 block
 const blockNumberRopstenFirst1559Block = 10499401;
-const monthOfBlocksCount = 196364;
+// const monthOfBlocksCount = 196364;
+const weekOfBlocksCount = 45818;
 
 export const watchAndCalcBaseFees = async () => {
   Log.info("> starting gas analysis");
@@ -329,11 +330,17 @@ export const watchAndCalcBaseFees = async () => {
     const latestBlock = await eth.getBlock("latest");
     Log.debug(`> latest block is ${latestBlock.number}`);
 
+    const isMainnetWith1559Block =
+      Config.chain === "mainnet" &&
+      latestBlock.number >= blockNumberLondonHardFork;
+
     const backstopBlockNumber =
       Config.chain === "ropsten"
         ? blockNumberRopstenFirst1559Block
-        : // TODO: London hardfork block number after London hardfork
-          latestBlock.number - monthOfBlocksCount;
+        : isMainnetWith1559Block
+        ? blockNumberLondonHardFork
+        : // TODO: remove after London hardfork
+          latestBlock.number - weekOfBlocksCount;
 
     // Figure out which blocks we'd like to analyze.
     const nextToAnalyze =
