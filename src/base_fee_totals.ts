@@ -167,6 +167,10 @@ const writeSums = async (
   for (const sumsInsertsChunk of A.chunksOf(20000)(sumsInserts)) {
     await sql`INSERT INTO ${sql(table)} ${sql(sumsInsertsChunk)}`;
   }
+
+  Log.debug(
+    `> done writing sums for ${totalType} - ${timeframe}, ${sumsInserts.length} written`,
+  );
 };
 
 export const calcTotals = async (upToIncludingBlockNumber: number) => {
