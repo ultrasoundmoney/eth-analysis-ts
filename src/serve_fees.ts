@@ -10,6 +10,8 @@ import debounce from "debounce-fn";
 import * as EthPrice from "./eth_price.js";
 import Config from "./config.js";
 
+Log.info(`> chain: ${Config.chain}`);
+
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
 const port = process.env.PORT || 8080;
