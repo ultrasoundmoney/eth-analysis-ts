@@ -336,9 +336,12 @@ export const watchAndCalcBaseFees = async () => {
           latestBlock.number - monthOfBlocksCount;
 
     // Figure out which blocks we'd like to analyze.
-    const latestAnalyzed = latestAnalyzedBlockNumber || backstopBlockNumber;
+    const nextToAnalyze =
+      latestAnalyzedBlockNumber !== undefined
+        ? latestAnalyzedBlockNumber + 1
+        : backstopBlockNumber;
 
-    const blocksToAnalyze = getBlockRange(latestAnalyzed, latestBlock.number);
+    const blocksToAnalyze = getBlockRange(nextToAnalyze, latestBlock.number);
 
     if (Config.env === "dev" && process.env.SHOW_PROGRESS !== undefined) {
       DisplayProgress.start(blocksToAnalyze.length);
