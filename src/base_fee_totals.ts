@@ -624,7 +624,9 @@ export const getTopTenFeeBurners = async (
   );
 };
 
-export const notifyNewLeaderboard = async (): Promise<void> => {
+export const notifyNewLeaderboard = async (
+  block: BlockLondon,
+): Promise<void> => {
   const [leaderboard24h, leaderboard7d, leaderboard30d, leaderboardAll] =
     await Promise.all([
       getTopTenFeeBurners("24h"),
@@ -637,6 +639,7 @@ export const notifyNewLeaderboard = async (): Promise<void> => {
     "base-fee-updates",
     JSON.stringify({
       type: "leaderboard-update",
+      number: block.number,
       leaderboard24h,
       leaderboard7d,
       leaderboard30d,
@@ -721,7 +724,7 @@ export const watchAndCalcTotalFees = async () => {
       ensureFreshTotals("contract", Object.keys(unknownDappFees)),
     ]);
 
-    notifyNewLeaderboard();
+    notifyNewLeaderboard(block);
 
     nextBlockNumberToAnalyze = nextBlockNumberToAnalyze + 1;
   }
