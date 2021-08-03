@@ -183,6 +183,16 @@ const writeSums = async (
 
 export const calcTotals = async (upToIncludingBlockNumber: number) => {
   const dappAddressMap = await getAddressToDappMap();
+  const blocks = await sql<AnalyzedBlock[]>`
+      SELECT
+        number,
+        base_fees,
+        mined_at
+      FROM base_fees_per_block
+      WHERE number <= ${upToIncludingBlockNumber}
+      ORDER BY number ASC
+    `;
+
   await sql.begin(async (sql) => {
     await sql`TRUNCATE dapp_24h_totals;`;
     await sql`TRUNCATE dapp_7d_totals;`;
@@ -192,16 +202,6 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
     await sql`TRUNCATE contract_7d_totals;`;
     await sql`TRUNCATE contract_30d_totals;`;
     await sql`TRUNCATE contract_all_totals;`;
-
-    const blocks = await sql<AnalyzedBlock[]>`
-      SELECT
-        number,
-        base_fees,
-        mined_at
-      FROM base_fees_per_block
-      WHERE number <= ${upToIncludingBlockNumber}
-      ORDER BY number ASC
-    `;
 
     const timeframeSegments = getTimeframeSegments(blocks);
     const [oldestBlock24h] = timeframeSegments.b24h;
