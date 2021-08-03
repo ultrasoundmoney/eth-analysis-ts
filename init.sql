@@ -53,6 +53,11 @@ CREATE TABLE "contract_all_totals" (
   "oldest_included_block" int NOT NULL
 );
 
+CREATE TABLE "contracts" (
+  "address" text PRIMARY KEY,
+  "name" text
+);
+
 ALTER TABLE "dapp_24h_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "base_fees_per_block" ("number");
 
 ALTER TABLE "dapp_30d_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "base_fees_per_block" ("number");
@@ -68,6 +73,14 @@ ALTER TABLE "contract_30d_totals" ADD FOREIGN KEY ("oldest_included_block") REFE
 ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "base_fees_per_block" ("number");
 
 ALTER TABLE "dapp_all_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "base_fees_per_block" ("number");
+
+ALTER TABLE "contract_24h_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
+
+ALTER TABLE "contract_7d_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
+
+ALTER TABLE "contract_30d_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
+
+ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
 CREATE INDEX ON "base_fees_per_block" ("number");
 

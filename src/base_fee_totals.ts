@@ -149,6 +149,26 @@ const groupByDapp = (
   return { dappSums, contractSums };
 };
 
+const writeSums = async (
+  timeframe: Timeframe,
+  sums: Map<string, string>,
+  oldestIncludedBlock: number,
+  totalType: TotalType,
+) => {
+  const table = getTableName(totalType, timeframe);
+  const idColumn = totalIdColumnMap[totalType];
+  const sumsInserts = Array.from(sums).map(([id, feeTotal]) => ({
+    [idColumn]: id,
+    fee_total: feeTotal,
+    oldest_included_block: oldestIncludedBlock,
+  }));
+
+  // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
+  for (const sumsInsertsChunk of A.chunksOf(20000)(sumsInserts)) {
+    await sql`INSERT INTO ${sql(table)} ${sql(sumsInsertsChunk)}`;
+  }
+};
+
 export const calcTotals = async (upToIncludingBlockNumber: number) => {
   const dappAddressMap = await getAddressToDappMap();
   await sql.begin(async (sql) => {
@@ -217,25 +237,7 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
       `> found ${contractSumsAll.size} unknown contracts with accumulated base fees`,
     );
 
-    const writeSums = async (
-      timeframe: Timeframe,
-      sums: Map<string, string>,
-      oldestIncludedBlock: number,
-      totalType: TotalType,
-    ) => {
-      const table = getTableName(totalType, timeframe);
-      const idColumn = totalIdColumnMap[totalType];
-      const sumsInserts = Array.from(sums).map(([id, feeTotal]) => ({
-        [idColumn]: id,
-        fee_total: feeTotal,
-        oldest_included_block: oldestIncludedBlock,
-      }));
-
-      // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
-      for (const sumsInsertsChunk of A.chunksOf(20000)(sumsInserts)) {
-        await sql`INSERT INTO ${sql(table)} ${sql(sumsInsertsChunk)}`;
-      }
-    };
+    await ensureContractAddressKnown(Object.keys(sumByContractAll));
 
     if (oldestBlock24h !== undefined) {
       await writeSums("24h", dappSums24h, oldestBlock24h.number, "dapp");
@@ -632,6 +634,23 @@ export const notifyNewLeaderboard = async (): Promise<void> => {
   return;
 };
 
+const ensureContractAddressKnown = async (addresses: string[]) => {
+  Log.debug("> ensuring contract addresses are known");
+  // Our sql lib thinks we want to insert a string instead of a new row if we don't wrap in object.
+  const insertableAddresses = addresses.map((address) => ({ address }));
+
+  // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
+  for (const addressChunk of A.chunksOf(20000)(insertableAddresses)) {
+    await sql<{}[]>`
+      INSERT INTO contracts
+      ${sql(addressChunk, "address")}
+      ON CONFLICT DO NOTHING`;
+  }
+  Log.debug(
+    `> done ensuring contract addresses are known for ${addresses.length} addresses`,
+  );
+};
+
 export const watchAndCalcTotalFees = async () => {
   Log.info("> starting base fee total analysis");
   Log.info(`> chain: ${Config.chain}`);
@@ -678,6 +697,10 @@ export const watchAndCalcTotalFees = async () => {
       addressToDappMap,
       baseFees,
     );
+
+    const unknownDappAddresses = unknownDappFees.map(([address]) => address);
+
+    await ensureContractAddressKnown(unknownDappAddresses);
 
     await Promise.all([
       updateTotalsWithFees(block, baseFees),
