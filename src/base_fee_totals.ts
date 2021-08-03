@@ -163,9 +163,17 @@ const writeSums = async (
     oldest_included_block: oldestIncludedBlock,
   }));
 
+  let chunksDone = 0;
+
   // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
-  for (const sumsInsertsChunk of A.chunksOf(20000)(sumsInserts)) {
+  for (const sumsInsertsChunk of A.chunksOf(1000)(sumsInserts)) {
     await sql`INSERT INTO ${sql(table)} ${sql(sumsInsertsChunk)}`;
+    chunksDone += 1;
+    Log.debug(
+      `> done inserting sums chunk ${chunksDone} / ${
+        sumsInserts.length / 1000
+      }`,
+    );
   }
 
   Log.debug(
