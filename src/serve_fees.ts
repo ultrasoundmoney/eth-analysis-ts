@@ -10,7 +10,7 @@ import debounce from "debounce-fn";
 import * as EthPrice from "./eth_price.js";
 import Config from "./config.js";
 import * as A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function";
+import { pipe } from "fp-ts/lib/function.js";
 
 Log.info(`> chain: ${Config.chain}`);
 
