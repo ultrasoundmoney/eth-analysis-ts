@@ -9,6 +9,8 @@ import { sql } from "./db.js";
 import debounce from "debounce-fn";
 import * as EthPrice from "./eth_price.js";
 import Config from "./config.js";
+import * as A from "fp-ts/lib/Array.js";
+import { pipe } from "fp-ts/lib/function";
 
 Log.info(`> chain: ${Config.chain}`);
 
@@ -120,7 +122,7 @@ const removeBaseFeeListener = (id: string) => {
   baseFeeListeners.delete(id);
 };
 
-let lastFeeUpdate: string | undefined = undefined;
+let lastFeeUpdate: string[] = [];
 let lastLeaderboardUpdate: string | undefined = undefined;
 
 const onBaseFeeUpdate = (payload: string | undefined) => {
@@ -141,7 +143,10 @@ const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
 
 sql.listen("base-fee-updates", (payload) => {
   if (JSON.parse(payload!).type === "base-fee-update") {
-    lastFeeUpdate = payload;
+    lastFeeUpdate.push(payload!);
+    if (lastFeeUpdate.length > 5) {
+      lastFeeUpdate = pipe(lastFeeUpdate, A.takeRight(5));
+    }
   }
   if (JSON.parse(payload!).type === "leaderboard-update") {
     lastLeaderboardUpdate = payload;
@@ -162,9 +167,7 @@ wss.on("connection", (ws, req) => {
   addBaseFeeListener(id, (payload) => ws.send(payload));
 
   // To make sure clients immediately have the last known state we send it on connect.
-  if (typeof lastFeeUpdate === "string") {
-    ws.send(lastFeeUpdate);
-  }
+  lastFeeUpdate.forEach((blockUpdatePayload) => ws.send(blockUpdatePayload));
 
   if (typeof lastLeaderboardUpdate === "string") {
     ws.send(lastLeaderboardUpdate);
