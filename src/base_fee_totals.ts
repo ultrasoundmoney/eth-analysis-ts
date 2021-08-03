@@ -193,82 +193,80 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
       ORDER BY number ASC
     `;
 
-  await sql.begin(async (sql) => {
+  const timeframeSegments = getTimeframeSegments(blocks);
+  const [oldestBlock24h] = timeframeSegments.b24h;
+  const [oldestBlock7d] = timeframeSegments.b7d;
+  const [oldestBlock30d] = timeframeSegments.b30d;
+  const [oldestBlockAll] = timeframeSegments.all;
+
+  const sumByContract24h = pipe(
+    timeframeSegments.b24h,
+    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
+    BaseFees.sumFeeMaps,
+  );
+  const sumByContract7d = pipe(
+    timeframeSegments.b7d,
+    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
+    BaseFees.sumFeeMaps,
+  );
+  const sumByContract30d = pipe(
+    timeframeSegments.b30d,
+    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
+    BaseFees.sumFeeMaps,
+  );
+  const sumByContractAll = pipe(
+    timeframeSegments.all,
+    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
+    BaseFees.sumFeeMaps,
+  );
+
+  const { dappSums: dappSums24h, contractSums: contractSums24h } = groupByDapp(
+    dappAddressMap,
+    sumByContract24h,
+  );
+
+  const { dappSums: dappSums7d, contractSums: contractSums7d } = groupByDapp(
+    dappAddressMap,
+    sumByContract7d,
+  );
+
+  const { dappSums: dappSums30d, contractSums: contractSums30d } = groupByDapp(
+    dappAddressMap,
+    sumByContract30d,
+  );
+
+  const { dappSums: dappSumsAll, contractSums: contractSumsAll } = groupByDapp(
+    dappAddressMap,
+    sumByContractAll,
+  );
+
+  Log.debug(`> found ${dappSumsAll.size} dapps with accumulated base fees`);
+  Log.debug(
+    `> found ${contractSumsAll.size} unknown contracts with accumulated base fees`,
+  );
+
+  await ensureContractAddressKnown(Object.keys(sumByContractAll));
+
+  if (oldestBlock24h !== undefined) {
     await sql`TRUNCATE dapp_24h_totals;`;
-    await sql`TRUNCATE dapp_7d_totals;`;
-    await sql`TRUNCATE dapp_30d_totals;`;
-    await sql`TRUNCATE dapp_all_totals;`;
     await sql`TRUNCATE contract_24h_totals;`;
-    await sql`TRUNCATE contract_7d_totals;`;
-    await sql`TRUNCATE contract_30d_totals;`;
-    await sql`TRUNCATE contract_all_totals;`;
-
-    const timeframeSegments = getTimeframeSegments(blocks);
-    const [oldestBlock24h] = timeframeSegments.b24h;
-    const [oldestBlock7d] = timeframeSegments.b7d;
-    const [oldestBlock30d] = timeframeSegments.b30d;
-    const [oldestBlockAll] = timeframeSegments.all;
-
-    const sumByContract24h = pipe(
-      timeframeSegments.b24h,
-      A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-      BaseFees.sumFeeMaps,
-    );
-    const sumByContract7d = pipe(
-      timeframeSegments.b7d,
-      A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-      BaseFees.sumFeeMaps,
-    );
-    const sumByContract30d = pipe(
-      timeframeSegments.b30d,
-      A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-      BaseFees.sumFeeMaps,
-    );
-    const sumByContractAll = pipe(
-      timeframeSegments.all,
-      A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-      BaseFees.sumFeeMaps,
-    );
-
-    const { dappSums: dappSums24h, contractSums: contractSums24h } =
-      groupByDapp(dappAddressMap, sumByContract24h);
-
-    const { dappSums: dappSums7d, contractSums: contractSums7d } = groupByDapp(
-      dappAddressMap,
-      sumByContract7d,
-    );
-
-    const { dappSums: dappSums30d, contractSums: contractSums30d } =
-      groupByDapp(dappAddressMap, sumByContract30d);
-
-    const { dappSums: dappSumsAll, contractSums: contractSumsAll } =
-      groupByDapp(dappAddressMap, sumByContractAll);
-
-    Log.debug(`> found ${dappSumsAll.size} dapps with accumulated base fees`);
-    Log.debug(
-      `> found ${contractSumsAll.size} unknown contracts with accumulated base fees`,
-    );
-
-    await ensureContractAddressKnown(Object.keys(sumByContractAll));
-
-    if (oldestBlock24h !== undefined) {
-      await writeSums("24h", dappSums24h, oldestBlock24h.number, "dapp");
-      await writeSums(
-        "24h",
-        contractSums24h,
-        oldestBlock24h.number,
-        "contract",
-      );
-    } else {
-      Log.warn("no oldest block within 24h found! are we 24h behind?");
-    }
-    await writeSums("7d", dappSums7d, oldestBlock7d.number, "dapp");
-    await writeSums("7d", contractSums7d, oldestBlock7d.number, "contract");
-    await writeSums("30d", dappSums30d, oldestBlock30d.number, "dapp");
-    await writeSums("30d", contractSums30d, oldestBlock30d.number, "contract");
-    await writeSums("all", dappSumsAll, oldestBlockAll.number, "dapp");
-    await writeSums("all", contractSumsAll, oldestBlockAll.number, "contract");
-  });
+    await writeSums("24h", dappSums24h, oldestBlock24h.number, "dapp");
+    await writeSums("24h", contractSums24h, oldestBlock24h.number, "contract");
+  } else {
+    Log.warn("no oldest block within 24h found! are we 24h behind?");
+  }
+  await sql`TRUNCATE dapp_7d_totals;`;
+  await sql`TRUNCATE contract_7d_totals;`;
+  await writeSums("7d", dappSums7d, oldestBlock7d.number, "dapp");
+  await writeSums("7d", contractSums7d, oldestBlock7d.number, "contract");
+  await sql`TRUNCATE dapp_30d_totals;`;
+  await sql`TRUNCATE contract_30d_totals;`;
+  await writeSums("30d", dappSums30d, oldestBlock30d.number, "dapp");
+  await writeSums("30d", contractSums30d, oldestBlock30d.number, "contract");
+  await sql`TRUNCATE dapp_all_totals;`;
+  await sql`TRUNCATE contract_all_totals;`;
+  await writeSums("all", dappSumsAll, oldestBlockAll.number, "dapp");
+  await writeSums("all", contractSumsAll, oldestBlockAll.number, "contract");
 
   Log.info("> done inserting totals");
 };
