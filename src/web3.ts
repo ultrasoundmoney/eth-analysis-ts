@@ -2,7 +2,7 @@ import WebSocket from "ws";
 import Config from "./config.js";
 import { hexToNumber, numberToHex } from "./numbers.js";
 import { TxRWeb3London } from "./transactions.js";
-// eslint-disable-next-line node/no-extraneous-import
+// eslint-disable-next-line node/no-unpublished-import
 import type { Log as LogWeb3 } from "web3-core";
 import { delay } from "./delay.js";
 
