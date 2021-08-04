@@ -33,11 +33,17 @@ const parseChain = (): Chain => {
 type Config = {
   env: Env;
   chain: Chain;
+  localNodeAvailable: boolean;
 };
 
 const config: Config = {
   env: parseEnv(),
   chain: parseChain(),
+  localNodeAvailable: !(
+    process.env.LOCAL_NODE_AVAILABLE === undefined ||
+    process.env.LOCAL_NODE_AVAILABLE === "" ||
+    process.env.LOCAL_NODE_AVAILABLE === "false"
+  ),
 };
 
 export default config;

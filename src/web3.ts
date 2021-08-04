@@ -6,8 +6,12 @@ import { TxRWeb3London } from "./transactions.js";
 import type { Log as LogWeb3 } from "web3-core";
 import { delay } from "./delay.js";
 
-const ropstenNode = "ws://18.220.53.200:8546/";
-const mainnetNode = "ws://3.15.217.72:8546/";
+const ropstenNode = Config.localNodeAvailable
+  ? "ws://localhost:8546/"
+  : "ws://18.220.53.200:8546/";
+const mainnetNode = Config.localNodeAvailable
+  ? "ws://localhost:8546/"
+  : "ws://3.15.217.72:8546/";
 
 const endpoint = Config.chain === "ropsten" ? ropstenNode : mainnetNode;
 const ws = new WebSocket(endpoint);
