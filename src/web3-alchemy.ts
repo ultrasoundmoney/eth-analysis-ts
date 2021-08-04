@@ -6,6 +6,7 @@ const createAlchemyWeb3 = (_: string) => ({
       stopHeartbeatAndBackfill: () => undefined,
     },
   },
+  _,
 });
 import Config from "./config.js";
 
