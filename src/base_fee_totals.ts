@@ -556,12 +556,14 @@ export const getTopTenFeeBurners = async (
   const tableContractsSql = sql(tableContracts);
 
   const dappBurnerCandidatesRaw = await sql<
-    { dappId: string; feeTotal: number }[]
+    { dappId: string; feeTotal: BigInt }[]
   >`
     SELECT dapp_id, fee_total FROM ${sql(tableDapps)}
     ORDER BY fee_total DESC
     LIMIT 10
-  `;
+  `.then((rows) =>
+    rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
+  );
   Log.debug("> dapp query done");
 
   const dappNameMap = await getDappNameMap();
@@ -586,14 +588,16 @@ export const getTopTenFeeBurners = async (
   );
 
   const contractBurnerCandidatesRaw = await sql<
-    { contractAddress: string; feeTotal: number; name: string | null }[]
+    { contractAddress: string; feeTotal: BigInt; name: string | null }[]
   >`
     SELECT contract_address, fee_total, name FROM ${tableContractsSql}
     JOIN contracts
       ON ${tableContractsSql}.contract_address = contracts.address
     ORDER BY fee_total DESC
     LIMIT 10
-  `;
+  `.then((rows) =>
+    rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
+  );
   Log.debug("> contract query done");
   const contractBurnerCandidates: BaseFeeBurner[] =
     contractBurnerCandidatesRaw.map(({ contractAddress, feeTotal, name }) => ({
@@ -686,7 +690,7 @@ export const watchAndCalcTotalFees = async () => {
   }
 
   Log.debug("> calculating base fee totals for all known dapps");
-  await calcTotals(latestBlockNumberAtStart);
+  // await calcTotals(latestBlockNumberAtStart);
   Log.debug("> done calculating fresh base fee totals");
 
   let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
