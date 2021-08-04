@@ -690,7 +690,7 @@ export const watchAndCalcTotalFees = async () => {
   }
 
   Log.debug("> calculating base fee totals for all known dapps");
-  // await calcTotals(latestBlockNumberAtStart);
+  await calcTotals(latestBlockNumberAtStart);
   Log.debug("> done calculating fresh base fee totals");
 
   let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
