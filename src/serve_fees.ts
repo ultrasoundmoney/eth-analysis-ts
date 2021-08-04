@@ -144,7 +144,7 @@ const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
 sql.listen("base-fee-updates", (payload) => {
   if (JSON.parse(payload!).type === "base-fee-update") {
     lastFeeUpdate.push(payload!);
-    if (lastFeeUpdate.length > 5) {
+    if (lastFeeUpdate.length > 7) {
       lastFeeUpdate = pipe(lastFeeUpdate, A.takeRight(5));
     }
   }
