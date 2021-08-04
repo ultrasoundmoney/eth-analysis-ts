@@ -567,22 +567,12 @@ export const getTopTenFeeBurners = async (
   Log.debug("> dapp query done");
 
   const dappNameMap = await getDappNameMap();
-  const missingDappNames: string[] = [];
-  const getDappName = (dappId: string): string => {
-    const dappName = dappNameMap[dappId];
-    if (dappName === undefined) {
-      missingDappNames.push(dappId);
-      return dappId;
-    }
-
-    return dappName;
-  };
 
   const dappBurnerCandidates: BaseFeeBurner[] = dappBurnerCandidatesRaw.map(
     ({ dappId, feeTotal }) => ({
       fees: feeTotal,
       id: dappId,
-      name: getDappName(dappId),
+      name: dappNameMap[dappId] || dappId,
       image: undefined,
     }),
   );
@@ -606,8 +596,6 @@ export const getTopTenFeeBurners = async (
       name: name || contractAddress,
       image: undefined,
     }));
-
-  fs.appendFile("./missingDappNames.txt", missingDappNames.join("\n"));
 
   return pipe(
     [
