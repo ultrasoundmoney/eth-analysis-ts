@@ -1,9 +1,7 @@
 import { differenceInDays } from "date-fns";
-import fs from "fs/promises";
 import { parseHTML } from "linkedom";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
-// eslint-disable-next-line node/no-unpublished-import
 import ProgressBar from "progress";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
