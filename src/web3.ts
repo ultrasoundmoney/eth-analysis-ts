@@ -4,6 +4,7 @@ import { hexToNumber, numberToHex } from "./numbers.js";
 import { TxRWeb3London } from "./transactions.js";
 // eslint-disable-next-line node/no-extraneous-import
 import type { Log as LogWeb3 } from "web3-core";
+import { delay } from "./delay.js";
 
 const ropstenNode = "ws://18.220.53.200:8546/";
 const mainnetNode = "ws://18.219.176.5:8546/";
@@ -183,7 +184,14 @@ export const getTransactionReceipt = async (
 
   // NOTE: Seen in production. Unclear why this would happen. Should we retry? Are some transactions not executed resulting in `null` transaction receipts? Needs investigation.
   if (rawTxr === null) {
-    throw new Error("Transaction Receipt came back as null");
+    // TODO: handle this at the caller
+    await delay(2000);
+    const rawTxr2 = await getTransactionReceipt(hash);
+    if (rawTxr2 === null) {
+      throw new Error("Transaction Receipt came back as null");
+    } else {
+      return rawTxr2;
+    }
   }
 
   return translateTxr(rawTxr);
