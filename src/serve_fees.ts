@@ -6,7 +6,6 @@ import Router from "@koa/router";
 import WebSocket from "ws";
 const { Server: WebSocketServer } = WebSocket;
 import { sql } from "./db.js";
-import debounce from "debounce-fn";
 import * as EthPrice from "./eth_price.js";
 import Config from "./config.js";
 import * as A from "fp-ts/lib/Array.js";
@@ -122,7 +121,7 @@ const removeBaseFeeListener = (id: string) => {
   baseFeeListeners.delete(id);
 };
 
-let lastFeeUpdate: string[] = [];
+let lastFeeUpdates: string[] = [];
 let lastLeaderboardUpdate: string | undefined = undefined;
 
 const onBaseFeeUpdate = (payload: string | undefined) => {
@@ -136,22 +135,22 @@ const onBaseFeeUpdate = (payload: string | undefined) => {
   });
 };
 
-const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
-  wait: 1000,
-  maxWait: 4000,
-});
+// const dOnBaseFeeUpdate = debounce(onBaseFeeUpdate, {
+//   wait: 1000,
+//   maxWait: 4000,
+// });
 
 sql.listen("base-fee-updates", (payload) => {
   if (JSON.parse(payload!).type === "base-fee-update") {
-    lastFeeUpdate.push(payload!);
-    if (lastFeeUpdate.length > 7) {
-      lastFeeUpdate = pipe(lastFeeUpdate, A.takeRight(7));
+    lastFeeUpdates.push(payload!);
+    if (lastFeeUpdates.length > 7) {
+      lastFeeUpdates = pipe(lastFeeUpdates, A.takeRight(7));
     }
   }
   if (JSON.parse(payload!).type === "leaderboard-update") {
     lastLeaderboardUpdate = payload;
   }
-  dOnBaseFeeUpdate(payload);
+  onBaseFeeUpdate(payload);
 });
 
 wss.on("error", (error) => Log.error("> wss error", { error }));
@@ -167,7 +166,7 @@ wss.on("connection", (ws, req) => {
   addBaseFeeListener(id, (payload) => ws.send(payload));
 
   // To make sure clients immediately have the last known state we send it on connect.
-  lastFeeUpdate.forEach((blockUpdatePayload) => ws.send(blockUpdatePayload));
+  lastFeeUpdates.forEach((blockUpdatePayload) => ws.send(blockUpdatePayload));
 
   if (typeof lastLeaderboardUpdate === "string") {
     ws.send(lastLeaderboardUpdate);
