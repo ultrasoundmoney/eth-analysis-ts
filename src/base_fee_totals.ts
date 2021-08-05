@@ -616,8 +616,12 @@ export const getTopTenFeeBurners = async (
     ],
     A.sort<BaseFeeBurner>({
       compare: (first, second) =>
-        first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
-      equals: (first, second) => first.fees === second.fees,
+        Number(first.fees) === Number(second.fees)
+          ? 0
+          : Number(first.fees) > Number(second.fees)
+          ? -1
+          : 1,
+      equals: (first, second) => Number(first.fees) === Number(second.fees),
     }),
     A.takeLeft(10),
   );
