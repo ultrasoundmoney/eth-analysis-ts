@@ -55,7 +55,18 @@ CREATE TABLE "contract_all_totals" (
 
 CREATE TABLE "contracts" (
   "address" text PRIMARY KEY,
-  "name" text
+  "name" text,
+  "last_name_fetch_at" timestamptz,
+  "has_image" boolean,
+  "served_count" integer DEFAULT 0,
+  "is_bot" boolean DEFAULT false,
+  "dapp_id" integer
+);
+
+CREATE TABLE "dapps" (
+  "dapp_id" serial PRIMARY KEY,
+  "name" text,
+  "has_image" boolean
 );
 
 ALTER TABLE "dapp_24h_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "base_fees_per_block" ("number");
@@ -81,6 +92,8 @@ ALTER TABLE "contract_7d_totals" ADD FOREIGN KEY ("contract_address") REFERENCES
 ALTER TABLE "contract_30d_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
 ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
+
+ALTER TABLE "contracts" ADD FOREIGN KEY ("dapp_id") REFERENCES "dapps" ("dapp_id");
 
 CREATE INDEX ON "base_fees_per_block" ("number");
 

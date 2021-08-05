@@ -578,9 +578,14 @@ export const getTopTenFeeBurners = async (
   );
 
   const contractBurnerCandidatesRaw = await sql<
-    { contractAddress: string; feeTotal: BigInt; name: string | null }[]
+    {
+      contractAddress: string;
+      feeTotal: BigInt;
+      name: string | null;
+      isBot: boolean;
+    }[]
   >`
-    SELECT contract_address, fee_total, name FROM ${tableContractsSql}
+    SELECT contract_address, fee_total, name, is_bot FROM ${tableContractsSql}
     JOIN contracts
       ON ${tableContractsSql}.contract_address = contracts.address
     ORDER BY fee_total DESC
@@ -590,12 +595,15 @@ export const getTopTenFeeBurners = async (
   );
   Log.debug("> contract query done");
   const contractBurnerCandidates: BaseFeeBurner[] =
-    contractBurnerCandidatesRaw.map(({ contractAddress, feeTotal, name }) => ({
-      fees: feeTotal,
-      id: contractAddress,
-      name: name || contractAddress,
-      image: undefined,
-    }));
+    contractBurnerCandidatesRaw.map(
+      ({ contractAddress, feeTotal, name, isBot }) => ({
+        fees: feeTotal,
+        id: contractAddress,
+        name: name || contractAddress,
+        image: undefined,
+        isBot,
+      }),
+    );
 
   return pipe(
     [
