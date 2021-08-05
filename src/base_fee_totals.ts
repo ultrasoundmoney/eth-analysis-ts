@@ -18,7 +18,6 @@ import R from "fp-ts/lib/Record.js";
 import { sum } from "./numbers.js";
 import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
-import Config from "./config.js";
 import { delay } from "./delay.js";
 
 type DappAddress = { dapp_id: string; address: string };
@@ -166,12 +165,12 @@ const writeSums = async (
   let chunksDone = 0;
 
   // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
-  for (const sumsInsertsChunk of A.chunksOf(1000)(sumsInserts)) {
+  for (const sumsInsertsChunk of A.chunksOf(10000)(sumsInserts)) {
     await sql`INSERT INTO ${sql(table)} ${sql(sumsInsertsChunk)}`;
     chunksDone += 1;
     Log.debug(
       `> done inserting sums chunk ${chunksDone} / ${Math.ceil(
-        sumsInserts.length / 1000,
+        sumsInserts.length / 10000,
       )}`,
     );
   }
@@ -662,9 +661,19 @@ export const notifyNewLeaderboard = async (
 };
 
 const ensureContractAddressKnown = async (addresses: string[]) => {
-  Log.debug("> ensuring contract addresses are known");
+  const knownAddresses = await sql<
+    { address: string }[]
+  >`SELECT address FROM contracts`;
+  const knownAddressSet = pipe(
+    knownAddresses,
+    A.map(({ address }) => address),
+    (knownAddresses) => new Set(knownAddresses),
+  );
+
   // Our sql lib thinks we want to insert a string instead of a new row if we don't wrap in object.
-  const insertableAddresses = addresses.map((address) => ({ address }));
+  const insertableAddresses = addresses
+    .filter((address) => !knownAddressSet.has(address))
+    .map((address) => ({ address }));
 
   // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
   for (const addressChunk of A.chunksOf(20000)(insertableAddresses)) {
@@ -673,6 +682,7 @@ const ensureContractAddressKnown = async (addresses: string[]) => {
       ${sql(addressChunk, "address")}
       ON CONFLICT DO NOTHING`;
   }
+
   Log.debug(
     `> done ensuring contract addresses are known for ${addresses.length} addresses`,
   );
