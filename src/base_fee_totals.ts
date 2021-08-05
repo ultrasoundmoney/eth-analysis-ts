@@ -680,7 +680,6 @@ const ensureContractAddressKnown = async (addresses: string[]) => {
 
 export const watchAndCalcTotalFees = async () => {
   Log.info("> starting base fee total analysis");
-  Log.info(`> chain: ${Config.chain}`);
 
   // We can only analyze up to the latest base fee analyzed block. So we check continuously to see if more blocks have been analyzed for fees, and thus fee totals need to be updated.
   const latestBlockNumberAtStart =

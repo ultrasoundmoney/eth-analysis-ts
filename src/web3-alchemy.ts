@@ -8,16 +8,11 @@ const createAlchemyWeb3 = (_: string) => ({
   },
   _,
 });
-import Config from "./config.js";
 
-const ropstenUrl =
-  "wss://eth-ropsten.alchemyapi.io/v2/Ocbe7IDoukMM0J2AQ4m92r9s9tG4W60N";
 const mainnetUrl =
   "wss://eth-mainnet.alchemyapi.io/v2/Z6_3CNslo_t0o0yvHs6fel4UqRMo5Ixu";
 
-export const web3 = createAlchemyWeb3(
-  Config.chain === "ropsten" ? ropstenUrl : mainnetUrl,
-);
+export const web3 = createAlchemyWeb3(mainnetUrl);
 
 export const eth = web3.eth;
 export const closeWeb3Ws = () => {

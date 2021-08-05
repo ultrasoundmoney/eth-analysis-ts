@@ -315,12 +315,9 @@ const calcBaseFeesForBlockNumber = async (
 };
 
 const blockNumberLondonHardFork = 12965000;
-// first ropsten eip1559 block
-const blockNumberRopstenFirst1559Block = 10499401;
 
 export const watchAndCalcBaseFees = async () => {
   Log.info("> starting gas analysis");
-  Log.info(`> chain: ${Config.chain}`);
   await eth.webSocketOpen;
 
   // eslint-disable-next-line no-constant-condition
@@ -329,26 +326,11 @@ export const watchAndCalcBaseFees = async () => {
     const latestBlock = await eth.getBlock("latest");
     Log.debug(`> latest block is ${latestBlock.number}`);
 
-    const isMainnetWith1559Block =
-      Config.chain === "mainnet" &&
-      latestBlock.number >= blockNumberLondonHardFork;
-
-    if (!isMainnetWith1559Block) {
-      Log.debug("> not an EIP1559 block, skipping");
-      await delay(4000);
-      continue;
-    }
-
-    const backstopBlockNumber =
-      Config.chain === "ropsten"
-        ? blockNumberRopstenFirst1559Block
-        : blockNumberLondonHardFork;
-
     // Figure out which blocks we'd like to analyze.
     const nextToAnalyze =
       latestAnalyzedBlockNumber !== undefined
         ? latestAnalyzedBlockNumber + 1
-        : backstopBlockNumber;
+        : blockNumberLondonHardFork;
 
     const blocksToAnalyze = getBlockRange(nextToAnalyze, latestBlock.number);
 

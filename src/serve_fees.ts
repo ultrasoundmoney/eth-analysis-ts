@@ -7,11 +7,8 @@ import WebSocket from "ws";
 const { Server: WebSocketServer } = WebSocket;
 import { sql } from "./db.js";
 import * as EthPrice from "./eth_price.js";
-import Config from "./config.js";
 import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
-
-Log.info(`> chain: ${Config.chain}`);
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
@@ -83,11 +80,9 @@ const handleGetEthPrice: Middleware = async (ctx) => {
 
 const router = new Router();
 
-const routeInfix = Config.chain === "ropsten" ? "-ropsten" : "";
-
-router.get(`/fees${routeInfix}/total-burned`, handleGetFeesBurned);
-router.get(`/fees${routeInfix}/burned-per-day`, handleGetFeesBurnedPerDay);
-router.get(`/fees${routeInfix}/eth-price`, handleGetEthPrice);
+router.get("/fees/total-burned", handleGetFeesBurned);
+router.get("/fees/burned-per-day", handleGetFeesBurnedPerDay);
+router.get("/fees/eth-price", handleGetEthPrice);
 
 app.use(router.routes());
 app.use(router.allowedMethods());
@@ -99,7 +94,7 @@ const server = app.listen(port, () => {
 const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (request, socket, head) => {
-  if (request.url === `/fees${routeInfix}/base-fee-feed`) {
+  if (request.url === "/fees/base-fee-feed") {
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit("connection", ws, request);
     });
