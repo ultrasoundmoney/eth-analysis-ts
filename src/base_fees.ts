@@ -334,7 +334,8 @@ export const watchAndCalcBaseFees = async () => {
       latestBlock.number >= blockNumberLondonHardFork;
 
     if (!isMainnetWith1559Block) {
-      await delay(2000);
+      Log.debug("> not an EIP1559 block, skipping");
+      await delay(4000);
       continue;
     }
 
