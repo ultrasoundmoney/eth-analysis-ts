@@ -3,7 +3,7 @@ services:
   db:
     image: postgres:13
     environment:
-      POSTGRES_DB: ropsten
+      POSTGRES_DB: defaultdb
       POSTGRES_PASSWORD: deflationary
       POSTGRES_USER: postgres
     ports:
@@ -23,7 +23,7 @@ services:
     environment:
       ENV: dev
       LOG_LEVEL: debug
-      PGDATABASE: ropsten
+      PGDATABASE: defaultdb
       PGHOST: db
       PGPASSWORD: deflationary
       PGUSER: postgres
