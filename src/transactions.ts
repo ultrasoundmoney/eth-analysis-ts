@@ -19,7 +19,7 @@ const getTxr = async (txHash: string): Promise<TxRWeb3> => {
   // NOTE: Seen in production. Unclear why this would happen. Should we retry? Are some transactions not executed resulting in `null` transaction receipts? Needs investigation.
   if (txr === null) {
     Log.warn(`txr for ${txHash} is null, waiting 2s and trying again`);
-    await delay(2000);
+    await delay(5000);
     const rawTxr2 = await eth.getTransactionReceipt(txHash);
     if (rawTxr2 === null) {
       throw new Error("Transaction Receipt came back as null");
