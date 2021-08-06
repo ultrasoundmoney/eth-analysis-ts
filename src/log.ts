@@ -94,4 +94,4 @@ export const error = (message: string, meta?: Record<string, unknown>) =>
 /**
  * reduce hash to six unique chars easier human reading.
  */
-export const shortenHash = (hash: string): string => `0x${hash.slice(2, 8)}`;
+export const shortenHash = (hash: string): string => hash.slice(0, 8);
