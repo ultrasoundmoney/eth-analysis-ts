@@ -311,7 +311,7 @@ const calcBaseFeesForBlockNumber = async (
   const txrs = await Transactions.getTxrs1559(block.transactions);
   const feeBreakdown = calcBlockBaseFees(block, txrs);
   const tips = calcBlockTips(block, txrs);
-  const baseFeesSum = calcBlockBaseFeeSum(baseFees);
+  const baseFeesSum = calcBlockBaseFeeSum(feeBreakdown);
 
   Log.debug(`  fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
 
