@@ -1,11 +1,9 @@
 import * as eth from "./web3.js";
 // eslint-disable-next-line node/no-unpublished-import
 import type { TransactionReceipt as TxRWeb3 } from "web3-core";
-import { pipe } from "fp-ts/lib/function.js";
-import T from "fp-ts/lib/Task.js";
-import ROA from "fp-ts/lib/ReadonlyArray.js";
-import O from "fp-ts/lib/Option.js";
 import PQueue from "p-queue";
+import * as Log from "./log.js";
+import { delay } from "./delay.js";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
@@ -16,29 +14,35 @@ export type TxRWeb3London = TxRWeb3 & {
 };
 
 // Depending on 'when' you call the next two functions the receipt looks different. We leave it up to the caller to call this function at the right time.
-const getTxr = (txHash: string): T.Task<O.Option<TxRWeb3>> =>
-  pipe(() => eth.getTransactionReceipt(txHash), T.map(O.fromNullable));
+const getTxr = async (txHash: string): Promise<TxRWeb3> => {
+  const txr = await eth.getTransactionReceipt(txHash);
+  // NOTE: Seen in production. Unclear why this would happen. Should we retry? Are some transactions not executed resulting in `null` transaction receipts? Needs investigation.
+  if (txr === null) {
+    Log.warn(`txr for ${txHash} is null, waiting 2s and trying again`);
+    await delay(2000);
+    const rawTxr2 = await eth.getTransactionReceipt(txHash);
+    if (rawTxr2 === null) {
+      throw new Error("Transaction Receipt came back as null");
+    } else {
+      return rawTxr2;
+    }
+  }
 
-const getTxr1559 = (txHash: string): T.Task<O.Option<TxRWeb3London>> =>
-  getTxr(txHash) as T.Task<O.Option<TxRWeb3London>>;
+  return txr;
+};
 
-export const getTxrs = (txHashes: string[]): T.Task<readonly TxRWeb3[]> =>
-  // NOTE: we skip null transactions. See web3 module for details.
-  pipe(txHashes, T.traverseSeqArray(getTxr), T.map(ROA.compact));
+const getTxr1559 = (txHash: string): Promise<TxRWeb3London> =>
+  getTxr(txHash) as Promise<TxRWeb3London>;
+
+export const getTxrs = (txHashes: string[]): Promise<TxRWeb3[]> =>
+  txrsPQ.addAll(txHashes.map((txHash) => () => getTxr(txHash)));
 
 const txrsPQ = new PQueue({
   concurrency: 64,
 });
 
-export const getTxrs1559 = (
-  txHashes: string[],
-): T.Task<readonly TxRWeb3London[]> =>
-  pipe(
-    txHashes,
-    T.traverseArray((txHash) => () => txrsPQ.add(getTxr1559(txHash))),
-    // NOTE: we skip null transactions. See web3 module for details.
-    T.map(ROA.compact),
-  );
+export const getTxrs1559 = (txHashes: string[]): Promise<TxRWeb3London[]> =>
+  txrsPQ.addAll(txHashes.map((txHash) => () => getTxr1559(txHash)));
 
 export type TxrSegments = {
   contractCreationTxrs: TxRWeb3London[];
