@@ -306,9 +306,9 @@ const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 const calcBaseFeesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
-  const transaction = Sentry.startTransaction({
+  const calcBaseFeesTransaction = Sentry.startTransaction({
     op: "calc-base-fees",
-    name: "analyze a block for base fees",
+    name: "calculate block base fees",
   });
   Log.debug(`analyzing block ${blockNumber}`);
   const block = await eth.getBlock(blockNumber);
@@ -325,8 +325,8 @@ const calcBaseFeesForBlockNumber = async (
   }
 
   await storeBaseFeesForBlock(block, feeBreakdown, tips);
-  notifyNewBaseFee(block, feeBreakdown);
-  transaction.finish();
+  await notifyNewBaseFee(block, feeBreakdown);
+  calcBaseFeesTransaction.finish();
 };
 
 export const watchAndCalcBaseFees = async () => {

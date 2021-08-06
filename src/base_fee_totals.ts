@@ -20,6 +20,7 @@ import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
 import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
+import Sentry from "@sentry/node";
 
 type DappAddress = { dapp_id: string; address: string };
 type AddressToDappMap = Partial<Record<string, string>>;
@@ -690,6 +691,10 @@ const ensureContractAddressKnown = async (addresses: string[]) => {
 
 export const watchAndCalcTotalFees = async () => {
   Log.info("starting base fee total analysis");
+  const calcTotalsTransaction = Sentry.startTransaction({
+    op: "calc-totals",
+    name: "calculate totals on start",
+  });
 
   // We can only analyze up to the latest base fee analyzed block. So we check continuously to see if more blocks have been analyzed for fees, and thus fee totals need to be updated.
   const latestBlockNumberAtStart =
@@ -701,6 +706,7 @@ export const watchAndCalcTotalFees = async () => {
   Log.debug("calculating base fee totals for all known dapps");
   await calcTotals(latestBlockNumberAtStart);
   Log.debug("done calculating fresh base fee totals");
+  calcTotalsTransaction.finish();
 
   let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
 
@@ -721,6 +727,11 @@ export const watchAndCalcTotalFees = async () => {
       await delay(2000);
       continue;
     }
+
+    const updateTotalsTransaction = Sentry.startTransaction({
+      name: "update base fee totals for a new block",
+      op: "update-base-fee-totals",
+    });
 
     Log.info(
       `analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
@@ -745,8 +756,10 @@ export const watchAndCalcTotalFees = async () => {
       ensureFreshTotals("contract", Object.keys(unknownDappFees)),
     ]);
 
-    notifyNewLeaderboard(block);
+    await notifyNewLeaderboard(block);
 
     nextBlockNumberToAnalyze = nextBlockNumberToAnalyze + 1;
+
+    updateTotalsTransaction.finish();
   }
 };
