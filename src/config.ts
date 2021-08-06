@@ -12,7 +12,7 @@ const parseEnv = (): Env => {
       return "dev";
     default:
       Log.warn("no ENV in env, defaulting to dev");
-      return "prod";
+      return "dev";
   }
 };
 

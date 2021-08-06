@@ -10,9 +10,11 @@ import { sql } from "./db.js";
 import * as EthPrice from "./eth_price.js";
 import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
+import Config from "./config.js";
 
 Sentry.init({
   dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
+  environment: Config.env,
 });
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
