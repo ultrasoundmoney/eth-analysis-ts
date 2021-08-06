@@ -55,14 +55,14 @@ export const fetchMissingContractNames = async () => {
     SELECT address, last_name_fetch_at FROM contracts
     WHERE contracts.name IS NULL`;
 
-  Log.info(`> found ${namelessContracts.length} contracts without a name`);
+  Log.info(`found ${namelessContracts.length} contracts without a name`);
 
   const contractsToFetch = namelessContracts.filter(
     getContractNameFetchedLongAgo,
   );
 
   Log.info(
-    `> there are ${contractsToFetch.length} contracts we haven't recently attempted to fetch a name for`,
+    `there are ${contractsToFetch.length} contracts we haven't recently attempted to fetch a name for`,
   );
 
   const storeNameFound = (address: string, name: string) => sql`
@@ -80,13 +80,13 @@ export const fetchMissingContractNames = async () => {
 
   const nameFetchIntervalId = setInterval(() => {
     Log.debug(
-      `> names left to fetch for ${contractNameFetchQueue.size} contract addresses`,
+      `names left to fetch for ${contractNameFetchQueue.size} contract addresses`,
     );
   }, 8000);
 
   let bar: ProgressBar | undefined = undefined;
   if (process.env.SHOW_PROGRESS) {
-    bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
+    bar = new ProgressBar("[:bar] :rate/s :percent :etas", {
       total: contractsToFetch.length,
     });
   }

@@ -37,7 +37,7 @@ const getBlockTimestamp = (block: BlockLondon): number => {
   // TODO: remove this if no errors are reported.
   if (typeof block.timestamp !== "number") {
     Log.error(
-      `> block ${block.number} had unexpected timestamp: ${block.timestamp}`,
+      `block ${block.number} had unexpected timestamp: ${block.timestamp}`,
     );
   }
 
@@ -305,15 +305,15 @@ const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 const calcBaseFeesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
-  Log.debug(`> analyzing block ${blockNumber}`);
+  Log.debug(`analyzing block ${blockNumber}`);
   const block = await eth.getBlock(blockNumber);
-  Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
+  Log.debug(`  fetching ${block.transactions.length} transaction receipts`);
   const txrs = await Transactions.getTxrs1559(block.transactions);
   const baseFees = calcBlockBaseFees(block, txrs);
   const tips = calcBlockTips(block, txrs);
   const baseFeesSum = calcBlockBaseFeeSum(baseFees);
 
-  Log.debug(`>> fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
+  Log.debug(`  fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
 
   if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
     DisplayProgress.onBlockAnalyzed();
@@ -324,14 +324,14 @@ const calcBaseFeesForBlockNumber = async (
 };
 
 export const watchAndCalcBaseFees = async () => {
-  Log.info("> starting gas analysis");
+  Log.info("starting gas analysis");
   await eth.webSocketOpen;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const latestAnalyzedBlockNumber = await getLatestAnalyzedBlockNumber();
     const latestBlock = await eth.getBlock("latest");
-    Log.debug(`> latest block is ${latestBlock.number}`);
+    Log.debug(`latest block is ${latestBlock.number}`);
 
     // Figure out which blocks we'd like to analyze.
     const nextToAnalyze =
@@ -349,9 +349,9 @@ export const watchAndCalcBaseFees = async () => {
     }
 
     if (blocksToAnalyze.length === 0) {
-      Log.debug("> no new blocks to analyze");
+      Log.debug("no new blocks to analyze");
     } else {
-      Log.info(`> ${blocksToAnalyze.length} blocks to analyze`);
+      Log.info(`${blocksToAnalyze.length} blocks to analyze`);
     }
 
     await blockAnalysisQueue.addAll(

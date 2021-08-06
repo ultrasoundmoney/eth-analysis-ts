@@ -88,7 +88,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 const server = app.listen(port, () => {
-  Log.info(`> listening on ${port}`);
+  Log.info(`listening on ${port}`);
 });
 
 const wss = new WebSocketServer({ noServer: true });
@@ -148,7 +148,7 @@ sql.listen("base-fee-updates", (payload) => {
   onBaseFeeUpdate(payload);
 });
 
-wss.on("error", (error) => Log.error("> wss error", { error }));
+wss.on("error", (error) => Log.error("wss error", { error }));
 
 wss.on("connection", (ws, req) => {
   const id = req.socket.remoteAddress;
@@ -178,5 +178,5 @@ BaseFees.getRealtimeTotalFeesBurned({
   contract_creation_fees: 0,
   transfers: 0,
 }).then(() => {
-  Log.info("> done initializing total fees cache");
+  Log.info("done initializing total fees cache");
 });

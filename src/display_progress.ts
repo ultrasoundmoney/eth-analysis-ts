@@ -12,7 +12,7 @@ export const start = (blocksToAnalyzeCount: number) => {
     throw new Error("blocks to analyze not known");
   }
 
-  bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
+  bar = new ProgressBar("[:bar] :rate/s :percent :etas", {
     total: blocksToAnalyzeCount,
   });
 

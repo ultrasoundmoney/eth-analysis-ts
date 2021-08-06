@@ -170,14 +170,14 @@ const writeSums = async (
     await sql`INSERT INTO ${sql(table)} ${sql(sumsInsertsChunk)}`;
     chunksDone += 1;
     Log.debug(
-      `> done inserting sums chunk ${chunksDone} / ${Math.ceil(
+      `done inserting sums chunk ${chunksDone} / ${Math.ceil(
         sumsInserts.length / 10000,
       )}`,
     );
   }
 
   Log.debug(
-    `> done writing sums for ${totalType} - ${timeframe}, ${sumsInserts.length} written`,
+    `done writing sums for ${totalType} - ${timeframe}, ${sumsInserts.length} written`,
   );
 };
 
@@ -185,7 +185,7 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
   const dappAddressMap = await getAddressToDappMap();
 
   Log.debug(
-    `> fetching all base fees per block up to and including: ${upToIncludingBlockNumber}`,
+    `fetching all base fees per block up to and including: ${upToIncludingBlockNumber}`,
   );
 
   const blocks = await sql<AnalyzedBlock[]>`
@@ -198,7 +198,7 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
       ORDER BY number ASC
     `;
 
-  Log.debug("> done fetching all base fees per block");
+  Log.debug("done fetching all base fees per block");
 
   const timeframeSegments = getTimeframeSegments(blocks);
   const [oldestBlock24h] = timeframeSegments.b24h;
@@ -247,9 +247,9 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
     sumByContractAll,
   );
 
-  Log.debug(`> found ${dappSumsAll.size} dapps with accumulated base fees`);
+  Log.debug(`found ${dappSumsAll.size} dapps with accumulated base fees`);
   Log.debug(
-    `> found ${contractSumsAll.size} unknown contracts with accumulated base fees`,
+    `found ${contractSumsAll.size} unknown contracts with accumulated base fees`,
   );
 
   await ensureContractAddressKnown(Object.keys(sumByContractAll));
@@ -275,7 +275,7 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
   await writeSums("all", dappSumsAll, oldestBlockAll.number, "dapp");
   await writeSums("all", contractSumsAll, oldestBlockAll.number, "contract");
 
-  Log.info("> done inserting totals");
+  Log.info("done inserting totals");
 };
 
 const getTableName = (totalType: TotalType, timeframe: Timeframe) =>
@@ -399,7 +399,7 @@ const subtractStaleBaseFees = async (
   `;
 
   if (staleBlocks.length === 0) {
-    Log.debug(`> no stale blocks for ${totalType} - ${id}`);
+    Log.debug(`no stale blocks for ${totalType} - ${id}`);
     return;
   }
 
@@ -446,7 +446,7 @@ const ensureFreshTotal = async (
       JOIN base_fees_per_block ON oldest_included_block = number
       WHERE dapp_id = ANY (${sql.array(ids)})`;
 
-    Log.debug(`> removing stale fees for ${ids.length} dapps`);
+    Log.debug(`removing stale fees for ${ids.length} dapps`);
 
     await Promise.all(
       dappTotals.map((dappTotal) =>
@@ -473,7 +473,7 @@ const ensureFreshTotal = async (
       JOIN base_fees_per_block ON oldest_included_block = number
       WHERE contract_address = ANY (${sql.array(ids)})`;
 
-  Log.debug(`> removing stale fees for ${ids.length} contracts`);
+  Log.debug(`removing stale fees for ${ids.length} contracts`);
 
   await Promise.all(
     contractTotals.map((contractTotal) =>
@@ -564,7 +564,7 @@ export const getTopTenFeeBurners = async (
   `.then((rows) =>
     rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
   );
-  Log.debug("> dapp query done");
+  Log.debug("dapp query done");
 
   const dappNameMap = await getDappNameMap();
 
@@ -593,7 +593,7 @@ export const getTopTenFeeBurners = async (
   `.then((rows) =>
     rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
   );
-  Log.debug("> contract query done");
+  Log.debug("contract query done");
   const contractBurnerCandidates: BaseFeeBurner[] =
     contractBurnerCandidatesRaw.map(
       ({ contractAddress, feeTotal, name, isBot }) => ({
@@ -685,23 +685,23 @@ const ensureContractAddressKnown = async (addresses: string[]) => {
   }
 
   Log.debug(
-    `> done ensuring contract addresses are known for ${addresses.length} addresses`,
+    `done ensuring contract addresses are known for ${addresses.length} addresses`,
   );
 };
 
 export const watchAndCalcTotalFees = async () => {
-  Log.info("> starting base fee total analysis");
+  Log.info("starting base fee total analysis");
 
   // We can only analyze up to the latest base fee analyzed block. So we check continuously to see if more blocks have been analyzed for fees, and thus fee totals need to be updated.
   const latestBlockNumberAtStart =
     await BaseFees.getLatestAnalyzedBlockNumber();
   if (latestBlockNumberAtStart === undefined) {
-    throw new Error("> no analyzed blocks, cannot calculate base fee totals");
+    throw new Error("no analyzed blocks, cannot calculate base fee totals");
   }
 
-  Log.debug("> calculating base fee totals for all known dapps");
+  Log.debug("calculating base fee totals for all known dapps");
   await calcTotals(latestBlockNumberAtStart);
-  Log.debug("> done calculating fresh base fee totals");
+  Log.debug("done calculating fresh base fee totals");
 
   let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
 
@@ -713,18 +713,18 @@ export const watchAndCalcTotalFees = async () => {
       await BaseFees.getLatestAnalyzedBlockNumber();
 
     if (latestAnalyzedBlockNumber === undefined) {
-      throw new Error("> no analyzed blocks, cannot calculate base fee totals");
+      throw new Error("no analyzed blocks, cannot calculate base fee totals");
     }
 
     if (nextBlockNumberToAnalyze > latestAnalyzedBlockNumber) {
       // If we've already updated totals for the latest block, wait 2s and try again.
-      Log.info("> all totals up to date, waiting 2s to check for new block");
+      Log.info("all totals up to date, waiting 2s to check for new block");
       await delay(2000);
       continue;
     }
 
     Log.info(
-      `> analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
+      `analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
     );
     const block = await eth.getBlock(nextBlockNumberToAnalyze);
     const txrs = await Transactions.getTxrs1559(block.transactions);

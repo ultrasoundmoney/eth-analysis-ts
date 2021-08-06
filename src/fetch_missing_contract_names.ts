@@ -4,10 +4,10 @@ import { sql } from "./db.js";
 
 Contracts.fetchMissingContractNames()
   .then(async () => {
-    Log.info("> done analyzing gas");
+    Log.info("done analyzing gas");
     await sql.end();
   })
   .catch((error) => {
-    Log.error("> error analyzing gas", { error });
+    Log.error("error analyzing gas", { error });
     throw error;
   });

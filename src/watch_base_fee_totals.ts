@@ -5,11 +5,11 @@ import { sql } from "./db.js";
 
 BaseFeeTotals.watchAndCalcTotalFees()
   .then(async () => {
-    Log.info("> done analyzing blocks for base fee totals");
+    Log.info("done analyzing blocks for base fee totals");
     eth.closeWeb3Ws();
     await sql.end();
   })
   .catch((error) => {
-    Log.error("> error analyzing base fee totals", { error });
+    Log.error("error analyzing base fee totals", { error });
     throw error;
   });

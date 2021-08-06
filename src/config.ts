@@ -11,7 +11,7 @@ const parseEnv = (): Env => {
     case "dev":
       return "dev";
     default:
-      Log.warn("> no ENV in env, defaulting to dev");
+      Log.warn("no ENV in env, defaulting to dev");
       return "prod";
   }
 };

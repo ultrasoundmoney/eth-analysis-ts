@@ -93,7 +93,7 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
   try {
     const mManifestRes = await fetch(`${origin}/manifest.webmanifest`);
     if (mManifestRes.status === 200) {
-      Log.debug("> /manifest.webmanifest found!");
+      Log.debug("/manifest.webmanifest found!");
       try {
         const manifest = await mManifestRes.json();
         const mIcon: { src: string } | undefined = manifest?.icons?.pop();
@@ -101,13 +101,13 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
           return healMaybeUrl(mIcon.src);
         }
       } catch {
-        Log.debug(`> error on manifest json decode for ${origin}`);
+        Log.debug(`error on manifest json decode for ${origin}`);
       }
     }
 
     const mManifest2Res = await fetch(`${origin}/manifest.json`);
     if (mManifest2Res.status === 200) {
-      Log.debug("> /manifest.json found");
+      Log.debug("/manifest.json found");
       try {
         const manifest2 = await mManifest2Res.json();
         const mIcon = manifest2?.icons?.pop();
@@ -115,13 +115,13 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
           return healMaybeUrl(mIcon.src);
         }
       } catch {
-        Log.debug(`> error on manifest json decode for ${origin}`);
+        Log.debug(`error on manifest json decode for ${origin}`);
       }
     }
 
     const mManifest3Res = await fetch(`${origin}/site.webmanifest`);
     if (mManifest3Res.status === 200) {
-      Log.debug("> /manifest.json found");
+      Log.debug("/manifest.json found");
       try {
         const manifest3 = await mManifest3Res.json();
         const mIcon = manifest3?.icons?.pop();
@@ -129,7 +129,7 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
           return healMaybeUrl(mIcon.src);
         }
       } catch {
-        Log.debug(`> error on manifest json decode for ${origin}`);
+        Log.debug(`error on manifest json decode for ${origin}`);
       }
     }
 
@@ -149,7 +149,7 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
     try {
       const res = await findIconPage.goto(`${origin}/manifest.json`);
       if (res.status() === 200) {
-        Log.debug("> found /manifest.json with puppeteer");
+        Log.debug("found /manifest.json with puppeteer");
         try {
           const manifest4 = await res.json();
           const mIcon = manifest4?.icons?.pop();
@@ -157,11 +157,11 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
             return healMaybeUrl(mIcon.src);
           }
         } catch {
-          Log.debug("> error decoding manifest.json found by puppeteer");
+          Log.debug("error decoding manifest.json found by puppeteer");
         }
       }
     } catch {
-      Log.debug("> error navigating to manifest page");
+      Log.debug("error navigating to manifest page");
     }
 
     const html = await fetch(origin).then((res) => res.text());
@@ -171,7 +171,7 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
       document.querySelector(`link[rel="icon"]`) as { href: string } | null;
     if (typeof mIconUrl?.href === "string") {
       // eslint-disable-next-line quotes
-      Log.debug(`> link tag with rel="icon" found!`);
+      Log.debug(`link tag with rel="icon" found!`);
       return healMaybeUrl(mIconUrl.href);
     }
 
@@ -182,11 +182,11 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
       } | null;
     if (typeof mIcon2Url?.href === "string") {
       // eslint-disable-next-line quotes
-      Log.debug(`> link tag with rel="shortcut icon" found!`);
+      Log.debug(`link tag with rel="shortcut icon" found!`);
       return healMaybeUrl(mIcon2Url.href);
     }
   } catch (error) {
-    Log.error("> unexpected error finding icon", error);
+    Log.error("unexpected error finding icon", error);
   }
 
   return undefined;
@@ -194,19 +194,19 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
 
 const identifyContracts = async () => {
   const baseFeeBurners = await getBaseFeeBurners();
-  Log.info(`> ${baseFeeBurners.length} contracts to identify`);
-  Log.info("> limiting to top 1000");
+  Log.info(`${baseFeeBurners.length} contracts to identify`);
+  Log.info("limiting to top 1000");
   for (const baseFeeBurner of baseFeeBurners.slice(0, 1000)) {
     // Woah, slow down cowboy 🤠! Unfortunately we start with a delay as there are continue statements below preventing us from delaying at the end.
     await delay(4000);
 
     Log.info(
-      `> trying to identify ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
+      `trying to identify ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
     );
     const name = await Contracts.fetchEtherscanName(baseFeeBurner.address);
     if (name === undefined) {
       Log.warn(
-        `> failed to find etherscan name for ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
+        `failed to find etherscan name for ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
       );
       continue;
     }
@@ -214,7 +214,7 @@ const identifyContracts = async () => {
     // Better odds guessing the origin without the contract bit. We usually end up on etherscan if we include that.
     const colonIndex = name.indexOf(":");
     const shortname = name.includes(":") ? name.slice(0, colonIndex) : name;
-    Log.debug(`> shortname: ${shortname}`);
+    Log.debug(`shortname: ${shortname}`);
 
     const getImageExists = async () => {
       try {
@@ -247,16 +247,16 @@ const identifyContracts = async () => {
     }
 
     const origin = await guessOriginFromName(shortname);
-    Log.debug(`> origin: ${origin}`);
+    Log.debug(`origin: ${origin}`);
 
     const iconUrl = await findIconUrl(origin);
     if (iconUrl === undefined) {
       Log.warn(
-        `> failed to find icon for ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
+        `failed to find icon for ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
       );
       continue;
     }
-    Log.debug(`> icon: ${iconUrl}`);
+    Log.debug(`icon: ${iconUrl}`);
 
     const iconRes = await fetch(iconUrl);
     if (iconRes.status === 200) {
@@ -265,13 +265,13 @@ const identifyContracts = async () => {
       const imageName = `${shortname
         .toLowerCase()
         .replaceAll(" ", "-")}.${imageExt}`;
-      Log.info(`> found ${imageName}`);
+      Log.info(`found ${imageName}`);
       await fs.writeFile(`dapp_image_guesses/${imageName}`, iconBuffer);
       continue;
     }
 
     Log.warn(
-      `> failed to fetch iconUrl for ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
+      `failed to fetch iconUrl for ${baseFeeBurner.name} - ${baseFeeBurner.address}`,
     );
   }
 

@@ -5,11 +5,11 @@ import * as eth from "./web3.js";
 
 BaseFees.watchAndCalcBaseFees()
   .then(async () => {
-    Log.info("> done analyzing gas");
+    Log.info("done analyzing gas");
     eth.closeWeb3Ws();
     await sql.end();
   })
   .catch((error) => {
-    Log.error("> error analyzing gas", { error });
+    Log.error("error analyzing gas", { error });
     throw error;
   });
