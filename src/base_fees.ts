@@ -5,7 +5,7 @@ import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
 import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
-import { hexToNumber, sum, weiToEth } from "./numbers.js";
+import { hexToNumber, sum } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
 import { BlockLondon } from "./web3.js";
 import neatCsv from "neat-csv";
