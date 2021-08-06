@@ -4,4 +4,7 @@ export const numberToHex = (num: number) => `0x${num.toString(16)}`;
 
 export const weiToEth = (wei: number): number => wei / 10 ** 18;
 
-export const sum = (nums: number[]) => nums.reduce((sum, num) => sum + num, 0);
+export const weiToGwei = (wei: number): number => wei / 10 ** 9;
+
+export const sum = (nums: readonly number[]) =>
+  nums.reduce((sum, num) => sum + num, 0);
