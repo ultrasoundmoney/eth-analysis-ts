@@ -25,9 +25,9 @@ const severityMap = {
 
 const prettySeverityMap: Record<Severity, string> = {
   DEFAULT: "",
-  WARNING: `${kleur.yellow("warn")} -  `,
+  WARNING: `${kleur.yellow("warn")}  - `,
   DEBUG: `${kleur.gray("debug")} - `,
-  INFO: `${kleur.blue("info")} -  `,
+  INFO: `${kleur.blue("info")}  -  `,
   ERROR: `${kleur.red("error")} - `,
 };
 
