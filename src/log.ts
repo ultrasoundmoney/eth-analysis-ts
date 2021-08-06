@@ -11,7 +11,7 @@ const httpTransportOptions = {
 };
 
 const logger = winston.createLogger({
-  level: "info",
+  level: "debug",
   exitOnError: true,
   format: winston.format.json(),
   transports: [new winston.transports.Http(httpTransportOptions)],
