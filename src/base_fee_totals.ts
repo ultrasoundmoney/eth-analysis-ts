@@ -564,7 +564,6 @@ export const getTopTenFeeBurners = async (
   `.then((rows) =>
     rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
   );
-  Log.debug("dapp query done");
 
   const dappNameMap = await getDappNameMap();
 
@@ -593,7 +592,7 @@ export const getTopTenFeeBurners = async (
   `.then((rows) =>
     rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
   );
-  Log.debug("contract query done");
+
   const contractBurnerCandidates: BaseFeeBurner[] =
     contractBurnerCandidatesRaw.map(
       ({ contractAddress, feeTotal, name, isBot }) => ({
