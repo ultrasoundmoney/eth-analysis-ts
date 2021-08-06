@@ -19,6 +19,7 @@ import { sum } from "./numbers.js";
 import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
 import { delay } from "./delay.js";
+import * as Transactions from "./transactions.js";
 
 type DappAddress = { dapp_id: string; address: string };
 type AddressToDappMap = Partial<Record<string, string>>;
@@ -726,8 +727,9 @@ export const watchAndCalcTotalFees = async () => {
       `> analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
     );
     const block = await eth.getBlock(nextBlockNumberToAnalyze);
+    const txrs = await Transactions.getTxrs1559(block.transactions);
 
-    const baseFees = await BaseFees.calcBlockBaseFees(block);
+    const baseFees = BaseFees.calcBlockBaseFees(block, txrs);
     const addressToDappMap = await getAddressToDappMap();
     const { dappFees, unknownDappFees } = segmentBaseFeeTotalType(
       addressToDappMap,

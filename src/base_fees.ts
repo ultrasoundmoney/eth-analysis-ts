@@ -16,6 +16,7 @@ import Config from "./config.js";
 import { delay } from "./delay.js";
 import * as DisplayProgress from "./display_progress.js";
 import PQueue from "p-queue";
+import * as ROA from "fp-ts/lib/ReadonlyArray.js";
 import * as Blocks from "./blocks.js";
 
 export type BlockBaseFees = {
@@ -46,16 +47,18 @@ const getBlockTimestamp = (block: BlockLondon): number => {
 const storeBaseFeesForBlock = async (
   block: BlockLondon,
   baseFees: BlockBaseFees,
+  tips: number,
 ): Promise<void> =>
   sql`
   INSERT INTO base_fees_per_block
-    (hash, number, base_fees, mined_at)
+    (hash, number, base_fees, mined_at, tips)
   VALUES
     (
       ${block.hash},
       ${block.number},
       ${sql.json(baseFees)},
-      to_timestamp(${getBlockTimestamp(block)})
+      to_timestamp(${getBlockTimestamp(block)}),
+      ${tips}
     )
   `.then(() => undefined);
 
@@ -87,15 +90,10 @@ const storeBaseFeesForBlock = async (
 //   `;
 // };
 
-// TODO: because we want to analyze mainnet gas use but don't have baseFeePerGas there we pretend gasUsed is baseFeePerGas there.
-const calcTxrBaseFee = (block: BlockLondon, txr: TxRWeb3London): number =>
-  typeof block.baseFeePerGas === "string"
-    ? pipe(
-        block.baseFeePerGas,
-        hexToNumber,
-        (baseFeePerGasNum) => baseFeePerGasNum * txr.gasUsed,
-      )
-    : txr.gasUsed;
+export const calcTxrBaseFee = (
+  block: BlockLondon,
+  txr: TxRWeb3London,
+): number => hexToNumber(block.baseFeePerGas) * txr.gasUsed;
 
 /**
  * Map of base fees grouped by contract address
@@ -259,12 +257,10 @@ export const notifyNewBaseFee = async (
   return;
 };
 
-export const calcBlockBaseFees = async (
+export const calcBlockBaseFees = (
   block: BlockLondon,
-): Promise<BlockBaseFees> => {
-  Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
-  const txrs = await Transactions.getTxrs1559(block.transactions)();
-
+  txrs: readonly TxRWeb3London[],
+): BlockBaseFees => {
   const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
     Transactions.segmentTxrs(txrs);
 
@@ -289,20 +285,32 @@ export const calcBlockBaseFees = async (
   };
 };
 
-const blockAnalysisQueue = new PQueue({ concurrency: 8 });
+export const calcBlockTips = (
+  block: BlockLondon,
+  txrs: readonly TxRWeb3London[],
+): number => {
+  return pipe(
+    txrs,
+    ROA.map(
+      (txr) =>
+        txr.gasUsed * hexToNumber(txr.effectiveGasPrice) -
+        txr.gasUsed * hexToNumber(block.baseFeePerGas),
+    ),
+    sum,
+  );
+};
 
-export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
-  new Array(toAndIncluding - from + 1)
-    .fill(undefined)
-    .map((_, i) => toAndIncluding - i)
-    .reverse();
+const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 
 const calcBaseFeesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
   Log.debug(`> analyzing block ${blockNumber}`);
   const block = await eth.getBlock(blockNumber);
-  const baseFees = await calcBlockBaseFees(block);
+  Log.debug(`>> fetching ${block.transactions.length} transaction receipts`);
+  const txrs = await Transactions.getTxrs1559(block.transactions);
+  const baseFees = calcBlockBaseFees(block, txrs);
+  const tips = calcBlockTips(block, txrs);
   const baseFeesSum = calcBlockBaseFeeSum(baseFees);
 
   Log.debug(`>> fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
@@ -311,11 +319,9 @@ const calcBaseFeesForBlockNumber = async (
     DisplayProgress.onBlockAnalyzed();
   }
 
-  await storeBaseFeesForBlock(block, baseFees);
+  await storeBaseFeesForBlock(block, baseFees, tips);
   notifyNewBaseFee(block, baseFees);
 };
-
-const blockNumberLondonHardFork = 12965000;
 
 export const watchAndCalcBaseFees = async () => {
   Log.info("> starting gas analysis");
