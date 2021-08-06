@@ -5,7 +5,7 @@ import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
 import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
-import { hexToNumber, sum } from "./numbers.js";
+import { hexToNumber, sum, weiToEth } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
 import { BlockLondon } from "./web3.js";
 import neatCsv from "neat-csv";
@@ -19,7 +19,7 @@ import PQueue from "p-queue";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
 import * as Blocks from "./blocks.js";
 
-export type BlockBaseFees = {
+export type FeeBreakdown = {
   /** fees burned for simple transfers. */
   transfers: number;
   /** fees burned for use of contracts. */
@@ -46,7 +46,7 @@ const getBlockTimestamp = (block: BlockLondon): number => {
 
 const storeBaseFeesForBlock = async (
   block: BlockLondon,
-  baseFees: BlockBaseFees,
+  baseFees: FeeBreakdown,
   tips: number,
 ): Promise<void> =>
   sql`
@@ -159,13 +159,13 @@ export const getContractNameMap = async () => {
   return contractNameMap;
 };
 
-const calcBlockBaseFeeSum = (baseFees: BlockBaseFees): number =>
+const calcBlockBaseFeeSum = (baseFees: FeeBreakdown): number =>
   baseFees.transfers +
   baseFees.contract_creation_fees +
   sum(Object.values(baseFees.contract_use_fees) as number[]);
 
 export const getTotalFeesBurned = async (): Promise<number> => {
-  const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
+  const baseFeesPerBlock = await sql<{ baseFees: FeeBreakdown }[]>`
       SELECT base_fees
       FROM base_fees_per_block
   `.then((rows) => {
@@ -182,7 +182,7 @@ export const getTotalFeesBurned = async (): Promise<number> => {
 export type FeesBurnedPerDay = Record<string, number>;
 
 export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
-  const blocks = await sql<{ baseFees: BlockBaseFees; minedAt: Date }[]>`
+  const blocks = await sql<{ baseFees: FeeBreakdown; minedAt: Date }[]>`
       SELECT base_fees, mined_at
       FROM base_fees_per_block
   `.then((rows) => {
@@ -217,7 +217,7 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
 // Ideally callers get a quick answer, for this we need to keep a running total and update block by block. For now we do this in memory with a promise that is initially calculated from an expensive DB query and then updated block by block.
 let totalFeesBurned: Promise<number> | undefined = undefined;
 export const getRealtimeTotalFeesBurned = async (
-  latestBlockBaseFees: BlockBaseFees,
+  latestBlockBaseFees: FeeBreakdown,
 ) => {
   if (totalFeesBurned === undefined) {
     totalFeesBurned = new Promise((resolve) => {
@@ -234,7 +234,7 @@ export const getRealtimeTotalFeesBurned = async (
 
 export const notifyNewBaseFee = async (
   block: BlockLondon,
-  latestBlockBaseFees: BlockBaseFees,
+  latestBlockBaseFees: FeeBreakdown,
 ): Promise<void> => {
   // TODO: when running against mainnet pre-london we need to skip some blocks.
   if (block.baseFeePerGas === undefined) {
@@ -260,7 +260,7 @@ export const notifyNewBaseFee = async (
 export const calcBlockBaseFees = (
   block: BlockLondon,
   txrs: readonly TxRWeb3London[],
-): BlockBaseFees => {
+): FeeBreakdown => {
   const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
     Transactions.segmentTxrs(txrs);
 
@@ -309,7 +309,7 @@ const calcBaseFeesForBlockNumber = async (
   const block = await eth.getBlock(blockNumber);
   Log.debug(`  fetching ${block.transactions.length} transaction receipts`);
   const txrs = await Transactions.getTxrs1559(block.transactions);
-  const baseFees = calcBlockBaseFees(block, txrs);
+  const feeBreakdown = calcBlockBaseFees(block, txrs);
   const tips = calcBlockTips(block, txrs);
   const baseFeesSum = calcBlockBaseFeeSum(baseFees);
 
@@ -319,8 +319,8 @@ const calcBaseFeesForBlockNumber = async (
     DisplayProgress.onBlockAnalyzed();
   }
 
-  await storeBaseFeesForBlock(block, baseFees, tips);
-  notifyNewBaseFee(block, baseFees);
+  await storeBaseFeesForBlock(block, feeBreakdown, tips);
+  notifyNewBaseFee(block, feeBreakdown);
 };
 
 export const watchAndCalcBaseFees = async () => {

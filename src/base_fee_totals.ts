@@ -7,7 +7,7 @@ import { flow, pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import type {
   BaseFeeBurner,
-  BlockBaseFees,
+  FeeBreakdown,
   Timeframe as Timeframe,
 } from "./base_fees.js";
 import { differenceInHours } from "date-fns";
@@ -81,7 +81,7 @@ const getDappToAddressesMap = async () => {
 
 type AnalyzedBlock = {
   number: number;
-  baseFees: BlockBaseFees;
+  baseFees: FeeBreakdown;
   minedAt: Date;
 };
 type Segments = {
@@ -328,7 +328,7 @@ const writeContractTotals = async (
 
 const segmentBaseFeeTotalType = (
   addressToDappMap: AddressToDappMap,
-  baseFees: BlockBaseFees,
+  baseFees: FeeBreakdown,
 ): { dappFees: [string, number][]; unknownDappFees: [string, number][] } => {
   const useBaseFees = Object.entries(baseFees.contract_use_fees) as [
     string,
@@ -350,7 +350,7 @@ const segmentBaseFeeTotalType = (
 
 export const updateTotalsWithFees = async (
   block: BlockLondon,
-  baseFees: BlockBaseFees,
+  baseFees: FeeBreakdown,
 ) => {
   const addressToDappMap = await getAddressToDappMap();
 
@@ -391,7 +391,7 @@ const subtractStaleBaseFees = async (
 ) => {
   const table = getTableName(totalType, timeframe);
   const maxHours = timeframeHoursMap[timeframe];
-  const staleBlocks = await sql<{ number: number; baseFees: BlockBaseFees }[]>`
+  const staleBlocks = await sql<{ number: number; baseFees: FeeBreakdown }[]>`
     SELECT number, base_fees FROM base_fees_per_block
     WHERE now() - mined_at >= interval '${sql(String(maxHours))} hours'
       AND number >= ${oldestIncludedBlock}

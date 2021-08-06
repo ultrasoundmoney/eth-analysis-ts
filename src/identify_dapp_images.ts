@@ -7,14 +7,14 @@ import fetch from "node-fetch";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { URL } from "url";
 import * as BaseFees from "./base_fees.js";
-import { BaseFeeBurner, BlockBaseFees } from "./base_fees.js";
+import { BaseFeeBurner, FeeBreakdown } from "./base_fees.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
 import * as Log from "./log.js";
 import * as Contracts from "./contracts.js";
 
 const getBaseFeeBurners = async () => {
-  const baseFeesPerBlock = await sql<{ baseFees: BlockBaseFees }[]>`
+  const baseFeesPerBlock = await sql<{ baseFees: FeeBreakdown }[]>`
       SELECT base_fees
       FROM base_fees_per_block
   `.then((rows) => {
