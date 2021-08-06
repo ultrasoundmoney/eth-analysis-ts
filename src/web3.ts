@@ -4,6 +4,9 @@ import { hexToNumber, numberToHex } from "./numbers.js";
 import { TxRWeb3London } from "./transactions.js";
 // eslint-disable-next-line node/no-unpublished-import
 import type { Log as LogWeb3 } from "web3-core";
+import PQueue from "p-queue";
+import ProgressBar from "progress";
+import * as Blocks from "./blocks.jsx";
 
 const mainnetNode = Config.localNodeAvailable
   ? "ws://localhost:8546/"
@@ -212,34 +215,32 @@ export const webSocketOpen = new Promise((resolve) => {
   ws.on("open", resolve);
 });
 
-// benchmark fetching
-// const blockQueue = new PQueue({ concurrency: 4 });
-// const txrsQueue = new PQueue({ concurrency: 200 });
-// ws.on("open", async () => {
-//   try {
-//     console.log("connected!");
-//     const number = (await getBlockByNumber("latest")).number;
-//     const blocksToFetch = new Array(1000)
-//       .fill(undefined)
-//       .map((_, i) => number - i);
-//     const blocks = await Promise.all(blocksToFetch.map(getBlockByNumber));
-//     const bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
-//       total: blocks.length,
-//     });
-//     await blockQueue.addAll(
-//       blocks.map((block) => async () => {
-//         await txrsQueue.addAll(
-//           block.transactions.map(
-//             (hash) => () =>
-//               getTransactionReceipt(hash).then((txr) => {
-//                 return txr;
-//               }),
-//           ),
-//         );
-//         bar.tick();
-//       }),
-//     );
-//   } catch (error) {
-//     console.error(error);
-//   }
-// });
+export const benchmarkTxrFetch = async () => {
+  const blockQueue = new PQueue({ concurrency: 4 });
+  const txrsQueue = new PQueue({ concurrency: 200 });
+  await webSocketOpen;
+  console.log("connected!");
+  const block = await getBlock("latest");
+
+  const blockRange = Blocks.getBlockRange(block.number - 1000, block.number);
+
+  const blocks = await Promise.all(blockRange.map(getBlock));
+
+  const bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
+    total: blocks.length,
+  });
+
+  await blockQueue.addAll(
+    blocks.map((block) => async () => {
+      await txrsQueue.addAll(
+        block.transactions.map(
+          (hash) => () =>
+            getTransactionReceipt(hash).then((txr) => {
+              return txr;
+            }),
+        ),
+      );
+      bar.tick();
+    }),
+  );
+};
