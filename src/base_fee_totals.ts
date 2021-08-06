@@ -10,7 +10,7 @@ import type {
   FeeBreakdown,
   Timeframe as Timeframe,
 } from "./base_fees.js";
-import { differenceInHours } from "date-fns";
+import { differenceInSeconds } from "date-fns";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
 import NEA from "fp-ts/lib/NonEmptyArray.js";
@@ -91,7 +91,7 @@ type Segments = {
   all: AnalyzedBlock[];
 };
 
-const getHoursFromDays = (days: number): number => days * 24;
+const getSecondsFromDays = (days: number): number => days * 24 * 60 * 60;
 
 const getTimeframeSegments = (blocks: AnalyzedBlock[]): Segments => {
   const now = new Date();
@@ -101,19 +101,19 @@ const getTimeframeSegments = (blocks: AnalyzedBlock[]): Segments => {
   const blocksAll: AnalyzedBlock[] = [];
 
   blocks.forEach((block) => {
-    const hourAge = differenceInHours(now, block.minedAt);
+    const secondsAge = differenceInSeconds(now, block.minedAt);
 
     blocksAll.push(block);
 
-    if (hourAge < getHoursFromDays(30)) {
+    if (secondsAge < getSecondsFromDays(30)) {
       blocks30d.push(block);
     }
 
-    if (hourAge < getHoursFromDays(7)) {
+    if (secondsAge < getSecondsFromDays(7)) {
       blocks7d.push(block);
     }
 
-    if (hourAge < 24) {
+    if (secondsAge < getSecondsFromDays(1)) {
       blocks24h.push(block);
     }
   });
