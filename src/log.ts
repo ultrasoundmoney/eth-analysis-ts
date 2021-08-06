@@ -1,5 +1,21 @@
 import { pipe } from "fp-ts/lib/function.js";
 import kleur from "kleur";
+import winston from "winston";
+
+const httpTransportOptions = {
+  host: "http-intake.logs.datadoghq.com",
+  path: `/v1/input/${
+    process.env.DATADOG_API_KEY
+  }?ddsource=nodejs&service=${process.argv[1].slice(0, -3)}`,
+  ssl: true,
+};
+
+const logger = winston.createLogger({
+  level: "info",
+  exitOnError: true,
+  format: winston.format.json(),
+  transports: [new winston.transports.Http(httpTransportOptions)],
+});
 
 /**
  * Google Cloud Logging severity levels.
@@ -68,6 +84,9 @@ export const log = (
 
     return;
   }
+
+  // Datadog transport
+  logger.log(severity.toLowerCase(), message, meta);
 
   // Log json to stdout during non-dev.
   console.log(

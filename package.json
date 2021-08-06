@@ -27,6 +27,7 @@
     "progress": "^2.0.3",
     "quick-lru": "^6.0.0",
     "utf-8-validate": "^5.0.5",
+    "winston": "^3.3.3",
     "ws": "^7.5.3"
   },
   "devDependencies": {
