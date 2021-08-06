@@ -10,9 +10,11 @@
   "type": "module",
   "dependencies": {
     "@koa/router": "^10.1.0",
+    "bignumber.js": "^9.0.1",
     "bufferutil": "^4.0.3",
     "change-case": "^4.1.2",
     "date-fns": "^2.23.0",
+    "dd-trace": "^1.1.2",
     "debounce-fn": "^5.0.0",
     "fp-ts": "^2.10.5",
     "kleur": "^4.1.4",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@digitak/esrun": "^1.2.4",
+    "@types/dd-trace": "^0.9.0",
     "@types/koa": "^2.13.4",
     "@types/koa__router": "^8.0.7",
     "@types/node": "^16.4.10",
