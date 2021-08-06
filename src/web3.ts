@@ -6,7 +6,7 @@ import { TxRWeb3London } from "./transactions.js";
 import type { Log as LogWeb3 } from "web3-core";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
-import * as Blocks from "./blocks.jsx";
+import * as Blocks from "./blocks.js";
 
 const mainnetNode = Config.localNodeAvailable
   ? "ws://localhost:8546/"
