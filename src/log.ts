@@ -23,6 +23,14 @@ const severityMap = {
   ERROR: 500,
 } as const;
 
+const prettySeverityMap: Record<Severity, string> = {
+  DEFAULT: "",
+  WARNING: `${kleur.yellow("warn")}:  `,
+  DEBUG: `${kleur.gray("debug")}: `,
+  INFO: `${kleur.blue("info")}:  `,
+  ERROR: `${kleur.red("error")}: `,
+};
+
 const logLevel = pipe(
   process.env["LOG_LEVEL"] as Severity | undefined,
   (logLevel) => logLevel || "WARNING",
@@ -31,10 +39,10 @@ const logLevel = pipe(
 
 const logMap: Record<Severity, (message: string) => void> = {
   DEFAULT: console.log,
-  DEBUG: (message: string) => console.info(kleur.gray(message)),
-  INFO: (message: string) => console.info(kleur.blue(message)),
-  WARNING: (message: string) => console.warn(kleur.yellow(message)),
-  ERROR: (message: string) => console.error(kleur.red(message)),
+  DEBUG: console.info,
+  INFO: console.info,
+  WARNING: console.warn,
+  ERROR: console.error,
 };
 
 export const log = (
@@ -50,10 +58,14 @@ export const log = (
 
   // Log to console during dev.
   if (process.env["ENV"] === "dev") {
-    logFn(message);
+    const prettySeverity = prettySeverityMap[severity];
+
+    logFn(prettySeverity + message);
+
     if (meta !== undefined) {
       console.debug(meta);
     }
+
     return;
   }
 
