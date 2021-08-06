@@ -18,6 +18,7 @@ import * as DisplayProgress from "./display_progress.js";
 import PQueue from "p-queue";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
 import * as Blocks from "./blocks.js";
+import Sentry from "@sentry/node";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */
@@ -305,6 +306,10 @@ const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 const calcBaseFeesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
+  const transaction = Sentry.startTransaction({
+    op: "calc-base-fees",
+    name: "analyze a block for base fees",
+  });
   Log.debug(`analyzing block ${blockNumber}`);
   const block = await eth.getBlock(blockNumber);
   Log.debug(`  fetching ${block.transactions.length} transaction receipts`);
@@ -321,6 +326,7 @@ const calcBaseFeesForBlockNumber = async (
 
   await storeBaseFeesForBlock(block, feeBreakdown, tips);
   notifyNewBaseFee(block, feeBreakdown);
+  transaction.finish();
 };
 
 export const watchAndCalcBaseFees = async () => {

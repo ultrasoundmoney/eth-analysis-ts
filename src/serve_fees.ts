@@ -1,6 +1,7 @@
+import Koa, { Middleware } from "koa";
+import * as Sentry from "@sentry/node";
 import * as Log from "./log.js";
 import QuickLRU from "quick-lru";
-import Koa, { Middleware } from "koa";
 import * as BaseFees from "./base_fees.js";
 import Router from "@koa/router";
 import WebSocket from "ws";
@@ -10,11 +11,24 @@ import * as EthPrice from "./eth_price.js";
 import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 
+Sentry.init({
+  dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
+});
+
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
 const port = process.env.PORT || 8080;
 
 const app = new Koa();
+
+app.on("error", (err, ctx) => {
+  Sentry.withScope((scope) => {
+    scope.addEventProcessor((event) =>
+      Sentry.Handlers.parseRequest(event, ctx.request),
+    );
+    Sentry.captureException(err);
+  });
+});
 
 app.use(async (ctx, next) => {
   ctx.res.setHeader("Access-Control-Allow-Origin", "*");
