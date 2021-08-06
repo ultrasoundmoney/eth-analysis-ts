@@ -16,6 +16,7 @@ import Config from "./config.js";
 import { delay } from "./delay.js";
 import * as DisplayProgress from "./display_progress.js";
 import PQueue from "p-queue";
+import * as Blocks from "./blocks.js";
 
 export type BlockBaseFees = {
   /** fees burned for simple transfers. */
@@ -330,9 +331,12 @@ export const watchAndCalcBaseFees = async () => {
     const nextToAnalyze =
       latestAnalyzedBlockNumber !== undefined
         ? latestAnalyzedBlockNumber + 1
-        : blockNumberLondonHardFork;
+        : Blocks.londonHardForkBlockNumber;
 
-    const blocksToAnalyze = getBlockRange(nextToAnalyze, latestBlock.number);
+    const blocksToAnalyze = Blocks.getBlockRange(
+      nextToAnalyze,
+      latestBlock.number,
+    );
 
     if (Config.env === "dev" && process.env.SHOW_PROGRESS !== undefined) {
       DisplayProgress.start(blocksToAnalyze.length);
