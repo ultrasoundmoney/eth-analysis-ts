@@ -32,7 +32,7 @@ export const getTxrsWithRetry = async (
   // eslint-disable-next-line no-constant-condition
   while (true) {
     await txrsPQ.addAll(
-      block.transactions.map(
+      tryBlock.transactions.map(
         (txHash) => () =>
           eth.getTransactionReceipt(txHash).then((txr) => {
             if (txr === undefined) {
