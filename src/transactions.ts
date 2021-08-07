@@ -33,7 +33,8 @@ export const getTxrsWithRetry = async (
   let txrs: TxRWeb3London[] = [];
   let missingHashes: string[] = [];
 
-  while (txrs.length === 0 || missingHashes.length !== 0) {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
     await txrsPQ.addAll(
       block.transactions.map(
         (txHash) => () =>
@@ -47,39 +48,41 @@ export const getTxrsWithRetry = async (
       ),
     );
 
-    // Had missing receipts again. Report, wait, then retry.
-    if (missingHashes.length !== 0) {
-      if (!firstErrorReported) {
-        firstErrorReported = true;
-        Sentry.captureMessage("block had null txrs", {
-          extra: {
-            number: tryBlock.number,
-            hash: tryBlock.hash,
-            missingHashes,
-          },
-        });
-      }
+    if (missingHashes.length === 0) {
+      break;
+    }
 
-      const delayMilis = 3000;
-      Log.warn(
-        `block cointained null txrs, waiting ${
-          delayMilis / 1000
-        }s and trying again`,
-        {
+    // Had missing receipts again. Report, wait, then retry.
+    if (!firstErrorReported) {
+      firstErrorReported = true;
+      Sentry.captureMessage("block had null txrs", {
+        extra: {
           number: tryBlock.number,
           hash: tryBlock.hash,
-          missingHashes: missingHashes,
+          missingHashes,
         },
-      );
-      await delay(delayMilis);
-
-      // Maybe the block got forked and that's why the receipts are null?  Refetch the block.
-      tryBlock = await eth.getBlock(block.number);
-
-      // Empty accumulated results
-      missingHashes = [];
-      txrs = [];
+      });
     }
+
+    const delayMilis = 3000;
+    Log.warn(
+      `block cointained null txrs, waiting ${
+        delayMilis / 1000
+      }s and trying again`,
+      {
+        number: tryBlock.number,
+        hash: tryBlock.hash,
+        missingHashes: missingHashes,
+      },
+    );
+    await delay(delayMilis);
+
+    // Maybe the block got forked and that's why the receipts are null?  Refetch the block.
+    tryBlock = await eth.getBlock(block.number);
+
+    // Empty accumulated results
+    missingHashes = [];
+    txrs = [];
   }
 
   return txrs;
