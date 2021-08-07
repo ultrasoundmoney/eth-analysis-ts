@@ -112,7 +112,7 @@ const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (request, socket, head) => {
   if (request.url === "/fees/base-fee-feed") {
-    wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.handleUpgrade(request, socket as Socket, head, (ws) => {
       wss.emit("connection", ws, request);
     });
   } else {
