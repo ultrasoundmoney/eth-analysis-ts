@@ -1,6 +1,5 @@
 import { pipe } from "fp-ts/lib/function.js";
 import kleur from "kleur";
-import Config from "./config.js";
 
 /**
  * Google Cloud Logging severity levels.
@@ -58,7 +57,7 @@ export const log = (
   const logFn = logMap[severity];
 
   // Log to console during dev.
-  if (Config.env === "dev" || process.env.LOCAL_NODE_AVAILABLE) {
+  if (process.env.ENV === "dev" || process.env.LOCAL_NODE_AVAILABLE) {
     const prettySeverity = prettySeverityMap[severity];
 
     logFn(prettySeverity + message);
