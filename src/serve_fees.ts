@@ -1,11 +1,9 @@
 import Koa, { Middleware } from "koa";
-import * as Sentry from "@sentry/node";
 import {
-  extractTraceparentData,
-  stripUrlQueryAndFragment,
-} from "@sentry/tracing";
-// eslint-disable-next-line node/no-deprecated-api
-import domain from "domain";
+  requestHandler,
+  Sentry,
+  tracingMiddleWare,
+} from "./serve_fees_sentry.js";
 import * as Log from "./log.js";
 import QuickLRU from "quick-lru";
 import * as BaseFees from "./base_fees.js";
@@ -16,74 +14,6 @@ import { sql } from "./db.js";
 import * as EthPrice from "./eth_price.js";
 import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
-import Config from "./config.js";
-import { EventEmitter } from "events";
-
-Sentry.init({
-  dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
-  environment: Config.env,
-});
-
-const requestHandler: Middleware = (ctx, next) => {
-  return new Promise((resolve) => {
-    const local = domain.create();
-    local.add(ctx as unknown as EventEmitter);
-    local.on("error", (err) => {
-      ctx.status = err.status || 500;
-      ctx.body = err.message;
-      ctx.app.emit("error", err, ctx);
-    });
-    local.run(async () => {
-      Sentry.getCurrentHub().configureScope((scope) =>
-        scope.addEventProcessor((event) =>
-          Sentry.Handlers.parseRequest(event, ctx.request, { user: false }),
-        ),
-      );
-      await next();
-      resolve(undefined);
-    });
-  });
-};
-
-// this tracing middleware creates a transaction per request
-const tracingMiddleWare: Middleware = async (ctx, next) => {
-  const reqMethod = (ctx.method || "").toUpperCase();
-  const reqUrl = ctx.url && stripUrlQueryAndFragment(ctx.url);
-
-  // connect to trace of upstream app
-  let traceparentData;
-  if (ctx.request.get("sentry-trace")) {
-    traceparentData = extractTraceparentData(ctx.request.get("sentry-trace"));
-  }
-
-  const transaction = Sentry.startTransaction({
-    name: `${reqMethod} ${reqUrl}`,
-    op: "http.server",
-    ...traceparentData,
-  });
-
-  ctx.__sentry_transaction = transaction;
-
-  // We put the transaction on the scope so users can attach children to it
-  Sentry.getCurrentHub().configureScope((scope) => {
-    scope.setSpan(transaction);
-  });
-
-  ctx.res.on("finish", () => {
-    // Push `transaction.finish` to the next event loop so open spans have a chance to finish before the transaction closes
-    setImmediate(() => {
-      // if using koa router, a nicer way to capture transaction using the matched route
-      if (ctx._matchedRoute) {
-        const mountPath = ctx.mountPath || "";
-        transaction.setName(`${reqMethod} ${mountPath}${ctx._matchedRoute}`);
-      }
-      transaction.setHttpStatus(ctx.status);
-      transaction.finish();
-    });
-  });
-
-  await next();
-};
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
