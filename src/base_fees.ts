@@ -312,8 +312,10 @@ const calcBaseFeesForBlockNumber = async (
   });
   Log.debug(`analyzing block ${blockNumber}`);
   const block = await eth.getBlock(blockNumber);
+
   Log.debug(`  fetching ${block.transactions.length} transaction receipts`);
-  const txrs = await Transactions.getTxrs1559(block.transactions);
+  const txrs = await Transactions.getTxrsWithRetry(block);
+
   const feeBreakdown = calcBlockBaseFees(block, txrs);
   const tips = calcBlockTips(block, txrs);
   const baseFeesSum = calcBlockBaseFeeSum(feeBreakdown);

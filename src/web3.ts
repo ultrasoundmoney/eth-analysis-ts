@@ -172,7 +172,7 @@ const translateTxr = (rawTrx: RawTxr): TxRWeb3London => ({
 
 export const getTransactionReceipt = async (
   hash: string,
-): Promise<TxRWeb3London | null> => {
+): Promise<TxRWeb3London | undefined> => {
   const [id, messageP] = registerMessageListener<RawTxr>();
 
   send({
@@ -184,8 +184,9 @@ export const getTransactionReceipt = async (
 
   const rawTxr = await messageP;
 
+  // NOTE: Some txrs come back as null. Unclear why.
   if (rawTxr === null) {
-    return rawTxr;
+    return undefined;
   }
 
   return translateTxr(rawTxr);

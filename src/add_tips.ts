@@ -19,7 +19,7 @@ const addTipsToAnalyzedBlocks = async (): Promise<void> => {
 
   for (const blockNumber of blocksMissingTips) {
     const block = await eth.getBlock(blockNumber);
-    const txrs = await Transactions.getTxrs1559(block.transactions);
+    const txrs = await Transactions.getTxrsWithRetry(block);
     const tips = BaseFees.calcBlockTips(block, txrs);
     await sql`
       UPDATE base_fees_per_block
