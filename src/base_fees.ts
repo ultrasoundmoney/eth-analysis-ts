@@ -63,34 +63,6 @@ const storeBaseFeesForBlock = async (
     )
   `.then(() => undefined);
 
-// const toBaseFeeInsert = ({
-//   block,
-//   baseFees,
-// }: {
-//   block: BlockLondon;
-//   baseFees: BlockBaseFees;
-// }) => ({
-//   hash: block.hash,
-//   number: block.number,
-//   base_fees: sql.json(baseFees),
-//   mined_at: new Date(getBlockTimestamp(block) * 1000),
-// });
-
-// const storeBaseFeesForBlocks = async (
-//   analyzedBlocks: { block: BlockLondon; baseFees: BlockBaseFees }[],
-// ): Promise<void> => {
-//   await sql`
-//     INSERT INTO base_fees_per_block
-//     ${sql(
-//       analyzedBlocks.map(toBaseFeeInsert),
-//       "hash",
-//       "number",
-//       "base_fees",
-//       "mined_at",
-//     )}
-//   `;
-// };
-
 export const calcTxrBaseFee = (
   block: BlockLondon,
   txr: TxRWeb3London,
