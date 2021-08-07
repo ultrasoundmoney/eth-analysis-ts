@@ -21,6 +21,6 @@ COPY yarn.lock .
 RUN ["yarn", "install", "--production"]
 
 COPY master_list.csv .
-COPY --from=build /app/build/ build
+COPY --from=build /app/ .
 
-CMD ["node", "build/serve_fees.js"]
+CMD ["node", "src/serve_fees.js"]
