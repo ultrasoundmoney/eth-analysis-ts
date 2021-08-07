@@ -739,7 +739,7 @@ export const watchAndCalcTotalFees = async () => {
     const block = await eth.getBlock(nextBlockNumberToAnalyze);
     const txrs = await Transactions.getTxrsWithRetry(block);
 
-    const baseFees = BaseFees.calcBlockBaseFees(block, txrs);
+    const baseFees = BaseFees.calcBlockFeeBreakdown(block, txrs);
     const addressToDappMap = await getAddressToDappMap();
     const { dappFees, unknownDappFees } = segmentBaseFeeTotalType(
       addressToDappMap,

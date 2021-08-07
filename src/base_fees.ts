@@ -134,10 +134,8 @@ export const getContractNameMap = async () => {
   return contractNameMap;
 };
 
-const calcBlockBaseFeeSum = (baseFees: FeeBreakdown): number =>
-  baseFees.transfers +
-  baseFees.contract_creation_fees +
-  sum(Object.values(baseFees.contract_use_fees) as number[]);
+const calcBlockBaseFeeSum = (block: BlockLondon): number =>
+  block.gasUsed * hexToNumber(block.baseFeePerGas);
 
 export const getTotalFeesBurned = async (): Promise<number> => {
   const baseFeeSum = await sql<{ baseFeeSum: number }[]>`
@@ -156,8 +154,8 @@ export const getTotalFeesBurned = async (): Promise<number> => {
 export type FeesBurnedPerDay = Record<string, number>;
 
 export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
-  const blocks = await sql<{ baseFees: FeeBreakdown; minedAt: Date }[]>`
-      SELECT base_fees, mined_at
+  const blocks = await sql<{ baseFeeSum: number; minedAt: Date }[]>`
+      SELECT base_fee_sum, mined_at
       FROM base_fees_per_block
   `.then((rows) => {
     if (rows.length === 0) {
@@ -180,42 +178,20 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
     ),
     R.map(
       flow(
-        NEA.map((block) => block.baseFees),
-        NEA.map(calcBlockBaseFeeSum),
+        NEA.map((block) => block.baseFeeSum),
         sum,
       ),
     ),
   );
 };
 
-// Ideally callers get a quick answer, for this we need to keep a running total and update block by block. For now we do this in memory with a promise that is initially calculated from an expensive DB query and then updated block by block.
-let totalFeesBurned: Promise<number> | undefined = undefined;
-export const getRealtimeTotalFeesBurned = async (
-  latestBlockBaseFees: FeeBreakdown,
-) => {
-  if (totalFeesBurned === undefined) {
-    totalFeesBurned = new Promise((resolve) => {
-      resolve(getTotalFeesBurned());
-    });
-    return totalFeesBurned;
-  }
+let totalFeesBurned = 0;
+(async () => {
+  totalFeesBurned = await getTotalFeesBurned();
+})();
 
-  totalFeesBurned = Promise.resolve(
-    (await totalFeesBurned) + calcBlockBaseFeeSum(latestBlockBaseFees),
-  );
-  return totalFeesBurned;
-};
-
-export const notifyNewBaseFee = async (
-  block: BlockLondon,
-  latestBlockBaseFees: FeeBreakdown,
-): Promise<void> => {
-  // TODO: when running against mainnet pre-london we need to skip some blocks.
-  if (block.baseFeePerGas === undefined) {
-    return;
-  }
-
-  const totalFeesBurned = await getTotalFeesBurned();
+export const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
+  totalFeesBurned = totalFeesBurned + calcBlockBaseFeeSum(block);
 
   await sql.notify(
     "base-fee-updates",
@@ -223,7 +199,7 @@ export const notifyNewBaseFee = async (
       type: "base-fee-update",
       number: block.number,
       baseFeePerGas: hexToNumber(block.baseFeePerGas),
-      fees: calcBlockBaseFeeSum(latestBlockBaseFees),
+      fees: totalFeesBurned,
       totalFeesBurned,
     }),
   );
@@ -231,7 +207,7 @@ export const notifyNewBaseFee = async (
   return;
 };
 
-export const calcBlockBaseFees = (
+export const calcBlockFeeBreakdown = (
   block: BlockLondon,
   txrs: readonly TxRWeb3London[],
 ): FeeBreakdown => {
@@ -289,7 +265,7 @@ const calcBaseFeesForBlockNumber = async (
   Log.debug(`  fetching ${block.transactions.length} transaction receipts`);
   const txrs = await Transactions.getTxrsWithRetry(block);
 
-  const feeBreakdown = calcBlockBaseFees(block, txrs);
+  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
   const tips = calcBlockTips(block, txrs);
   const baseFeeSum = Number(block.baseFeePerGas) * block.gasUsed;
 
@@ -302,7 +278,7 @@ const calcBaseFeesForBlockNumber = async (
   }
 
   await storeBaseFeesForBlock(block, feeBreakdown, baseFeeSum, tips);
-  await notifyNewBaseFee(block, feeBreakdown);
+  await notifyNewBaseFee(block);
   calcBaseFeesTransaction.finish();
 };
 
