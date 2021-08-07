@@ -8,4 +8,7 @@ export const sql = postgres({
   username: process.env.DB_USER,
   transform: { column: camelCase },
   max: 8,
+  types: {
+    bigint: postgres.BigInt,
+  },
 });
