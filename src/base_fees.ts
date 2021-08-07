@@ -5,7 +5,7 @@ import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
 import { flow, pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
-import { hexToNumber, sum } from "./numbers.js";
+import { hexToNumber, sum, weiToEth } from "./numbers.js";
 import { getUnixTime, startOfDay } from "date-fns";
 import { BlockLondon } from "./web3.js";
 import neatCsv from "neat-csv";
@@ -48,18 +48,20 @@ const getBlockTimestamp = (block: BlockLondon): number => {
 const storeBaseFeesForBlock = async (
   block: BlockLondon,
   baseFees: FeeBreakdown,
+  baseFeeSum: number,
   tips: number,
 ): Promise<void> =>
   sql`
   INSERT INTO base_fees_per_block
-    (hash, number, base_fees, mined_at, tips)
+    (hash, number, base_fees, mined_at, tips, base_fee_sum)
   VALUES
     (
       ${block.hash},
       ${block.number},
       ${sql.json(baseFees)},
       to_timestamp(${getBlockTimestamp(block)}),
-      ${tips}
+      ${tips},
+      ${baseFeeSum}
     )
   `.then(() => undefined);
 
@@ -290,15 +292,17 @@ const calcBaseFeesForBlockNumber = async (
 
   const feeBreakdown = calcBlockBaseFees(block, txrs);
   const tips = calcBlockTips(block, txrs);
-  const baseFeesSum = calcBlockBaseFeeSum(feeBreakdown);
+  const baseFeeSum = Number(block.baseFeePerGas) * block.gasUsed;
 
-  Log.debug(`  fees burned for block ${blockNumber} - ${baseFeesSum} wei`);
+  Log.debug(
+    `  fees burned for block ${blockNumber} - ${weiToEth(baseFeeSum)} ETH`,
+  );
 
   if (process.env.ENV === "dev" && process.env.SHOW_PROGRESS !== undefined) {
     DisplayProgress.onBlockAnalyzed();
   }
 
-  await storeBaseFeesForBlock(block, feeBreakdown, tips);
+  await storeBaseFeesForBlock(block, feeBreakdown, baseFeeSum, tips);
   await notifyNewBaseFee(block, feeBreakdown);
   calcBaseFeesTransaction.finish();
 };
@@ -331,7 +335,7 @@ export const watchAndCalcBaseFees = async () => {
     if (blocksToAnalyze.length === 0) {
       Log.debug("no new blocks to analyze");
     } else {
-      Log.info(`${blocksToAnalyze.length} blocks to analyze`);
+      Log.debug(`${blocksToAnalyze.length} blocks to analyze`);
     }
 
     await blockAnalysisQueue.addAll(
