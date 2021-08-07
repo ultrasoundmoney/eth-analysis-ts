@@ -5,6 +5,7 @@ COPY package.json .
 COPY yarn.lock .
 RUN ["yarn", "install"]
 COPY tsconfig.json .
+COPY tsconfig.prod.json .
 COPY src/ src
 RUN ["yarn", "build"]
 
