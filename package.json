@@ -12,7 +12,6 @@
     "@koa/router": "^10.1.0",
     "@sentry/node": "^6.11.0",
     "@sentry/tracing": "^6.11.0",
-    "bignumber.js": "^9.0.1",
     "bufferutil": "^4.0.3",
     "change-case": "^4.1.2",
     "date-fns": "^2.23.0",
