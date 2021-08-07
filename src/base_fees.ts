@@ -140,18 +140,17 @@ const calcBlockBaseFeeSum = (baseFees: FeeBreakdown): number =>
   sum(Object.values(baseFees.contract_use_fees) as number[]);
 
 export const getTotalFeesBurned = async (): Promise<number> => {
-  const baseFeesPerBlock = await sql<{ baseFees: FeeBreakdown }[]>`
-      SELECT base_fees
-      FROM base_fees_per_block
+  const baseFeeSum = await sql<{ baseFeeSum: number }[]>`
+      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
   `.then((rows) => {
     if (rows.length === 0) {
       Log.warn("tried to get top fee burners before any blocks were analyzed");
     }
 
-    return rows.map((row) => row.baseFees);
+    return rows[0]?.baseFeeSum ?? 0;
   });
 
-  return pipe(baseFeesPerBlock, A.map(calcBlockBaseFeeSum), sum);
+  return baseFeeSum;
 };
 
 export type FeesBurnedPerDay = Record<string, number>;
@@ -216,7 +215,7 @@ export const notifyNewBaseFee = async (
     return;
   }
 
-  const totalFeesBurned = await getRealtimeTotalFeesBurned(latestBlockBaseFees);
+  const totalFeesBurned = await getTotalFeesBurned();
 
   await sql.notify(
     "base-fee-updates",
