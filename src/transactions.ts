@@ -15,10 +15,6 @@ export type TxRWeb3London = TxRWeb3 & {
   effectiveGasPrice: string;
 };
 
-export type TxrsFetchResult =
-  | { type: "txrs"; txrs: TxRWeb3London[] }
-  | { type: "missing-txrs"; missingHashes: string[] };
-
 const txrsPQ = new PQueue({
   concurrency: 64,
 });
