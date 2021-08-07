@@ -98,6 +98,7 @@ export type BlockLondon = {
 };
 
 // Mimics web3.js translation of fields.
+// NOTE: this is not safe. We lose precision here. Convert these to big int at some point.
 const translateBlock = (rawBlock: RawBlock): BlockLondon => ({
   ...rawBlock,
   baseFeePerGas: rawBlock.baseFeePerGas,
