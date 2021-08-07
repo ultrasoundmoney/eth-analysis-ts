@@ -17,7 +17,7 @@ jobs:
           node-version: 16.x
       - name: yarn install, build and test
         run: |
-          yarn
+          yarn --skip-integrity-check
           yarn check
           yarn lint
           yarn test
