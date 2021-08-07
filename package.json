@@ -50,6 +50,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.prod.json",
+    "check": "tsc --noEmit",
     "lint": "gts lint",
     "clean": "gts clean",
     "start": "node build/serve_gas_analysis.js",
