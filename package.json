@@ -50,7 +50,7 @@
     "web3-core": "^1.5.0"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.prod.json",
     "lint": "gts lint",
     "clean": "gts clean",
     "start": "node build/serve_gas_analysis.js",
