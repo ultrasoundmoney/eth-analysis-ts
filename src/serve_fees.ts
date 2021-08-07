@@ -14,6 +14,7 @@ import { sql } from "./db.js";
 import * as EthPrice from "./eth_price.js";
 import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
+import { Socket } from "net";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
