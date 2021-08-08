@@ -22,8 +22,6 @@ const txrsPQ = new PQueue({
 export const getTxrsWithRetry = async (
   block: BlockLondon,
 ): Promise<TxRWeb3London[]> => {
-  let firstErrorReported = false;
-
   // Retry continuously
   let tryBlock = block;
   let txrs: TxRWeb3London[] = [];
@@ -46,18 +44,6 @@ export const getTxrsWithRetry = async (
 
     if (missingHashes.length === 0) {
       break;
-    }
-
-    // Had missing receipts again. Report, wait, then retry.
-    if (!firstErrorReported) {
-      firstErrorReported = true;
-      Sentry.captureMessage("block had null txrs", {
-        extra: {
-          number: tryBlock.number,
-          hash: tryBlock.hash,
-          missingHashes,
-        },
-      });
     }
 
     const delayMilis = 3000;
