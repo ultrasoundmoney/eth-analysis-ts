@@ -15,9 +15,11 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 16.x
-      - name: yarn install, build and test
-        run: |
-          yarn --skip-integrity-check
-          yarn check --skip-integrity-check
-          yarn lint --skip-integrity-check
-          yarn test --skip-integrity-check
+      - name: install deps
+        run: yarn --skip-integrity-check
+      - name: check types
+        run: yarn check --skip-integrity-check
+      - name: lint
+        run: yarn lint --skip-integrity-check
+      - name: test
+        run: yarn test --skip-integrity-check
