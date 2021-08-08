@@ -1,0 +1,17 @@
+name: create serve fees release
+on:
+  push:
+    tags:
+      - "prod-serve-*"
+jobs:
+  create-watch-fees-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create serve-fees Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ultrasoundmoney
+          SENTRY_PROJECT: 5896640
+        with:
+          environment: prod

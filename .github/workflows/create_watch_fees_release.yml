@@ -1,0 +1,30 @@
+name: create watch fees releases
+on:
+  push:
+    tags:
+      - "prod-watch-*"
+jobs:
+  create-watch-fees-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Create watch-base-fees Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ultrasoundmoney
+          SENTRY_PROJECT: 5896630
+        with:
+          environment: prod
+  create-watch-fee-totals-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Create watch-base-fee-totals Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ultrasoundmoney
+          SENTRY_PROJECT: 5896651
+        with:
+          environment: prod
