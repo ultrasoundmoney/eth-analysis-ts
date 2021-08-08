@@ -1,0 +1,37 @@
+- uses: actions/checkout@v2
+- name: Create watch-base-fees Sentry release
+  on:
+    push:
+      tags:
+        - "prod-watch-*"
+  uses: getsentry/action-release@v1
+  env:
+    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    SENTRY_ORG: ultrasoundmoney
+    SENTRY_PROJECT: 5896630
+  with:
+    environment: prod
+- name: Create watch-base-fee-totals Sentry release
+  on:
+    push:
+      tags:
+        - "prod-watch-*"
+  uses: getsentry/action-release@v1
+  env:
+    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    SENTRY_ORG: ultrasoundmoney
+    SENTRY_PROJECT: 5896651
+  with:
+    environment: prod
+- name: Create serve-fees Sentry release
+  on:
+    push:
+      tags:
+        - "prod-serve-*"
+  uses: getsentry/action-release@v1
+  env:
+    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    SENTRY_ORG: ultrasoundmoney
+    SENTRY_PROJECT: 5896640
+  with:
+    environment: prod
