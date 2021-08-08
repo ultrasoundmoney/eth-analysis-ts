@@ -4,7 +4,6 @@ import type { TransactionReceipt as TxRWeb3 } from "web3-core";
 import PQueue from "p-queue";
 import * as Log from "./log.js";
 import { delay } from "./delay.js";
-import * as Sentry from "@sentry/node";
 import { BlockLondon } from "./web3.js";
 
 /**
