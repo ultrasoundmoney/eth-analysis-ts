@@ -447,8 +447,6 @@ const ensureFreshTotal = async (
       JOIN base_fees_per_block ON oldest_included_block = number
       WHERE dapp_id = ANY (${sql.array(ids)})`;
 
-    Log.debug(`removing stale fees for ${ids.length} dapps`);
-
     await Promise.all(
       dappTotals.map((dappTotal) =>
         subtractStaleBaseFees(
@@ -474,8 +472,6 @@ const ensureFreshTotal = async (
       JOIN base_fees_per_block ON oldest_included_block = number
       WHERE contract_address = ANY (${sql.array(ids)})`;
 
-  Log.debug(`removing stale fees for ${ids.length} contracts`);
-
   await Promise.all(
     contractTotals.map((contractTotal) =>
       subtractStaleBaseFees(
@@ -494,6 +490,7 @@ const ensureFreshTotals = async (
   dappsOrAddresses: string[],
 ) => {
   const dappToAdressesMap = await getDappToAddressesMap();
+  Log.debug(`removing stale fees for ${dappsOrAddresses.length} ${totalType}s`);
 
   await Promise.all([
     ensureFreshTotal(dappToAdressesMap, "24h", totalType, dappsOrAddresses),
