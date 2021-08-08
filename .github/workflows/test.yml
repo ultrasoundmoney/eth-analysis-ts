@@ -18,6 +18,6 @@ jobs:
       - name: yarn install, build and test
         run: |
           yarn --skip-integrity-check
-          yarn check
-          yarn lint
-          yarn test
+          yarn check --skip-integrity-check
+          yarn lint --skip-integrity-check
+          yarn test --skip-integrity-check
