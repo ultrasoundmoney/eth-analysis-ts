@@ -1,5 +1,4 @@
 import * as eth from "./web3.js";
-// eslint-disable-next-line node/no-unpublished-import
 import type { TransactionReceipt as TxRWeb3 } from "web3-core";
 import PQueue from "p-queue";
 import * as Log from "./log.js";

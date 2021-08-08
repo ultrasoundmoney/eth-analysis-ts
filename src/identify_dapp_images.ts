@@ -3,7 +3,6 @@ import { pipe } from "fp-ts/lib/function";
 import fs from "fs/promises";
 import { parseHTML } from "linkedom";
 import fetch from "node-fetch";
-// eslint-disable-next-line node/no-unpublished-import
 import puppeteer, { Browser, Page } from "puppeteer";
 import { URL } from "url";
 import * as BaseFees from "./base_fees.js";

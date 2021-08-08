@@ -1,4 +1,3 @@
-// eslint-disable-next-line node/no-unpublished-import
 import test from "ava";
 import * as Blocks from "./blocks.js";
 
