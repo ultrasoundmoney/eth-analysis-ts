@@ -85,6 +85,7 @@ type AnalyzedBlock = {
   baseFees: FeeBreakdown;
   minedAt: Date;
 };
+
 type Segments = {
   b24h: AnalyzedBlock[];
   b7d: AnalyzedBlock[];
