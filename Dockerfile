@@ -7,7 +7,7 @@ RUN ["yarn", "install"]
 COPY tsconfig.json .
 COPY tsconfig.prod.json .
 COPY src/ src
-RUN ["yarn", "build"]
+RUN ["yarn", "build:prod"]
 
 FROM node:16-alpine as run
 WORKDIR /app
