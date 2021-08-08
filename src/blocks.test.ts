@@ -1,7 +1,10 @@
-import test from "ava";
-import * as Blocks from "./blocks.js";
+import { test } from "uvu";
+import * as assert from "uvu/assert";
+import * as Blocks from "../src/blocks.js";
 
-test("getBlockRange", (t) => {
+test("getBlockRange", () => {
   const blockRange = Blocks.getBlockRange(10, 14);
-  t.deepEqual(blockRange, [10, 11, 12, 13, 14]);
+  assert.equal(blockRange, [10, 11, 12, 13, 14]);
 });
+
+test.run();
