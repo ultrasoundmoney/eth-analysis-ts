@@ -1,8 +1,32 @@
 import { differenceInDays } from "date-fns";
+import { parseHTML } from "linkedom";
+import fetch from "node-fetch";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
+
+export const fetchEtherscanName = async (
+  address: string,
+): Promise<string | undefined> => {
+  const html = await fetch(`https://blockscan.com/address/${address}`).then(
+    (res) => {
+      if (res.status !== 200) {
+        throw new Error(
+          `bad request trying to fetch etherscan name, status: ${res.status}`,
+        );
+      }
+      return res.text();
+    },
+  );
+
+  const { document } = parseHTML(html);
+  const etherscanPublicName = document.querySelector(".badge-secondary") as {
+    innerText: string;
+  } | null;
+
+  return etherscanPublicName?.innerText;
+};
 
 const contractNameFetchQueue = new PQueue({
   concurrency: 1,

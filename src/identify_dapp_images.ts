@@ -12,28 +12,6 @@ import { delay } from "./delay.js";
 import * as Log from "./log.js";
 import * as Contracts from "./contracts.js";
 
-export const fetchEtherscanName = async (
-  address: string,
-): Promise<string | undefined> => {
-  const html = await fetch(`https://blockscan.com/address/${address}`).then(
-    (res) => {
-      if (res.status !== 200) {
-        throw new Error(
-          `bad request trying to fetch etherscan name, status: ${res.status}`,
-        );
-      }
-      return res.text();
-    },
-  );
-
-  const { document } = parseHTML(html);
-  const etherscanPublicName = document.querySelector(".badge-secondary") as {
-    innerText: string;
-  } | null;
-
-  return etherscanPublicName?.innerText;
-};
-
 const getBaseFeeBurners = async () => {
   const baseFeesPerBlock = await sql<{ baseFees: FeeBreakdown }[]>`
       SELECT base_fees
