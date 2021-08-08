@@ -12,6 +12,6 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ultrasoundmoney
-          SENTRY_PROJECT: 5896640
+          SENTRY_PROJECT: serve-fees
         with:
           environment: prod

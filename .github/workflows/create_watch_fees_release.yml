@@ -13,7 +13,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ultrasoundmoney
-          SENTRY_PROJECT: 5896630
+          SENTRY_PROJECT: watch-base-fees
         with:
           environment: prod
   create-watch-fee-totals-release:
@@ -25,6 +25,6 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ultrasoundmoney
-          SENTRY_PROJECT: 5896651
+          SENTRY_PROJECT: watch-base-fee-totals
         with:
           environment: prod
