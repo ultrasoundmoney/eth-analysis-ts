@@ -16,10 +16,10 @@ jobs:
         with:
           node-version: 16.x
       - name: install deps
-        run: yarn --skip-integrity-check
+        run: yarn
       - name: check types
-        run: yarn check --skip-integrity-check
+        run: yarn check
       - name: lint
-        run: yarn lint --skip-integrity-check
+        run: yarn lint
       - name: test
-        run: yarn test --skip-integrity-check
+        run: yarn test
