@@ -344,8 +344,8 @@ export const watchAndCalcBaseFees = async () => {
     latestBlock.number,
   );
 
-  const missingBlocks = wantedBlockRange.filter((wantedBlockNumber) =>
-    knownBlockNumbers.has(wantedBlockNumber),
+  const missingBlocks = wantedBlockRange.filter(
+    (wantedBlockNumber) => !knownBlockNumbers.has(wantedBlockNumber),
   );
 
   if (missingBlocks.length !== 0) {
