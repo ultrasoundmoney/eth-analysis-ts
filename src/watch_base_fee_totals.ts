@@ -14,12 +14,15 @@ Sentry.init({
 
 BaseFeeTotals.watchAndCalcTotalFees()
   .then(async () => {
-    Log.info("done analyzing blocks for base fee totals");
+    Log.info("done watching and analyzing new base fee totals");
+    await eth.webSocketOpen;
     eth.closeWeb3Ws();
     await sql.end();
   })
   .catch((error) => {
-    Log.error("error analyzing base fee totals", { error });
+    Log.error("error watching and analyzing for new base fee totals", {
+      error,
+    });
     Sentry.captureException(error);
     throw error;
   });

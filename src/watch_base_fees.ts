@@ -14,12 +14,14 @@ Sentry.init({
 
 BaseFees.watchAndCalcBaseFees()
   .then(async () => {
-    Log.info("done analyzing gas");
+    // We never get here. We watch continuously.
+    Log.info("done watching for and analyzing new blocks");
+    await eth.webSocketOpen;
     eth.closeWeb3Ws();
     await sql.end();
   })
   .catch((error) => {
-    Log.error("error analyzing gas", { error });
+    Log.error("error watching and analyzing new blocks", { error });
     Sentry.captureException(error);
     throw error;
   });

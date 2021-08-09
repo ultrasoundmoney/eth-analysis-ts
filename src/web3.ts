@@ -6,6 +6,7 @@ import type { Log as LogWeb3 } from "web3-core";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
 import * as Blocks from "./blocks.js";
+import * as Log from "./log.js";
 
 const mainnetNode = Config.localNodeAvailable
   ? "ws://localhost:8546/"
@@ -46,6 +47,36 @@ const registerMessageListener = <A>(): [number, Promise<A>] => {
 
 const send = (message: Record<string, unknown>) => {
   ws.send(JSON.stringify(message));
+};
+
+export const benchmarkTxrFetch = async () => {
+  const blockQueue = new PQueue({ concurrency: 4 });
+  const txrsQueue = new PQueue({ concurrency: 200 });
+  await webSocketOpen;
+  console.log("connected!");
+  const block = await getBlock("latest");
+
+  const blockRange = Blocks.getBlockRange(block.number - 1000, block.number);
+
+  const blocks = await Promise.all(blockRange.map(getBlock));
+
+  const bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
+    total: blocks.length,
+  });
+
+  await blockQueue.addAll(
+    blocks.map((block) => async () => {
+      await txrsQueue.addAll(
+        block.transactions.map(
+          (hash) => () =>
+            getTransactionReceipt(hash).then((txr) => {
+              return txr;
+            }),
+        ),
+      );
+      bar.tick();
+    }),
+  );
 };
 
 type RawBlock = {
@@ -216,32 +247,84 @@ export const webSocketOpen = new Promise((resolve) => {
   ws.on("open", resolve);
 });
 
-export const benchmarkTxrFetch = async () => {
-  const blockQueue = new PQueue({ concurrency: 4 });
-  const txrsQueue = new PQueue({ concurrency: 200 });
-  await webSocketOpen;
-  console.log("connected!");
-  const block = await getBlock("latest");
+const headsQueue = new PQueue();
 
-  const blockRange = Blocks.getBlockRange(block.number - 1000, block.number);
+const translateHead = (rawHead: RawHead): Head => ({
+  ...rawHead,
+  number: hexToNumber(rawHead.number),
+});
 
-  const blocks = await Promise.all(blockRange.map(getBlock));
+export const subscribeNewHeads = (
+  handleNewHead: (head: Head) => Promise<void>,
+) => {
+  const headsWs = new WebSocket(mainnetNode);
+  let gotSubscription = false;
 
-  const bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
-    total: blocks.length,
+  headsWs.on("close", () => {
+    Log.warn("heads ws closed, reconnecting!");
+    subscribeNewHeads(handleNewHead);
   });
 
-  await blockQueue.addAll(
-    blocks.map((block) => async () => {
-      await txrsQueue.addAll(
-        block.transactions.map(
-          (hash) => () =>
-            getTransactionReceipt(hash).then((txr) => {
-              return txr;
-            }),
-        ),
-      );
-      bar.tick();
-    }),
-  );
+  headsWs.on("error", (error) => {
+    Log.error("heads ws error", { error });
+    subscribeNewHeads(handleNewHead);
+  });
+
+  headsWs.on("message", (data) => {
+    if (!gotSubscription) {
+      gotSubscription = true;
+      return;
+    }
+
+    const rawHead: RawHead = JSON.parse(data.toString()).params.result;
+    const head = translateHead(rawHead);
+
+    headsQueue.add(() => handleNewHead(head));
+  });
+
+  headsWs.on("open", () => {
+    headsWs.send(
+      JSON.stringify({ id: 1, method: "eth_subscribe", params: ["newHeads"] }),
+    );
+  });
+};
+
+type RawHead = {
+  parentHash: string;
+  sha3Uncles: string;
+  miner: string;
+  stateRoot: string;
+  transactionsRoot: string;
+  receiptsRoot: string;
+  logsBloom: string;
+  difficulty: string;
+  number: string;
+  gasLimit: string;
+  gasUsed: string;
+  timestamp: string;
+  extraData: string;
+  mixHash: string;
+  nonce: string;
+  baseFeePerGas: string;
+  hash: string;
+};
+
+type Head = {
+  parentHash: string;
+  sha3Uncles: string;
+  miner: string;
+  stateRoot: string;
+  transactionsRoot: string;
+  receiptsRoot: string;
+  logsBloom: string;
+  difficulty: string;
+  number: number;
+  gasLimit: string;
+  gasUsed: string;
+  timestamp: string;
+  extraData: string;
+  mixHash: string;
+  nonce: string;
+  baseFeePerGas: string;
+  hash: string;
 };
