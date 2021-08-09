@@ -714,6 +714,8 @@ export const watchAndCalcTotalFees = async () => {
   while (true) {
     const latestAnalyzedBlockNumber =
       await BaseFees.getLatestAnalyzedBlockNumber();
+    Log.debug(`latest analyzed block number: ${latestAnalyzedBlockNumber}`);
+    Log.debug(`next block number to analyze ${nextBlockNumberToAnalyze}`);
 
     if (latestAnalyzedBlockNumber === undefined) {
       throw new Error("no analyzed blocks, cannot calculate base fee totals");
