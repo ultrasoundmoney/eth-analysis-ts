@@ -15,6 +15,8 @@ import * as EthPrice from "./eth_price.js";
 import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { Socket } from "net";
+import conditional from "koa-conditional-get";
+import etag from "koa-etag";
 
 const milisFromSeconds = (seconds: number) => seconds * 1000;
 
@@ -29,6 +31,8 @@ app.use(async (ctx, next) => {
 
 app.use(requestHandler);
 app.use(tracingMiddleWare);
+app.use(conditional());
+app.use(etag());
 
 // usual error handler
 app.on("error", (err, ctx) => {
