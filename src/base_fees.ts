@@ -3,10 +3,9 @@ import type { TxRWeb3London } from "./transactions";
 import A from "fp-ts/lib/Array.js";
 import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
-import { flow, pipe } from "fp-ts/lib/function.js";
+import { pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
 import { hexToNumber, sum, weiToEth } from "./numbers.js";
-import { getUnixTime, startOfDay } from "date-fns";
 import { BlockLondon } from "./web3.js";
 import neatCsv from "neat-csv";
 import fs from "fs/promises";
@@ -158,41 +157,37 @@ export const getTotalFeesBurned = async (): Promise<number> => {
   return baseFeeSum;
 };
 
-export type FeesBurnedPerDay = Record<string, number>;
+export type FeesBurnedPerInterval = Record<string, number>;
 
-export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
-  const blocks = await sql<{ baseFeeSum: number; minedAt: Date }[]>`
-      SELECT base_fee_sum, mined_at
+export const getFeesBurnedPerInterval =
+  async (): Promise<FeesBurnedPerInterval> => {
+    const blocks = await sql<{ baseFeeSum: number; date: Date }[]>`
+      SELECT date_trunc('hour', mined_at) AS hour, SUM(base_fee_sum) AS base_fee_sum
       FROM base_fees_per_block
-  `.then((rows) => {
-    if (rows.length === 0) {
-      Log.warn(
-        "tried to determine base fees per day, but found no analyzed blocks",
-      );
+      GROUP BY hour
+      ORDER BY hour
+    `.then((rows) => {
+      if (rows.length === 0) {
+        Log.warn(
+          "tried to determine base fees per day, but found no analyzed blocks",
+        );
+      }
+
+      return rows;
+    });
+
+    if (blocks.length === 0) {
+      return {};
     }
 
-    return rows;
-  });
+    return pipe(
+      blocks,
+      A.map(({ baseFeeSum, date }) => [date, baseFeeSum]),
+      Object.fromEntries,
+    );
+  };
 
-  if (blocks.length === 0) {
-    return {};
-  }
-
-  return pipe(
-    blocks,
-    NEA.groupBy((block) =>
-      pipe(block.minedAt, startOfDay, getUnixTime, String),
-    ),
-    R.map(
-      flow(
-        NEA.map((block) => block.baseFeeSum),
-        sum,
-      ),
-    ),
-  );
-};
-
-export const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
+const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
   await sql.notify(
     "base-fee-updates",
     JSON.stringify({
@@ -250,6 +245,15 @@ export const calcBlockTips = (
 
 const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 
+const notifyNewBlock = async (block: BlockLondon): Promise<void> => {
+  await sql.notify(
+    "new-block",
+    JSON.stringify({
+      number: block.number,
+    }),
+  );
+};
+
 const calcBaseFeesForBlockNumber = (
   blockNumber: number,
   notify: boolean,
@@ -284,7 +288,8 @@ const calcBaseFeesForBlockNumber = (
 
       return pipe(
         T.sequenceArray([
-          notify ? () => notifyNewBaseFee(block) : () => Promise.resolve(),
+          notify ? () => notifyNewBaseFee(block) : T.of(undefined),
+          notify ? () => notifyNewBlock(block) : T.of(undefined),
           () => storeBaseFeesForBlock(block, feeBreakdown, baseFeeSum, tips),
         ]),
         T.map(() => {
@@ -329,7 +334,7 @@ export const watchAndCalcBaseFees = async () => {
 
   Log.info("checking for missing blocks");
   const latestBlock = await eth.getBlock("latest");
-  const knownBlockNumbers = await sql<{number: number}[]>`
+  const knownBlockNumbers = await sql<{ number: number }[]>`
     SELECT number FROM base_fees_per_block
   `.then((rows) => new Set(rows.map((row) => row.number)));
   const wantedBlockRange = Blocks.getBlockRange(
@@ -352,4 +357,18 @@ export const watchAndCalcBaseFees = async () => {
   } else {
     Log.info("no missing blocks");
   }
+};
+
+export const getBurnRates = async () => {
+  const burnRate1h = await sql<{ feeTotal: number }[]>`
+    SELECT SUM(base_fee_sum) AS fee_total FROM base_fees_per_block
+    WHERE mined_at <= now() - interval '1 hours'
+  `.then((rows) => rows[0]?.feeTotal ?? 0);
+
+  const burnRate24h = await sql<{ feeTotal: number }[]>`
+    SELECT SUM(base_fee_sum) AS fee_total FROM base_fees_per_block
+    WHERE mined_at <= now() - interval '24 hours'
+  `.then((rows) => rows[0]?.feeTotal ?? 0);
+
+  return { burnRate1h, burnRate24h };
 };

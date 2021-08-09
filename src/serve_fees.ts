@@ -5,21 +5,64 @@ import {
   tracingMiddleWare,
 } from "./serve_fees_sentry.js";
 import * as Log from "./log.js";
-import QuickLRU from "quick-lru";
 import * as BaseFees from "./base_fees.js";
 import Router from "@koa/router";
-import WebSocket from "ws";
-const { Server: WebSocketServer } = WebSocket;
 import { sql } from "./db.js";
 import * as EthPrice from "./eth_price.js";
-import * as A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
-import { Socket } from "net";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
 import { startWebSocketServer } from "./socket.js";
 
-const milisFromSeconds = (seconds: number) => seconds * 1000;
+let number = 0;
+let totalFeesBurned = 0;
+
+const handleGetFeesBurned: Middleware = async (ctx) => {
+  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = { number, totalFeesBurned };
+};
+
+let feesBurnedPerInterval = {};
+const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
+  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=86400");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = { feesBurnedPerInterval, number };
+};
+
+const handleGetEthPrice: Middleware = async (ctx) => {
+  const ethPrice = await EthPrice.getEthPrice();
+  ctx.res.setHeader(
+    "Cache-Control",
+    "max-age=600, stale-while-revalidate=1800",
+  );
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = ethPrice;
+};
+
+let burnRates = { burnRate1h: 0, burnRate24h: 0 };
+
+const handleGetBurnRate: Middleware = async (ctx) => {
+  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = { burnRates, number };
+};
+
+sql.listen("new-block", async (payload) => {
+  const latestBlock: { number: number } = JSON.parse(payload!);
+
+  number = latestBlock.number;
+
+  const [newBurnRates, newTotalFeesBurned, newFeesBurnedPerInterval] =
+    await Promise.all([
+      BaseFees.getBurnRates(),
+      BaseFees.getTotalFeesBurned(),
+      BaseFees.getFeesBurnedPerInterval(),
+    ]);
+
+  burnRates = newBurnRates;
+  totalFeesBurned = newTotalFeesBurned;
+  feesBurnedPerInterval = newFeesBurnedPerInterval;
+});
 
 const port = process.env.PORT || 8080;
 
@@ -44,6 +87,7 @@ app.on("error", (err, ctx) => {
     Sentry.captureException(err);
   });
 });
+
 // Health check middleware
 app.use(async (ctx, next) => {
   if (ctx.path === "/health") {
@@ -54,60 +98,12 @@ app.use(async (ctx, next) => {
   await next();
 });
 
-const totalFeesBurnedCache = new QuickLRU<string, string>({
-  maxSize: 1,
-  maxAge: milisFromSeconds(5),
-});
-const totalFeesBurnedKey = "total-fees-burned";
-
-const handleGetFeesBurned: Middleware = async (ctx) => {
-  const cTotalFeesBurned = totalFeesBurnedCache.get(totalFeesBurnedKey);
-
-  if (cTotalFeesBurned !== undefined) {
-    ctx.res.writeHead(200, {
-      "Cache-Control": "max-age=5, stale-while-revalidate=18",
-      "Content-Type": "application/json",
-    });
-    ctx.res.end(cTotalFeesBurned);
-  }
-
-  const totalFeesBurned = await BaseFees.getTotalFeesBurned();
-  const totalFeesBurnedJson = JSON.stringify({ totalFeesBurned });
-
-  totalFeesBurnedCache.set(totalFeesBurnedKey, totalFeesBurnedJson);
-
-  ctx.res.writeHead(200, {
-    "Cache-Control": "max-age=5, stale-while-revalidate=18",
-    "Content-Type": "application/json",
-  });
-  ctx.res.end(totalFeesBurnedJson);
-};
-
-const handleGetFeesBurnedPerDay: Middleware = async (ctx) => {
-  const feesBurnedPerDay = await BaseFees.getFeesBurnedPerDay();
-  ctx.res.setHeader(
-    "Cache-Control",
-    "max-age=43200, stale-while-revalidate=86400",
-  );
-  ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { feesBurnedPerDay };
-};
-
-const handleGetEthPrice: Middleware = async (ctx) => {
-  const ethPrice = await EthPrice.getEthPrice();
-  ctx.res.setHeader(
-    "Cache-Control",
-    "max-age=600, stale-while-revalidate=1800",
-  );
-  ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = ethPrice;
-};
-
 const router = new Router();
 
 router.get("/fees/total-burned", handleGetFeesBurned);
-router.get("/fees/burned-per-day", handleGetFeesBurnedPerDay);
+router.get("/fees/burned-per-interval", handleGetFeesBurnedPerInterval);
 router.get("/fees/eth-price", handleGetEthPrice);
+router.get("/fees/burn-rate", handleGetBurnRate);
 
 app.use(router.routes());
 app.use(router.allowedMethods());
