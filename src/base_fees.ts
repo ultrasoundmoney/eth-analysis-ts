@@ -210,7 +210,7 @@ export const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
       type: "base-fee-update",
       number: block.number,
       baseFeePerGas: hexToNumber(block.baseFeePerGas),
-      fees: totalFeesBurned,
+      fees: calcBlockBaseFeeSum(block),
       totalFeesBurned,
     }),
   );
