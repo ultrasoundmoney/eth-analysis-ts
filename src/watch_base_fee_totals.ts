@@ -1,9 +1,7 @@
 import Sentry from "@sentry/node";
 import "@sentry/tracing";
 import * as BaseFeeTotals from "./base_fee_totals.js";
-import * as eth from "./web3.js";
 import * as Log from "./log.js";
-import { sql } from "./db.js";
 import Config from "./config.js";
 
 Sentry.init({
@@ -12,17 +10,10 @@ Sentry.init({
   environment: Config.env,
 });
 
-BaseFeeTotals.watchAndCalcTotalFees()
-  .then(async () => {
-    Log.info("done watching and analyzing new base fee totals");
-    await eth.webSocketOpen;
-    eth.closeWeb3Ws();
-    await sql.end();
-  })
-  .catch((error) => {
-    Log.error("error watching and analyzing for new base fee totals", {
-      error,
-    });
-    Sentry.captureException(error);
-    throw error;
+BaseFeeTotals.watchAndCalcTotalFees().catch((error) => {
+  Log.error("error watching and analyzing for new base fee totals", {
+    error,
   });
+  Sentry.captureException(error);
+  throw error;
+});

@@ -2,8 +2,6 @@ import Sentry from "@sentry/node";
 import "@sentry/tracing";
 import * as BaseFees from "./base_fees.js";
 import * as Log from "./log.js";
-import { sql } from "./db.js";
-import * as eth from "./web3.js";
 import Config from "./config.js";
 
 Sentry.init({
@@ -12,16 +10,8 @@ Sentry.init({
   environment: Config.env,
 });
 
-BaseFees.watchAndCalcBaseFees()
-  .then(async () => {
-    // We never get here. We watch continuously.
-    Log.info("done watching for and analyzing new blocks");
-    await eth.webSocketOpen;
-    eth.closeWeb3Ws();
-    await sql.end();
-  })
-  .catch((error) => {
-    Log.error("error watching and analyzing new blocks", { error });
-    Sentry.captureException(error);
-    throw error;
-  });
+BaseFees.watchAndCalcBaseFees().catch((error) => {
+  Log.error("error watching and analyzing new blocks", { error });
+  Sentry.captureException(error);
+  throw error;
+});
