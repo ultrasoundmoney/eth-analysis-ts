@@ -328,6 +328,8 @@ export const reanalyzeAllBlocks = async () => {
 export const watchAndCalcBaseFees = async () => {
   Log.info("watching and analyzing new blocks");
 
+  await eth.webSocketOpen;
+
   eth.subscribeNewHeads((head) =>
     calcBaseFeesForBlockNumber(head.number, true)(),
   );
