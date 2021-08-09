@@ -31,7 +31,7 @@ export type FeeBreakdown = {
 
 export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
   sql`
-    SELECT max(number) AS number FROM base_fees_per_block
+    SELECT MAX(number) AS number FROM base_fees_per_block
   `.then((result) => result[0]?.number || undefined);
 
 const getBlockTimestamp = (block: BlockLondon): number => {
