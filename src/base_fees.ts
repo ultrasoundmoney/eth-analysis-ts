@@ -250,7 +250,10 @@ export const calcBlockTips = (
 
 const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 
-const calcBaseFeesForBlockNumber = (blockNumber: number): T.Task<void> => {
+const calcBaseFeesForBlockNumber = (
+  blockNumber: number,
+  notify: boolean,
+): T.Task<void> => {
   const calcBaseFeesTransaction = Sentry.startTransaction({
     op: "calc-base-fees",
     name: "calculate block base fees",
@@ -281,7 +284,7 @@ const calcBaseFeesForBlockNumber = (blockNumber: number): T.Task<void> => {
 
       return pipe(
         T.sequenceArray([
-          () => notifyNewBaseFee(block),
+          notify ? () => notifyNewBaseFee(block) : () => Promise.resolve(),
           () => storeBaseFeesForBlock(block, feeBreakdown, baseFeeSum, tips),
         ]),
         T.map(() => {
@@ -311,11 +314,15 @@ export const reanalyzeAllBlocks = async () => {
   Log.debug(`${blocksToAnalyze.length} blocks to analyze`);
 
   await blockAnalysisQueue.addAll(
-    blocksToAnalyze.map(calcBaseFeesForBlockNumber),
+    blocksToAnalyze.map((blockNumber) =>
+      calcBaseFeesForBlockNumber(blockNumber, false),
+    ),
   );
 };
 
 export const watchAndCalcBaseFees = async () => {
   Log.info("watching and analyzing new blocks");
-  eth.subscribeNewHeads((head) => calcBaseFeesForBlockNumber(head.number)());
+  eth.subscribeNewHeads((head) =>
+    calcBaseFeesForBlockNumber(head.number, true)(),
+  );
 };
