@@ -191,7 +191,18 @@ let totalFeesBurned = 0;
 })();
 
 export const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
-  totalFeesBurned = totalFeesBurned + calcBlockBaseFeeSum(block);
+  const blockBaseFees = calcBlockBaseFeeSum(block);
+  if (Number.isNaN(totalFeesBurned)) {
+    Sentry.captureException(new Error("total fee burn came back NaN"));
+    totalFeesBurned = await getTotalFeesBurned();
+  }
+  if (Number.isNaN(blockBaseFees)) {
+    Sentry.captureException(new Error("block base fees came back NaN"), {
+      extra: { block },
+    });
+  } else {
+    totalFeesBurned = totalFeesBurned + blockBaseFees;
+  }
 
   await sql.notify(
     "base-fee-updates",
