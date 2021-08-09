@@ -203,8 +203,6 @@ export const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
       totalFeesBurned: await getTotalFeesBurned(),
     }),
   );
-
-  return;
 };
 
 export const calcBlockFeeBreakdown = (
