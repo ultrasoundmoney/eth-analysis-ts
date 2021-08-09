@@ -84,20 +84,22 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
 
 const handleGetFeesBurnedPerDay: Middleware = async (ctx) => {
   const feesBurnedPerDay = await BaseFees.getFeesBurnedPerDay();
-  ctx.res.writeHead(200, {
-    "Cache-Control": "max-age=43200, stale-while-revalidate=86400",
-    "Content-Type": "application/json",
-  });
-  ctx.res.end(JSON.stringify({ feesBurnedPerDay }));
+  ctx.res.setHeader(
+    "Cache-Control",
+    "max-age=43200, stale-while-revalidate=86400",
+  );
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = { feesBurnedPerDay };
 };
 
 const handleGetEthPrice: Middleware = async (ctx) => {
   const ethPrice = await EthPrice.getEthPrice();
-  ctx.res.writeHead(200, {
-    "Cache-Control": "max-age=600, stale-while-revalidate=1800",
-    "Content-Type": "application/json",
-  });
-  ctx.res.end(JSON.stringify(ethPrice));
+  ctx.res.setHeader(
+    "Cache-Control",
+    "max-age=600, stale-while-revalidate=1800",
+  );
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = ethPrice;
 };
 
 const router = new Router();
