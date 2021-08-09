@@ -296,7 +296,7 @@ const calcBaseFeesForBlockNumber = (blockNumber: number): T.Task<void> => {
         `  fees burned for block ${blockNumber} - ${weiToEth(baseFeeSum)} ETH`,
       );
 
-      if (Config.env && process.env.SHOW_PROGRESS !== undefined) {
+      if (Config.env === "dev" && process.env.SHOW_PROGRESS !== undefined) {
         DisplayProgress.onBlockAnalyzed();
       }
 
