@@ -4,6 +4,7 @@ import PQueue from "p-queue";
 import * as Log from "./log.js";
 import { delay } from "./delay.js";
 import { BlockLondon } from "./web3.js";
+import * as Sentry from "@sentry/node";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
@@ -20,6 +21,8 @@ const txrsPQ = new PQueue({
 export const getTxrsWithRetry = async (
   block: BlockLondon,
 ): Promise<TxRWeb3London[]> => {
+  let tries = 0;
+
   // Retry continuously
   let tryBlock = block;
   let txrs: TxRWeb3London[] = [];
@@ -27,6 +30,8 @@ export const getTxrsWithRetry = async (
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    tries += tries + 1;
+
     await txrsPQ.addAll(
       tryBlock.transactions.map(
         (txHash) => () =>
@@ -45,6 +50,23 @@ export const getTxrsWithRetry = async (
     }
 
     const delayMilis = 3000;
+
+    if (tries === 10) {
+      Sentry.captureException(
+        new Error(
+          `stuck fetching transactions, for more than ${
+            (tries * delayMilis) / 1000
+          }s`,
+        ),
+      );
+    }
+
+    if (tries > 20) {
+      throw new Error(
+        "failed to fetch transactions for block, some stayed null",
+      );
+    }
+
     Log.warn(
       `block cointained null txrs, waiting ${
         delayMilis / 1000
