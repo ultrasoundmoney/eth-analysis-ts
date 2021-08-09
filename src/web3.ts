@@ -247,7 +247,7 @@ export const webSocketOpen = new Promise((resolve) => {
   ws.on("open", resolve);
 });
 
-const headsQueue = new PQueue();
+const headsQueue = new PQueue({ concurrency: 8 });
 
 const translateHead = (rawHead: RawHead): Head => ({
   ...rawHead,
