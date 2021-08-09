@@ -322,7 +322,34 @@ export const reanalyzeAllBlocks = async () => {
 
 export const watchAndCalcBaseFees = async () => {
   Log.info("watching and analyzing new blocks");
+
   eth.subscribeNewHeads((head) =>
     calcBaseFeesForBlockNumber(head.number, true)(),
   );
+
+  Log.info("checking for missing blocks");
+  const latestBlock = await eth.getBlock("latest");
+  const knownBlockNumbers = await sql<{number: number}[]>`
+    SELECT number FROM base_fees_per_block
+  `.then((rows) => new Set(rows.map((row) => row.number)));
+  const wantedBlockRange = Blocks.getBlockRange(
+    Blocks.londonHardForkBlockNumber,
+    latestBlock.number,
+  );
+
+  const missingBlocks = wantedBlockRange.filter((wantedBlockNumber) =>
+    knownBlockNumbers.has(wantedBlockNumber),
+  );
+
+  if (missingBlocks.length !== 0) {
+    Log.info(`${missingBlocks.length} missing blocks, fetching`);
+    await blockAnalysisQueue.addAll(
+      missingBlocks.map((blockNumber) =>
+        calcBaseFeesForBlockNumber(blockNumber, false),
+      ),
+    );
+    Log.info("done analysing missing blocks");
+  } else {
+    Log.info("no missing blocks");
+  }
 };
