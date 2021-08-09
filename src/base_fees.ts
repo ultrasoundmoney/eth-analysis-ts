@@ -63,7 +63,7 @@ const storeBaseFeesForBlock = async (
     ${tips},
     ${baseFeeSum}
   )
-  ON CONFLICT (hash, number) DO UPDATE
+  ON CONFLICT (number) DO UPDATE
   SET
     hash = ${block.hash},
     number = ${block.number},
