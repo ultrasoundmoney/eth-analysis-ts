@@ -12,7 +12,6 @@ import neatCsv from "neat-csv";
 import fs from "fs/promises";
 import * as Transactions from "./transactions.js";
 import * as eth from "./web3.js";
-import Config from "./config.js";
 import * as DisplayProgress from "./display_progress.js";
 import PQueue from "p-queue";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
@@ -193,25 +192,7 @@ export const getFeesBurnedPerDay = async (): Promise<FeesBurnedPerDay> => {
   );
 };
 
-let totalFeesBurned = 0;
-(async () => {
-  totalFeesBurned = await getTotalFeesBurned();
-})();
-
 export const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
-  const blockBaseFees = calcBlockBaseFeeSum(block);
-  if (Number.isNaN(totalFeesBurned)) {
-    Sentry.captureException(new Error("total fee burn came back NaN"));
-    totalFeesBurned = await getTotalFeesBurned();
-  }
-  if (Number.isNaN(blockBaseFees)) {
-    Sentry.captureException(new Error("block base fees came back NaN"), {
-      extra: { block },
-    });
-  } else {
-    totalFeesBurned = totalFeesBurned + blockBaseFees;
-  }
-
   await sql.notify(
     "base-fee-updates",
     JSON.stringify({
@@ -219,7 +200,7 @@ export const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
       number: block.number,
       baseFeePerGas: hexToNumber(block.baseFeePerGas),
       fees: calcBlockBaseFeeSum(block),
-      totalFeesBurned,
+      totalFeesBurned: await getTotalFeesBurned(),
     }),
   );
 
