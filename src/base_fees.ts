@@ -363,12 +363,12 @@ export const watchAndCalcBaseFees = async () => {
 
 export const getBurnRates = async () => {
   const burnRate1h = await sql<{ burnPerMinute: number }[]>`
-    SELECT SUM(base_fee_sum) / (1 * 60) / (10^18) AS burn_per_minute FROM base_fees_per_block
+    SELECT SUM(base_fee_sum) / (1 * 60) AS burn_per_minute FROM base_fees_per_block
     WHERE mined_at >= now() - interval '1 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
   const burnRate24h = await sql<{ burnPerMinute: number }[]>`
-    SELECT SUM(base_fee_sum) / (24 * 60) / (10^18) AS burn_per_minute FROM base_fees_per_block
+    SELECT SUM(base_fee_sum) / (24 * 60) AS burn_per_minute FROM base_fees_per_block
     WHERE mined_at >= now() - interval '24 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
