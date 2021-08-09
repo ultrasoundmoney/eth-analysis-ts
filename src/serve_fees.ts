@@ -12,6 +12,11 @@ import * as EthPrice from "./eth_price.js";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
 import { startWebSocketServer } from "./socket.js";
+import { pipe } from "fp-ts/lib/function.js";
+import * as A from "fp-ts/lib/Array.js";
+import * as eth from "./web3.js";
+import { hexToNumber } from "./numbers.js";
+import { BaseFeeBurner } from "./base_fees.js";
 
 let number = 0;
 let totalFeesBurned = 0;
@@ -47,7 +52,43 @@ const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.body = { burnRates, number };
 };
 
+let latestBlockFees: { fees: number; number: number }[] = [];
+
+const handleGetLatestBlocks: Middleware = async (ctx) => {
+  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = latestBlockFees;
+};
+
+let baseFeePerGas = 0;
+
+const handleGetBaseFeePerGas: Middleware = async (ctx) => {
+  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = { baseFeePerGas };
+};
+
+let leaderboard24h: BaseFeeBurner[] = [];
+let leaderboard7d: BaseFeeBurner[] = [];
+let leaderboard30d: BaseFeeBurner[] = [];
+let leaderboardAll: BaseFeeBurner[] = [];
+// the most recently analyzed block for the leaderboard
+let leaderboardNumber = 0;
+
+const handleGetBurnLeaderboard: Middleware = async (ctx) => {
+  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = {
+    number: leaderboardNumber,
+    leaderboard24h,
+    leaderboard7d,
+    leaderboard30d,
+    leaderboardAll,
+  };
+};
+
 sql.listen("new-block", async (payload) => {
+  Log.debug("new block update received");
   const latestBlock: { number: number } = JSON.parse(payload!);
 
   number = latestBlock.number;
@@ -59,9 +100,35 @@ sql.listen("new-block", async (payload) => {
       BaseFees.getFeesBurnedPerInterval(),
     ]);
 
+  const block = await eth.getBlock(number);
+
   burnRates = newBurnRates;
   totalFeesBurned = newTotalFeesBurned;
   feesBurnedPerInterval = newFeesBurnedPerInterval;
+  baseFeePerGas = hexToNumber(block.baseFeePerGas);
+
+  latestBlockFees.push({ fees: BaseFees.calcBlockBaseFeeSum(block), number });
+  if (latestBlockFees.length > 10) {
+    latestBlockFees = pipe(latestBlockFees, A.takeRight(10));
+  }
+});
+
+type BurnLeaderboardUpdate = {
+  number: number;
+  leaderboard24h: BaseFeeBurner[];
+  leaderboard7d: BaseFeeBurner[];
+  leaderboard30d: BaseFeeBurner[];
+  leaderboardAll: BaseFeeBurner[];
+};
+
+sql.listen("burn-leaderboard-update", async (payload) => {
+  const update: BurnLeaderboardUpdate = JSON.parse(payload!);
+
+  leaderboardNumber = update.number;
+  leaderboard24h = update.leaderboard24h;
+  leaderboard7d = update.leaderboard7d;
+  leaderboard30d = update.leaderboard30d;
+  leaderboardAll = update.leaderboardAll;
 });
 
 const port = process.env.PORT || 8080;
@@ -104,6 +171,9 @@ router.get("/fees/total-burned", handleGetFeesBurned);
 router.get("/fees/burned-per-interval", handleGetFeesBurnedPerInterval);
 router.get("/fees/eth-price", handleGetEthPrice);
 router.get("/fees/burn-rate", handleGetBurnRate);
+router.get("/fees/latest-blocks", handleGetLatestBlocks);
+router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
+router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
 
 app.use(router.routes());
 app.use(router.allowedMethods());

@@ -656,6 +656,17 @@ export const notifyNewLeaderboard = async (
     }),
   );
 
+  await sql.notify(
+    "burn-leaderboard-update",
+    JSON.stringify({
+      number: block.number,
+      leaderboard24h,
+      leaderboard7d,
+      leaderboard30d,
+      leaderboardAll,
+    }),
+  );
+
   return;
 };
 

@@ -140,7 +140,7 @@ export const getContractNameMap = async () => {
   return contractNameMap;
 };
 
-const calcBlockBaseFeeSum = (block: BlockLondon): number =>
+export const calcBlockBaseFeeSum = (block: BlockLondon): number =>
   block.gasUsed * hexToNumber(block.baseFeePerGas);
 
 export const getTotalFeesBurned = async (): Promise<number> => {
@@ -161,11 +161,11 @@ export type FeesBurnedPerInterval = Record<string, number>;
 
 export const getFeesBurnedPerInterval =
   async (): Promise<FeesBurnedPerInterval> => {
-    const blocks = await sql<{ baseFeeSum: number; date: Date }[]>`
-      SELECT date_trunc('hour', mined_at) AS hour, SUM(base_fee_sum) AS base_fee_sum
+    const blocks = await sql<{ baseFeeSum: number | null; date: Date }[]>`
+      SELECT date_trunc('hour', mined_at) AS date, SUM(base_fee_sum) AS base_fee_sum
       FROM base_fees_per_block
-      GROUP BY hour
-      ORDER BY hour
+      GROUP BY date
+      ORDER BY date
     `.then((rows) => {
       if (rows.length === 0) {
         Log.warn(
@@ -182,7 +182,7 @@ export const getFeesBurnedPerInterval =
 
     return pipe(
       blocks,
-      A.map(({ baseFeeSum, date }) => [date, baseFeeSum]),
+      A.map(({ baseFeeSum, date }) => [date.getTime() / 1000, baseFeeSum ?? 0]),
       Object.fromEntries,
     );
   };
