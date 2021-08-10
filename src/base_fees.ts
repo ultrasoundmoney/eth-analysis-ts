@@ -17,7 +17,7 @@ import * as ROA from "fp-ts/lib/ReadonlyArray.js";
 import * as Blocks from "./blocks.js";
 import Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
-import { sequenceT } from "fp-ts/lib/Apply.js";
+import { sequenceT, sequenceS } from "fp-ts/lib/Apply.js";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */
@@ -362,15 +362,48 @@ export const watchAndCalcBaseFees = async () => {
 };
 
 export const getBurnRates = async () => {
-  const burnRate1h = await sql<{ burnPerMinute: number }[]>`
-    SELECT SUM(base_fee_sum) / (1 * 60) AS burn_per_minute FROM base_fees_per_block
-    WHERE mined_at >= now() - interval '1 hours'
+  const burnRate1h = () =>
+    sql<{ burnPerMinute: number }[]>`
+      SELECT SUM(base_fee_sum) / (1 * 60) AS burn_per_minute FROM base_fees_per_block
+      WHERE mined_at >= now() - interval '1 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
-  const burnRate24h = await sql<{ burnPerMinute: number }[]>`
-    SELECT SUM(base_fee_sum) / (24 * 60) AS burn_per_minute FROM base_fees_per_block
-    WHERE mined_at >= now() - interval '24 hours'
+  const burnRate1d = () =>
+    sql<{ burnPerMinute: number }[]>`
+      SELECT SUM(base_fee_sum) / (24 * 60) AS burn_per_minute FROM base_fees_per_block
+      WHERE mined_at >= now() - interval '24 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
-  return { burnRate1h, burnRate24h };
+  const burnRate7d = () =>
+    sql<{ burnPerMinute: number }[]>`
+      SELECT SUM(base_fee_sum) / (7 * 24 * 60) AS burn_per_minute FROM base_fees_per_block
+      WHERE mined_at >= now() - interval '7 days'
+  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+
+  const burnRate30d = () =>
+    sql<{ burnPerMinute: number }[]>`
+      SELECT SUM(base_fee_sum) / (30 * 24 * 60) AS burn_per_minute FROM base_fees_per_block
+      WHERE mined_at >= now() - interval '30 days'
+  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+
+  const burnRateAll = () =>
+    sql<{ burnPerMinute: number }[]>`
+      SELECT
+        SUM(base_fee_sum) / (
+          EXTRACT(
+            epoch FROM (
+              now() - '2021-08-05 12:33:42+00'
+            )
+          )
+        ) AS burn_per_minute
+      FROM base_fees_per_block
+  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+
+  return sequenceS(T.ApplyPar)({
+    burnRate1h,
+    burnRate1d,
+    burnRate7d,
+    burnRate30d,
+    burnRateAll,
+  })();
 };
