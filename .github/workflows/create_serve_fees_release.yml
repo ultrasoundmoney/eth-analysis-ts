@@ -7,6 +7,15 @@ jobs:
   create-watch-fees-release:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+      - name: node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+      - name: install deps
+        run: yarn install
+      - name: build sources
+        run: yarn build:prod
       - name: Create serve-fees Sentry release
         uses: getsentry/action-release@v1
         env:
