@@ -74,6 +74,7 @@ const handleGetBaseFeePerGas: Middleware = async (ctx) => {
   ctx.body = { baseFeePerGas };
 };
 
+let leaderboard1h: BaseFeeBurner[] = [];
 let leaderboard24h: BaseFeeBurner[] = [];
 let leaderboard7d: BaseFeeBurner[] = [];
 let leaderboard30d: BaseFeeBurner[] = [];
@@ -86,6 +87,7 @@ const handleGetBurnLeaderboard: Middleware = async (ctx) => {
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = {
     number: leaderboardNumber,
+    leaderboard1h,
     leaderboard24h,
     leaderboard7d,
     leaderboard30d,
@@ -157,6 +159,7 @@ sql.listen("burn-leaderboard-update", async (payload) => {
   const update: BurnLeaderboardUpdate = JSON.parse(payload!);
 
   leaderboardNumber = update.number;
+  leaderboard1h = update.leaderboard1h;
   leaderboard24h = update.leaderboard24h;
   leaderboard7d = update.leaderboard7d;
   leaderboard30d = update.leaderboard30d;
