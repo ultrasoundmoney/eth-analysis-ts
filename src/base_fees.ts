@@ -361,6 +361,14 @@ export const watchAndCalcBaseFees = async () => {
   }
 };
 
+export type BurnRates = {
+  burnRate1h: number;
+  burnRate1d: number;
+  burnRate7d: number;
+  burnRate30d: number;
+  burnRateAll: number;
+};
+
 export const getBurnRates = async () => {
   const burnRate1h = () =>
     sql<{ burnPerMinute: number }[]>`

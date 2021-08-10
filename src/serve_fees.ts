@@ -16,7 +16,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as A from "fp-ts/lib/Array.js";
 import * as eth from "./web3.js";
 import { hexToNumber } from "./numbers.js";
-import { BaseFeeBurner } from "./base_fees.js";
+import { BaseFeeBurner, BurnRates } from "./base_fees.js";
 
 let number = 0;
 let totalFeesBurned = 0;
@@ -44,7 +44,13 @@ const handleGetEthPrice: Middleware = async (ctx) => {
   ctx.body = ethPrice;
 };
 
-let burnRates = { burnRate1h: 0, burnRate24h: 0 };
+let burnRates: BurnRates = {
+  burnRate1h: 0,
+  burnRate1d: 0,
+  burnRate7d: 0,
+  burnRate30d: 0,
+  burnRateAll: 0,
+};
 
 const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
@@ -84,6 +90,19 @@ const handleGetBurnLeaderboard: Middleware = async (ctx) => {
     leaderboard7d,
     leaderboard30d,
     leaderboardAll,
+  };
+};
+
+const handleGetAll: Middleware = async (ctx) => {
+  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = {
+    baseFeePerGas,
+    burnRates,
+    feesBurnedPerInterval,
+    latestBlockFees,
+    number,
+    totalFeesBurned,
   };
 };
 
@@ -174,6 +193,7 @@ router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
+router.get("/fees/all", handleGetAll);
 
 app.use(router.routes());
 app.use(router.allowedMethods());
