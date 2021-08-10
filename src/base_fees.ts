@@ -368,7 +368,7 @@ export const watchAndCalcBaseFees = async () => {
 
 export type BurnRates = {
   burnRate1h: number;
-  burnRate1d: number;
+  burnRate24h: number;
   burnRate7d: number;
   burnRate30d: number;
   burnRateAll: number;
@@ -381,7 +381,7 @@ export const getBurnRates = async () => {
       WHERE mined_at >= now() - interval '1 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
-  const burnRate1d = () =>
+  const burnRate24h = () =>
     sql<{ burnPerMinute: number }[]>`
       SELECT SUM(base_fee_sum) / (24 * 60) AS burn_per_minute FROM base_fees_per_block
       WHERE mined_at >= now() - interval '24 hours'
@@ -414,7 +414,7 @@ export const getBurnRates = async () => {
 
   return sequenceS(T.ApplyPar)({
     burnRate1h,
-    burnRate1d,
+    burnRate24h,
     burnRate7d,
     burnRate30d,
     burnRateAll,

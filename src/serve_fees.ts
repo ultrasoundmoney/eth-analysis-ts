@@ -46,7 +46,7 @@ const handleGetEthPrice: Middleware = async (ctx) => {
 
 let burnRates: BurnRates = {
   burnRate1h: 0,
-  burnRate1d: 0,
+  burnRate24h: 0,
   burnRate7d: 0,
   burnRate30d: 0,
   burnRateAll: 0,
