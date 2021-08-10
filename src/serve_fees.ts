@@ -126,7 +126,19 @@ sql.listen("new-block", async (payload) => {
   feesBurnedPerInterval = newFeesBurnedPerInterval;
   baseFeePerGas = hexToNumber(block.baseFeePerGas);
 
-  latestBlockFees.push({ fees: BaseFees.calcBlockBaseFeeSum(block), number });
+  // Sometimes a new block has the same number as an old block. These updates are not final! In this case we replace the block in the list instead of pushing it onto the end.
+  const existingIndex = latestBlockFees.findIndex(
+    (blockFee) => blockFee.number === number,
+  );
+  if (existingIndex === -1) {
+    latestBlockFees.push({ fees: BaseFees.calcBlockBaseFeeSum(block), number });
+  } else {
+    // We already have this block! Overwrite with new block.
+    latestBlockFees[existingIndex] = {
+      fees: BaseFees.calcBlockBaseFeeSum(block),
+      number,
+    };
+  }
   if (latestBlockFees.length > 10) {
     latestBlockFees = pipe(latestBlockFees, A.takeRight(10));
   }
