@@ -350,6 +350,11 @@ export const watchAndCalcBaseFees = async () => {
 
   if (missingBlocks.length !== 0) {
     Log.info(`${missingBlocks.length} missing blocks, fetching`);
+
+    if (process.env.SHOW_PROGRESS !== undefined) {
+      DisplayProgress.start(missingBlocks.length);
+    }
+
     await blockAnalysisQueue.addAll(
       missingBlocks.map((blockNumber) =>
         calcBaseFeesForBlockNumber(blockNumber, false),
