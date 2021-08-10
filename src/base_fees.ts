@@ -428,7 +428,7 @@ export const getBurnRates = async () => {
       SELECT
         SUM(base_fee_sum) / (
           EXTRACT(epoch FROM now() - min(mined_at)) / 60
-        )
+        ) AS burn_per_minute
       FROM base_fees_per_block
       WHERE mined_at >= now() - interval '7 days'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
@@ -438,7 +438,7 @@ export const getBurnRates = async () => {
       SELECT
         SUM(base_fee_sum) / (
           EXTRACT(epoch FROM now() - min(mined_at)) / 60
-        )
+        ) AS burn_per_minute
       FROM base_fees_per_block
       WHERE mined_at >= now() - interval '30 days'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
