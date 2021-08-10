@@ -161,16 +161,19 @@ export const getTotalFeesBurned = async (): Promise<FeesBurned> => {
   const feesBurned24h = () =>
     sql<{ baseFeeSum: number }[]>`
       SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+      WHERE mined_at >= now() - interval '24 hours'
   `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
   const feesBurned7d = () =>
     sql<{ baseFeeSum: number }[]>`
       SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+      WHERE mined_at >= now() - interval '7 days'
   `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
   const feesBurned30d = () =>
     sql<{ baseFeeSum: number }[]>`
       SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+      WHERE mined_at >= now() - interval '30 days'
   `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
   const feesBurnedAll = () =>
