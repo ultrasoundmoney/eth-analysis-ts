@@ -16,15 +16,21 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as A from "fp-ts/lib/Array.js";
 import * as eth from "./web3.js";
 import { hexToNumber } from "./numbers.js";
-import { BaseFeeBurner, BurnRates } from "./base_fees.js";
+import { BaseFeeBurner, BurnRates, FeesBurned } from "./base_fees.js";
 
 let number = 0;
-let totalFeesBurned = 0;
+let feesBurned: Record<keyof FeesBurned, number> = {
+  feesBurned1h: 0,
+  feesBurned24h: 0,
+  feesBurned7d: 0,
+  feesBurned30d: 0,
+  feesBurnedAll: 0,
+};
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { number, totalFeesBurned };
+  ctx.body = { number, feesBurned };
 };
 
 let feesBurnedPerInterval = {};
@@ -104,7 +110,7 @@ const handleGetAll: Middleware = async (ctx) => {
     feesBurnedPerInterval,
     latestBlockFees,
     number,
-    totalFeesBurned,
+    feesBurned,
   };
 };
 
@@ -124,7 +130,7 @@ sql.listen("new-block", async (payload) => {
   const block = await eth.getBlock(number);
 
   burnRates = newBurnRates;
-  totalFeesBurned = newTotalFeesBurned;
+  feesBurned = newTotalFeesBurned;
   feesBurnedPerInterval = newFeesBurnedPerInterval;
   baseFeePerGas = hexToNumber(block.baseFeePerGas);
 

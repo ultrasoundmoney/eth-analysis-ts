@@ -143,18 +143,48 @@ export const getContractNameMap = async () => {
 export const calcBlockBaseFeeSum = (block: BlockLondon): number =>
   block.gasUsed * hexToNumber(block.baseFeePerGas);
 
-export const getTotalFeesBurned = async (): Promise<number> => {
-  const baseFeeSum = await sql<{ baseFeeSum: number }[]>`
+export type FeesBurned = {
+  feesBurned1h: number;
+  feesBurned24h: number;
+  feesBurned7d: number;
+  feesBurned30d: number;
+  feesBurnedAll: number;
+};
+
+export const getTotalFeesBurned = async (): Promise<FeesBurned> => {
+  const feesBurned1h = () =>
+    sql<{ baseFeeSum: number }[]>`
       SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
-  `.then((rows) => {
-    if (rows.length === 0) {
-      Log.warn("tried to get top fee burners before any blocks were analyzed");
-    }
+      WHERE mined_at >= now() - interval '1 hours'
+  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
-    return rows[0]?.baseFeeSum ?? 0;
-  });
+  const feesBurned24h = () =>
+    sql<{ baseFeeSum: number }[]>`
+      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
-  return baseFeeSum;
+  const feesBurned7d = () =>
+    sql<{ baseFeeSum: number }[]>`
+      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+
+  const feesBurned30d = () =>
+    sql<{ baseFeeSum: number }[]>`
+      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+
+  const feesBurnedAll = () =>
+    sql<{ baseFeeSum: number }[]>`
+      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+
+  return sequenceS(T.ApplyPar)({
+    feesBurned1h,
+    feesBurned24h,
+    feesBurned7d,
+    feesBurned30d,
+    feesBurnedAll,
+  })();
 };
 
 export type FeesBurnedPerInterval = Record<string, number>;
@@ -188,6 +218,8 @@ export const getFeesBurnedPerInterval =
   };
 
 const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
+  const { feesBurnedAll: totalFeesBurned } = await getTotalFeesBurned();
+
   await sql.notify(
     "base-fee-updates",
     JSON.stringify({
@@ -195,7 +227,7 @@ const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
       number: block.number,
       baseFeePerGas: hexToNumber(block.baseFeePerGas),
       fees: calcBlockBaseFeeSum(block),
-      totalFeesBurned: await getTotalFeesBurned(),
+      totalFeesBurned: totalFeesBurned,
     }),
   );
 };
