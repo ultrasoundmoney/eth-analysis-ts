@@ -146,6 +146,7 @@ sql.listen("new-block", async (payload) => {
 
 type BurnLeaderboardUpdate = {
   number: number;
+  leaderboard1h: BaseFeeBurner[];
   leaderboard24h: BaseFeeBurner[];
   leaderboard7d: BaseFeeBurner[];
   leaderboard30d: BaseFeeBurner[];

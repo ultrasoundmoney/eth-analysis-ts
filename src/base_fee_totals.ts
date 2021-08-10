@@ -22,7 +22,9 @@ import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
 import Sentry from "@sentry/node";
 
-type DappAddress = { dapp_id: string; address: string };
+type DappId = string;
+type ContractAddress = string;
+type DappAddress = { dapp_id: DappId; address: ContractAddress };
 type AddressToDappMap = Partial<Record<string, string>>;
 let cAddressToDappMap: AddressToDappMap | undefined = undefined;
 
@@ -86,17 +88,14 @@ type AnalyzedBlock = {
   minedAt: Date;
 };
 
-type Segments = {
-  b24h: AnalyzedBlock[];
-  b7d: AnalyzedBlock[];
-  b30d: AnalyzedBlock[];
-  all: AnalyzedBlock[];
-};
+type Segments = Record<Timeframe, AnalyzedBlock[]>;
 
 const getSecondsFromDays = (days: number): number => days * 24 * 60 * 60;
+const getSecondsFromHours = (hours: number): number => hours * 60 * 60;
 
 const getTimeframeSegments = (blocks: AnalyzedBlock[]): Segments => {
   const now = new Date();
+  const blocks1h: AnalyzedBlock[] = [];
   const blocks24h: AnalyzedBlock[] = [];
   const blocks7d: AnalyzedBlock[] = [];
   const blocks30d: AnalyzedBlock[] = [];
@@ -118,12 +117,17 @@ const getTimeframeSegments = (blocks: AnalyzedBlock[]): Segments => {
     if (secondsAge < getSecondsFromDays(1)) {
       blocks24h.push(block);
     }
+
+    if (secondsAge < getSecondsFromHours(1)) {
+      blocks1h.push(block);
+    }
   });
 
   return {
-    b24h: blocks24h,
-    b7d: blocks7d,
-    b30d: blocks30d,
+    "1h": blocks1h,
+    "24h": blocks24h,
+    "7d": blocks7d,
+    "30d": blocks30d,
     all: blocksAll,
   };
 };
@@ -131,7 +135,10 @@ const getTimeframeSegments = (blocks: AnalyzedBlock[]): Segments => {
 const groupByDapp = (
   dappAddressMap: AddressToDappMap,
   sumsByContract: Record<string, number>,
-) => {
+): {
+  dappSums: Map<DappId, number>;
+  contractSums: Map<ContractAddress, number>;
+} => {
   const dappSums = new Map();
   const contractSums = new Map();
 
@@ -153,7 +160,7 @@ const groupByDapp = (
 
 const writeSums = async (
   timeframe: Timeframe,
-  sums: Map<string, string>,
+  sums: Map<string, number>,
   oldestIncludedBlock: number,
   totalType: TotalType,
 ) => {
@@ -203,30 +210,42 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
   Log.debug("done fetching all base fees per block");
 
   const timeframeSegments = getTimeframeSegments(blocks);
-  const [oldestBlock24h] = timeframeSegments.b24h;
-  const [oldestBlock7d] = timeframeSegments.b7d;
-  const [oldestBlock30d] = timeframeSegments.b30d;
-  const [oldestBlockAll] = timeframeSegments.all;
+  const [oldestBlock1h] = timeframeSegments["1h"];
+  const [oldestBlock24h] = timeframeSegments["24h"];
+  const [oldestBlock7d] = timeframeSegments["7d"];
+  const [oldestBlock30d] = timeframeSegments["30d"];
+  const [oldestBlockAll] = timeframeSegments["all"];
+
+  const sumByContract1h = pipe(
+    timeframeSegments["1h"],
+    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
+    BaseFees.sumFeeMaps,
+  );
 
   const sumByContract24h = pipe(
-    timeframeSegments.b24h,
+    timeframeSegments["24h"],
     A.map((aBlock) => aBlock.baseFees.contract_use_fees),
     BaseFees.sumFeeMaps,
   );
   const sumByContract7d = pipe(
-    timeframeSegments.b7d,
+    timeframeSegments["7d"],
     A.map((aBlock) => aBlock.baseFees.contract_use_fees),
     BaseFees.sumFeeMaps,
   );
   const sumByContract30d = pipe(
-    timeframeSegments.b30d,
+    timeframeSegments["30d"],
     A.map((aBlock) => aBlock.baseFees.contract_use_fees),
     BaseFees.sumFeeMaps,
   );
   const sumByContractAll = pipe(
-    timeframeSegments.all,
+    timeframeSegments["all"],
     A.map((aBlock) => aBlock.baseFees.contract_use_fees),
     BaseFees.sumFeeMaps,
+  );
+
+  const { dappSums: dappSums1h, contractSums: contractSums1h } = groupByDapp(
+    dappAddressMap,
+    sumByContract1h,
   );
 
   const { dappSums: dappSums24h, contractSums: contractSums24h } = groupByDapp(
@@ -256,6 +275,14 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
 
   await ensureContractAddressKnown(Object.keys(sumByContractAll));
 
+  if (oldestBlock1h !== undefined) {
+    await sql`TRUNCATE dapp_1h_totals;`;
+    await sql`TRUNCATE contract_1h_totals;`;
+    await writeSums("1h", dappSums1h, oldestBlock1h.number, "dapp");
+    await writeSums("1h", contractSums1h, oldestBlock1h.number, "contract");
+  } else {
+    Log.warn("no oldest block within 1h found! are we 1h behind?");
+  }
   if (oldestBlock24h !== undefined) {
     await sql`TRUNCATE dapp_24h_totals;`;
     await sql`TRUNCATE contract_24h_totals;`;
@@ -310,6 +337,7 @@ const writeDappTotals = async (
   useBaseFee: number,
 ): Promise<void> =>
   Promise.all([
+    writeTotal(block, "1h", dapp, useBaseFee, "dapp"),
     writeTotal(block, "24h", dapp, useBaseFee, "dapp"),
     writeTotal(block, "7d", dapp, useBaseFee, "dapp"),
     writeTotal(block, "30d", dapp, useBaseFee, "dapp"),
@@ -322,6 +350,7 @@ const writeContractTotals = async (
   useBaseFee: number,
 ): Promise<void> =>
   Promise.all([
+    writeTotal(block, "1h", address, useBaseFee, "contract"),
     writeTotal(block, "24h", address, useBaseFee, "contract"),
     writeTotal(block, "7d", address, useBaseFee, "contract"),
     writeTotal(block, "30d", address, useBaseFee, "contract"),
@@ -378,6 +407,7 @@ const totalIdColumnMap: Record<TotalType, string> = {
 };
 
 const timeframeHoursMap: Record<Timeframe, number> = {
+  "1h": 1,
   "24h": 24,
   "7d": 24 * 7,
   "30d": 24 * 30,
@@ -494,6 +524,7 @@ const ensureFreshTotals = async (
   Log.debug(`removing stale fees for ${dappsOrAddresses.length} ${totalType}s`);
 
   await Promise.all([
+    ensureFreshTotal(dappToAdressesMap, "1h", totalType, dappsOrAddresses),
     ensureFreshTotal(dappToAdressesMap, "24h", totalType, dappsOrAddresses),
     ensureFreshTotal(dappToAdressesMap, "7d", totalType, dappsOrAddresses),
     ensureFreshTotal(dappToAdressesMap, "30d", totalType, dappsOrAddresses),
@@ -636,19 +667,26 @@ export const getTopTenFeeBurners = async (
 export const notifyNewLeaderboard = async (
   block: BlockLondon,
 ): Promise<void> => {
-  const [leaderboard24h, leaderboard7d, leaderboard30d, leaderboardAll] =
-    await Promise.all([
-      getTopTenFeeBurners("24h"),
-      getTopTenFeeBurners("7d"),
-      getTopTenFeeBurners("30d"),
-      getTopTenFeeBurners("all"),
-    ]);
+  const [
+    leaderboard1h,
+    leaderboard24h,
+    leaderboard7d,
+    leaderboard30d,
+    leaderboardAll,
+  ] = await Promise.all([
+    getTopTenFeeBurners("1h"),
+    getTopTenFeeBurners("24h"),
+    getTopTenFeeBurners("7d"),
+    getTopTenFeeBurners("30d"),
+    getTopTenFeeBurners("all"),
+  ]);
 
   await sql.notify(
     "base-fee-updates",
     JSON.stringify({
       type: "leaderboard-update",
       number: block.number,
+      leaderboard1h,
       leaderboard24h,
       leaderboard7d,
       leaderboard30d,
@@ -660,6 +698,7 @@ export const notifyNewLeaderboard = async (
     "burn-leaderboard-update",
     JSON.stringify({
       number: block.number,
+      leaderboard1h,
       leaderboard24h,
       leaderboard7d,
       leaderboard30d,

@@ -119,7 +119,7 @@ export const sumFeeMaps = (
     return sumMap;
   }, {} as Record<string, number>);
 
-export type Timeframe = "24h" | "7d" | "30d" | "all";
+export type Timeframe = "1h" | "24h" | "7d" | "30d" | "all";
 
 let contractNameMap: Partial<Record<string, string>> | undefined = undefined;
 export const getContractNameMap = async () => {
