@@ -442,7 +442,7 @@ export const getBurnRates = async () => {
             epoch FROM (
               now() - '2021-08-05 12:33:42+00'
             )
-          )
+          ) / 60
         ) AS burn_per_minute
       FROM base_fees_per_block
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
