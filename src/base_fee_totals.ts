@@ -531,27 +531,27 @@ const ensureFreshTotals = async (
   ]);
 };
 
-type DappName = { dapp_id: string; name: string };
-type DappNameMap = Partial<Record<string, string>>;
-let cDappNameMap: DappNameMap | undefined = undefined;
-const getDappNameMap = async (): Promise<DappNameMap> => {
-  if (cDappNameMap !== undefined) {
-    return cDappNameMap;
-  }
+// type DappName = { dapp_id: string; name: string };
+// type DappNameMap = Partial<Record<string, string>>;
+// let cDappNameMap: DappNameMap | undefined = undefined;
+// const getDappNameMap = async (): Promise<DappNameMap> => {
+//   if (cDappNameMap !== undefined) {
+//     return cDappNameMap;
+//   }
 
-  return pipe(
-    readFile("./dapp_names.csv"),
-    T.chain((csv) => readCsv<DappName>(csv)),
-    T.map(A.map(({ dapp_id, name }) => [dapp_id, name])),
-    T.map(Object.fromEntries),
-    T.map((dappNameMap) => {
-      cDappNameMap = dappNameMap;
-      return dappNameMap;
-    }),
-  )();
-};
+//   return pipe(
+//     readFile("./dapp_names.csv"),
+//     T.chain((csv) => readCsv<DappName>(csv)),
+//     T.map(A.map(({ dapp_id, name }) => [dapp_id, name])),
+//     T.map(Object.fromEntries),
+//     T.map((dappNameMap) => {
+//       cDappNameMap = dappNameMap;
+//       return dappNameMap;
+//     }),
+//   )();
+// };
 
-export const getTopTenFeeBurners = async (
+export const getTopFeeBurners = async (
   timeframe: Timeframe,
 ): Promise<BaseFeeBurner[]> => {
   // const maxHours = timeframeHoursMap[timeframe];
@@ -581,31 +581,31 @@ export const getTopTenFeeBurners = async (
   //   sum,
   // );
 
-  const tableDapps = getTableName("dapp", timeframe);
+  // const tableDapps = getTableName("dapp", timeframe);
+
+  // const dappBurnerCandidatesRaw = await sql<
+  //   { dappId: string; feeTotal: BigInt }[]
+  // >`
+  //   SELECT dapp_id, fee_total FROM ${sql(tableDapps)}
+  //   ORDER BY fee_total DESC
+  //   LIMIT 11
+  // `.then((rows) =>
+  //   rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
+  // );
+
+  // const dappNameMap = await getDappNameMap();
+
+  // const dappBurnerCandidates: BaseFeeBurner[] = dappBurnerCandidatesRaw.map(
+  //   ({ dappId, feeTotal }) => ({
+  //     fees: feeTotal,
+  //     id: dappId,
+  //     name: dappNameMap[dappId] || dappId,
+  //     image: undefined,
+  //   }),
+  // );
+
   const tableContracts = getTableName("contract", timeframe);
   const tableContractsSql = sql(tableContracts);
-
-  const dappBurnerCandidatesRaw = await sql<
-    { dappId: string; feeTotal: BigInt }[]
-  >`
-    SELECT dapp_id, fee_total FROM ${sql(tableDapps)}
-    ORDER BY fee_total DESC
-    LIMIT 10
-  `.then((rows) =>
-    rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
-  );
-
-  const dappNameMap = await getDappNameMap();
-
-  const dappBurnerCandidates: BaseFeeBurner[] = dappBurnerCandidatesRaw.map(
-    ({ dappId, feeTotal }) => ({
-      fees: feeTotal,
-      id: dappId,
-      name: dappNameMap[dappId] || dappId,
-      image: undefined,
-    }),
-  );
-
   const contractBurnerCandidatesRaw = await sql<
     {
       contractAddress: string;
@@ -618,7 +618,7 @@ export const getTopTenFeeBurners = async (
     JOIN contracts
       ON ${tableContractsSql}.contract_address = contracts.address
     ORDER BY fee_total DESC
-    LIMIT 10
+    LIMIT 12
   `.then((rows) =>
     rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
   );
@@ -648,7 +648,7 @@ export const getTopTenFeeBurners = async (
       //   image: undefined,
       //   name: "Contract deployments",
       // },
-      ...dappBurnerCandidates,
+      // ...dappBurnerCandidates,
       ...contractBurnerCandidates,
     ],
     A.sort<BaseFeeBurner>({
@@ -660,7 +660,7 @@ export const getTopTenFeeBurners = async (
           : 1,
       equals: (first, second) => Number(first.fees) === Number(second.fees),
     }),
-    A.takeLeft(10),
+    A.takeLeft(12),
   );
 };
 
@@ -674,11 +674,11 @@ export const notifyNewLeaderboard = async (
     leaderboard30d,
     leaderboardAll,
   ] = await Promise.all([
-    getTopTenFeeBurners("1h"),
-    getTopTenFeeBurners("24h"),
-    getTopTenFeeBurners("7d"),
-    getTopTenFeeBurners("30d"),
-    getTopTenFeeBurners("all"),
+    getTopFeeBurners("1h"),
+    getTopFeeBurners("24h"),
+    getTopFeeBurners("7d"),
+    getTopFeeBurners("30d"),
+    getTopFeeBurners("all"),
   ]);
 
   await sql.notify(
