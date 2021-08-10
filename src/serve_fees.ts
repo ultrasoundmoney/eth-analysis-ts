@@ -22,14 +22,14 @@ let number = 0;
 let totalFeesBurned = 0;
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = { number, totalFeesBurned };
 };
 
 let feesBurnedPerInterval = {};
 const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=86400");
+  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=86400");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = { feesBurnedPerInterval, number };
 };
@@ -53,7 +53,7 @@ let burnRates: BurnRates = {
 };
 
 const handleGetBurnRate: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = { burnRates, number };
 };
@@ -61,7 +61,7 @@ const handleGetBurnRate: Middleware = async (ctx) => {
 let latestBlockFees: { fees: number; number: number }[] = [];
 
 const handleGetLatestBlocks: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = latestBlockFees;
 };
@@ -69,7 +69,7 @@ const handleGetLatestBlocks: Middleware = async (ctx) => {
 let baseFeePerGas = 0;
 
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = { baseFeePerGas };
 };
@@ -82,7 +82,7 @@ let leaderboardAll: BaseFeeBurner[] = [];
 let leaderboardNumber = 0;
 
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = {
     number: leaderboardNumber,
@@ -94,7 +94,7 @@ const handleGetBurnLeaderboard: Middleware = async (ctx) => {
 };
 
 const handleGetAll: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=4, stale-while-revalidate=8");
+  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = {
     baseFeePerGas,
