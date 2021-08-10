@@ -422,15 +422,28 @@ export const getBurnRates = async () => {
       WHERE mined_at >= now() - interval '24 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
+  // The more complex queries account for the fact we don't have all blocks in the queried period yet and can't assume the amount of minutes is the length of the period in days times the number of minutes in a day. Once we do we can simplify to the above.
   const burnRate7d = () =>
     sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / (7 * 24 * 60) AS burn_per_minute FROM base_fees_per_block
+      SELECT SUM(base_fee_sum) / (
+       EXTRACT(
+          epoch FROM (
+            now() - (now() - min(mined_at))
+          )
+        ) / 60
+      ) AS burn_per_minute FROM base_fees_per_block
       WHERE mined_at >= now() - interval '7 days'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
   const burnRate30d = () =>
     sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / (30 * 24 * 60) AS burn_per_minute FROM base_fees_per_block
+      SELECT SUM(base_fee_sum) / (
+       EXTRACT(
+          epoch FROM (
+            now() - (now() - min(mined_at))
+          )
+        ) / 60
+      ) AS burn_per_minute FROM base_fees_per_block
       WHERE mined_at >= now() - interval '30 days'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
