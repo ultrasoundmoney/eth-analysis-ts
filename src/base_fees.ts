@@ -280,13 +280,15 @@ export const calcBlockTips = (
 
 const blockAnalysisQueue = new PQueue({ concurrency: 8 });
 
+export type NewBlockPayload = {
+  number: number;
+};
 const notifyNewBlock = async (block: BlockLondon): Promise<void> => {
-  await sql.notify(
-    "new-block",
-    JSON.stringify({
-      number: block.number,
-    }),
-  );
+  const payload: NewBlockPayload = {
+    number: block.number,
+  };
+
+  await sql.notify("new-block", JSON.stringify(payload));
 };
 
 const calcBaseFeesForBlockNumber = (

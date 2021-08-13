@@ -16,10 +16,14 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as A from "fp-ts/lib/Array.js";
 import * as eth from "./web3.js";
 import { hexToNumber } from "./numbers.js";
-import { BaseFeeBurner, BurnRates, FeesBurned } from "./base_fees.js";
+import {
+  BaseFeeBurner,
+  BurnRates,
+  FeesBurned,
+  NewBlockPayload,
+} from "./base_fees.js";
 import * as Blocks from "./blocks.js";
 
-let latestBlockNumber = 0;
 let feesBurned: Record<keyof FeesBurned, number> = {
   feesBurned1h: 0,
   feesBurned24h: 0,
@@ -115,14 +119,13 @@ const handleGetAll: Middleware = async (ctx) => {
   };
 };
 
-let lastLatestBlockNumber: number | undefined = undefined;
+let latestBlockNumber: number | undefined = undefined;
+let previousLatestBlockNumber: number | undefined = undefined;
 
-sql.listen("new-block", async (payload) => {
-  Log.debug("new block update received");
-  const latestBlock: { number: number } = JSON.parse(payload!);
-
-  latestBlockNumber = latestBlock.number;
-
+const updateCachesForBlockNumber = async (
+  newLatestBlockNumber: number,
+): Promise<void> => {
+  latestBlockNumber = newLatestBlockNumber;
   const [newBurnRates, newTotalFeesBurned, newFeesBurnedPerInterval] =
     await Promise.all([
       BaseFees.getBurnRates(),
@@ -141,7 +144,7 @@ sql.listen("new-block", async (payload) => {
   // Sometimes a new block has the same number as an old block. Blocks our node sees are not always final.
   // Sometimes the node advances the chain multiple blocks at once.
   // We consider our list of latest blocks out of sync and refetch.
-  if (latestBlockNumber === (lastLatestBlockNumber ?? 0) + 1) {
+  if (latestBlockNumber === (previousLatestBlockNumber ?? 0) + 1) {
     // we're in sync, append one
     latestBlockFees.push({
       fees: BaseFees.calcBlockBaseFeeSum(block),
@@ -165,7 +168,13 @@ sql.listen("new-block", async (payload) => {
     }));
   }
 
-  lastLatestBlockNumber = block.number;
+  previousLatestBlockNumber = block.number;
+};
+
+sql.listen("new-block", (payload) => {
+  Log.debug("new block update received");
+  const latestBlock: NewBlockPayload = JSON.parse(payload!);
+  updateCachesForBlockNumber(latestBlock.number);
 });
 
 type BurnLeaderboardUpdate = {
@@ -236,8 +245,21 @@ router.get("/fees/all", handleGetAll);
 app.use(router.routes());
 app.use(router.allowedMethods());
 
-const server = app.listen(port, () => {
-  Log.info(`listening on ${port}`);
-});
+const serveFees = async () => {
+  await eth.webSocketOpen;
+  const block = await eth.getBlock("latest");
+  await updateCachesForBlockNumber(block.number);
 
-startWebSocketServer(server);
+  await new Promise((resolve) => {
+    const server = app.listen(port, () => {
+      resolve(undefined);
+    });
+    startWebSocketServer(server);
+  });
+  Log.info(`listening on ${port}`);
+};
+
+serveFees().catch((error) => {
+  Log.error(error);
+  throw error;
+});
