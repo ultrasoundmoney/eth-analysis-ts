@@ -17,8 +17,9 @@ import * as A from "fp-ts/lib/Array.js";
 import * as eth from "./web3.js";
 import { hexToNumber } from "./numbers.js";
 import { BaseFeeBurner, BurnRates, FeesBurned } from "./base_fees.js";
+import * as Blocks from "./blocks.js";
 
-let number = 0;
+let latestBlockNumber = 0;
 let feesBurned: Record<keyof FeesBurned, number> = {
   feesBurned1h: 0,
   feesBurned24h: 0,
@@ -30,14 +31,14 @@ let feesBurned: Record<keyof FeesBurned, number> = {
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { number, feesBurned };
+  ctx.body = { number: latestBlockNumber, feesBurned };
 };
 
 let feesBurnedPerInterval = {};
 const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=86400");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { feesBurnedPerInterval, number };
+  ctx.body = { feesBurnedPerInterval, number: latestBlockNumber };
 };
 
 const handleGetEthPrice: Middleware = async (ctx) => {
@@ -61,7 +62,7 @@ let burnRates: BurnRates = {
 const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { burnRates, number };
+  ctx.body = { burnRates, number: latestBlockNumber };
 };
 
 let latestBlockFees: { fees: number; number: number }[] = [];
@@ -109,16 +110,18 @@ const handleGetAll: Middleware = async (ctx) => {
     burnRates,
     feesBurnedPerInterval,
     latestBlockFees,
-    number,
+    number: latestBlockNumber,
     feesBurned,
   };
 };
+
+let lastLatestBlockNumber: number | undefined = undefined;
 
 sql.listen("new-block", async (payload) => {
   Log.debug("new block update received");
   const latestBlock: { number: number } = JSON.parse(payload!);
 
-  number = latestBlock.number;
+  latestBlockNumber = latestBlock.number;
 
   const [newBurnRates, newTotalFeesBurned, newFeesBurnedPerInterval] =
     await Promise.all([
@@ -127,29 +130,42 @@ sql.listen("new-block", async (payload) => {
       BaseFees.getFeesBurnedPerInterval(),
     ]);
 
-  const block = await eth.getBlock(number);
+  const block = await eth.getBlock(latestBlockNumber);
 
   burnRates = newBurnRates;
   feesBurned = newTotalFeesBurned;
   feesBurnedPerInterval = newFeesBurnedPerInterval;
   baseFeePerGas = hexToNumber(block.baseFeePerGas);
 
-  // Sometimes a new block has the same number as an old block. These updates are not final! In this case we replace the block in the list instead of pushing it onto the end.
-  const existingIndex = latestBlockFees.findIndex(
-    (blockFee) => blockFee.number === number,
-  );
-  if (existingIndex === -1) {
-    latestBlockFees.push({ fees: BaseFees.calcBlockBaseFeeSum(block), number });
-  } else {
-    // We already have this block! Overwrite with new block.
-    latestBlockFees[existingIndex] = {
+  // There are multiple cases where the new block is not simply the next block from the last we saw.
+  // Sometimes a new block has the same number as an old block. Blocks our node sees are not always final.
+  // Sometimes the node advances the chain multiple blocks at once.
+  // We consider our list of latest blocks out of sync and refetch.
+  if (latestBlockNumber === (lastLatestBlockNumber ?? 0) + 1) {
+    // we're in sync, append one
+    latestBlockFees.push({
       fees: BaseFees.calcBlockBaseFeeSum(block),
-      number,
-    };
+      number: latestBlockNumber,
+    });
+
+    if (latestBlockFees.length > 10) {
+      latestBlockFees = pipe(latestBlockFees, A.takeRight(10));
+    }
+  } else {
+    // we're out of resync, refetch last ten
+    const blocksToFetch = Blocks.getBlockRange(
+      latestBlockNumber - 10,
+      latestBlockNumber,
+    );
+
+    const blocks = await Promise.all(blocksToFetch.map(eth.getBlock));
+    latestBlockFees = blocks.map((block) => ({
+      fees: BaseFees.calcBlockBaseFeeSum(block),
+      number: block.number,
+    }));
   }
-  if (latestBlockFees.length > 10) {
-    latestBlockFees = pipe(latestBlockFees, A.takeRight(10));
-  }
+
+  lastLatestBlockNumber = block.number;
 });
 
 type BurnLeaderboardUpdate = {
