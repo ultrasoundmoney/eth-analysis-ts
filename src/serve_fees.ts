@@ -1,9 +1,5 @@
 import Koa, { Middleware } from "koa";
-import {
-  requestHandler,
-  Sentry,
-  tracingMiddleWare,
-} from "./serve_fees_sentry.js";
+import * as Sentry from "@sentry/node";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
 import Router from "@koa/router";
@@ -23,6 +19,12 @@ import {
   NewBlockPayload,
 } from "./base_fees.js";
 import * as Blocks from "./blocks.js";
+import Config from "./config.js";
+
+Sentry.init({
+  dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
+  environment: Config.env,
+});
 
 let feesBurned: Record<keyof FeesBurned, number> = {
   feesBurned1h: 0,
@@ -206,8 +208,6 @@ app.use(async (ctx, next) => {
   await next();
 });
 
-app.use(requestHandler);
-app.use(tracingMiddleWare);
 app.use(conditional());
 app.use(etag());
 
