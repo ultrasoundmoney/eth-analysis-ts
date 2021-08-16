@@ -18,7 +18,7 @@ jobs:
       - name: install deps
         run: yarn install
       - name: check types
-        run: yarn check
+        run: yarn check-types
       - name: lint
         run: yarn lint
       - name: test

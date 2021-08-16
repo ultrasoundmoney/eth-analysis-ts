@@ -54,7 +54,7 @@
   "scripts": {
     "build": "tsc",
     "build:prod": "tsc -p tsconfig.prod.json",
-    "check": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
     "lint": "gts lint",
     "clean": "gts clean",
     "start": "node build/serve_fees.js",
