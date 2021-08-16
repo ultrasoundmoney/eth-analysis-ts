@@ -15,7 +15,7 @@ import { startWebSocketServer } from "./socket.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as A from "fp-ts/lib/Array.js";
 import * as eth from "./web3.js";
-import { hexToNumber } from "./numbers.js";
+import { hexToNumber } from "./hexadecimal.js";
 import {
   BaseFeeBurner,
   BurnRates,

@@ -5,7 +5,7 @@ import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
-import { hexToNumber, sum, weiToEth } from "./numbers.js";
+import { sum } from "./numbers.js";
 import { BlockLondon } from "./web3.js";
 import neatCsv from "neat-csv";
 import fs from "fs/promises";
@@ -18,6 +18,8 @@ import * as Blocks from "./blocks.js";
 import Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
 import { sequenceT, sequenceS } from "fp-ts/lib/Apply.js";
+import { hexToNumber } from "./hexadecimal.js";
+import { weiToEth } from "./convert_unit.js";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */

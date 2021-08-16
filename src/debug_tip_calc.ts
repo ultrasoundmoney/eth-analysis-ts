@@ -1,7 +1,8 @@
-import * as eth from "./web3";
-import * as Log from "./log";
-import { hexToNumber, weiToEth, weiToGwei } from "./numbers";
 import * as BaseFees from "./base_fees.js";
+import * as Log from "./log";
+import * as eth from "./web3";
+import { hexToNumber } from "./hexadecimal.js";
+import { weiToEth, weiToGwei } from "./convert_unit.js";
 
 (async () => {
   await eth.webSocketOpen;
