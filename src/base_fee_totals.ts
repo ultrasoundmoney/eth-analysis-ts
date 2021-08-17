@@ -249,7 +249,6 @@ const subtractStaleBaseFees = async (
   `;
 
   if (staleBlocks.length === 0) {
-    Log.debug(`no stale blocks for contract - ${id}`);
     return;
   }
 
