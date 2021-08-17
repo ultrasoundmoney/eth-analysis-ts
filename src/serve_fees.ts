@@ -26,25 +26,19 @@ Sentry.init({
   environment: Config.env,
 });
 
-let feesBurned: Record<keyof FeesBurned, number> = {
-  feesBurned1h: 0,
-  feesBurned24h: 0,
-  feesBurned7d: 0,
-  feesBurned30d: 0,
-  feesBurnedAll: 0,
-};
-
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { number: latestBlockNumber, feesBurned };
+  ctx.body = { number: cache.number, feesBurned: cache.feesBurned };
 };
 
-let feesBurnedPerInterval = {};
 const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=86400");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { feesBurnedPerInterval, number: latestBlockNumber };
+  ctx.body = {
+    feesBurnedPerInterval: cache.feesBurnedPerInterval,
+    number: cache.number,
+  };
 };
 
 const handleGetEthPrice: Middleware = async (ctx) => {
@@ -57,18 +51,10 @@ const handleGetEthPrice: Middleware = async (ctx) => {
   ctx.body = ethPrice;
 };
 
-let burnRates: BurnRates = {
-  burnRate1h: 0,
-  burnRate24h: 0,
-  burnRate7d: 0,
-  burnRate30d: 0,
-  burnRateAll: 0,
-};
-
 const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { burnRates, number: latestBlockNumber };
+  ctx.body = { burnRates: cache.burnRates, number: cache.number };
 };
 
 let latestBlockFees: { fees: number; number: number }[] = [];
@@ -79,12 +65,10 @@ const handleGetLatestBlocks: Middleware = async (ctx) => {
   ctx.body = latestBlockFees;
 };
 
-let baseFeePerGas = 0;
-
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = { baseFeePerGas };
+  ctx.body = { baseFeePerGas: cache.baseFeePerGas };
 };
 
 let leaderboard1h: BaseFeeBurner[] = [];
@@ -108,26 +92,47 @@ const handleGetBurnLeaderboard: Middleware = async (ctx) => {
   };
 };
 
+type Cache = {
+  baseFeePerGas: number;
+  burnRates: BurnRates;
+  feesBurned: Record<keyof FeesBurned, number>;
+  feesBurnedPerInterval: Record<string, number>;
+  latestBlockFees: { fees: number; number: number }[];
+  number: number;
+};
+
+const cache: Cache = {
+  baseFeePerGas: 0,
+  burnRates: {
+    burnRate1h: 0,
+    burnRate24h: 0,
+    burnRate7d: 0,
+    burnRate30d: 0,
+    burnRateAll: 0,
+  },
+  feesBurned: {
+    feesBurned1h: 0,
+    feesBurned24h: 0,
+    feesBurned7d: 0,
+    feesBurned30d: 0,
+    feesBurnedAll: 0,
+  },
+  feesBurnedPerInterval: {},
+  latestBlockFees: [],
+  number: 0,
+};
+
 const handleGetAll: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = {
-    baseFeePerGas,
-    burnRates,
-    feesBurnedPerInterval,
-    latestBlockFees,
-    number: latestBlockNumber,
-    feesBurned,
-  };
+  ctx.body = cache;
 };
-
-let latestBlockNumber: number | undefined = undefined;
-let previousLatestBlockNumber: number | undefined = undefined;
 
 const updateCachesForBlockNumber = async (
   newLatestBlockNumber: number,
 ): Promise<void> => {
-  latestBlockNumber = newLatestBlockNumber;
+  const block = await eth.getBlock(newLatestBlockNumber);
+
   const [newBurnRates, newTotalFeesBurned, newFeesBurnedPerInterval] =
     await Promise.all([
       BaseFees.getBurnRates(),
@@ -135,22 +140,15 @@ const updateCachesForBlockNumber = async (
       BaseFees.getFeesBurnedPerInterval(),
     ]);
 
-  const block = await eth.getBlock(latestBlockNumber);
-
-  burnRates = newBurnRates;
-  feesBurned = newTotalFeesBurned;
-  feesBurnedPerInterval = newFeesBurnedPerInterval;
-  baseFeePerGas = hexToNumber(block.baseFeePerGas);
-
   // There are multiple cases where the new block is not simply the next block from the last we saw.
   // Sometimes a new block has the same number as an old block. Blocks our node sees are not always final.
   // Sometimes the node advances the chain multiple blocks at once.
   // We consider our list of latest blocks out of sync and refetch.
-  if (latestBlockNumber === (previousLatestBlockNumber ?? 0) + 1) {
+  if (newLatestBlockNumber === (cache.number ?? 0) + 1) {
     // we're in sync, append one
     latestBlockFees.push({
       fees: BaseFees.calcBlockBaseFeeSum(block),
-      number: latestBlockNumber,
+      number: newLatestBlockNumber,
     });
 
     if (latestBlockFees.length > 10) {
@@ -159,8 +157,8 @@ const updateCachesForBlockNumber = async (
   } else {
     // we're out of resync, refetch last ten
     const blocksToFetch = Blocks.getBlockRange(
-      latestBlockNumber - 10,
-      latestBlockNumber,
+      newLatestBlockNumber - 10,
+      newLatestBlockNumber,
     );
 
     const blocks = await Promise.all(blocksToFetch.map(eth.getBlock));
@@ -170,7 +168,12 @@ const updateCachesForBlockNumber = async (
     }));
   }
 
-  previousLatestBlockNumber = block.number;
+  cache.baseFeePerGas = hexToNumber(block.baseFeePerGas);
+  cache.burnRates = newBurnRates;
+  cache.feesBurned = newTotalFeesBurned;
+  cache.feesBurnedPerInterval = newFeesBurnedPerInterval;
+  cache.latestBlockFees = latestBlockFees;
+  cache.number = newLatestBlockNumber;
 };
 
 sql.listen("new-block", (payload) => {
