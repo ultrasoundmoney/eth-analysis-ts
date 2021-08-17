@@ -373,7 +373,13 @@ export const watchAndCalcBaseFees = async () => {
     calcBaseFeesForBlockNumber(head.number, true)(),
   );
 
+  await calcMissingBaseFees();
+};
+
+export const calcMissingBaseFees = async () => {
   Log.info("checking for missing blocks");
+  await eth.webSocketOpen;
+
   const latestBlock = await eth.getBlock("latest");
   const knownBlockNumbers = await sql<{ number: number }[]>`
     SELECT number FROM base_fees_per_block
