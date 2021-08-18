@@ -1,11 +1,21 @@
 import postgres from "postgres";
+import O from "fp-ts/lib/Option.js";
 import { camelCase } from "change-case";
+import { pipe } from "fp-ts/lib/function.js";
+
+const port = pipe(
+  process.env.PGPORT,
+  O.fromNullable,
+  O.map(Number),
+  O.getOrElse(() => 5432),
+);
 
 export const sql = postgres({
   host: process.env.PGHOST,
   database: process.env.PGDATABASE,
   password: process.env.PGPASSWORD,
   username: process.env.PGUSER,
+  port,
   transform: { column: camelCase },
   max: 8,
   types: {
