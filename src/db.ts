@@ -2,10 +2,10 @@ import postgres from "postgres";
 import { camelCase } from "change-case";
 
 export const sql = postgres({
-  host: process.env.DB_HOST,
-  database: "defaultdb",
-  password: process.env.DB_PASSWORD,
-  username: process.env.DB_USER,
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  password: process.env.PGPASSWORD,
+  username: process.env.PGUSER,
   transform: { column: camelCase },
   max: 8,
   types: {
