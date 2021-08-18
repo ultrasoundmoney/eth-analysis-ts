@@ -20,7 +20,6 @@ COPY package.json .
 COPY yarn.lock .
 RUN ["yarn", "install", "--production"]
 
-COPY master_list.csv .
 COPY --from=build /app/ .
 
 CMD ["node", "src/serve_fees.js"]
