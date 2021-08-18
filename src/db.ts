@@ -2,6 +2,7 @@ import postgres from "postgres";
 import O from "fp-ts/lib/Option.js";
 import { camelCase } from "change-case";
 import { pipe } from "fp-ts/lib/function.js";
+import Config from "./config.js";
 
 const port = pipe(
   process.env.PGPORT,
@@ -16,6 +17,7 @@ export const sql = postgres({
   password: process.env.PGPASSWORD,
   username: process.env.PGUSER,
   port,
+  ssl: Config.env === "staging" ? "require" : undefined,
   transform: { column: camelCase },
   max: 8,
   types: {
