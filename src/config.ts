@@ -1,6 +1,6 @@
 import * as Log from "./log.js";
 
-type Env = "dev" | "prod";
+type Env = "dev" | "prod" | "staging";
 
 const parseEnv = (): Env => {
   const rawEnv = process.env.ENV;
@@ -10,6 +10,8 @@ const parseEnv = (): Env => {
       return "prod";
     case "dev":
       return "dev";
+    case "staging":
+      return "staging";
     default:
       Log.warn("no ENV in env, defaulting to dev");
       return "dev";
