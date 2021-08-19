@@ -19,7 +19,7 @@ export const sql = postgres({
   port,
   ssl: Config.env === "staging" ? "require" : "prefer",
   transform: { column: camelCase },
-  max: 8,
+  max: 4,
   types: {
     bigint: postgres.BigInt,
   },
