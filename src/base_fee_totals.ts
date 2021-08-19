@@ -275,7 +275,7 @@ export const getTopFeeBurners = async (
   const contractBurnerCandidatesRaw = await sql<
     {
       contractAddress: string;
-      feeTotal: BigInt;
+      feeTotal: string;
       name: string | null;
       isBot: boolean;
     }[]
@@ -292,7 +292,7 @@ export const getTopFeeBurners = async (
   const contractBurnerCandidates: BaseFeeBurner[] =
     contractBurnerCandidatesRaw.map(
       ({ contractAddress, feeTotal, name, isBot }) => ({
-        fees: feeTotal,
+        fees: Number(feeTotal),
         id: contractAddress,
         name: name || contractAddress,
         image: undefined,
@@ -318,12 +318,8 @@ export const getTopFeeBurners = async (
     ],
     A.sort<BaseFeeBurner>({
       compare: (first, second) =>
-        Number(first.fees) === Number(second.fees)
-          ? 0
-          : Number(first.fees) > Number(second.fees)
-          ? -1
-          : 1,
-      equals: (first, second) => Number(first.fees) === Number(second.fees),
+        first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
+      equals: (first, second) => first.fees === second.fees,
     }),
     A.takeLeft(12),
   );
