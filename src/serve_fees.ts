@@ -72,55 +72,46 @@ const handleGetBaseFeePerGas: Middleware = async (ctx) => {
   ctx.body = { baseFeePerGas: cache.baseFeePerGas };
 };
 
-let leaderboard1h: BaseFeeBurner[] = [];
-let leaderboard24h: BaseFeeBurner[] = [];
-let leaderboard7d: BaseFeeBurner[] = [];
-let leaderboard30d: BaseFeeBurner[] = [];
-let leaderboardAll: BaseFeeBurner[] = [];
-// the most recently analyzed block for the leaderboard
-let leaderboardNumber = 0;
+type LeaderboardCache = {
+  leaderboard1h: BaseFeeBurner[] | undefined;
+  leaderboard24h: BaseFeeBurner[] | undefined;
+  leaderboard7d: BaseFeeBurner[] | undefined;
+  leaderboard30d: BaseFeeBurner[] | undefined;
+  leaderboardAll: BaseFeeBurner[] | undefined;
+  number: number | undefined;
+};
+
+let leaderboardCache: LeaderboardCache = {
+  leaderboard1h: undefined,
+  leaderboard24h: undefined,
+  leaderboard30d: undefined,
+  leaderboard7d: undefined,
+  leaderboardAll: undefined,
+  number: undefined,
+};
 
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = {
-    number: leaderboardNumber,
-    leaderboard1h,
-    leaderboard24h,
-    leaderboard7d,
-    leaderboard30d,
-    leaderboardAll,
-  };
+  ctx.body = leaderboardCache;
 };
 
 type Cache = {
-  baseFeePerGas: number;
-  burnRates: BurnRates;
-  feesBurned: Record<keyof FeesBurned, number>;
-  feesBurnedPerInterval: Record<string, number>;
-  latestBlockFees: { fees: number; number: number }[];
-  number: number;
+  baseFeePerGas?: number;
+  burnRates?: BurnRates;
+  feesBurned?: Record<keyof FeesBurned, number>;
+  feesBurnedPerInterval?: Record<string, number>;
+  latestBlockFees?: { fees: number; number: number }[];
+  number?: number;
 };
 
 const cache: Cache = {
-  baseFeePerGas: 0,
-  burnRates: {
-    burnRate1h: 0,
-    burnRate24h: 0,
-    burnRate7d: 0,
-    burnRate30d: 0,
-    burnRateAll: 0,
-  },
-  feesBurned: {
-    feesBurned1h: 0,
-    feesBurned24h: 0,
-    feesBurned7d: 0,
-    feesBurned30d: 0,
-    feesBurnedAll: 0,
-  },
-  feesBurnedPerInterval: {},
-  latestBlockFees: [],
-  number: 0,
+  baseFeePerGas: undefined,
+  burnRates: undefined,
+  feesBurned: undefined,
+  feesBurnedPerInterval: undefined,
+  latestBlockFees: undefined,
+  number: undefined,
 };
 
 const handleGetAll: Middleware = async (ctx) => {
@@ -195,12 +186,14 @@ type BurnLeaderboardUpdate = {
 sql.listen("burn-leaderboard-update", async (payload) => {
   const update: BurnLeaderboardUpdate = JSON.parse(payload!);
 
-  leaderboardNumber = update.number;
-  leaderboard1h = update.leaderboard1h;
-  leaderboard24h = update.leaderboard24h;
-  leaderboard7d = update.leaderboard7d;
-  leaderboard30d = update.leaderboard30d;
-  leaderboardAll = update.leaderboardAll;
+  leaderboardCache = {
+    number: update.number,
+    leaderboard1h: update.leaderboard1h,
+    leaderboard24h: update.leaderboard24h,
+    leaderboard7d: update.leaderboard7d,
+    leaderboard30d: update.leaderboard30d,
+    leaderboardAll: update.leaderboardAll,
+  };
 });
 
 const port = process.env.PORT || 8080;
