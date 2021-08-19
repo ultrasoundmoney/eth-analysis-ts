@@ -2,3 +2,4 @@ node_modules/
 build/
 contract_image_guesses
 set-env-prod.sh
+set-env-staging.sh
