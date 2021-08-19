@@ -20,6 +20,8 @@ const parseEnv = (): Env => {
 
 const parseName = (): string => {
   const rawName = process.argv[1].split("/").pop();
+  Log.debug(`raw name is ${rawName}`);
+
   switch (rawName) {
     case "watch_base_fees.ts":
       return "watch-base-fees";
