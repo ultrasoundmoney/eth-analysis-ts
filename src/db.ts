@@ -24,6 +24,6 @@ export const sql = postgres({
     bigint: postgres.BigInt,
   },
   connection: {
-    application_name: Config.name, // Default application_name
+    application_name: Config.name,
   },
 });
