@@ -1,15 +1,15 @@
 import A from "fp-ts/lib/Array.js";
-import { flow, pipe } from "fp-ts/lib/function.js";
+import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import type {
   BaseFeeBurner,
   FeeBreakdown,
+  LimitedTimeframe,
   Timeframe as Timeframe,
 } from "./base_fees.js";
 import { differenceInSeconds } from "date-fns";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
-import { sum } from "./numbers.js";
 import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
 import { delay } from "./delay.js";
@@ -24,48 +24,32 @@ type AnalyzedBlock = {
   minedAt: Date;
 };
 
-type Segments = Record<Timeframe, AnalyzedBlock[]>;
-
 const getSecondsFromDays = (days: number): number => days * 24 * 60 * 60;
 const getSecondsFromHours = (hours: number): number => hours * 60 * 60;
 
-const getTimeframeSegments = (blocks: AnalyzedBlock[]): Segments => {
+const timeframeInSecondsMap: Record<LimitedTimeframe, number> = {
+  "1h": getSecondsFromHours(1),
+  "24h": getSecondsFromHours(24),
+  "7d": getSecondsFromDays(7),
+  "30d": getSecondsFromDays(30),
+};
+
+const getBlocksWithinTimeframe = (
+  timeframe: Timeframe,
+  blocks: AnalyzedBlock[],
+): AnalyzedBlock[] => {
+  if (timeframe === "all") {
+    return blocks;
+  }
+
   const now = new Date();
-  const blocks1h: AnalyzedBlock[] = [];
-  const blocks24h: AnalyzedBlock[] = [];
-  const blocks7d: AnalyzedBlock[] = [];
-  const blocks30d: AnalyzedBlock[] = [];
-  const blocksAll: AnalyzedBlock[] = [];
+  const getSecondsAge = (dt: Date) => differenceInSeconds(now, dt);
+  const maxAge = timeframeInSecondsMap[timeframe];
 
-  blocks.forEach((block) => {
-    const secondsAge = differenceInSeconds(now, block.minedAt);
-
-    blocksAll.push(block);
-
-    if (secondsAge < getSecondsFromDays(30)) {
-      blocks30d.push(block);
-    }
-
-    if (secondsAge < getSecondsFromDays(7)) {
-      blocks7d.push(block);
-    }
-
-    if (secondsAge < getSecondsFromDays(1)) {
-      blocks24h.push(block);
-    }
-
-    if (secondsAge < getSecondsFromHours(1)) {
-      blocks1h.push(block);
-    }
-  });
-
-  return {
-    "1h": blocks1h,
-    "24h": blocks24h,
-    "7d": blocks7d,
-    "30d": blocks30d,
-    all: blocksAll,
-  };
+  return pipe(
+    blocks,
+    A.filter((block) => getSecondsAge(block.minedAt) < maxAge),
+  );
 };
 
 const writeSums = async (
@@ -98,6 +82,22 @@ const writeSums = async (
   );
 };
 
+const calcTotalForTimeframe = async (
+  timeframe: Timeframe,
+  blocks: AnalyzedBlock[],
+): Promise<void> => {
+  const blocksWithinTimeframe = getBlocksWithinTimeframe(timeframe, blocks);
+  const [oldestBlock] = blocksWithinTimeframe;
+  const sums = pipe(
+    blocksWithinTimeframe,
+    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
+    BaseFees.sumFeeMaps,
+  );
+  const table = getTableName(timeframe);
+  await sql`TRUNCATE ${sql(table)};`;
+  await writeSums(timeframe, sums, oldestBlock.number);
+};
+
 export const calcTotals = async (upToIncludingBlockNumber: number) => {
   Log.debug(
     `fetching all base fees per block up to and including: ${upToIncludingBlockNumber}`,
@@ -115,75 +115,36 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
 
   Log.debug("done fetching all base fees per block");
 
-  const timeframeSegments = getTimeframeSegments(blocks);
-  const [oldestBlock1h] = timeframeSegments["1h"];
-  const [oldestBlock24h] = timeframeSegments["24h"];
-  const [oldestBlock7d] = timeframeSegments["7d"];
-  const [oldestBlock30d] = timeframeSegments["30d"];
-  const [oldestBlockAll] = timeframeSegments["all"];
-
-  const sumByContract1h = pipe(
-    timeframeSegments["1h"],
-    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-    BaseFees.sumFeeMaps,
+  const contractAddressesAll = pipe(
+    blocks,
+    A.map((block) => block.baseFees.contract_use_fees),
+    A.map(Object.keys),
+    A.flatten,
   );
 
-  const sumByContract24h = pipe(
-    timeframeSegments["24h"],
-    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-    BaseFees.sumFeeMaps,
-  );
-  const sumByContract7d = pipe(
-    timeframeSegments["7d"],
-    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-    BaseFees.sumFeeMaps,
-  );
-  const sumByContract30d = pipe(
-    timeframeSegments["30d"],
-    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-    BaseFees.sumFeeMaps,
-  );
-  const sumByContractAll = pipe(
-    timeframeSegments["all"],
-    A.map((aBlock) => aBlock.baseFees.contract_use_fees),
-    BaseFees.sumFeeMaps,
-  );
-
-  const contractAddressesAll = Object.keys(sumByContractAll);
   Log.debug(
     `found ${contractAddressesAll.length} contracts with accumulated base fees`,
   );
 
   await ensureContractAddressKnown(contractAddressesAll);
 
-  if (oldestBlock1h !== undefined) {
-    await sql`TRUNCATE contract_1h_totals;`;
-    await writeSums("1h", sumByContract1h, oldestBlock1h.number);
-  } else {
-    Log.warn("no oldest block within 1h found! are we 1h behind?");
-  }
-  if (oldestBlock24h !== undefined) {
-    await sql`TRUNCATE contract_24h_totals;`;
-    await writeSums("24h", sumByContract24h, oldestBlock24h.number);
-  } else {
-    Log.warn("no oldest block within 24h found! are we 24h behind?");
-  }
-  await sql`TRUNCATE contract_7d_totals;`;
-  await writeSums("7d", sumByContract7d, oldestBlock7d.number);
-  await sql`TRUNCATE contract_30d_totals;`;
-  await writeSums("30d", sumByContract30d, oldestBlock30d.number);
-  await sql`TRUNCATE contract_all_totals;`;
-  await writeSums("all", sumByContractAll, oldestBlockAll.number);
+  await Promise.all([
+    calcTotalForTimeframe("1h", blocks),
+    calcTotalForTimeframe("24h", blocks),
+    calcTotalForTimeframe("7d", blocks),
+    calcTotalForTimeframe("30d", blocks),
+    calcTotalForTimeframe("all", blocks),
+  ]);
 
   Log.info("done inserting totals");
 };
 
 const getTableName = (timeframe: Timeframe) => `contract_${timeframe}_totals`;
 
-const writeTotal = async (
+const addFeeToContractForTimeframe = async (
   block: BlockLondon,
   timeframe: Timeframe,
-  id: string,
+  address: string,
   useBaseFee: number,
 ): Promise<void> => {
   const table = getTableName(timeframe);
@@ -193,23 +154,23 @@ const writeTotal = async (
         fee_total,
         oldest_included_block
       )
-      VALUES (${id}, ${useBaseFee}, ${block.number})
+      VALUES (${address}, ${useBaseFee}, ${block.number})
       ON CONFLICT (contract_address) DO UPDATE
         SET fee_total = t.fee_total + ${useBaseFee}`;
   return undefined;
 };
 
-const writeContractTotals = async (
+const addFeeToContract = async (
   block: BlockLondon,
   address: string,
   useBaseFee: number,
 ): Promise<void> =>
   Promise.all([
-    writeTotal(block, "1h", address, useBaseFee),
-    writeTotal(block, "24h", address, useBaseFee),
-    writeTotal(block, "7d", address, useBaseFee),
-    writeTotal(block, "30d", address, useBaseFee),
-    writeTotal(block, "all", address, useBaseFee),
+    addFeeToContractForTimeframe(block, "1h", address, useBaseFee),
+    addFeeToContractForTimeframe(block, "24h", address, useBaseFee),
+    addFeeToContractForTimeframe(block, "7d", address, useBaseFee),
+    addFeeToContractForTimeframe(block, "30d", address, useBaseFee),
+    addFeeToContractForTimeframe(block, "all", address, useBaseFee),
   ]).then(() => undefined);
 
 export const updateTotalsWithFees = async (
@@ -220,24 +181,23 @@ export const updateTotalsWithFees = async (
 
   await Promise.all(
     Object.entries(unknownDappFees.contract_use_fees).map(([address, fee]) =>
-      writeContractTotals(block, address, fee!),
+      addFeeToContract(block, address, fee!),
     ),
   );
   await ensureFreshTotals(Object.keys(unknownDappFees));
 };
 
-const timeframeHoursMap: Record<Timeframe, number> = {
+const timeframeHoursMap: Record<LimitedTimeframe, number> = {
   "1h": 1,
   "24h": 24,
   "7d": 24 * 7,
   "30d": 24 * 30,
-  all: Number.POSITIVE_INFINITY,
 };
 
 const subtractStaleBaseFees = async (
-  timeframe: Timeframe,
+  timeframe: LimitedTimeframe,
   oldestIncludedBlock: number,
-  id: string,
+  address: string,
 ) => {
   const table = getTableName(timeframe);
   const maxHours = timeframeHoursMap[timeframe];
@@ -253,19 +213,11 @@ const subtractStaleBaseFees = async (
   }
 
   const { number: oldestFreshBlockNumber } = staleBlocks[0];
-  const addresses = [id];
   const staleSum = pipe(
     staleBlocks,
-    A.map(
-      flow(
-        (block) =>
-          addresses.map(
-            (address) => block.baseFees.contract_use_fees[address] || 0,
-          ),
-        sum,
-      ),
-    ),
-    sum,
+    A.map((block) => block.baseFees.contract_use_fees),
+    BaseFees.sumFeeMaps,
+    (maps) => maps[address] || 0,
   );
 
   await sql`
@@ -273,11 +225,11 @@ const subtractStaleBaseFees = async (
     SET
       fee_total = fee_total - ${staleSum},
       oldest_included_block = ${oldestFreshBlockNumber}
-    WHERE contract_address = ${id}`;
+    WHERE contract_address = ${address}`;
 };
 
 const ensureFreshTotal = async (
-  timeframe: Timeframe,
+  timeframe: LimitedTimeframe,
   ids: string[],
 ): Promise<void> => {
   const table = getTableName(timeframe);
