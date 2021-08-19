@@ -43,10 +43,7 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
 
 const handleGetEthPrice: Middleware = async (ctx) => {
   const ethPrice = await EthPrice.getEthPrice();
-  ctx.res.setHeader(
-    "Cache-Control",
-    "max-age=600, stale-while-revalidate=1800",
-  );
+  ctx.res.setHeader("Cache-Control", "max-age=60, stale-while-revalidate=600");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = ethPrice;
 };

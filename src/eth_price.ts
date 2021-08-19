@@ -1,9 +1,10 @@
 import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
+import * as Duration from "./duration.js";
 
 const ethPriceCache = new QuickLRU<string, EthPrice>({
   maxSize: 1,
-  maxAge: 600,
+  maxAge: Duration.milisFromSeconds(60),
 });
 const ethPriceKey = "eth-price";
 
