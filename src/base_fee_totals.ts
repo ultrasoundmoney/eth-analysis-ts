@@ -212,7 +212,8 @@ const subtractStaleBaseFees = async (
     return;
   }
 
-  const { number: oldestFreshBlockNumber } = staleBlocks[0];
+  // New oldest is the last stale one plus one.
+  const oldestFreshBlockNumber = staleBlocks[staleBlocks.length - 1].number + 1;
   const staleSum = pipe(
     staleBlocks,
     A.map((block) => block.baseFees.contract_use_fees),
