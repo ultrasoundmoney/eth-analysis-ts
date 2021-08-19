@@ -28,7 +28,7 @@ Sentry.init({
 });
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.res.setHeader("Cache-Control", "max-age=5, stale-while-revalidate=30");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = { number: cache.number, feesBurned: cache.feesBurned };
 };

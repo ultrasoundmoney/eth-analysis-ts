@@ -4,7 +4,7 @@ import * as Duration from "./duration.js";
 
 const ethPriceCache = new QuickLRU<string, EthPrice>({
   maxSize: 1,
-  maxAge: Duration.milisFromSeconds(60),
+  maxAge: Duration.milisFromSeconds(5),
 });
 const ethPriceKey = "eth-price";
 
