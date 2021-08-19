@@ -10,7 +10,7 @@ import * as Log from "./log.js";
 
 const mainnetNode = Config.localNodeAvailable
   ? "ws://localhost:8546/"
-  : "ws://3.15.217.72:8546/";
+  : "ws://134.122.50.234:8546/";
 
 const ws = new WebSocket(mainnetNode);
 
