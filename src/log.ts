@@ -57,7 +57,7 @@ export const log = (
   const logFn = logMap[severity];
 
   // Log to console during dev.
-  if (process.env.PRETTY_LOG) {
+  if (process.env.ENV === "dev" || process.env.PRETTY_LOG) {
     const prettySeverity = prettySeverityMap[severity];
 
     logFn(prettySeverity + message);
