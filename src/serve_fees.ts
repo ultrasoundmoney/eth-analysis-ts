@@ -20,6 +20,7 @@ import {
 } from "./base_fees.js";
 import * as Blocks from "./blocks.js";
 import Config from "./config.js";
+import * as Duration from "./duration.js";
 
 Sentry.init({
   dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
@@ -33,7 +34,10 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
 };
 
 const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=86400");
+  ctx.res.setHeader(
+    "Cache-Control",
+    `max-age=6, stale-while-revalidate=${Duration.secondsFromHours(24)}`,
+  );
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = {
     feesBurnedPerInterval: cache.feesBurnedPerInterval,

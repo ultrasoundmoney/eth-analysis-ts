@@ -5,6 +5,7 @@ import * as Log from "./log.js";
 import { delay } from "./delay.js";
 import { BlockLondon } from "./web3.js";
 import * as Sentry from "@sentry/node";
+import * as Duration from "./duration.js";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
@@ -49,7 +50,7 @@ export const getTxrsWithRetry = async (
       break;
     }
 
-    const delayMilis = 3000;
+    const delayMilis = Duration.milisFromSeconds(3);
 
     if (tries === 10) {
       Sentry.captureException(
