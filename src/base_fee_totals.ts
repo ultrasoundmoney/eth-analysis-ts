@@ -329,9 +329,15 @@ export const getTopFeeBurners = async (
   );
 };
 
-export const notifyNewLeaderboard = async (
-  block: BlockLondon,
-): Promise<void> => {
+export type Leaderboard = {
+  leaderboard1h: BaseFeeBurner[];
+  leaderboard24h: BaseFeeBurner[];
+  leaderboard7d: BaseFeeBurner[];
+  leaderboard30d: BaseFeeBurner[];
+  leaderboardAll: BaseFeeBurner[];
+};
+
+export const getNewLeaderboard = async (): Promise<Leaderboard> => {
   const [
     leaderboard1h,
     leaderboard24h,
@@ -346,16 +352,23 @@ export const notifyNewLeaderboard = async (
     getTopFeeBurners("all"),
   ]);
 
+  return {
+    leaderboard1h,
+    leaderboard24h,
+    leaderboard7d,
+    leaderboard30d,
+    leaderboardAll,
+  };
+};
+
+export const notifyNewLeaderboard = async (
+  block: BlockLondon,
+): Promise<void> => {
   await sql.notify(
     "base-fee-updates",
     JSON.stringify({
       type: "leaderboard-update",
       number: block.number,
-      leaderboard1h,
-      leaderboard24h,
-      leaderboard7d,
-      leaderboard30d,
-      leaderboardAll,
     }),
   );
 
@@ -363,15 +376,8 @@ export const notifyNewLeaderboard = async (
     "burn-leaderboard-update",
     JSON.stringify({
       number: block.number,
-      leaderboard1h,
-      leaderboard24h,
-      leaderboard7d,
-      leaderboard30d,
-      leaderboardAll,
     }),
   );
-
-  return;
 };
 
 const ensureContractAddressKnown = async (addresses: string[]) => {

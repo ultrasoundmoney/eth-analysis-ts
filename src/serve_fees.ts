@@ -21,6 +21,7 @@ import {
 import * as Blocks from "./blocks.js";
 import Config from "./config.js";
 import * as Duration from "./duration.js";
+import * as BaseFeeTotals from "./base_fee_totals.js";
 
 Sentry.init({
   dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
@@ -186,13 +187,11 @@ type BurnLeaderboardUpdate = {
 sql.listen("burn-leaderboard-update", async (payload) => {
   const update: BurnLeaderboardUpdate = JSON.parse(payload!);
 
+  const leaderboard = await BaseFeeTotals.getNewLeaderboard();
+
   leaderboardCache = {
     number: update.number,
-    leaderboard1h: update.leaderboard1h,
-    leaderboard24h: update.leaderboard24h,
-    leaderboard7d: update.leaderboard7d,
-    leaderboard30d: update.leaderboard30d,
-    leaderboardAll: update.leaderboardAll,
+    ...leaderboard,
   };
 });
 
