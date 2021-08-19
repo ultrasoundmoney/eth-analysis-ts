@@ -18,9 +18,28 @@ const parseEnv = (): Env => {
   }
 };
 
+const parseName = (): string => {
+  const rawName = process.argv[1].split("/").pop();
+  switch (rawName) {
+    case "watch_base_fees.ts":
+      return "watch-base-fees";
+    case "watch_base_fees.js":
+      return "watch-base-fees";
+    case "watch_base_fee_totals.ts":
+      return "watch-base-fee-totals";
+    case "watch_base_fee_totals.js":
+      return "watch-base-fee-totals";
+    case "":
+      return "unknown";
+    default:
+      return "unknown";
+  }
+};
+
 type Config = {
   env: Env;
   localNodeAvailable: boolean;
+  name: string;
 };
 
 const config: Config = {
@@ -30,6 +49,7 @@ const config: Config = {
     process.env.LOCAL_NODE_AVAILABLE === "" ||
     process.env.LOCAL_NODE_AVAILABLE === "false"
   ),
+  name: parseName(),
 };
 
 export default config;
