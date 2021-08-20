@@ -4,12 +4,12 @@ on:
     tags:
       - "prod-*"
 jobs:
-  sync-branch:
+  merge-main-prod:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
 
-      - name: merge to prod
+      - name: merge main to prod
         uses: devmasx/merge-branch@v1.3.1
         with:
           type: now

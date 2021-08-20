@@ -4,12 +4,12 @@ on:
     tags:
       - "staging-*"
 jobs:
-  sync-branch:
+  merge-main-staging:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
 
-      - name: merge to staging
+      - name: merge main to staging
         uses: devmasx/merge-branch@v1.3.1
         with:
           type: now
