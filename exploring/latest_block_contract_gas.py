@@ -39,15 +39,22 @@ def analyze_latest_block_gas():
     w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_ADDRESS))
     block = w3.eth.get_block('latest')
     if not w3.eth.is_syncing():
+        print('=== Block Info ===')
         print('Block Number - {}'.format(block.number))
         print('Block Transaction Count - {}'.format(len(block.transactions)))
-        print('Contract Gas Used')
+        print('\n=== Known Contract Gas Used ===')
         result = analyze_block_gas_usage(block.number)
         print(result)
         dapp_grouped = result.groupby(['dapp',]).agg(
             gasUsed=('gasUsed', 'sum'), blocktransactions=('blocktransactions', 'sum'))
-        print('Summary')
+        print('\n=== Summary ===')
         print(dapp_grouped)
+        known_gasUsed = dapp_grouped['gasUsed'].sum()
+
+        print('\nTotal Block Gas Used - {}'.format(block.get('gasUsed')))
+        print('Known Block Gas Used - {}'.format(known_gasUsed))
+        known_gasUsed_percent = 'Known Gas Used Percent - {:.0%}'.format((known_gasUsed / block.get('gasUsed')))
+        print(known_gasUsed_percent)
     else:
         print(w3.eth.is_syncing())
 

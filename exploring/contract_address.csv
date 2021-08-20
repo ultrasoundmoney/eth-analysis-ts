@@ -8,12 +8,10 @@ Uniswap,Uniswap Positions PFT,0xC36442b4a4522E871399CD717aBDD847Ab11FE88
 Polygon,Polygon Matic Bridge,0xA0c68C638235ee32657e8f720a23ceC1bFc77C77
 Bulksender.app,Bulksender.app,0xd1917932A7Db6Af687B523D5Db5d7f5c2734763F
 Axie Infinity,Axie Infinity: Ronin Bridge,0x1A2a1c938CE3eC39b6D47113c7955bAa9DD454F2
-SushiSwap,SushiSwap: Router,0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F
 OpenSea,OpenSea,0x7Be8076f4EA4A4AD08075C2508e481d6C946D12b
 Tornado Cash,Tornado Cash Proxy,0x722122dF12D4e14e13Ac3b6895a86e84145b6967
 Uniswap,Uniswap V2 Router 2,0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
 Compound,Compound: cUNI Token,0x35A18000230DA775CAc24873d00Ff85BccdeD550
-Compound,Compound: Comptroller ,0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B
 Paraswap,Paraswap P4,0x1bD435F3C054b6e901B7b108a0ab7617C808677b
 Wrapped Ether,Wrapped Ether,0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
 1inch,1inch Exchange,0x11111254369792b2ca5d084ab5eea397ca8fa48b
@@ -31,3 +29,16 @@ Cream.Finance,Cream.Finance: Deployer,0x197939c1ca20c2b506d6811d8b6cdb3394471074
 Zerion,Zerion: DeFi SDK v1.0,0xb2be281e8b11b47fec825973fc8bb95332022a54
 KeeperDAO,KeeperDAO,0x3d71d79c224998e608d03c5ec9b405e7a38505f0
 Eth2 Deposit Contract ,Eth2 Deposit Contract ,0x00000000219ab540356cBB839Cbe05303d7705Fa
+SushiSwap,SushiSwap: sUSD ,0xf1f85b2c54a2bd284b1cf4141d64fd171bd85539
+SushiSwap,SushiSwap: YFI ,0x088ee5007c98a9677165d78dd2109ae4a3d04d0c
+SushiSwap,SushiSwap: Router,0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F
+Uniswap,Uniswap V2: Router,0xf164fC0Ec4E93095b804a4795bBe1e041497b92a
+0x Exchange,0x: Exchange v3,0x61935CbDd02287B511119DDb11Aeb42F1593b7Ef
+dYdX,dYdX: Solo Margin,0x1e0447b19bb6ecfdae1e4ae1694b0c3659614e4e
+Balancer,Balancer: Exchange Proxy 2,0x3E66B66Fd1d0b02fDa6C811Da9E0547970DB2f21
+Curve,Curve Registry,0x7D86446dDb609eD0F5f8684AcF30380a356b2B4c
+Compound,Compound: cETH Token,4Ddc2D193948926D02f9B1fE9e1daa0718270ED5
+Compound,Compound: Comptroller ,3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B
+Compound,Compound: Oracle,922018674c12a7F0D394ebEEf9B58F186CdE13c1
+Aave,Aave: Lending Pool V1,398eC7346DcD622eDc5ae82352F02bE94C62d119
+Aave,Aave: Lending Pool Core V1,3dfd23a6c5e8bbcfc9581d2e864a68feb6a076d3
