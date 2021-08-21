@@ -12,7 +12,7 @@ const mainnetNode = Config.localNodeAvailable
   ? "ws://localhost:8546/"
   : Config.env === "prod"
   ? "ws://3.15.217.72:8546/"
-  : "ws://134.122.50.234:8546/";
+  : "ws://64.227.73.122:8546/";
 
 const ws = new WebSocket(mainnetNode);
 
