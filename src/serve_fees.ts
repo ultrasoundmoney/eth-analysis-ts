@@ -221,7 +221,7 @@ app.on("error", (err, ctx) => {
 
 // Health check middleware
 app.use(async (ctx, next) => {
-  if (ctx.path === "/health") {
+  if (ctx.path === "/" || ctx.path === "/health") {
     ctx.res.writeHead(200);
     ctx.res.end();
     return;
