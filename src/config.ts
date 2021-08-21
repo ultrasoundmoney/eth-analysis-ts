@@ -18,24 +18,8 @@ const parseEnv = (): Env => {
   }
 };
 
-const parseName = (): string => {
-  const rawName = process.argv[1].split("/").pop();
-  Log.debug(`raw name is ${rawName}`);
-
-  switch (rawName) {
-    case "watch_base_fees.ts":
-      return "watch-base-fees";
-    case "watch_base_fees.js":
-      return "watch-base-fees";
-    case "watch_base_fee_totals.ts":
-      return "watch-base-fee-totals";
-    case "watch_base_fee_totals.js":
-      return "watch-base-fee-totals";
-    case "":
-      return "unknown";
-    default:
-      return "unknown";
-  }
+export const setName = (name: string): void => {
+  config.name = name;
 };
 
 const parseLocalNodeAvailable = (): boolean =>
@@ -54,7 +38,7 @@ type Config = {
 const config: Config = {
   env: parseEnv(),
   localNodeAvailable: parseLocalNodeAvailable(),
-  name: parseName(),
+  name: "unknown",
 };
 
 export default config;

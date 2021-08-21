@@ -19,7 +19,7 @@ import {
   NewBlockPayload,
 } from "./base_fees.js";
 import * as Blocks from "./blocks.js";
-import Config from "./config.js";
+import Config, { setName } from "./config.js";
 import * as Duration from "./duration.js";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 
@@ -27,6 +27,8 @@ Sentry.init({
   dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
   environment: Config.env,
 });
+
+setName("serve-fees");
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=5, stale-while-revalidate=30");
