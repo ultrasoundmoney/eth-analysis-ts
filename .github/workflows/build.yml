@@ -24,12 +24,11 @@ jobs:
           check-name: test
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
-      - name: Provide short sha
-        id: vars
-        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-8`" >> $GITHUB_ENV
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: registry.digitalocean.com/gas-analysis/gas-analysis:latest, registry.digitalocean.com/gas-analysis/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          tags: registry.digitalocean.com/gas-analysis/gas-analysis:latest, registry.digitalocean.com/gas-analysis/gas-analysis:${SHORT_SHA}
