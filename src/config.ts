@@ -38,6 +38,13 @@ const parseName = (): string => {
   }
 };
 
+const parseLocalNodeAvailable = (): boolean =>
+  !(
+    process.env.LOCAL_NODE_AVAILABLE === undefined ||
+    process.env.LOCAL_NODE_AVAILABLE === "" ||
+    process.env.LOCAL_NODE_AVAILABLE === "false"
+  );
+
 type Config = {
   env: Env;
   localNodeAvailable: boolean;
@@ -46,11 +53,7 @@ type Config = {
 
 const config: Config = {
   env: parseEnv(),
-  localNodeAvailable: !(
-    process.env.LOCAL_NODE_AVAILABLE === undefined ||
-    process.env.LOCAL_NODE_AVAILABLE === "" ||
-    process.env.LOCAL_NODE_AVAILABLE === "false"
-  ),
+  localNodeAvailable: parseLocalNodeAvailable(),
   name: parseName(),
 };
 
