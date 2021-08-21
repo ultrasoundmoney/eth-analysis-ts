@@ -374,10 +374,10 @@ export const watchAndCalcBaseFees = async () => {
     calcBaseFeesForBlockNumber(head.number, true)(),
   );
 
-  await calcMissingBaseFees();
+  await analyzeMissingBlocks();
 };
 
-export const calcMissingBaseFees = async () => {
+export const analyzeMissingBlocks = async () => {
   Log.info("checking for missing blocks");
   await eth.webSocketOpen;
 
