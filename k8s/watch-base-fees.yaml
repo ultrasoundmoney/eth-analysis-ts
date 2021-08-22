@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: watch-base-fees
-          image: registry.digitalocean.com/gas-analysis/gas-analysis
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
           command: ["node", "src/watch_base_fees.js"]
           envFrom:
             - configMapRef:

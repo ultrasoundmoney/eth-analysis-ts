@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: serve-fees
-          image: registry.digitalocean.com/gas-analysis/gas-analysis
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
           ports:
             - containerPort: 8080
           envFrom:
