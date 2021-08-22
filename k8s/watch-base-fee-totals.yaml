@@ -23,3 +23,10 @@ spec:
                 name: staging-shared-env
             - secretRef:
                 name: pg-password-anton
+          resources:
+            limits:
+              cpu: 400m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
