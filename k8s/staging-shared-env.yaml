@@ -5,7 +5,7 @@ metadata:
   namespace: default
 data:
   ENV: "staging"
-  LOG_LEVEL: "debug"
+  LOG_LEVEL: "info"
   PGDATABASE: "defaultdb"
   PGHOST: "anton-do-user-9707990-0.b.db.ondigitalocean.com"
   PGPORT: "25060"
