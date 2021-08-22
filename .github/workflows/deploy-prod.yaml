@@ -30,7 +30,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image --record deployment/serve-fees serve-fees=registry.digitalocean.com/gas-analysis/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/serve-fees serve-fees=registry.digitalocean.com/gas-analysis/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -49,7 +49,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image --record deployment/watch-base-fees serve-fees=registry.digitalocean.com/gas-analysis/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/watch-base-fees serve-fees=registry.digitalocean.com/gas-analysis/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -68,7 +68,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image --record deployment/watch-base-fee-totals serve-fees=registry.digitalocean.com/gas-analysis/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/watch-base-fee-totals serve-fees=registry.digitalocean.com/gas-analysis/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
