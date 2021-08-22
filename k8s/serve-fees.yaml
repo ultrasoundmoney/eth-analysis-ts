@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: serve-fees
+  labels:
+    app: serve-fees
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: serve-fees
+  template:
+    metadata:
+      labels:
+        app: serve-fees
+    spec:
+      containers:
+        - name: serve-fees
+          image: registry.digitalocean.com/gas-analysis/gas-analysis
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: staging-shared-env
+            - secretRef:
+                name: pg-password-anton
+          resources:
+            limits:
+              cpu: 400m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi

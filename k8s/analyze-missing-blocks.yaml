@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: analyze-missing-blocks
+spec:
+  template:
+    spec:
+      containers:
+        - name: analyze-missing-blocks
+          image: registry.digitalocean.com/gas-analysis/gas-analysis
+          command: ["node", "src/analyze_missing_blocks.js"]
+          envFrom:
+            - configMapRef:
+                name: staging-shared-env
+            - secretRef:
+                name: pg-password-anton
+      restartPolicy: Never
+  backoffLimit: 4

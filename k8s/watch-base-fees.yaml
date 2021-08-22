@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watch-base-fees
+  labels:
+    app: watch-base-fees
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: watch-base-fees
+  template:
+    metadata:
+      labels:
+        app: watch-base-fees
+    spec:
+      containers:
+        - name: watch-base-fees
+          image: registry.digitalocean.com/gas-analysis/gas-analysis
+          command: ["node", "src/watch_base_fees.js"]
+          envFrom:
+            - configMapRef:
+                name: staging-shared-env
+            - secretRef:
+                name: pg-password-anton

@@ -1,0 +1,23 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: serve-fees-lb
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
+    service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
+    service.beta.kubernetes.io/do-loadbalancer-tls-ports: "443"
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "e382def2-ecc2-440b-8191-01e7982d1146"
+    service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
+spec:
+  type: LoadBalancer
+  selector:
+    app: serve-fees
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 80
