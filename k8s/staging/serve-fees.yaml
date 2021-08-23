@@ -43,8 +43,7 @@ spec:
               cpu: 100m
               memory: 128Mi
           livenessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 3
             periodSeconds: 3
