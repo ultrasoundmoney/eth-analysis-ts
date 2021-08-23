@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: analyze-missing-blocks
+spec:
+  template:
+    spec:
+      containers:
+        - name: analyze-missing-blocks
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          command: ["node", "src/analyze_missing_blocks.js"]
+          envFrom:
+            - configMapRef:
+                name: gas-analysis-env
+            - secretRef:
+                name: pg-password-lilly
+      restartPolicy: Never
+  backoffLimit: 4
