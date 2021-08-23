@@ -17,7 +17,7 @@ export const sql = postgres({
   password: process.env.PGPASSWORD,
   username: process.env.PGUSER,
   port,
-  ssl: Config.env === "staging" ? "require" : "prefer",
+  ssl: Config.env === "staging" || Config.env === "prod" ? "require" : "prefer",
   transform: { column: camelCase },
   max: Config.env === "staging" ? 2 : 8,
   types: {
