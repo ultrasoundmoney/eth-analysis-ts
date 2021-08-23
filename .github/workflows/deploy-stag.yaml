@@ -3,7 +3,7 @@ name: deploy-staging
 on:
   push:
     tags:
-      - "staging-*"
+      - "stag-*"
 
 jobs:
   wait-on-build:
