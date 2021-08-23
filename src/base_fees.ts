@@ -20,7 +20,7 @@ import * as T from "fp-ts/lib/Task.js";
 import { sequenceT, sequenceS } from "fp-ts/lib/Apply.js";
 import { hexToNumber } from "./hexadecimal.js";
 import { weiToEth } from "./convert_unit.js";
-import { isAfter, subDays, subHours } from "date-fns";
+import { fromUnixTime, isAfter, subDays, subHours } from "date-fns";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */
@@ -241,7 +241,7 @@ export const updateTotalFeeBurnCache = async (
   const baseFeeSum = calcBlockBaseFeeSum(block);
   const newFeeBurnBlock = {
     baseFeeSum,
-    minedAt: new Date(block.timestamp * 1000),
+    minedAt: fromUnixTime(block.timestamp),
   };
 
   const feesBurned1h = getBlocksYoungerThan(
