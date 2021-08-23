@@ -1,4 +1,4 @@
-import { milisFromSeconds } from "./duration";
+import { milisFromSeconds } from "./duration.js";
 
 let timerId: NodeJS.Timeout | undefined = undefined;
 
