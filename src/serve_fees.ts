@@ -7,7 +7,6 @@ import { sql } from "./db.js";
 import * as EthPrice from "./eth_price.js";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
-import { startWebSocketServer } from "./socket.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as A from "fp-ts/lib/Array.js";
 import * as eth from "./web3.js";
