@@ -249,10 +249,9 @@ const serveFees = async () => {
   await updateCachesForBlockNumber(block.number);
 
   await new Promise((resolve) => {
-    const server = app.listen(port, () => {
+    app.listen(port, () => {
       resolve(undefined);
     });
-    startWebSocketServer(server);
   });
   Log.info(`listening on ${port}`);
 };

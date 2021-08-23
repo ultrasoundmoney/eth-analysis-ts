@@ -223,21 +223,6 @@ export const getFeesBurnedPerInterval =
     );
   };
 
-const notifyNewBaseFee = async (block: BlockLondon): Promise<void> => {
-  const { feesBurnedAll: totalFeesBurned } = await getTotalFeesBurned();
-
-  await sql.notify(
-    "base-fee-updates",
-    JSON.stringify({
-      type: "base-fee-update",
-      number: block.number,
-      baseFeePerGas: hexToNumber(block.baseFeePerGas),
-      fees: calcBlockBaseFeeSum(block),
-      totalFeesBurned: totalFeesBurned,
-    }),
-  );
-};
-
 export const calcBlockFeeBreakdown = (
   block: BlockLondon,
   txrs: readonly TxRWeb3London[],
@@ -328,7 +313,6 @@ const calcBaseFeesForBlockNumber = (
 
       return pipe(
         T.sequenceArray([
-          notify ? () => notifyNewBaseFee(block) : T.of(undefined),
           notify ? () => notifyNewBlock(block) : T.of(undefined),
           () => storeBaseFeesForBlock(block, feeBreakdown, baseFeeSum, tips),
         ]),
