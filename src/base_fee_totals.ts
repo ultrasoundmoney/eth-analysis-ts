@@ -360,14 +360,6 @@ export const notifyNewLeaderboard = async (
   block: BlockLondon,
 ): Promise<void> => {
   await sql.notify(
-    "base-fee-updates",
-    JSON.stringify({
-      type: "leaderboard-update",
-      number: block.number,
-    }),
-  );
-
-  await sql.notify(
     "burn-leaderboard-update",
     JSON.stringify({
       number: block.number,
