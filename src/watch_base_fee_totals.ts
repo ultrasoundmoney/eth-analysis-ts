@@ -3,6 +3,8 @@ import "@sentry/tracing";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 import * as Log from "./log.js";
 import Config, { setName } from "./config.js";
+import * as Eth from "./web3.js";
+import { sql } from "./db.js";
 
 Sentry.init({
   dsn: "https://bb2017e4c0cc48649fcda8115eebd113@o920717.ingest.sentry.io/5896651",
@@ -17,5 +19,7 @@ BaseFeeTotals.watchAndCalcTotalFees().catch((error) => {
     error,
   });
   Sentry.captureException(error);
+  Eth.closeWeb3Ws();
+  sql.end();
   throw error;
 });
