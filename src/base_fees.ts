@@ -20,6 +20,7 @@ import * as T from "fp-ts/lib/Task.js";
 import { sequenceT, sequenceS } from "fp-ts/lib/Apply.js";
 import { hexToNumber } from "./hexadecimal.js";
 import { weiToEth } from "./convert_unit.js";
+import { isAfter, subDays, subHours } from "date-fns";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */
@@ -154,30 +155,60 @@ export type FeesBurned = {
   feesBurnedAll: number;
 };
 
-export const getTotalFeesBurned = async (): Promise<FeesBurned> => {
+type FeeBurnBlock = {
+  baseFeeSum: number;
+  minedAt: Date;
+};
+
+type TotalFeeBurnCache = {
+  feesBurned1h: FeeBurnBlock[];
+  feesBurned24h: FeeBurnBlock[];
+  feesBurned7d: FeeBurnBlock[];
+  feesBurned30d: FeeBurnBlock[];
+  feesBurnedAll: number;
+};
+
+let totalFeeBurnCache: undefined | TotalFeeBurnCache = undefined;
+
+const getBlocksYoungerThan = (
+  date: Date,
+  blocks: FeeBurnBlock[],
+): FeeBurnBlock[] => {
+  let youngerIndex = 0;
+  for (const block of blocks) {
+    if (isAfter(block.minedAt, date)) {
+      break;
+    }
+    youngerIndex = youngerIndex + 1;
+  }
+
+  return blocks.slice(youngerIndex);
+};
+
+const getFeeBurnFromDb = async (): Promise<TotalFeeBurnCache> => {
   const feesBurned1h = () =>
-    sql<{ baseFeeSum: number }[]>`
-      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+    sql<{ baseFeeSum: number; minedAt: Date }[]>`
+      SELECT base_fee_sum, mined_at FROM base_fees_per_block
       WHERE mined_at >= now() - interval '1 hours'
-  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+  `;
 
   const feesBurned24h = () =>
-    sql<{ baseFeeSum: number }[]>`
-      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+    sql<{ baseFeeSum: number; minedAt: Date }[]>`
+      SELECT base_fee_sum, mined_at FROM base_fees_per_block
       WHERE mined_at >= now() - interval '24 hours'
-  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+  `;
 
   const feesBurned7d = () =>
-    sql<{ baseFeeSum: number }[]>`
-      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+    sql<{ baseFeeSum: number; minedAt: Date }[]>`
+      SELECT base_fee_sum, mined_at FROM base_fees_per_block
       WHERE mined_at >= now() - interval '7 days'
-  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+  `;
 
   const feesBurned30d = () =>
-    sql<{ baseFeeSum: number }[]>`
-      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+    sql<{ baseFeeSum: number; minedAt: Date }[]>`
+      SELECT base_fee_sum, mined_at FROM base_fees_per_block
       WHERE mined_at >= now() - interval '30 days'
-  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+  `;
 
   const feesBurnedAll = () =>
     sql<{ baseFeeSum: number }[]>`
@@ -191,6 +222,83 @@ export const getTotalFeesBurned = async (): Promise<FeesBurned> => {
     feesBurned30d,
     feesBurnedAll,
   })();
+};
+
+export const updateTotalFeeBurnCache = async (
+  block: BlockLondon,
+): Promise<void> => {
+  if (totalFeeBurnCache === undefined) {
+    const feeBurn = await getFeeBurnFromDb();
+    totalFeeBurnCache = feeBurn;
+  }
+
+  const now = new Date();
+  const nowMin1h = subHours(now, 1);
+  const nowMin24h = subHours(now, 24);
+  const nowMin7d = subDays(now, 7);
+  const nowMin30d = subDays(now, 30);
+
+  const baseFeeSum = calcBlockBaseFeeSum(block);
+  const newFeeBurnBlock = {
+    baseFeeSum,
+    minedAt: new Date(block.timestamp * 1000),
+  };
+
+  const feesBurned1h = getBlocksYoungerThan(
+    nowMin1h,
+    totalFeeBurnCache.feesBurned1h,
+  );
+  feesBurned1h.push(newFeeBurnBlock);
+
+  const feesBurned24h = getBlocksYoungerThan(
+    nowMin24h,
+    totalFeeBurnCache.feesBurned24h,
+  );
+  feesBurned24h.push(newFeeBurnBlock);
+
+  const feesBurned7d = getBlocksYoungerThan(
+    nowMin7d,
+    totalFeeBurnCache.feesBurned7d,
+  );
+  feesBurned7d.push(newFeeBurnBlock);
+
+  const feesBurned30d = getBlocksYoungerThan(
+    nowMin30d,
+    totalFeeBurnCache.feesBurned30d,
+  );
+  feesBurned30d.push(newFeeBurnBlock);
+
+  const feesBurnedAll = totalFeeBurnCache.feesBurnedAll + baseFeeSum;
+
+  totalFeeBurnCache = {
+    // We can assume totalFeeBurnCache is defined because we called getTotalFeesBurned above.
+    feesBurned1h,
+    feesBurned24h,
+    feesBurned7d,
+    feesBurned30d,
+    feesBurnedAll,
+  };
+};
+
+const sumFeeBurnBlocks = (feeBurnBlocks: FeeBurnBlock[]): number =>
+  feeBurnBlocks.reduce((sum, block) => {
+    return sum + block.baseFeeSum;
+  }, 0);
+
+export const getTotalFeesBurned = (): FeesBurned => {
+  if (totalFeeBurnCache === undefined) {
+    throw new Error(
+      "only call get total fees burned after at least one block update",
+    );
+  }
+
+  return {
+    feesBurned1h: sumFeeBurnBlocks(totalFeeBurnCache.feesBurned1h),
+    feesBurned24h: sumFeeBurnBlocks(totalFeeBurnCache.feesBurned24h),
+    feesBurned7d: sumFeeBurnBlocks(totalFeeBurnCache.feesBurned7d),
+    feesBurned30d: sumFeeBurnBlocks(totalFeeBurnCache.feesBurned30d),
+    feesBurnedAll: totalFeeBurnCache.feesBurnedAll,
+  };
 };
 
 export type FeesBurnedPerInterval = Record<string, number>;

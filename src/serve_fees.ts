@@ -128,12 +128,13 @@ const updateCachesForBlockNumber = async (
 ): Promise<void> => {
   const block = await eth.getBlock(newLatestBlockNumber);
 
-  const [newBurnRates, newTotalFeesBurned, newFeesBurnedPerInterval] =
-    await Promise.all([
-      BaseFees.getBurnRates(),
-      BaseFees.getTotalFeesBurned(),
-      BaseFees.getFeesBurnedPerInterval(),
-    ]);
+  const [newBurnRates, newFeesBurnedPerInterval] = await Promise.all([
+    BaseFees.getBurnRates(),
+    BaseFees.getFeesBurnedPerInterval(),
+    BaseFees.updateTotalFeeBurnCache(block),
+  ]);
+
+  const newTotalFeesBurned = BaseFees.getTotalFeesBurned();
 
   // There are multiple cases where the new block is not simply the next block from the last we saw.
   // Sometimes a new block has the same number as an old block. Blocks our node sees are not always final.
