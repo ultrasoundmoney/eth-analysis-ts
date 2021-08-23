@@ -258,8 +258,6 @@ const ensureFreshTotal = async (
 };
 
 const ensureFreshTotals = async (addresses: string[]) => {
-  Log.debug(`removing stale fees for ${addresses.length} contracts`);
-
   await Promise.all([
     ensureFreshTotal("1h", addresses),
     ensureFreshTotal("24h", addresses),
