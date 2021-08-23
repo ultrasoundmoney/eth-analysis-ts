@@ -18,7 +18,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
   deploy-serve-fees:
-    name: Deploy serve-fees to staging
+    name: Deploy serve-fees
     runs-on: ubuntu-latest
     needs: wait-on-build
     steps:
