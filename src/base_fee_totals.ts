@@ -384,7 +384,7 @@ const ensureContractAddressKnown = async (addresses: string[]) => {
 
   // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
   for (const addressChunk of A.chunksOf(20000)(insertableAddresses)) {
-    await sql<{}[]>`
+    await sql`
       INSERT INTO contracts
       ${sql(addressChunk, "address")}
       ON CONFLICT DO NOTHING`;
