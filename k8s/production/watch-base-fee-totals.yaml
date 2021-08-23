@@ -20,13 +20,13 @@ spec:
           command: ["node", "src/watch_base_fee_totals.js"]
           envFrom:
             - configMapRef:
-                name: gas-analysis-staging-env
+                name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: pg-password-lilly
           resources:
             limits:
               cpu: 400m
-              memory: 1.5Gi
+              memory: 2Gi
             requests:
               cpu: 100m
               memory: 1Gi

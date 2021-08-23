@@ -31,10 +31,10 @@ spec:
           ports:
             - containerPort: 8080
           envFrom:
-            - configMap:
+            - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: pg-password-lilly
           resources:
             limits:
               cpu: 200m

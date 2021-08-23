@@ -20,9 +20,9 @@ spec:
           command: ["node", "src/watch_base_fees.js"]
           envFrom:
             - configMapRef:
-                name: staging-shared-env
+                name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: pg-password-lilly
           resources:
             limits:
               cpu: 400m
