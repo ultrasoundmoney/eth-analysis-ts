@@ -2,7 +2,7 @@ import { milisFromSeconds } from "./duration";
 
 let timerId: NodeJS.Timeout | undefined = undefined;
 
-const durationMilis = milisFromSeconds(30);
+const durationMilis = milisFromSeconds(120);
 
 export const renewCanary = () => {
   if (timerId) {
