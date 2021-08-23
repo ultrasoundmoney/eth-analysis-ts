@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: staging-shared-env
+  name: gas-analysis-staging-env
   namespace: default
 data:
   ENV: "staging"
