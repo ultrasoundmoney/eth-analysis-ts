@@ -161,6 +161,11 @@ export const getBlock = async (
   });
 
   const rawBlock = await messageP;
+
+  if (rawBlock === null) {
+    Log.error(`raw block null for number: ${number}`);
+  }
+
   return translateBlock(rawBlock);
 };
 
