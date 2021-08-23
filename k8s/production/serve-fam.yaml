@@ -42,10 +42,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: fam-env
-            # - secretRef:
-            #     name: pg-password-coral
             - secretRef:
                 name: pg-password-aws-usm
+            # - secretRef:
+            #     name: pg-password-coral
           resources:
             limits:
               cpu: 200m

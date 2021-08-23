@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-prod
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+  defaultBackend:
+    service:
+      name: serve-fees
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - api-prod.ultrasound.money
+      secretName: cf-usm-tls
+  rules:
+    - host: api-prod.ultrasound.money
+      http:
+        paths:
+          - path: /fees
+            pathType: Prefix
+            backend:
+              service:
+                name: serve-fees
+                port:
+                  number: 80
+          - path: /fam
+            pathType: Prefix
+            backend:
+              service:
+                name: serve-fam
+                port:
+                  number: 80

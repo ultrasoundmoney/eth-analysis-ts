@@ -11,7 +11,7 @@ spec:
           command: ["node", "src/analyze_missing_blocks.js"]
           envFrom:
             - configMapRef:
-                name: staging-shared-env
+                name: gas-analysis-env
             - secretRef:
                 name: pg-password-anton
       restartPolicy: Never

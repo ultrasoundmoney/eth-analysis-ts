@@ -6,10 +6,10 @@ metadata:
 data:
   ENV: "prod"
   LOG_LEVEL: "debug"
-  # DB_HOST: "coral-do-user-9707990-0.b.db.ondigitalocean.com"
   DB_DATABASE: "defaultdb"
-  # DB_USER: "doadmin"
-  # DB_PORT: "25060"
   DB_HOST: "usm-db.cddfpn93hvvg.us-east-2.rds.amazonaws.com"
   DB_USER: "postgres"
   DB_PORT: "5432"
+  # DB_HOST: "coral-do-user-9707990-0.b.db.ondigitalocean.com"
+  # DB_USER: "doadmin"
+  # DB_PORT: "25060"

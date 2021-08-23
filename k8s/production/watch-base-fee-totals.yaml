@@ -20,7 +20,7 @@ spec:
           command: ["node", "src/watch_base_fee_totals.js"]
           envFrom:
             - configMapRef:
-                name: staging-shared-env
+                name: gas-analysis-staging-env
             - secretRef:
                 name: pg-password-anton
           resources:

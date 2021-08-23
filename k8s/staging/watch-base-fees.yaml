@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watch-base-fees
+  labels:
+    app: watch-base-fees
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: watch-base-fees
+  template:
+    metadata:
+      labels:
+        app: watch-base-fees
+    spec:
+      containers:
+        - name: watch-base-fees
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          command: ["node", "src/watch_base_fees.js"]
+          envFrom:
+            - configMapRef:
+                name: gas-analysis-env
+            - secretRef:
+                name: pg-password-anton
+          resources:
+            limits:
+              cpu: 400m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi

@@ -32,7 +32,7 @@ spec:
             - containerPort: 8080
           envFrom:
             - configMapRef:
-                name: staging-shared-env
+                name: gas-analysis-env
             - secretRef:
                 name: pg-password-anton
           resources:
@@ -43,7 +43,8 @@ spec:
               cpu: 100m
               memory: 128Mi
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /healthz
               port: 8080
             initialDelaySeconds: 3
             periodSeconds: 3

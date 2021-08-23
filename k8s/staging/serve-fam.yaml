@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: serve-fam
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: serve-fam
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: serve-fam
+  labels:
+    app: serve-fam
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: serve-fam
+  template:
+    metadata:
+      labels:
+        app: serve-fam
+    spec:
+      containers:
+        - name: serve-fam
+          image: registry.digitalocean.com/ultrasoundmoney/twitter-crawler
+          command:
+            [
+              "deno",
+              "run",
+              "--unstable",
+              "--allow-all",
+              "--no-check",
+              "src/serve_fam.ts",
+            ]
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: fam-env
+            - secretRef:
+                name: pg-password-aws-usm
+            # - secretRef:
+            #     name: pg-password-coral
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 3
