@@ -44,6 +44,8 @@ spec:
                 name: fam-env
             - secretRef:
                 name: pg-password-aws-usm
+            - secretRef:
+                name: twitter-spidey-auth-token
             # - secretRef:
             #     name: pg-password-coral
           resources:
