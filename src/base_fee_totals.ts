@@ -17,6 +17,7 @@ import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
 import * as T from "fp-ts/lib/Task.js";
 import { sequenceT } from "fp-ts/lib/Apply.js";
+import * as Contracts from "./contracts.js";
 
 type ContractAddress = string;
 
@@ -127,6 +128,9 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
   Log.debug(
     `found ${contractAddressesAll.length} contracts with accumulated base fees`,
   );
+
+  // TODO: remove after full reanalysis is done
+  await Contracts.insertContracts(contractAddressesAll);
 
   await Promise.all([
     calcTotalForTimeframe("1h", blocks),
