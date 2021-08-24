@@ -127,21 +127,23 @@ const insertBlockBaseFees = async (
   const blockRow = getBlockRow(block, feeBreakdown, tips);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
-  const insertTask = () =>
-    sql`
-    INSERT INTO base_fees_per_block
-      ${sql(blockRow)}
-  `.then(() => undefined);
-
-  if (contractBaseFeesRows.length === 0) {
-    await insertTask();
-    return;
-  }
-
   const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
   );
   const insertContractsTask = () => Contracts.insertContracts(addresses);
+
+  const insertTask = () =>
+    sql`
+      INSERT INTO base_fees_per_block
+        ${sql(blockRow)}
+    `.then(() => undefined);
+
+  if (contractBaseFeesRows.length === 0) {
+    // When a new analyzed block is inserted, base fee totals are updated. Those depend on contract addresses being known i.e. contracts have to be inserted first.
+    await insertContractsTask();
+    await insertTask();
+    return;
+  }
 
   const insertContractBaseFeesTask = () =>
     sql`
@@ -149,7 +151,8 @@ const insertBlockBaseFees = async (
     `.then(() => undefined);
 
   await T.sequenceSeqArray([
-    T.sequenceArray([insertTask, insertContractsTask]),
+    insertContractsTask,
+    insertTask,
     insertContractBaseFeesTask,
   ])();
 };
