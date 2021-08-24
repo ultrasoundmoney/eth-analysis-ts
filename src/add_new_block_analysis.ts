@@ -18,9 +18,12 @@ const addDataToBlocks = async (): Promise<void> => {
 
   Log.info(`adding new analysis for ${blocksMissingData.length} blocks`);
 
-  const bar = new ProgressBar("[:bar] :rate/s :percent :etas", {
-    total: blocksMissingData.length,
-  });
+  let bar: ProgressBar | undefined = undefined;
+  if (process.env.SHOW_PROGRESS === "true") {
+    bar = new ProgressBar("[:bar] :rate/s :percent :etas", {
+      total: blocksMissingData.length,
+    });
+  }
 
   const addForBlockNumber = async (number: number): Promise<void> => {
     const block = await eth.getBlock(number);
@@ -45,7 +48,7 @@ const addDataToBlocks = async (): Promise<void> => {
         gas_used = ${gasUsed}
       WHERE number = ${block.number}
     `;
-    bar.tick();
+    bar?.tick();
   };
 
   await addDataQueue.addAll(
