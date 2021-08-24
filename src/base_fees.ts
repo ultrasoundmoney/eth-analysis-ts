@@ -36,48 +36,47 @@ export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
     SELECT MAX(number) AS number FROM base_fees_per_block
   `.then((result) => result[0]?.number || undefined);
 
-type ContractBurn = {
+type BlockRow = {
+  hash: string;
+  number: number;
+  base_fees: unknown;
+  mined_at: Date;
+  tips: number;
+  base_fee_sum: number;
+  contract_creation_sum: number;
+  eth_transfer_sum: number;
+  base_fee_per_gas: number;
+  gas_used: number;
+};
+
+const getBlockRow = (
+  block: BlockLondon,
+  feeBreakdown: FeeBreakdown,
+  tips: number,
+): BlockRow => ({
+  hash: block.hash,
+  number: block.number,
+  base_fees: sql.json(feeBreakdown),
+  mined_at: fromUnixTime(block.timestamp),
+  tips: tips,
+  base_fee_sum: calcBlockBaseFeeSum(block),
+  contract_creation_sum: feeBreakdown.contract_creation_fees,
+  eth_transfer_sum: feeBreakdown.transfers,
+  base_fee_per_gas: hexToNumber(block.baseFeePerGas),
+  gas_used: block.gasUsed,
+});
+
+type ContractBaseFeesRow = {
   contract_address: string;
   base_fees: number;
   block_number: number;
 };
 
-type BaseFeeInsertables = {
-  blockRow: {
-    hash: string;
-    number: number;
-    base_fees: unknown;
-    mined_at: Date;
-    tips: number;
-    base_fee_sum: number;
-    contract_creation_sum: number;
-    eth_transfer_sum: number;
-    base_fee_per_gas: number;
-    gas_used: number;
-  };
-  contractBurnRows: ContractBurn[];
-};
-
-const getBaseFeeInsertables = (
+const getContractRows = (
   block: BlockLondon,
-  txrs: TxRWeb3London[],
-  tips: number,
-): BaseFeeInsertables => {
-  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
-  const blockRow = {
-    hash: block.hash,
-    number: block.number,
-    base_fees: sql.json(feeBreakdown),
-    mined_at: fromUnixTime(block.timestamp),
-    tips: tips,
-    base_fee_sum: calcBlockBaseFeeSum(block),
-    contract_creation_sum: feeBreakdown.contract_creation_fees,
-    eth_transfer_sum: feeBreakdown.transfers,
-    base_fee_per_gas: hexToNumber(block.baseFeePerGas),
-    gas_used: block.gasUsed,
-  };
-
-  const contractBurnRows = pipe(
+  feeBreakdown: FeeBreakdown,
+): ContractBaseFeesRow[] =>
+  pipe(
     feeBreakdown.contract_use_fees,
     Object.entries,
     A.map(([address, baseFees]) => ({
@@ -87,16 +86,14 @@ const getBaseFeeInsertables = (
     })),
   );
 
-  return { blockRow, contractBurnRows };
-};
-
 const updateBlockBaseFees = async (
   block: BlockLondon,
   txrs: TxRWeb3London[],
   tips: number,
 ): Promise<void> => {
-  const { blockRow: analyzedBlock, contractBurnRows: contractBurns } =
-    getBaseFeeInsertables(block, txrs, tips);
+  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
+  const blockRow = getBlockRow(block, feeBreakdown, tips);
+  const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
   const updateBlockTask = () =>
     sql`
@@ -110,7 +107,7 @@ const updateBlockBaseFees = async (
     sql.begin(async (sql) => {
       await sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`;
       if (txrs.length !== 0) {
-        await sql`INSERT INTO contract_base_fees ${sql(contractBurns)}`;
+        await sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
       }
     });
 
@@ -125,11 +122,9 @@ const insertBlockBaseFees = async (
   txrs: TxRWeb3London[],
   tips: number,
 ): Promise<void> => {
-  const { blockRow, contractBurnRows } = getBaseFeeInsertables(
-    block,
-    txrs,
-    tips,
-  );
+  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
+  const blockRow = getBlockRow(block, feeBreakdown, tips);
+  const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
   const insertTask = () =>
     sql`
@@ -137,19 +132,19 @@ const insertBlockBaseFees = async (
       ${sql(blockRow)}
   `.then(() => undefined);
 
-  if (contractBurnRows.length === 0) {
+  if (contractBaseFeesRows.length === 0) {
     await insertTask();
     return;
   }
 
-  const addresses = contractBurnRows.map(
+  const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
   );
   const insertContractsTask = () => Contracts.insertContracts(addresses);
 
   const insertContractBaseFeesTask = () =>
     sql`
-      INSERT INTO contract_base_fees ${sql(contractBurnRows)}
+      INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}
     `.then(() => undefined);
 
   await T.sequenceSeqArray([
