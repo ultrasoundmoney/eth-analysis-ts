@@ -316,7 +316,7 @@ export const getTopFeeBurners = async (
         id: "eth-transfers",
         image: undefined,
         name: "ETH transfers",
-        type: "eth-transfer",
+        type: "eth-transfers",
       };
 
       return pipe(
