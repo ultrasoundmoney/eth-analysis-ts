@@ -16,6 +16,8 @@ import type { BlockLondon } from "./web3.js";
 import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
 import * as Contracts from "./contracts.js";
+import * as T from "fp-ts/lib/Task.js";
+import { sequenceT } from "fp-ts/lib/Apply.js";
 
 type ContractAddress = string;
 
@@ -272,60 +274,74 @@ const ensureFreshTotals = async (addresses: string[]) => {
 
 export const getTopFeeBurners = async (
   timeframe: Timeframe,
-): Promise<BaseFeeBurner[]> => {
+): Promise<LeaderboardEntry[]> => {
   const tableContracts = getTableName(timeframe);
   const tableContractsSql = sql(tableContracts);
-  const contractBurnerCandidatesRaw = await sql<
-    {
-      contractAddress: string;
-      feeTotal: string;
-      name: string | null;
-      isBot: boolean;
-    }[]
-  >`
+  const getTopFeeContractsTask = () =>
+    sql<
+      {
+        contractAddress: string;
+        feeTotal: string;
+        name: string | null;
+        isBot: boolean;
+      }[]
+    >`
     SELECT contract_address, fee_total, name, is_bot FROM ${tableContractsSql}
     JOIN contracts
       ON ${tableContractsSql}.contract_address = contracts.address
     ORDER BY fee_total DESC
-    LIMIT 12
+    LIMIT 24
   `.then((rows) =>
-    rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
-  );
+      rows.map((row) => ({ ...row, feeTotal: Number(row.feeTotal) })),
+    );
 
-  const contractBurnerCandidates: BaseFeeBurner[] =
-    contractBurnerCandidatesRaw.map(
-      ({ contractAddress, feeTotal, name, isBot }) => ({
-        fees: Number(feeTotal),
-        id: contractAddress,
-        name: name || contractAddress,
-        image: undefined,
-        isBot,
-      }),
+  const ethTransferBaseFeesTask = () =>
+    sql<
+      {
+        sum: number;
+      }[]
+    >`SELECT SUM(eth_transfer_sum) FROM base_fees_per_block`.then(
+      (rows) => rows[0]?.sum ?? 0,
     );
 
   return pipe(
-    [
-      // {
-      //   fees: ethTransferBaseFees,
-      //   id: "eth-transfers",
-      //   image: undefined,
-      //   name: "ETH transfers",
-      // },
-      // {
-      //   fees: contractCreationBaseFees,
-      //   id: "contract-deployments",
-      //   image: undefined,
-      //   name: "Contract deployments",
-      // },
-      ...contractBurnerCandidates,
-    ],
-    A.sort<BaseFeeBurner>({
-      compare: (first, second) =>
-        first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
-      equals: (first, second) => first.fees === second.fees,
+    sequenceT(T.ApplyPar)(getTopFeeContractsTask, ethTransferBaseFeesTask),
+    T.map(([topFeeContracts, ethTransferBaseFees]) => {
+      const topFeeContractEntries: LeaderboardEntry[] = topFeeContracts.map(
+        ({ contractAddress, feeTotal, name, isBot }) => ({
+          fees: Number(feeTotal),
+          id: contractAddress,
+          name: name || contractAddress,
+          image: undefined,
+          isBot,
+        }),
+      );
+
+      return pipe(
+        [
+          {
+            fees: ethTransferBaseFees,
+            id: "eth-transfers",
+            image: undefined,
+            name: "ETH transfers",
+          },
+          // {
+          //   fees: contractCreationBaseFees,
+          //   id: "contract-deployments",
+          //   image: undefined,
+          //   name: "Contract deployments",
+          // },
+          ...topFeeContractEntries,
+        ],
+        A.sort<LeaderboardEntry>({
+          compare: (first, second) =>
+            first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
+          equals: (first, second) => first.fees === second.fees,
+        }),
+        A.takeLeft(24),
+      );
     }),
-    A.takeLeft(12),
-  );
+  )();
 };
 
 export type Leaderboard = {
