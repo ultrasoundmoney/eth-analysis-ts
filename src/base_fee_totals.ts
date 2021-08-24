@@ -3,7 +3,7 @@ import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import type {
-  BaseFeeBurner,
+  LeaderboardEntry,
   FeeBreakdown,
   LimitedTimeframe,
   Timeframe as Timeframe,
@@ -329,11 +329,11 @@ export const getTopFeeBurners = async (
 };
 
 export type Leaderboard = {
-  leaderboard1h: BaseFeeBurner[];
-  leaderboard24h: BaseFeeBurner[];
-  leaderboard7d: BaseFeeBurner[];
-  leaderboard30d: BaseFeeBurner[];
-  leaderboardAll: BaseFeeBurner[];
+  leaderboard1h: LeaderboardEntry[];
+  leaderboard24h: LeaderboardEntry[];
+  leaderboard7d: LeaderboardEntry[];
+  leaderboard30d: LeaderboardEntry[];
+  leaderboardAll: LeaderboardEntry[];
 };
 
 export const getNewLeaderboard = async (): Promise<Leaderboard> => {

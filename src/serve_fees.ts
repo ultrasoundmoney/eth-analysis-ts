@@ -14,7 +14,7 @@ import * as A from "fp-ts/lib/Array.js";
 import * as eth from "./web3.js";
 import { hexToNumber } from "./hexadecimal.js";
 import {
-  BaseFeeBurner,
+  LeaderboardEntry,
   BurnRates,
   FeesBurned,
   NewBlockPayload,
@@ -77,11 +77,11 @@ const handleGetBaseFeePerGas: Middleware = async (ctx) => {
 };
 
 type LeaderboardCache = {
-  leaderboard1h: BaseFeeBurner[] | undefined;
-  leaderboard24h: BaseFeeBurner[] | undefined;
-  leaderboard7d: BaseFeeBurner[] | undefined;
-  leaderboard30d: BaseFeeBurner[] | undefined;
-  leaderboardAll: BaseFeeBurner[] | undefined;
+  leaderboard1h: LeaderboardEntry[] | undefined;
+  leaderboard24h: LeaderboardEntry[] | undefined;
+  leaderboard7d: LeaderboardEntry[] | undefined;
+  leaderboard30d: LeaderboardEntry[] | undefined;
+  leaderboardAll: LeaderboardEntry[] | undefined;
   number: number | undefined;
 };
 
@@ -182,11 +182,11 @@ sql.listen("new-block", (payload) => {
 
 type BurnLeaderboardUpdate = {
   number: number;
-  leaderboard1h: BaseFeeBurner[];
-  leaderboard24h: BaseFeeBurner[];
-  leaderboard7d: BaseFeeBurner[];
-  leaderboard30d: BaseFeeBurner[];
-  leaderboardAll: BaseFeeBurner[];
+  leaderboard1h: LeaderboardEntry[];
+  leaderboard24h: LeaderboardEntry[];
+  leaderboard7d: LeaderboardEntry[];
+  leaderboard30d: LeaderboardEntry[];
+  leaderboardAll: LeaderboardEntry[];
 };
 
 sql.listen("burn-leaderboard-update", async (payload) => {

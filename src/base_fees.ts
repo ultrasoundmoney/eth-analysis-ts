@@ -188,7 +188,7 @@ const calcBaseFeePerContract = (
   );
 
 // Name is undefined because we don't always know the name for a contract. Image is undefined because we don't always have an image for a contract. Address is undefined because base fees paid for ETH transfers are shared between many addresses.
-export type BaseFeeBurner = {
+export type LeaderboardEntry = {
   name: string | undefined;
   image: string | undefined;
   fees: number;

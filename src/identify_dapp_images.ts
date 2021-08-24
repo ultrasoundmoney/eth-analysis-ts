@@ -6,7 +6,7 @@ import fetch from "node-fetch";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { URL } from "url";
 import * as BaseFees from "./base_fees.js";
-import { BaseFeeBurner, FeeBreakdown } from "./base_fees.js";
+import { LeaderboardEntry, FeeBreakdown } from "./base_fees.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
 import * as Log from "./log.js";
@@ -43,7 +43,7 @@ const getBaseFeeBurners = async () => {
       image: undefined,
       name: contractNameMap[address],
     })),
-    A.sort<BaseFeeBurner>({
+    A.sort<LeaderboardEntry>({
       compare: (first, second) =>
         first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
       equals: (first, second) => first.fees === second.fees,
