@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: add-new-block-analysis
+spec:
+  template:
+    spec:
+      containers:
+        - name: add-new-block-analysis
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          command: ["node", "src/add_new_block_analysis.js"]
+          envFrom:
+            - configMapRef:
+                name: gas-analysis-env
+            - secretRef:
+                name: pg-password-anton
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 1Gi
+      restartPolicy: Never
+  backoffLimit: 4
