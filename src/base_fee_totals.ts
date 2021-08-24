@@ -430,7 +430,7 @@ export const watchAndCalcTotalFees = async () => {
 
     if (nextBlockNumberToAnalyze > latestAnalyzedBlockNumber) {
       // If we've already updated totals for the latest block, wait 2s and try again.
-      Log.info("all totals up to date, waiting 2s to check for new block");
+      Log.debug("all totals up to date, waiting 2s to check for new block");
       await delay(2000);
       continue;
     }
