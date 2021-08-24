@@ -1,5 +1,4 @@
 import WebSocket from "ws";
-import Config from "./config.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
 import { TxRWeb3London } from "./transactions.js";
 import type { Log as LogWeb3 } from "web3-core";
@@ -8,11 +7,7 @@ import ProgressBar from "progress";
 import * as Blocks from "./blocks.js";
 import * as Log from "./log.js";
 
-const mainnetNode = Config.localNodeAvailable
-  ? "ws://localhost:8546/"
-  : Config.env === "prod"
-  ? "ws://3.15.217.72:8546/"
-  : `ws://${process.env.NODE_IP}:8546/`;
+const mainnetNode = `ws://${process.env.NODE_IP}:8546/`;
 
 const ws = new WebSocket(mainnetNode);
 
