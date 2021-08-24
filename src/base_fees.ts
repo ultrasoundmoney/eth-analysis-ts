@@ -77,7 +77,7 @@ const getBaseFeeInsertables = (
   };
 
   const contractBurnRows = pipe(
-    feeBreakdown,
+    feeBreakdown.contract_use_fees,
     Object.entries,
     A.map(([address, baseFees]) => ({
       base_fees: baseFees,
