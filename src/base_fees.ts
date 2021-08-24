@@ -106,7 +106,7 @@ const updateBlockBaseFees = async (
 
   await sql.begin(async (sql) => {
     await sql`DROP FROM contract_burn WHERE number = ${block.number}`;
-    await sql`INSERT INTO contract_burns ${sql(contractBurns)}`;
+    await sql`INSERT INTO contract_base_fees ${sql(contractBurns)}`;
   });
 };
 
@@ -126,7 +126,7 @@ const insertBlockBaseFees = async (
       ${sql(blockRow)}
   `;
 
-  await sql`INSERT INTO contract_burns ${sql(contractBurnRows)}`;
+  await sql`INSERT INTO contract_base_fees ${sql(contractBurnRows)}`;
 };
 
 export const calcTxrBaseFee = (

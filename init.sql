@@ -11,7 +11,7 @@ CREATE TABLE "base_fees_per_block" (
   "gas_used" bigint
 );
 
-CREATE TABLE "contract_burn" (
+CREATE TABLE "contract_base_fees" (
   "block_number" int,
   "contract_address" text,
   "base_fees" float,
@@ -62,9 +62,9 @@ CREATE TABLE "dapps" (
   "name" text
 );
 
-ALTER TABLE "contract_burn" ADD FOREIGN KEY ("block_number") REFERENCES "base_fees_per_block" ("number");
+ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "base_fees_per_block" ("number");
 
-ALTER TABLE "contract_burn" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
+ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
 ALTER TABLE "contract_1h_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
