@@ -1,3 +1,4 @@
+import Sentry from "@sentry/node";
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
@@ -14,7 +15,6 @@ import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
 import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
-import Sentry from "@sentry/node";
 import * as Contracts from "./contracts.js";
 
 type ContractAddress = string;
