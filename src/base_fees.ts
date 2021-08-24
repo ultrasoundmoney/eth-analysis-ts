@@ -398,7 +398,7 @@ const calcBaseFeesForBlockNumber = (
 
   return pipe(
     () => {
-      Log.debug(`> analyzing block ${blockNumber}`);
+      Log.info(`> analyzing block ${blockNumber}`);
       return eth.getBlock(blockNumber);
     },
     T.chain((block) =>
