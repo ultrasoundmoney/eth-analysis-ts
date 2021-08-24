@@ -25,7 +25,6 @@ spec:
                 name: pg-password-anton
           resources:
             limits:
-              cpu: 1000m
               memory: 3Gi
             requests:
               cpu: 100m
