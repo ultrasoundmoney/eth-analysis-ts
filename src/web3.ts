@@ -249,9 +249,6 @@ export const webSocketOpen = new Promise((resolve) => {
   ws.on("open", resolve);
 });
 
-// Why?
-const headsQueue = new PQueue({ concurrency: 8 });
-
 const translateHead = (rawHead: RawHead): Head => ({
   ...rawHead,
   number: hexToNumber(rawHead.number),
@@ -281,7 +278,7 @@ export const subscribeNewHeads = (
     const rawHead: RawHead = JSON.parse(data.toString()).params.result;
     const head = translateHead(rawHead);
 
-    headsQueue.add(() => handleNewHead(head));
+    handleNewHead(head);
   });
 
   headsWs.on("open", () => {
