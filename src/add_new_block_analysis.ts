@@ -21,6 +21,7 @@ const addDataToBlocks = async (): Promise<void> => {
   const bar = new ProgressBar(":rate/s :percent :etas", {
     renderThrottle: 3000,
     total: blocksMissingData.length,
+    stream: process.stdout,
   });
 
   const addForBlockNumber = async (number: number): Promise<void> => {
