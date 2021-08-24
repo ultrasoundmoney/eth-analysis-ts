@@ -500,14 +500,13 @@ const calcBaseFeesForBlockNumber = (
         DisplayProgress.onBlockAnalyzed();
       }
 
+      knownBlocks.add(blockNumber);
+
       return pipe(
         () =>
           knownBlocks.has(blockNumber)
             ? updateBlockBaseFees(block, txrs, tips)
             : insertBlockBaseFees(block, txrs, tips),
-        T.map(() => {
-          knownBlocks.add(blockNumber);
-        }),
         T.chain(() => (notify ? () => notifyNewBlock(block) : T.of(undefined))),
       );
     }),
