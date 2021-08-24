@@ -38,7 +38,7 @@ export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
 type ContractBurn = {
   contract_address: string;
   base_fees: number;
-  number: number;
+  block_number: number;
 };
 
 type BaseFeeInsertables = {
@@ -81,8 +81,8 @@ const getBaseFeeInsertables = (
     Object.entries,
     A.map(([address, baseFees]) => ({
       base_fees: baseFees,
+      block_number: block.number,
       contract_address: address,
-      number: block.number,
     })),
   );
 
