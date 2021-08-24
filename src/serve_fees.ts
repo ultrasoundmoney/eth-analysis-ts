@@ -24,12 +24,13 @@ import * as Duration from "./duration.js";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 import * as Canary from "./canary.js";
 
-Sentry.init({
-  dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
-  environment: Config.env,
-});
-
 setName("serve-fees");
+if (Config.env !== "dev") {
+  Sentry.init({
+    dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
+    environment: Config.env,
+  });
+}
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=5, stale-while-revalidate=30");
