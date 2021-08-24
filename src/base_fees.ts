@@ -15,7 +15,6 @@ import * as DisplayProgress from "./display_progress.js";
 import PQueue from "p-queue";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
 import * as Blocks from "./blocks.js";
-import Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
 import { sequenceT, sequenceS } from "fp-ts/lib/Apply.js";
 import { hexToNumber } from "./hexadecimal.js";
@@ -36,43 +35,99 @@ export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
     SELECT MAX(number) AS number FROM base_fees_per_block
   `.then((result) => result[0]?.number || undefined);
 
-const getBlockTimestamp = (block: BlockLondon): number => {
-  // TODO: remove this if no errors are reported.
-  if (typeof block.timestamp !== "number") {
-    Log.error(
-      `block ${block.number} had unexpected timestamp: ${block.timestamp}`,
-    );
-  }
-
-  return block.timestamp;
+type ContractBurn = {
+  contract_address: string;
+  base_fees: number;
+  number: number;
 };
 
-const storeBaseFeesForBlock = async (
+type BaseFeeInsertables = {
+  blockRow: {
+    hash: string;
+    number: number;
+    base_fees: unknown;
+    mined_at: Date;
+    tips: number;
+    base_fee_sum: number;
+    contract_creation_sum: number;
+    eth_transfer_sum: number;
+    base_fee_per_gas: number;
+    gas_used: number;
+  };
+  contractBurnRows: ContractBurn[];
+};
+
+const getBaseFeeInsertables = (
   block: BlockLondon,
-  baseFees: FeeBreakdown,
-  baseFeeSum: number,
+  txrs: TxRWeb3London[],
   tips: number,
-): Promise<void> =>
-  sql`
-  INSERT INTO base_fees_per_block
-    (hash, number, base_fees, mined_at, tips, base_fee_sum)
-  VALUES (
-    ${block.hash},
-    ${block.number},
-    ${sql.json(baseFees)},
-    to_timestamp(${getBlockTimestamp(block)}),
-    ${tips},
-    ${baseFeeSum}
-  )
-  ON CONFLICT (number) DO UPDATE
-  SET
-    hash = ${block.hash},
-    number = ${block.number},
-    base_fees = ${sql.json(baseFees)},
-    mined_at = to_timestamp(${getBlockTimestamp(block)}),
-    tips = ${tips},
-    base_fee_sum = ${baseFeeSum}
-  `.then(() => undefined);
+): BaseFeeInsertables => {
+  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
+  const blockRow = {
+    hash: block.hash,
+    number: block.number,
+    base_fees: sql.json(feeBreakdown),
+    mined_at: fromUnixTime(block.timestamp),
+    tips: tips,
+    base_fee_sum: calcBlockBaseFeeSum(block),
+    contract_creation_sum: feeBreakdown.contract_creation_fees,
+    eth_transfer_sum: feeBreakdown.transfers,
+    base_fee_per_gas: hexToNumber(block.baseFeePerGas),
+    gas_used: block.gasUsed,
+  };
+
+  const contractBurnRows = pipe(
+    feeBreakdown,
+    Object.entries,
+    A.map(([address, baseFees]) => ({
+      base_fees: baseFees,
+      contract_address: address,
+      number: block.number,
+    })),
+  );
+
+  return { blockRow, contractBurnRows };
+};
+
+const updateBlockBaseFees = async (
+  block: BlockLondon,
+  txrs: TxRWeb3London[],
+  tips: number,
+) => {
+  const { blockRow: analyzedBlock, contractBurnRows: contractBurns } =
+    getBaseFeeInsertables(block, txrs, tips);
+
+  await sql`
+      UPDATE base_fees_per_block
+        ${sql(analyzedBlock)}
+      WHERE
+        number = ${block.number}
+    `;
+
+  await sql.begin(async (sql) => {
+    await sql`DROP FROM contract_burn WHERE number = ${block.number}`;
+    await sql`INSERT INTO contract_burns ${sql(contractBurns)}`;
+  });
+};
+
+const insertBlockBaseFees = async (
+  block: BlockLondon,
+  txrs: TxRWeb3London[],
+  tips: number,
+): Promise<void> => {
+  const { blockRow, contractBurnRows } = getBaseFeeInsertables(
+    block,
+    txrs,
+    tips,
+  );
+
+  await sql`
+    INSERT INTO base_fees_per_block
+      ${sql(blockRow)}
+  `;
+
+  await sql`INSERT INTO contract_burns ${sql(contractBurnRows)}`;
+};
 
 export const calcTxrBaseFee = (
   block: BlockLondon,
@@ -387,16 +442,14 @@ const notifyNewBlock = async (block: BlockLondon): Promise<void> => {
   await sql.notify("new-block", JSON.stringify(payload));
 };
 
+// We try to get away with tracking what blocks we've seen in a simple set. If this results in errors start checking against the DB.
+const knownBlocks = new Set<number>();
+
 const calcBaseFeesForBlockNumber = (
   blockNumber: number,
   notify: boolean,
-): T.Task<void> => {
-  const calcBaseFeesTransaction = Sentry.startTransaction({
-    op: "calc-base-fees",
-    name: "calculate block base fees",
-  });
-
-  return pipe(
+): T.Task<void> =>
+  pipe(
     () => {
       Log.info(`> analyzing block ${blockNumber}`);
       return eth.getBlock(blockNumber);
@@ -407,7 +460,6 @@ const calcBaseFeesForBlockNumber = (
       ),
     ),
     T.chain(([block, txrs]) => {
-      const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
       const tips = calcBlockTips(block, txrs);
       const baseFeeSum = Number(block.baseFeePerGas) * block.gasUsed;
 
@@ -420,17 +472,17 @@ const calcBaseFeesForBlockNumber = (
       }
 
       return pipe(
-        T.sequenceArray([
-          notify ? () => notifyNewBlock(block) : T.of(undefined),
-          () => storeBaseFeesForBlock(block, feeBreakdown, baseFeeSum, tips),
-        ]),
+        () =>
+          knownBlocks.has(blockNumber)
+            ? updateBlockBaseFees(block, txrs, tips)
+            : insertBlockBaseFees(block, txrs, tips),
         T.map(() => {
-          calcBaseFeesTransaction.finish();
+          knownBlocks.add(blockNumber);
         }),
+        T.chain(() => (notify ? () => notifyNewBlock(block) : T.of(undefined))),
       );
     }),
   );
-};
 
 export const reanalyzeAllBlocks = async () => {
   Log.info("reanalyzing all blocks");
