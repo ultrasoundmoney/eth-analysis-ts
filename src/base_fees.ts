@@ -94,21 +94,30 @@ const updateBlockBaseFees = async (
   block: BlockLondon,
   txrs: TxRWeb3London[],
   tips: number,
-) => {
+): Promise<void> => {
   const { blockRow: analyzedBlock, contractBurnRows: contractBurns } =
     getBaseFeeInsertables(block, txrs, tips);
 
-  await sql`
+  const updateBlockTask = () =>
+    sql`
       UPDATE base_fees_per_block
         ${sql(analyzedBlock)}
       WHERE
         number = ${block.number}
-    `;
+    `.then(() => undefined);
 
-  await sql.begin(async (sql) => {
-    await sql`DROP FROM contract_burn WHERE number = ${block.number}`;
-    await sql`INSERT INTO contract_base_fees ${sql(contractBurns)}`;
-  });
+  const updateContractBaseFeesTask = () =>
+    sql.begin(async (sql) => {
+      await sql`DROP FROM contract_burn WHERE block_number = ${block.number}`;
+      if (txrs.length !== 0) {
+        await sql`INSERT INTO contract_base_fees ${sql(contractBurns)}`;
+      }
+    });
+
+  return pipe(
+    T.sequenceArray([updateBlockTask, updateContractBaseFeesTask]),
+    T.map(() => undefined),
+  )();
 };
 
 const insertBlockBaseFees = async (
@@ -128,14 +137,25 @@ const insertBlockBaseFees = async (
       ${sql(blockRow)}
   `.then(() => undefined);
 
+  if (contractBurnRows.length === 0) {
+    await insertTask();
+    return;
+  }
+
   const addresses = contractBurnRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
   );
   const insertContractsTask = () => Contracts.insertContracts(addresses);
 
-  await T.sequenceArray([insertTask, insertContractsTask])();
+  const insertContractBaseFeesTask = () =>
+    sql`
+      INSERT INTO contract_base_fees ${sql(contractBurnRows)}
+    `.then(() => undefined);
 
-  await sql`INSERT INTO contract_base_fees ${sql(contractBurnRows)}`;
+  await T.sequenceSeqArray([
+    T.sequenceArray([insertTask, insertContractsTask]),
+    insertContractBaseFeesTask,
+  ])();
 };
 
 export const calcTxrBaseFee = (
