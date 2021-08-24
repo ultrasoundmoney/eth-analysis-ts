@@ -174,7 +174,7 @@ const updateCachesForBlockNumber = async (
 
 sql.listen("new-block", (payload) => {
   Log.debug("new block update received");
-  Canary.renewCanary();
+  Canary.resetCanary("block");
   const latestBlock: NewBlockPayload = JSON.parse(payload!);
   updateCachesForBlockNumber(latestBlock.number);
 });
@@ -189,6 +189,7 @@ type BurnLeaderboardUpdate = {
 };
 
 sql.listen("burn-leaderboard-update", async (payload) => {
+  Canary.resetCanary("leaderboard");
   const update: BurnLeaderboardUpdate = JSON.parse(payload!);
 
   const leaderboard = await BaseFeeTotals.getNewLeaderboard();
@@ -256,8 +257,8 @@ const serveFees = async () => {
     });
   });
   Log.info(`listening on ${port}`);
-
-  Canary.renewCanary();
+  Canary.releaseCanary("block");
+  Canary.releaseCanary("leaderboard");
 };
 
 serveFees().catch((error) => {
