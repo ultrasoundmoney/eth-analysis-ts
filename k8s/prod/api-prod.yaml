@@ -14,9 +14,27 @@ spec:
   tls:
     - hosts:
         - api-prod.ultrasound.money
+        - api.ultrasound.money
       secretName: cf-usm-tls
   rules:
     - host: api-prod.ultrasound.money
+      http:
+        paths:
+          - path: /fees
+            pathType: Prefix
+            backend:
+              service:
+                name: serve-fees
+                port:
+                  number: 80
+          - path: /fam
+            pathType: Prefix
+            backend:
+              service:
+                name: serve-fam
+                port:
+                  number: 80
+    - host: api.ultrasound.money
       http:
         paths:
           - path: /fees
