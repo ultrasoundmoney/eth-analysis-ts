@@ -15,7 +15,6 @@ import * as eth from "./web3.js";
 import type { BlockLondon } from "./web3.js";
 import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
-import * as Contracts from "./contracts.js";
 import * as T from "fp-ts/lib/Task.js";
 import { sequenceT } from "fp-ts/lib/Apply.js";
 
@@ -128,11 +127,6 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
   Log.debug(
     `found ${contractAddressesAll.length} contracts with accumulated base fees`,
   );
-
-  Log.debug(
-    `ensuring db contract entities exist for ${contractAddressesAll.length} addresses with base fees`,
-  );
-  await Contracts.insertContract(contractAddressesAll);
 
   await Promise.all([
     calcTotalForTimeframe("1h", blocks),
@@ -441,7 +435,6 @@ export const watchAndCalcTotalFees = async () => {
     const baseFees = BaseFees.calcBlockFeeBreakdown(block, txrs);
     const contractAddresses = Object.keys(baseFees.contract_use_fees);
 
-    await Contracts.insertContract(contractAddresses);
     await updateTotalsWithFees(block, baseFees);
     await ensureFreshTotals(contractAddresses);
 
