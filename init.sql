@@ -5,8 +5,8 @@ CREATE TABLE "base_fees_per_block" (
   "mined_at" timestamptz NOT NULL,
   "tips" float,
   "base_fee_sum" float,
-  "contract_creation_base_fees" float,
-  "eth_transfer_base_fees" float,
+  "contract_creation_sum" float,
+  "eth_transfer_sum" float,
   "base_fee_per_gas" bigint,
   "gas_used" bigint
 );
