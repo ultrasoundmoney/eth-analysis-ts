@@ -98,7 +98,8 @@ const updateBlockBaseFees = async (
   const updateBlockTask = () =>
     sql`
       UPDATE base_fees_per_block
-        ${sql(analyzedBlock)}
+      SET
+        ${sql(blockRow)}
       WHERE
         number = ${block.number}
     `.then(() => undefined);
