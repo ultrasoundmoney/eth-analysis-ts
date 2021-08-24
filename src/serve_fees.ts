@@ -190,6 +190,7 @@ type BurnLeaderboardUpdate = {
 };
 
 sql.listen("burn-leaderboard-update", async (payload) => {
+  Log.debug("new leaderboard update received");
   Canary.resetCanary("leaderboard");
   const update: BurnLeaderboardUpdate = JSON.parse(payload!);
 
