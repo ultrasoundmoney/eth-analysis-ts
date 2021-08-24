@@ -89,9 +89,9 @@ const getContractRows = (
 const updateBlockBaseFees = async (
   block: BlockLondon,
   txrs: TxRWeb3London[],
-  tips: number,
 ): Promise<void> => {
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
+  const tips = calcBlockTips(block, txrs);
   const blockRow = getBlockRow(block, feeBreakdown, tips);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
@@ -121,9 +121,9 @@ const updateBlockBaseFees = async (
 const insertBlockBaseFees = async (
   block: BlockLondon,
   txrs: TxRWeb3London[],
-  tips: number,
 ): Promise<void> => {
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
+  const tips = calcBlockTips(block, txrs);
   const blockRow = getBlockRow(block, feeBreakdown, tips);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
@@ -487,12 +487,9 @@ const calcBaseFeesForBlockNumber = (
       ),
     ),
     T.chain(([block, txrs]) => {
-      const tips = calcBlockTips(block, txrs);
-      const baseFeeSum = Number(block.baseFeePerGas) * block.gasUsed;
-
-      Log.debug(
-        `  fees burned for block ${blockNumber} - ${weiToEth(baseFeeSum)} ETH`,
-      );
+      Log.debug(`  block number: ${blockNumber}`);
+      Log.debug(`  fees burned: ${weiToEth(calcBlockBaseFeeSum(block))} ETH`);
+      Log.debug(`  tips: ${weiToEth(calcBlockTips(block, txrs))}`);
 
       if (process.env.SHOW_PROGRESS !== undefined) {
         DisplayProgress.onBlockAnalyzed();
@@ -501,8 +498,8 @@ const calcBaseFeesForBlockNumber = (
       return pipe(
         () =>
           knownBlockNumbers.has(blockNumber)
-            ? updateBlockBaseFees(block, txrs, tips)
-            : insertBlockBaseFees(block, txrs, tips),
+            ? updateBlockBaseFees(block, txrs)
+            : insertBlockBaseFees(block, txrs),
         T.map(() => {
           knownBlockNumbers.add(blockNumber);
         }),
