@@ -5,6 +5,8 @@ import PQueue from "p-queue";
 import ProgressBar from "progress";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
+import A from "fp-ts/lib/Array.js";
+import { pipe } from "fp-ts/lib/function.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -106,4 +108,28 @@ export const fetchMissingContractNames = async () => {
   );
 
   clearInterval(nameFetchIntervalId);
+};
+
+export const insertContracts = async (addresses: string[]) => {
+  const knownAddresses = await sql<
+    { address: string }[]
+  >`SELECT address FROM contracts`;
+  const knownAddressSet = pipe(
+    knownAddresses,
+    A.map(({ address }) => address),
+    (knownAddresses) => new Set(knownAddresses),
+  );
+
+  // Our sql lib thinks we want to insert a string instead of a new row if we don't wrap in object.
+  const insertableAddresses = addresses
+    .filter((address) => !knownAddressSet.has(address))
+    .map((address) => ({ address }));
+
+  // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
+  for (const addressChunk of A.chunksOf(20000)(insertableAddresses)) {
+    await sql`
+      INSERT INTO contracts
+      ${sql(addressChunk, "address")}
+      ON CONFLICT DO NOTHING`;
+  }
 };

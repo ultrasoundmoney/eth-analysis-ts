@@ -15,6 +15,7 @@ import type { BlockLondon } from "./web3.js";
 import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
 import Sentry from "@sentry/node";
+import * as Contracts from "./contracts.js";
 
 type ContractAddress = string;
 
@@ -126,7 +127,10 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
     `found ${contractAddressesAll.length} contracts with accumulated base fees`,
   );
 
-  await ensureContractAddressKnown(contractAddressesAll);
+  Log.debug(
+    `ensuring db contract entities exist for ${contractAddressesAll.length} addresses with base fees`,
+  );
+  await Contracts.insertContract(contractAddressesAll);
 
   await Promise.all([
     calcTotalForTimeframe("1h", blocks),
@@ -367,34 +371,6 @@ export const notifyNewLeaderboard = async (
   );
 };
 
-const ensureContractAddressKnown = async (addresses: string[]) => {
-  const knownAddresses = await sql<
-    { address: string }[]
-  >`SELECT address FROM contracts`;
-  const knownAddressSet = pipe(
-    knownAddresses,
-    A.map(({ address }) => address),
-    (knownAddresses) => new Set(knownAddresses),
-  );
-
-  // Our sql lib thinks we want to insert a string instead of a new row if we don't wrap in object.
-  const insertableAddresses = addresses
-    .filter((address) => !knownAddressSet.has(address))
-    .map((address) => ({ address }));
-
-  // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
-  for (const addressChunk of A.chunksOf(20000)(insertableAddresses)) {
-    await sql`
-      INSERT INTO contracts
-      ${sql(addressChunk, "address")}
-      ON CONFLICT DO NOTHING`;
-  }
-
-  Log.debug(
-    `ensuring db contract entities exist for ${addresses.length} addresses with base fees`,
-  );
-};
-
 export const watchAndCalcTotalFees = async () => {
   Log.info("starting base fee total analysis");
   const calcTotalsTransaction = Sentry.startTransaction({
@@ -449,7 +425,7 @@ export const watchAndCalcTotalFees = async () => {
     const baseFees = BaseFees.calcBlockFeeBreakdown(block, txrs);
     const contractAddresses = Object.keys(baseFees.contract_use_fees);
 
-    await ensureContractAddressKnown(contractAddresses);
+    await Contracts.insertContract(contractAddresses);
     await updateTotalsWithFees(block, baseFees);
     await ensureFreshTotals(contractAddresses);
 

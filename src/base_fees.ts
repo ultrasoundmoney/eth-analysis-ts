@@ -20,6 +20,7 @@ import { sequenceT, sequenceS } from "fp-ts/lib/Apply.js";
 import { hexToNumber } from "./hexadecimal.js";
 import { weiToEth } from "./convert_unit.js";
 import { fromUnixTime, isAfter, subDays, subHours } from "date-fns";
+import * as Contracts from "./contracts.js";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */
@@ -121,10 +122,18 @@ const insertBlockBaseFees = async (
     tips,
   );
 
-  await sql`
+  const insertTask = () =>
+    sql`
     INSERT INTO base_fees_per_block
       ${sql(blockRow)}
-  `;
+  `.then(() => undefined);
+
+  const addresses = contractBurnRows.map(
+    (contractBurnRow) => contractBurnRow.contract_address,
+  );
+  const insertContractsTask = () => Contracts.insertContracts(addresses);
+
+  await T.sequenceArray([insertTask, insertContractsTask])();
 
   await sql`INSERT INTO contract_base_fees ${sql(contractBurnRows)}`;
 };
