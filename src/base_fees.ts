@@ -108,7 +108,7 @@ const updateBlockBaseFees = async (
 
   const updateContractBaseFeesTask = () =>
     sql.begin(async (sql) => {
-      await sql`DROP FROM contract_burn WHERE block_number = ${block.number}`;
+      await sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`;
       if (txrs.length !== 0) {
         await sql`INSERT INTO contract_base_fees ${sql(contractBurns)}`;
       }
