@@ -3,10 +3,10 @@ CREATE TABLE "base_fees_per_block" (
   "number" int UNIQUE NOT NULL,
   "base_fees" jsonb NOT NULL,
   "mined_at" timestamptz NOT NULL,
-  "tips" "double precision",
-  "base_fee_sum" "double precision",
-  "contract_creation_base_fees" "double precision",
-  "eth_transfer_base_fees" "double precision",
+  "tips" float,
+  "base_fee_sum" float,
+  "contract_creation_base_fees" float,
+  "eth_transfer_base_fees" float,
   "base_fee_per_gas" bigint,
   "gas_used" bigint
 );
@@ -14,7 +14,7 @@ CREATE TABLE "base_fees_per_block" (
 CREATE TABLE "contract_burn" (
   "block_number" int,
   "contract_address" text,
-  "base_fees" "double precision",
+  "base_fees" float,
   PRIMARY KEY ("block_number", "contract_address")
 );
 
