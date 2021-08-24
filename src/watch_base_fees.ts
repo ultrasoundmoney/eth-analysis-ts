@@ -17,7 +17,6 @@ if (Config.env !== "dev") {
 
 BaseFees.watchAndCalcBaseFees().catch((error) => {
   Log.error("error watching and analyzing new blocks", { error });
-  Sentry.captureException(error);
   Eth.closeWeb3Ws();
   sql.end();
   throw error;

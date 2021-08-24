@@ -19,7 +19,6 @@ BaseFeeTotals.watchAndCalcTotalFees().catch((error) => {
   Log.error("error watching and analyzing for new base fee totals", {
     error,
   });
-  Sentry.captureException(error);
   Eth.closeWeb3Ws();
   sql.end();
   throw error;
