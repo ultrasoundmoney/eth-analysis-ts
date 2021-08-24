@@ -31,7 +31,7 @@ const addDataToBlocks = async (): Promise<void> => {
     const contractCreationSum = feeBreakdown.contract_creation_fees;
     const baseFeeSum = BaseFees.calcBlockBaseFeeSum(block);
     const gasUsed = block.gasUsed;
-    const addresses = txrs.map((txr) => txr.to);
+    const addresses = Object.keys(feeBreakdown.contract_use_fees);
     await Contracts.insertContracts(addresses);
 
     await sql`
