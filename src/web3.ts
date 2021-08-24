@@ -269,7 +269,6 @@ export const subscribeNewHeads = (
 
   headsWs.on("error", (error) => {
     Log.error("heads ws error", { error });
-    subscribeNewHeads(handleNewHead);
   });
 
   headsWs.on("message", (data) => {
