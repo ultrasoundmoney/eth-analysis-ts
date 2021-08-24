@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: watch-base-fee-totals
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       containers:
         - name: watch-base-fee-totals

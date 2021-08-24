@@ -24,6 +24,8 @@ spec:
     metadata:
       labels:
         app: serve-fam
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       containers:
         - name: serve-fam

@@ -24,6 +24,8 @@ spec:
     metadata:
       labels:
         app: serve-fees
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       containers:
         - name: serve-fees
