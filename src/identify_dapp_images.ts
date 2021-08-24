@@ -42,6 +42,7 @@ const getBaseFeeBurners = async () => {
       id: address,
       image: undefined,
       name: contractNameMap[address],
+      type: "other" as const,
     })),
     A.sort<LeaderboardEntry>({
       compare: (first, second) =>
