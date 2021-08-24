@@ -24,7 +24,6 @@ import * as Duration from "./duration.js";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 import * as Canary from "./canary.js";
 
-setName("serve-fees");
 if (Config.env !== "dev") {
   Sentry.init({
     dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
@@ -264,6 +263,10 @@ const serveFees = async () => {
 };
 
 serveFees().catch((error) => {
-  Log.error(error);
+  Log.error(error, { error });
+  throw error;
+});
+
+process.on("unhandledRejection", (error) => {
   throw error;
 });

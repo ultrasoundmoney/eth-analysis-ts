@@ -21,3 +21,7 @@ BaseFees.watchAndCalcBaseFees().catch((error) => {
   sql.end();
   throw error;
 });
+
+process.on("unhandledRejection", (error) => {
+  throw error;
+});
