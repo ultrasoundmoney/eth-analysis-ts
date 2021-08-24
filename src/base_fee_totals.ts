@@ -307,18 +307,21 @@ export const getTopFeeBurners = async (
           id: contractAddress,
           name: name || contractAddress,
           image: undefined,
-          isBot,
+          type: isBot ? "bot" : "other",
         }),
       );
 
+      const ethTransferEntry: LeaderboardEntry = {
+        fees: ethTransferBaseFees,
+        id: "eth-transfers",
+        image: undefined,
+        name: "ETH transfers",
+        type: "eth-transfer",
+      };
+
       return pipe(
         [
-          {
-            fees: ethTransferBaseFees,
-            id: "eth-transfers",
-            image: undefined,
-            name: "ETH transfers",
-          },
+          ethTransferEntry,
           // {
           //   fees: contractCreationBaseFees,
           //   id: "contract-deployments",

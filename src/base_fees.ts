@@ -189,6 +189,7 @@ export type LeaderboardEntry = {
   image: string | undefined;
   fees: number;
   id: string;
+  type: "eth-transfer" | "bot" | "other";
 };
 
 export const sumFeeMaps = (
