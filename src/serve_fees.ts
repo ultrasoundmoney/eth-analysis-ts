@@ -1,5 +1,7 @@
-import Koa, { Middleware } from "koa";
 import * as Sentry from "@sentry/node";
+import Config, { setName } from "./config.js";
+setName("serve-fees");
+import Koa, { Middleware } from "koa";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
 import Router from "@koa/router";
@@ -18,7 +20,6 @@ import {
   NewBlockPayload,
 } from "./base_fees.js";
 import * as Blocks from "./blocks.js";
-import Config, { setName } from "./config.js";
 import * as Duration from "./duration.js";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 import * as Canary from "./canary.js";

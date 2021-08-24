@@ -1,8 +1,9 @@
 import Sentry from "@sentry/node";
 import "@sentry/tracing";
+import Config, { setName } from "./config.js";
+setName("watch-base-fees");
 import * as BaseFees from "./base_fees.js";
 import * as Log from "./log.js";
-import Config, { setName } from "./config.js";
 import { sql } from "./db.js";
 import * as Eth from "./web3.js";
 
@@ -11,8 +12,6 @@ Sentry.init({
   tracesSampleRate: 0.1,
   environment: Config.env,
 });
-
-setName("watch-base-fees");
 
 BaseFees.watchAndCalcBaseFees().catch((error) => {
   Log.error("error watching and analyzing new blocks", { error });

@@ -1,10 +1,9 @@
-import * as BaseFees from "./base_fees.js";
 import { setName } from "./config.js";
+setName("analyze-missing-blocks");
+import * as BaseFees from "./base_fees.js";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
 import * as Eth from "./web3.js";
-
-setName("analyze-missing-blocks");
 
 BaseFees.analyzeMissingBlocks()
   .then(async () => {
