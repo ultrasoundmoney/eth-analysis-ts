@@ -470,7 +470,7 @@ const notifyNewBlock = async (block: BlockLondon): Promise<void> => {
 };
 
 // We try to get away with tracking what blocks we've seen in a simple set. If this results in errors start checking against the DB.
-const knownBlocks = new Set<number>();
+const knownBlockNumbers = new Set<number>();
 
 const calcBaseFeesForBlockNumber = (
   blockNumber: number,
@@ -500,11 +500,11 @@ const calcBaseFeesForBlockNumber = (
 
       return pipe(
         () =>
-          knownBlocks.has(blockNumber)
+          knownBlockNumbers.has(blockNumber)
             ? updateBlockBaseFees(block, txrs, tips)
             : insertBlockBaseFees(block, txrs, tips),
         T.map(() => {
-          knownBlocks.add(blockNumber);
+          knownBlockNumbers.add(blockNumber);
         }),
         T.chain(() => (notify ? () => notifyNewBlock(block) : T.of(undefined))),
       );
@@ -528,6 +528,10 @@ export const reanalyzeAllBlocks = async () => {
   }
 
   Log.debug(`${blocksToAnalyze.length} blocks to analyze`);
+
+  blocksToAnalyze.forEach((number) => {
+    knownBlockNumbers.add(number);
+  });
 
   await parBlockAnalysisQueue.addAll(
     blocksToAnalyze.map((blockNumber) =>
