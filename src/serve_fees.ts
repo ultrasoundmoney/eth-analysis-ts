@@ -189,17 +189,24 @@ type BurnLeaderboardUpdate = {
   leaderboardAll: LeaderboardEntry[];
 };
 
-sql.listen("burn-leaderboard-update", async (payload) => {
-  Log.debug("new leaderboard update received");
-  Canary.resetCanary("leaderboard");
-  const update: BurnLeaderboardUpdate = JSON.parse(payload!);
-
+const updateLeaderboardCacheForBlockNumber = async (
+  number: number,
+): Promise<void> => {
   const leaderboard = await BaseFeeTotals.getNewLeaderboard();
 
   leaderboardCache = {
-    number: update.number,
+    number,
     ...leaderboard,
   };
+};
+
+sql.listen("burn-leaderboard-update", async (payload) => {
+  Log.debug("new leaderboard update received");
+  Canary.resetCanary("leaderboard");
+
+  const update: BurnLeaderboardUpdate = JSON.parse(payload!);
+
+  updateLeaderboardCacheForBlockNumber(update.number);
 });
 
 const port = process.env.PORT || 8080;
@@ -252,6 +259,7 @@ const serveFees = async () => {
   await eth.webSocketOpen;
   const block = await eth.getBlock("latest");
   await updateCachesForBlockNumber(block.number);
+  await updateLeaderboardCacheForBlockNumber(block.number);
 
   await new Promise((resolve) => {
     app.listen(port, () => {
