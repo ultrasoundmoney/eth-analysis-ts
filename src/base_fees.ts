@@ -454,7 +454,8 @@ export const calcBlockTips = (
   );
 };
 
-const blockAnalysisQueue = new PQueue({ concurrency: 8 });
+const parBlockAnalysisQueue = new PQueue({ concurrency: 8 });
+const seqBlockAnalysisQueue = new PQueue({ concurrency: 1 });
 
 export type NewBlockPayload = {
   number: number;
@@ -496,13 +497,14 @@ const calcBaseFeesForBlockNumber = (
         DisplayProgress.onBlockAnalyzed();
       }
 
-      knownBlocks.add(blockNumber);
-
       return pipe(
         () =>
           knownBlocks.has(blockNumber)
             ? updateBlockBaseFees(block, txrs, tips)
             : insertBlockBaseFees(block, txrs, tips),
+        T.map(() => {
+          knownBlocks.add(blockNumber);
+        }),
         T.chain(() => (notify ? () => notifyNewBlock(block) : T.of(undefined))),
       );
     }),
@@ -526,7 +528,7 @@ export const reanalyzeAllBlocks = async () => {
 
   Log.debug(`${blocksToAnalyze.length} blocks to analyze`);
 
-  await blockAnalysisQueue.addAll(
+  await parBlockAnalysisQueue.addAll(
     blocksToAnalyze.map((blockNumber) =>
       calcBaseFeesForBlockNumber(blockNumber, false),
     ),
@@ -539,7 +541,7 @@ export const watchAndCalcBaseFees = async () => {
   await eth.webSocketOpen;
 
   eth.subscribeNewHeads((head) =>
-    calcBaseFeesForBlockNumber(head.number, true)(),
+    seqBlockAnalysisQueue.add(calcBaseFeesForBlockNumber(head.number, true)),
   );
 
   await analyzeMissingBlocks();
@@ -569,7 +571,7 @@ export const analyzeMissingBlocks = async () => {
       DisplayProgress.start(missingBlocks.length);
     }
 
-    await blockAnalysisQueue.addAll(
+    await parBlockAnalysisQueue.addAll(
       missingBlocks.map((blockNumber) =>
         calcBaseFeesForBlockNumber(blockNumber, false),
       ),
