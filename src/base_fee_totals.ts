@@ -176,7 +176,7 @@ const addFeeToContractForTimeframe = async (
     const total = await sql`
         SELECT fee_total FROM contract_1h_totals WHERE contract_address =${openseaAddress}
       `.then((rows) => rows[0]?.feeTotal ?? 0);
-    Log.debug(`OS total: ${weiToEth(total)}`);
+    Log.debug(`OS total pre: ${weiToEth(total)}`);
     Log.debug(`adding OS, ${block.number}, ${useBaseFee}`);
   }
 
@@ -189,7 +189,13 @@ const addFeeToContractForTimeframe = async (
       VALUES (${address}, ${useBaseFee}, ${block.number})
       ON CONFLICT (contract_address) DO UPDATE
         SET fee_total = t.fee_total + ${useBaseFee}`;
-  return undefined;
+
+  if (address === openseaAddress && timeframe === "1h") {
+    const total = await sql`
+        SELECT fee_total FROM contract_1h_totals WHERE contract_address =${openseaAddress}
+      `.then((rows) => rows[0]?.feeTotal ?? 0);
+    Log.debug(`OS total post: ${weiToEth(total)}`);
+  }
 };
 
 const addFeeToContract = async (
@@ -282,6 +288,13 @@ const subtractStaleBaseFees = async (
       fee_total = fee_total - ${staleSum},
       oldest_included_block = ${oldestFreshBlockNumber}
     WHERE contract_address = ${address}`;
+
+  if (address === openseaAddress && timeframe === "1h") {
+    const total = await sql`
+        SELECT fee_total FROM contract_1h_totals WHERE contract_address =${openseaAddress}
+      `.then((rows) => rows[0]?.feeTotal ?? 0);
+    Log.debug(`OS total post: ${weiToEth(total)}`);
+  }
 };
 
 const ensureFreshTotal = async (
