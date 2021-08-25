@@ -50,6 +50,11 @@ spec:
                 name: twitter-spidey-auth-token
             # - secretRef:
             #     name: pg-password-coral
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           resources:
             limits:
               cpu: 200m

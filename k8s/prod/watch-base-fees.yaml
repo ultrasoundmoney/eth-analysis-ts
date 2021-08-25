@@ -25,6 +25,11 @@ spec:
                 name: gas-analysis-env
             - secretRef:
                 name: pg-password-lilly
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           resources:
             limits:
               cpu: 400m
