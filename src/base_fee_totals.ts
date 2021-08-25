@@ -318,6 +318,22 @@ const ensureFreshTotals = async (addresses: string[]) => {
   ]);
 };
 
+const getEthTransferFeesForTimeframe = (
+  timeframe: Timeframe,
+): Promise<number> => {
+  if (timeframe === "all") {
+    return sql<{ sum: number }[]>`
+      SELECT SUM(eth_transfer_sum) FROM base_fees_per_block
+    `.then((rows) => rows[0]?.sum ?? 0);
+  }
+
+  const hours = timeframeHoursMap[timeframe];
+  return sql<{ sum: number }[]>`
+      SELECT SUM(eth_transfer_sum) FROM base_fees_per_block
+      WHERE mined_at >= NOW() - interval '${sql(String(hours))} hours'
+  `.then((rows) => rows[0]?.sum ?? 0);
+};
+
 export const getTopBaseFeeContracts = async (
   timeframe: Timeframe,
 ): Promise<LeaderboardEntry[]> => {
@@ -344,13 +360,7 @@ export const getTopBaseFeeContracts = async (
     );
 
   const ethTransferBaseFeesTask = () =>
-    sql<
-      {
-        sum: number;
-      }[]
-    >`SELECT SUM(eth_transfer_sum) FROM base_fees_per_block`.then(
-      (rows) => rows[0]?.sum ?? 0,
-    );
+    getEthTransferFeesForTimeframe(timeframe);
 
   return pipe(
     sequenceT(T.ApplyPar)(getTopFeeContractsTask, ethTransferBaseFeesTask),
