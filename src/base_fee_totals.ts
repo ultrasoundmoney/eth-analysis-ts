@@ -220,7 +220,7 @@ export const updateTotalsWithFees = async (
       addFeeToContract(block, address, fee!),
     ),
   );
-  await ensureFreshTotals(Object.keys(unknownDappFees));
+  await ensureFreshTotalsForAddresses(Object.keys(unknownDappFees));
 };
 
 const timeframeHoursMap: Record<LimitedTimeframe, number> = {
@@ -283,7 +283,7 @@ const subtractStaleBaseFees = async (
 
 const ensureFreshTotal = async (
   timeframe: LimitedTimeframe,
-  ids: string[],
+  addresses: string[],
 ): Promise<void> => {
   const table = getTableName(timeframe);
 
@@ -296,7 +296,7 @@ const ensureFreshTotal = async (
       SELECT oldest_included_block, contract_address
       FROM ${sql(table)}
       JOIN base_fees_per_block ON oldest_included_block = number
-      WHERE contract_address = ANY (${sql.array(ids)})`;
+      WHERE contract_address = ANY (${sql.array(addresses)})`;
 
   await Promise.all(
     contractTotals.map((contractTotal) =>
@@ -309,7 +309,7 @@ const ensureFreshTotal = async (
   );
 };
 
-const ensureFreshTotals = async (addresses: string[]) => {
+const ensureFreshTotalsForAddresses = async (addresses: string[]) => {
   await Promise.all([
     ensureFreshTotal("1h", addresses),
     ensureFreshTotal("24h", addresses),
@@ -459,6 +459,16 @@ export const notifyNewLeaderboard = async (
   );
 };
 
+const ensureFreshTotalsForTimeframe = async (timeframe: LimitedTimeframe) => {
+  const table = getTableName(timeframe);
+  const addresses = await sql<{ contractAddress: string }[]>`
+    SELECT contract_address FROM ${sql(table)}
+    ORDER BY (fee_total) DESC
+    LIMIT 48
+  `.then((rows) => rows.map((row) => row.contractAddress));
+  await ensureFreshTotal(timeframe, addresses);
+};
+
 export const watchAndCalcTotalFees = async () => {
   Log.info("starting base fee total analysis");
   const calcTotalsTransaction = Sentry.startTransaction({
@@ -511,10 +521,16 @@ export const watchAndCalcTotalFees = async () => {
     const txrs = await Transactions.getTxrsWithRetry(block);
 
     const baseFees = BaseFees.calcBlockFeeBreakdown(block, txrs);
-    const contractAddresses = Object.keys(baseFees.contract_use_fees);
 
     await updateTotalsWithFees(block, baseFees);
-    await ensureFreshTotals(contractAddresses);
+    Log.debug("updated totals with fees");
+    await Promise.all([
+      ensureFreshTotalsForTimeframe("1h"),
+      ensureFreshTotalsForTimeframe("24h"),
+      ensureFreshTotalsForTimeframe("7d"),
+      ensureFreshTotalsForTimeframe("30d"),
+    ]);
+    Log.debug("ensured fresh totals for top totals");
 
     await notifyNewLeaderboard(block);
 
