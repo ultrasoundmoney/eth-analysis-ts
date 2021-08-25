@@ -20,8 +20,6 @@ import { sequenceT } from "fp-ts/lib/Apply.js";
 import * as Contracts from "./contracts.js";
 import { weiToEth } from "./convert_unit.js";
 
-const blockMarkers: Record<string, [number, number]> = {};
-
 type ContractAddress = string;
 
 type AnalyzedBlock = {
@@ -62,12 +60,14 @@ const writeSums = async (
   timeframe: Timeframe,
   sums: Record<ContractAddress, number>,
   oldestIncludedBlock: number,
+  newestIncludedBlock: number,
 ) => {
   const table = getTableName(timeframe);
   const sumsInserts = Object.entries(sums).map(([id, feeTotal]) => ({
     contract_address: id,
     fee_total: feeTotal,
     oldest_included_block: oldestIncludedBlock,
+    newest_included_block: newestIncludedBlock,
   }));
 
   let chunksDone = 0;
@@ -99,6 +99,7 @@ const calcTotalForTimeframe = async (
   }
 
   const [oldestBlock] = blocksWithinTimeframe;
+  const newestBlock = blocksWithinTimeframe[blocksWithinTimeframe.length - 1];
   const sums = pipe(
     blocksWithinTimeframe,
     A.map((aBlock) => aBlock.baseFees.contract_use_fees),
@@ -106,17 +107,8 @@ const calcTotalForTimeframe = async (
   );
   const table = getTableName(timeframe);
   await sql`TRUNCATE ${sql(table)};`;
-  await writeSums(timeframe, sums, oldestBlock.number);
-
   // For debugging store block markers
-  const newestBlock = blocksWithinTimeframe[blocksWithinTimeframe.length - 1];
-  const markers: [number, number] = [
-    oldestBlock?.number ?? 0,
-    newestBlock?.number ?? 0,
-  ];
-  Object.keys(sums).forEach((address) => {
-    blockMarkers[address] = markers;
-  });
+  await writeSums(timeframe, sums, oldestBlock.number, newestBlock.number);
 };
 
 export const calcTotals = async (upToIncludingBlockNumber: number) => {
@@ -180,15 +172,20 @@ const addFeeToContractForTimeframe = async (
     Log.debug(`adding OS, ${block.number}, ${useBaseFee}`);
   }
 
+  // For debugging store the newest included block for a total
   await sql`
       INSERT INTO ${sql(table)} AS t (
         contract_address,
         fee_total,
-        oldest_included_block
+        oldest_included_block,
+        newest_included_block
       )
-      VALUES (${address}, ${useBaseFee}, ${block.number})
+      VALUES (${address}, ${useBaseFee}, ${block.number}, ${block.number})
       ON CONFLICT (contract_address) DO UPDATE
-        SET fee_total = t.fee_total + ${useBaseFee}`;
+      SET
+        fee_total = t.fee_total + ${useBaseFee},
+        newest_included_block = ${block.number}
+  `;
 
   if (address === openseaAddress && timeframe === "1h") {
     const total = await sql`
@@ -203,14 +200,6 @@ const addFeeToContract = async (
   address: string,
   useBaseFee: number,
 ): Promise<void> => {
-  // For debugging store the newest included block for a total
-  const markers = blockMarkers[address] || [0, 0];
-  markers[1] = block.number;
-  blockMarkers[address] = markers;
-  if (address === openseaAddress) {
-    Log.debug(`OS block marker, right update ${markers}`);
-  }
-
   return Promise.all([
     addFeeToContractForTimeframe(block, "1h", address, useBaseFee),
     addFeeToContractForTimeframe(block, "24h", address, useBaseFee),
@@ -268,18 +257,13 @@ const subtractStaleBaseFees = async (
     (maps) => maps[address] || 0,
   );
 
-  // For debugging track the oldest included block
-  const markers = blockMarkers[address] || [0, 0];
-  markers[0] = oldestFreshBlockNumber;
-  blockMarkers[address] = markers;
-
   if (address === openseaAddress && timeframe === "1h") {
     const total = await sql`
         SELECT fee_total FROM contract_1h_totals WHERE contract_address =${openseaAddress}
       `.then((rows) => rows[0]?.feeTotal ?? 0);
     Log.debug(`OS total pre: ${weiToEth(total)}`);
     Log.debug(`subtracting OS, ${weiToEth(staleSum)}`);
-    Log.debug(`OS block marker, left update ${markers}`);
+    Log.debug(`OS block marker, left update ${oldestFreshBlockNumber}`);
   }
 
   await sql`
@@ -347,9 +331,10 @@ export const getTopBaseFeeContracts = async (
         name: string | null;
         isBot: boolean;
         oldestIncludedBlock: number;
+        newestIncludedBlock: number;
       }[]
     >`
-    SELECT contract_address, fee_total, name, is_bot FROM ${tableContractsSql}
+    SELECT contract_address, fee_total, name, is_bot, oldest_included_block, newest_included_block FROM ${tableContractsSql}
     JOIN contracts
       ON ${tableContractsSql}.contract_address = contracts.address
     ORDER BY fee_total DESC
@@ -371,20 +356,21 @@ export const getTopBaseFeeContracts = async (
     sequenceT(T.ApplyPar)(getTopFeeContractsTask, ethTransferBaseFeesTask),
     T.map(([topFeeContracts, ethTransferBaseFees]) => {
       const topFeeContractEntries: LeaderboardEntry[] = topFeeContracts.map(
-        ({ contractAddress, feeTotal, name, isBot }) => ({
+        ({
+          contractAddress,
+          feeTotal,
+          name,
+          isBot,
+          oldestIncludedBlock,
+          newestIncludedBlock,
+        }) => ({
           fees: Number(feeTotal),
           id: contractAddress,
           name: name || contractAddress,
           image: undefined,
           type: isBot ? "bot" : "other",
-          oldestIncludedBlock:
-            blockMarkers[contractAddress] !== undefined
-              ? blockMarkers[contractAddress][0]
-              : 0,
-          newestIncludedBlock:
-            blockMarkers[contractAddress] !== undefined
-              ? blockMarkers[contractAddress][1]
-              : 0,
+          oldestIncludedBlock,
+          newestIncludedBlock,
         }),
       );
 
