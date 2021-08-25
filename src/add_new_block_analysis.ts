@@ -20,7 +20,7 @@ const addDataToBlocks = async (): Promise<void> => {
   Log.info(`adding new analysis for ${blocksMissingData.length} blocks`);
 
   const bar = new ProgressBar("[:bar] :rate/s :percent :etas", {
-    total: blocksMissingData.length / 1000,
+    total: Math.ceil(blocksMissingData.length / 1000),
     stream: process.stdout,
   });
 
@@ -84,6 +84,6 @@ addDataToBlocks()
     await sql.end();
   })
   .catch((error) => {
-    Log.error("error adding tips", { error });
+    Log.error("error adding new analysis", { error });
     throw error;
   });
