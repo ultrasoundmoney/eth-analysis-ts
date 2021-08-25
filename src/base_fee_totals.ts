@@ -92,6 +92,11 @@ const calcTotalForTimeframe = async (
   timeframe: Timeframe,
   blocks: AnalyzedBlock[],
 ): Promise<void> => {
+  if (blocks.length === 0) {
+    Log.warn(`no blocks for timeframe ${timeframe}, skipping`);
+    return;
+  }
+
   const blocksWithinTimeframe = getBlocksWithinTimeframe(timeframe, blocks);
   const [oldestBlock] = blocksWithinTimeframe;
   const sums = pipe(
