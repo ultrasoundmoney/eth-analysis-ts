@@ -490,9 +490,9 @@ const calcBaseFeesForBlockNumber = (
       ),
     ),
     T.chain(([block, txrs]) => {
-      Log.debug(`  block number: ${blockNumber}`);
+      Log.debug(`block number: ${blockNumber}`);
       Log.debug(`  fees burned: ${weiToEth(calcBlockBaseFeeSum(block))} ETH`);
-      Log.debug(`  tips: ${weiToEth(calcBlockTips(block, txrs))}`);
+      Log.debug(`  tips: ${weiToEth(calcBlockTips(block, txrs))} ETH`);
 
       if (process.env.SHOW_PROGRESS !== undefined) {
         DisplayProgress.onBlockAnalyzed();
