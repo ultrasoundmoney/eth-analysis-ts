@@ -213,12 +213,14 @@ export const updateTotalsWithFees = async (
   block: BlockLondon,
   baseFees: FeeBreakdown,
 ) => {
+  const unknownDappFees = baseFees;
+
   await Promise.all(
-    Object.entries(baseFees.contract_use_fees).map(([address, fee]) =>
+    Object.entries(unknownDappFees.contract_use_fees).map(([address, fee]) =>
       addFeeToContract(block, address, fee!),
     ),
   );
-  await ensureFreshTotalsForAddresses(Object.keys(baseFees.contract_use_fees));
+  await ensureFreshTotalsForAddresses(Object.keys(unknownDappFees));
 };
 
 const timeframeHoursMap: Record<LimitedTimeframe, number> = {
@@ -230,10 +232,17 @@ const timeframeHoursMap: Record<LimitedTimeframe, number> = {
 
 const subtractStaleBaseFees = async (
   timeframe: LimitedTimeframe,
+  oldestIncludedBlock: number,
   address: string,
-  staleBlocks: { number: number; baseFees: FeeBreakdown }[],
 ) => {
   const table = getTableName(timeframe);
+  const maxHours = timeframeHoursMap[timeframe];
+  const staleBlocks = await sql<{ number: number; baseFees: FeeBreakdown }[]>`
+    SELECT number, base_fees FROM base_fees_per_block
+    WHERE now() - mined_at >= interval '${sql(String(maxHours))} hours'
+      AND number >= ${oldestIncludedBlock}
+    ORDER BY number ASC
+  `;
 
   if (staleBlocks.length === 0) {
     return;
@@ -272,19 +281,7 @@ const subtractStaleBaseFees = async (
   }
 };
 
-const getBlocksAfterNumber = <A extends { number: number }>(
-  blocks: A[],
-  number: number,
-): A[] => {
-  const leftIndex = blocks.findIndex((block) => block.number === number);
-  if (leftIndex === -1) {
-    return blocks;
-  }
-
-  return blocks.slice(leftIndex);
-};
-
-const ensureFreshTotals = async (
+const ensureFreshTotal = async (
   timeframe: LimitedTimeframe,
   addresses: string[],
 ): Promise<void> => {
@@ -301,29 +298,12 @@ const ensureFreshTotals = async (
       JOIN base_fees_per_block ON oldest_included_block = number
       WHERE contract_address = ANY (${sql.array(addresses)})`;
 
-  // We make a small performance optimization here. Instead of letting each subtract call retrieve the stale blocks, we get all blocks that could possibly be stale i.e. every block starting from the total with the oldest block, up to now - timeframe.
-  const oldestIncludedBlockMin = contractTotals.reduce(
-    (oldest, maybeOldest) =>
-      oldest < maybeOldest.oldestIncludedBlock
-        ? oldest
-        : maybeOldest.oldestIncludedBlock,
-    contractTotals[0].oldestIncludedBlock,
-  );
-  const maxHours = timeframeHoursMap[timeframe];
-  const staleBlocks = await sql<{ number: number; baseFees: FeeBreakdown }[]>`
-    SELECT number, base_fees FROM base_fees_per_block
-    WHERE now() - mined_at >= interval '${sql(String(maxHours))} hours'
-    AND number >= ${oldestIncludedBlockMin}
-    ORDER BY number ASC
-  `;
-
   await Promise.all(
     contractTotals.map((contractTotal) =>
       subtractStaleBaseFees(
         timeframe,
+        contractTotal.oldestIncludedBlock,
         contractTotal.contractAddress,
-        // Here we make sure to only pass stale blocks that are within a specific total.
-        getBlocksAfterNumber(staleBlocks, contractTotal.oldestIncludedBlock),
       ),
     ),
   );
@@ -331,10 +311,10 @@ const ensureFreshTotals = async (
 
 const ensureFreshTotalsForAddresses = async (addresses: string[]) => {
   await Promise.all([
-    ensureFreshTotals("1h", addresses),
-    ensureFreshTotals("24h", addresses),
-    ensureFreshTotals("7d", addresses),
-    ensureFreshTotals("30d", addresses),
+    ensureFreshTotal("1h", addresses),
+    ensureFreshTotal("24h", addresses),
+    ensureFreshTotal("7d", addresses),
+    ensureFreshTotal("30d", addresses),
   ]);
 };
 
@@ -486,11 +466,15 @@ const ensureFreshTotalsForTimeframe = async (timeframe: LimitedTimeframe) => {
     ORDER BY (fee_total) DESC
     LIMIT 48
   `.then((rows) => rows.map((row) => row.contractAddress));
-  await ensureFreshTotals(timeframe, addresses);
+  await ensureFreshTotal(timeframe, addresses);
 };
 
 export const watchAndCalcTotalFees = async () => {
   Log.info("starting base fee total analysis");
+  const calcTotalsTransaction = Sentry.startTransaction({
+    op: "calc-totals",
+    name: "calculate totals on start",
+  });
 
   // We can only analyze up to the latest base fee analyzed block. So we check continuously to see if more blocks have been analyzed for fees, and thus fee totals need to be updated.
   const latestBlockNumberAtStart =
@@ -502,6 +486,7 @@ export const watchAndCalcTotalFees = async () => {
   Log.debug("calculating base fee totals for all known contracts");
   await calcTotals(latestBlockNumberAtStart);
   Log.debug("done calculating fresh base fee totals");
+  calcTotalsTransaction.finish();
 
   let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
 
@@ -533,16 +518,11 @@ export const watchAndCalcTotalFees = async () => {
       `analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
     );
     const block = await eth.getBlock(nextBlockNumberToAnalyze);
+    const txrs = await Transactions.getTxrsWithRetry(block);
 
-    // skip empty blocks
-    if (block.gasUsed !== 0) {
-      const txrs = await Transactions.getTxrsWithRetry(block);
-      const baseFees = BaseFees.calcBlockFeeBreakdown(block, txrs);
-      await updateTotalsWithFees(block, baseFees);
-    } else {
-      Log.info("empty block, skipping adding fees");
-    }
+    const baseFees = BaseFees.calcBlockFeeBreakdown(block, txrs);
 
+    await updateTotalsWithFees(block, baseFees);
     Log.debug("updated totals with fees");
     await Promise.all([
       ensureFreshTotalsForTimeframe("1h"),
