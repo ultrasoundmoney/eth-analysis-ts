@@ -105,7 +105,10 @@ const calcTotalForTimeframe = async (
 
   // For debugging store block markers
   const newestBlock = blocksWithinTimeframe[blocksWithinTimeframe.length - 1];
-  const markers: [number, number] = [oldestBlock.number, newestBlock.number];
+  const markers: [number, number] = [
+    oldestBlock?.number ?? 0,
+    newestBlock?.number ?? 0,
+  ];
   Object.keys(sums).forEach((address) => {
     blockMarkers[address] = markers;
   });
@@ -356,8 +359,14 @@ export const getTopBaseFeeContracts = async (
           name: name || contractAddress,
           image: undefined,
           type: isBot ? "bot" : "other",
-          oldestIncludedBlock: blockMarkers[contractAddress][0],
-          newestIncludedBlock: blockMarkers[contractAddress][1],
+          oldestIncludedBlock:
+            blockMarkers[contractAddress] !== undefined
+              ? blockMarkers[contractAddress][0]
+              : 0,
+          newestIncludedBlock:
+            blockMarkers[contractAddress] !== undefined
+              ? blockMarkers[contractAddress][1]
+              : 0,
         }),
       );
 
