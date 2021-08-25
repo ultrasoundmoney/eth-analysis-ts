@@ -35,6 +35,11 @@ spec:
                 name: gas-analysis-env
             - secretRef:
                 name: pg-password-anton
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           resources:
             limits:
               memory: 512Mi

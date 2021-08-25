@@ -14,6 +14,11 @@ spec:
                 name: gas-analysis-env
             - secretRef:
                 name: pg-password-anton
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           resources:
             requests:
               cpu: 1000m
