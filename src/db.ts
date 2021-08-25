@@ -16,10 +16,11 @@ export const sql = postgres({
   database: process.env.PGDATABASE,
   password: process.env.PGPASSWORD,
   username: process.env.PGUSER,
-  port,
+  port: Config.env === "staging" ? 25061 : port,
   ssl: "prefer",
   transform: { column: camelCase },
-  max: Config.env === "staging" ? 2 : 4,
+  max: Config.env === "staging" ? 8 : 4,
+  no_prepare: Config.env === "staging",
   types: {
     bigint: postgres.BigInt,
   },
