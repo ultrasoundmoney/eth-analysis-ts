@@ -1,5 +1,4 @@
 import { milisFromSeconds } from "./duration.js";
-import * as Log from "./log.js"
 
 type CanaryType = "block" | "leaderboard";
 const cage: Record<CanaryType, NodeJS.Timeout | undefined> = {
@@ -11,7 +10,7 @@ const durationMilis = milisFromSeconds(120);
 
 export const releaseCanary = (type: CanaryType): void => {
   cage[type] = setTimeout(() => {
-    Log.error(`canary dead, no block for ${durationMilis / 1000}s`);
+    throw new Error(`canary dead, no block for ${durationMilis / 1000}s`);
   }, durationMilis);
 };
 
