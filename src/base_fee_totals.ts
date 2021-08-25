@@ -18,6 +18,9 @@ import * as Transactions from "./transactions.js";
 import * as T from "fp-ts/lib/Task.js";
 import { sequenceT } from "fp-ts/lib/Apply.js";
 import * as Contracts from "./contracts.js";
+import { weiToEth } from "./convert_unit.js";
+
+const blockMarkers: Record<string, [number, number]> = {};
 
 type ContractAddress = string;
 
@@ -99,6 +102,13 @@ const calcTotalForTimeframe = async (
   const table = getTableName(timeframe);
   await sql`TRUNCATE ${sql(table)};`;
   await writeSums(timeframe, sums, oldestBlock.number);
+
+  // For debugging store block markers
+  const newestBlock = blocksWithinTimeframe[blocksWithinTimeframe.length - 1];
+  const markers: [number, number] = [oldestBlock.number, newestBlock.number];
+  Object.keys(sums).forEach((address) => {
+    blockMarkers[address] = markers;
+  });
 };
 
 export const calcTotals = async (upToIncludingBlockNumber: number) => {
@@ -145,6 +155,7 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
 
 const getTableName = (timeframe: Timeframe) => `contract_${timeframe}_totals`;
 
+const openseaAddress = "0x7be8076f4ea4a4ad08075c2508e481d6c946d12b";
 const addFeeToContractForTimeframe = async (
   block: BlockLondon,
   timeframe: Timeframe,
@@ -152,6 +163,15 @@ const addFeeToContractForTimeframe = async (
   useBaseFee: number,
 ): Promise<void> => {
   const table = getTableName(timeframe);
+
+  if (address === openseaAddress && timeframe === "1h") {
+    const total = await sql`
+        SELECT fee_total FROM contract_1h_totals WHERE contract_address =${openseaAddress}
+      `.then((rows) => rows[0]?.feeTotal ?? 0);
+    Log.debug(`OS total: ${weiToEth(total)}`);
+    Log.debug(`adding OS, ${block.number}, ${useBaseFee}`);
+  }
+
   await sql`
       INSERT INTO ${sql(table)} AS t (
         contract_address,
@@ -168,14 +188,23 @@ const addFeeToContract = async (
   block: BlockLondon,
   address: string,
   useBaseFee: number,
-): Promise<void> =>
-  Promise.all([
+): Promise<void> => {
+  // For debugging store the newest included block for a total
+  const markers = blockMarkers[address] || [0, 0];
+  markers[1] = block.number;
+  blockMarkers[address] = markers;
+  if (address === openseaAddress) {
+    Log.debug(`OS block marker, right update ${markers}`);
+  }
+
+  return Promise.all([
     addFeeToContractForTimeframe(block, "1h", address, useBaseFee),
     addFeeToContractForTimeframe(block, "24h", address, useBaseFee),
     addFeeToContractForTimeframe(block, "7d", address, useBaseFee),
     addFeeToContractForTimeframe(block, "30d", address, useBaseFee),
     addFeeToContractForTimeframe(block, "all", address, useBaseFee),
   ]).then(() => undefined);
+};
 
 export const updateTotalsWithFees = async (
   block: BlockLondon,
@@ -225,6 +254,20 @@ const subtractStaleBaseFees = async (
     (maps) => maps[address] || 0,
   );
 
+  // For debugging track the oldest included block
+  const markers = blockMarkers[address] || [0, 0];
+  markers[0] = oldestFreshBlockNumber;
+  blockMarkers[address] = markers;
+
+  if (address === openseaAddress && timeframe === "1h") {
+    const total = await sql`
+        SELECT fee_total FROM contract_1h_totals WHERE contract_address =${openseaAddress}
+      `.then((rows) => rows[0]?.feeTotal ?? 0);
+    Log.debug(`OS total pre: ${weiToEth(total)}`);
+    Log.debug(`subtracting OS, ${weiToEth(staleSum)}`);
+    Log.debug(`OS block marker, left update ${markers}`);
+  }
+
   await sql`
     UPDATE ${sql(table)}
     SET
@@ -270,7 +313,7 @@ const ensureFreshTotals = async (addresses: string[]) => {
   ]);
 };
 
-export const getTopFeeBurners = async (
+export const getTopBaseFeeContracts = async (
   timeframe: Timeframe,
 ): Promise<LeaderboardEntry[]> => {
   const tableContracts = getTableName(timeframe);
@@ -282,6 +325,7 @@ export const getTopFeeBurners = async (
         feeTotal: string;
         name: string | null;
         isBot: boolean;
+        oldestIncludedBlock: number;
       }[]
     >`
     SELECT contract_address, fee_total, name, is_bot FROM ${tableContractsSql}
@@ -312,6 +356,8 @@ export const getTopFeeBurners = async (
           name: name || contractAddress,
           image: undefined,
           type: isBot ? "bot" : "other",
+          oldestIncludedBlock: blockMarkers[contractAddress][0],
+          newestIncludedBlock: blockMarkers[contractAddress][1],
         }),
       );
 
@@ -361,11 +407,11 @@ export const getNewLeaderboard = async (): Promise<Leaderboard> => {
     leaderboard30d,
     leaderboardAll,
   ] = await Promise.all([
-    getTopFeeBurners("1h"),
-    getTopFeeBurners("24h"),
-    getTopFeeBurners("7d"),
-    getTopFeeBurners("30d"),
-    getTopFeeBurners("all"),
+    getTopBaseFeeContracts("1h"),
+    getTopBaseFeeContracts("24h"),
+    getTopBaseFeeContracts("7d"),
+    getTopBaseFeeContracts("30d"),
+    getTopBaseFeeContracts("all"),
   ]);
 
   return {
