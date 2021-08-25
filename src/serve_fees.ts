@@ -1,6 +1,5 @@
 import * as Sentry from "@sentry/node";
-import Config, { setName } from "./config.js";
-setName("serve-fees");
+import Config from "./config.js";
 import Koa, { Middleware } from "koa";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";

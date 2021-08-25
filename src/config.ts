@@ -18,10 +18,6 @@ const parseEnv = (): Env => {
   }
 };
 
-export const setName = (name: string): void => {
-  config.name = name;
-};
-
 const parseLocalNodeAvailable = (): boolean =>
   !(
     process.env.LOCAL_NODE_AVAILABLE === undefined ||
@@ -38,7 +34,7 @@ type Config = {
 const config: Config = {
   env: parseEnv(),
   localNodeAvailable: parseLocalNodeAvailable(),
-  name: "unknown",
+  name: process.env.NAME || "unknown",
 };
 
 export default config;

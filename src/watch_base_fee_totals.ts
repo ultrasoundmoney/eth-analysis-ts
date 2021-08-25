@@ -1,7 +1,6 @@
 import Sentry from "@sentry/node";
 import "@sentry/tracing";
-import Config, { setName } from "./config.js";
-setName("watch-base-fee-totals");
+import Config from "./config.js";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 import * as Log from "./log.js";
 import * as Eth from "./web3.js";

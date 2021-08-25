@@ -1,5 +1,3 @@
-import { setName } from "./config.js";
-setName("analyze-missing-blocks");
 import * as BaseFees from "./base_fees.js";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
