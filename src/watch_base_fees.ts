@@ -6,6 +6,8 @@ import Config, { setName } from "./config.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
 
+// meaningless comment to trigger build
+
 Sentry.init({
   dsn: "https://f6393dc2e2984ec09299406e8f409647@o920717.ingest.sentry.io/5896630",
   tracesSampleRate: 0.1,
