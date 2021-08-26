@@ -14,7 +14,7 @@ const buildSqlQueue = new PQueue({ concurrency: 8 });
 
 const addDataToBlocks = async (): Promise<void> => {
   const blocksMissingData = await sql<{ number: number }[]>`
-    SELECT number FROM base_fees_per_block
+    SELECT number FROM blocks
     WHERE eth_transfer_sum IS NULL
   `.then((rows) => rows.map((row) => row.number));
 
@@ -52,7 +52,7 @@ const addDataToBlocks = async (): Promise<void> => {
     await Contracts.insertContracts(addresses);
 
     await sql.unsafe(`
-      UPDATE base_fees_per_block
+      UPDATE blocks
       SET
         tips = value_list.tips,
         eth_transfer_sum = value_list.eth_transfer_sum,
@@ -63,7 +63,7 @@ const addDataToBlocks = async (): Promise<void> => {
       FROM (
         VALUES ${bits.map((bit) => bit.rowText).join(",")}
       ) AS value_list (number, tips, eth_transfer_sum, contract_creation_sum, base_fee_sum, base_fee_per_gas, gas_used)
-      WHERE base_fees_per_block.number = value_list.number
+      WHERE blocks.number = value_list.number
   `);
     bar.tick();
   }
