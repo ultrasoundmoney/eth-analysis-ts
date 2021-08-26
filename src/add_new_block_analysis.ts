@@ -49,7 +49,7 @@ const addDataToBlocks = async (): Promise<void> => {
     );
 
     const addresses = bits.map((bit) => bit.addresses).flat();
-    await Contracts.insertContracts(addresses);
+    // await Contracts.insertContracts(addresses);
 
     await sql.unsafe(`
       UPDATE base_fees_per_block
