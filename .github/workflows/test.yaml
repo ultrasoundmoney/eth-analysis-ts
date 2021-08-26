@@ -3,6 +3,9 @@ name: test
 on:
   push:
     branches: [main]
+    tags:
+      - "stag-*"
+      - "prod-*"
   pull_request:
     branches: [main]
 
