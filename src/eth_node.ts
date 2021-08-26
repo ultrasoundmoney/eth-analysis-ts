@@ -9,7 +9,14 @@ import * as Log from "./log.js";
 
 const mainnetNode = `ws://${process.env.NODE_IP}:8546/`;
 
-const ws = new WebSocket(mainnetNode);
+let ws: WebSocket | undefined = undefined;
+
+export const connect = async () => {
+  ws = new WebSocket(mainnetNode);
+  return new Promise((resolve) => {
+    ws!.on("open", resolve);
+  });
+};
 
 type MessageErr = { code: number; message: string };
 
@@ -43,13 +50,13 @@ const registerMessageListener = <A>(): [number, Promise<A>] => {
 };
 
 const send = (message: Record<string, unknown>) => {
-  ws.send(JSON.stringify(message));
+  ws!.send(JSON.stringify(message));
 };
 
 export const benchmarkTxrFetch = async () => {
   const blockQueue = new PQueue({ concurrency: 4 });
   const txrsQueue = new PQueue({ concurrency: 200 });
-  await webSocketOpen;
+  await connect();
   console.log("connected!");
   const block = await getBlock("latest");
 
@@ -226,7 +233,7 @@ export const getTransactionReceipt = async (
   return translateTxr(rawTxr);
 };
 
-ws.on("message", (event) => {
+ws!.on("message", (event) => {
   const message: {
     id: number;
     result: unknown;
@@ -243,12 +250,8 @@ ws.on("message", (event) => {
 });
 
 export const closeConnection = () => {
-  ws.close();
+  ws!.close();
 };
-
-export const webSocketOpen = new Promise((resolve) => {
-  ws.on("open", resolve);
-});
 
 const translateHead = (rawHead: RawHead): Head => ({
   ...rawHead,

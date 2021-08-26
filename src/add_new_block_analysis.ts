@@ -69,13 +69,22 @@ const addDataToBlocks = async (): Promise<void> => {
   }
 };
 
-addDataToBlocks()
-  .then(async () => {
+const main = async () => {
+  try {
+    await EthNode.connect();
+    await addDataToBlocks();
     Log.info("done adding new analysis");
-    EthNode.closeConnection();
-    await sql.end();
-  })
-  .catch((error) => {
+  } catch (error) {
     Log.error("error adding new analysis", { error });
     throw error;
-  });
+  } finally {
+    EthNode.closeConnection();
+    await sql.end();
+  }
+};
+
+main();
+
+process.on("unhandledRejection", (error) => {
+  throw error;
+});

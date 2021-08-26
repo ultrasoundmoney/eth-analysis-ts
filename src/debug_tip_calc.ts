@@ -5,8 +5,8 @@ import { hexToNumber } from "./hexadecimal.js";
 import { weiToEth, weiToGwei } from "./convert_unit.js";
 import * as Blocks from "./blocks.js";
 
-(async () => {
-  await EthNode.webSocketOpen;
+const main = async () => {
+  await EthNode.connect();
 
   const block = await Blocks.getBlockWithRetry(12965893);
   Log.debug(`block: ${block.number}, base fee per gas: ${block.baseFeePerGas}`);
@@ -41,4 +41,6 @@ import * as Blocks from "./blocks.js";
   Log.debug(`fees: ${weiToEth(fees)}`);
 
   EthNode.closeConnection();
-})();
+};
+
+main();

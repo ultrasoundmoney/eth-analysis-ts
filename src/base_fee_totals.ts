@@ -1,4 +1,3 @@
-import Sentry from "@sentry/node";
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
@@ -11,7 +10,6 @@ import type {
 import { differenceInSeconds } from "date-fns";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
-import * as EthNode from "./eth_node.js";
 import type { BlockLondon } from "./eth_node.js";
 import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
@@ -471,12 +469,6 @@ const ensureFreshTotalsForTimeframe = async (timeframe: LimitedTimeframe) => {
 };
 
 export const watchAndCalcTotalFees = async () => {
-  Log.info("starting base fee total analysis");
-  const calcTotalsTransaction = Sentry.startTransaction({
-    op: "calc-totals",
-    name: "calculate totals on start",
-  });
-
   // We can only analyze up to the latest base fee analyzed block. So we check continuously to see if more blocks have been analyzed for fees, and thus fee totals need to be updated.
   const latestBlockNumberAtStart =
     await BaseFees.getLatestAnalyzedBlockNumber();
@@ -487,11 +479,8 @@ export const watchAndCalcTotalFees = async () => {
   Log.debug("calculating base fee totals for all known contracts");
   await calcTotals(latestBlockNumberAtStart);
   Log.debug("done calculating fresh base fee totals");
-  calcTotalsTransaction.finish();
 
   let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
-
-  await EthNode.webSocketOpen;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -509,11 +498,6 @@ export const watchAndCalcTotalFees = async () => {
       await delay(2000);
       continue;
     }
-
-    const updateTotalsTransaction = Sentry.startTransaction({
-      name: "update base fee totals for a new block",
-      op: "update-base-fee-totals",
-    });
 
     Log.info(
       `analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
@@ -536,7 +520,5 @@ export const watchAndCalcTotalFees = async () => {
     await notifyNewLeaderboard(block);
 
     nextBlockNumberToAnalyze = nextBlockNumberToAnalyze + 1;
-
-    updateTotalsTransaction.finish();
   }
 };

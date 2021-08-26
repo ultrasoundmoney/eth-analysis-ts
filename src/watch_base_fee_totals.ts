@@ -14,14 +14,23 @@ if (Config.env !== "dev") {
   });
 }
 
-BaseFeeTotals.watchAndCalcTotalFees().catch((error) => {
-  Log.error("error watching and analyzing for new base fee totals", {
-    error,
-  });
-  EthNode.closeConnection();
-  sql.end();
-  throw error;
-});
+const main = async () => {
+  try {
+    Log.info("starting base fee total analysis");
+    await EthNode.connect();
+    BaseFeeTotals.watchAndCalcTotalFees();
+  } catch (error) {
+    Log.error("error watching and analyzing for new base fee totals", {
+      error,
+    });
+    throw error;
+  } finally {
+    EthNode.closeConnection();
+    sql.end();
+  }
+};
+
+main();
 
 process.on("unhandledRejection", (error) => {
   throw error;

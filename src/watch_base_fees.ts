@@ -14,12 +14,21 @@ if (Config.env !== "dev") {
   });
 }
 
-BaseFees.watchAndCalcBaseFees().catch((error) => {
-  Log.error("error watching and analyzing new blocks", { error });
-  EthNode.closeConnection();
-  sql.end();
-  throw error;
-});
+const main = async () => {
+  try {
+    Log.info("watching and analyzing new blocks");
+    await EthNode.connect();
+    BaseFees.watchAndCalcBaseFees();
+  } catch (error) {
+    Log.error("error watching and analyzing new blocks", { error });
+    throw error;
+  } finally {
+    EthNode.closeConnection();
+    sql.end();
+  }
+};
+
+main();
 
 process.on("unhandledRejection", (error) => {
   throw error;

@@ -257,25 +257,30 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 const serveFees = async () => {
-  await EthNode.webSocketOpen;
-  const block = await Blocks.getBlockWithRetry("latest");
-  await updateCachesForBlockNumber(block.number);
-  await updateLeaderboardCacheForBlockNumber(block.number);
+  try {
+    await EthNode.connect();
+    const block = await Blocks.getBlockWithRetry("latest");
+    await updateCachesForBlockNumber(block.number);
+    await updateLeaderboardCacheForBlockNumber(block.number);
 
-  await new Promise((resolve) => {
-    app.listen(port, () => {
-      resolve(undefined);
+    await new Promise((resolve) => {
+      app.listen(port, () => {
+        resolve(undefined);
+      });
     });
-  });
-  Log.info(`listening on ${port}`);
-  Canary.releaseCanary("block");
-  Canary.releaseCanary("leaderboard");
+    Log.info(`listening on ${port}`);
+    Canary.releaseCanary("block");
+    Canary.releaseCanary("leaderboard");
+  } catch (error) {
+    Log.error("serve fees top level error", { error });
+    throw error;
+  } finally {
+    EthNode.closeConnection();
+    sql.end();
+  }
 };
 
-serveFees().catch((error) => {
-  Log.error(error, { error });
-  throw error;
-});
+serveFees();
 
 process.on("unhandledRejection", (error) => {
   throw error;

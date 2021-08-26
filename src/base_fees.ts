@@ -512,9 +512,6 @@ const calcBaseFeesForBlockNumber = (
   );
 
 export const reanalyzeAllBlocks = async () => {
-  Log.info("reanalyzing all blocks");
-  await EthNode.webSocketOpen;
-
   const latestBlock = await Blocks.getBlockWithRetry("latest");
   Log.debug(`latest block is ${latestBlock.number}`);
 
@@ -541,10 +538,6 @@ export const reanalyzeAllBlocks = async () => {
 };
 
 export const watchAndCalcBaseFees = async () => {
-  Log.info("watching and analyzing new blocks");
-
-  await EthNode.webSocketOpen;
-
   EthNode.subscribeNewHeads((head) =>
     seqBlockAnalysisQueue.add(calcBaseFeesForBlockNumber(head.number, true)),
   );
@@ -554,8 +547,6 @@ export const watchAndCalcBaseFees = async () => {
 
 export const analyzeMissingBlocks = async () => {
   Log.info("checking for missing blocks");
-  await EthNode.webSocketOpen;
-
   const latestBlock = await Blocks.getBlockWithRetry("latest");
   const knownBlockNumbers = await sql<{ number: number }[]>`
     SELECT number FROM base_fees_per_block

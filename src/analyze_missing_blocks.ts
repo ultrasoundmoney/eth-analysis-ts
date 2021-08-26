@@ -3,12 +3,21 @@ import { sql } from "./db.js";
 import * as Log from "./log.js";
 import * as EthNode from "./eth_node.js";
 
-BaseFees.analyzeMissingBlocks()
-  .then(async () => {
-    EthNode.closeConnection();
-    await sql.end();
-  })
-  .catch((error) => {
+const main = async () => {
+  try {
+    await EthNode.connect();
+    BaseFees.analyzeMissingBlocks();
+  } catch (error) {
     Log.error("error watching and analyzing new blocks", { error });
     throw error;
-  });
+  } finally {
+    EthNode.closeConnection();
+    await sql.end();
+  }
+};
+
+main();
+
+process.on("unhandledRejection", (error) => {
+  throw error;
+});
