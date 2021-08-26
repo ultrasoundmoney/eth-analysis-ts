@@ -6,7 +6,7 @@ import * as Blocks from "./blocks.js";
 
 const addTipsToAnalyzedBlocks = async (): Promise<void> => {
   const blocksMissingBaseFeeSum = await sql<{ number: number }[]>`
-    SELECT number FROM base_fees_per_block
+    SELECT number FROM blocks
     WHERE base_fee_sum IS NULL
   `.then((rows) => rows.map((row) => row.number));
 
@@ -20,7 +20,7 @@ const addTipsToAnalyzedBlocks = async (): Promise<void> => {
     const block = await Blocks.getBlockWithRetry(blockNumber);
     const baseFeeSum = Number(block.baseFeePerGas) * block.gasUsed;
     await sql`
-      UPDATE base_fees_per_block
+      UPDATE blocks
       SET base_fee_sum = ${baseFeeSum}
       WHERE number = ${block.number}
     `;

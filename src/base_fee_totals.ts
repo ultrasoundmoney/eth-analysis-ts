@@ -120,7 +120,7 @@ export const calcTotals = async (upToIncludingBlockNumber: number) => {
         number,
         base_fees,
         mined_at
-      FROM base_fees_per_block
+      FROM blocks
       WHERE number <= ${upToIncludingBlockNumber}
       ORDER BY number ASC
     `;
@@ -237,7 +237,7 @@ const subtractStaleBaseFees = async (
   const table = getTableName(timeframe);
   const maxHours = timeframeHoursMap[timeframe];
   const staleBlocks = await sql<{ number: number; baseFees: FeeBreakdown }[]>`
-    SELECT number, base_fees FROM base_fees_per_block
+    SELECT number, base_fees FROM blocks
     WHERE now() - mined_at >= interval '${sql(String(maxHours))} hours'
       AND number >= ${oldestIncludedBlock}
     ORDER BY number ASC
@@ -294,7 +294,7 @@ const ensureFreshTotal = async (
   >`
       SELECT oldest_included_block, contract_address
       FROM ${sql(table)}
-      JOIN base_fees_per_block ON oldest_included_block = number
+      JOIN blocks ON oldest_included_block = number
       WHERE contract_address = ANY (${sql.array(addresses)})`;
 
   await Promise.all(
@@ -322,14 +322,14 @@ const getEthTransferFeesForTimeframe = async (
 ): Promise<number> => {
   if (timeframe === "all") {
     const rows = await sql<{ sum: number }[]>`
-      SELECT SUM(eth_transfer_sum) FROM base_fees_per_block
+      SELECT SUM(eth_transfer_sum) FROM blocks
     `;
     return rows[0]?.sum ?? 0;
   }
 
   const hours = timeframeHoursMap[timeframe];
   const rows_1 = await sql<{ sum: number }[]>`
-      SELECT SUM(eth_transfer_sum) FROM base_fees_per_block
+      SELECT SUM(eth_transfer_sum) FROM blocks
       WHERE mined_at >= NOW() - interval '${sql(String(hours))} hours'
   `;
   return rows_1[0]?.sum ?? 0;

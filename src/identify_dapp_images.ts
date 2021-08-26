@@ -15,7 +15,7 @@ import * as Contracts from "./contracts.js";
 const getBaseFeeBurners = async () => {
   const baseFeesPerBlock = await sql<{ baseFees: FeeBreakdown }[]>`
       SELECT base_fees
-      FROM base_fees_per_block
+      FROM blocks
   `.then((rows) => {
     return rows.map((row) => row.baseFees);
   });

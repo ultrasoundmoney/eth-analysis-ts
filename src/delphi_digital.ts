@@ -44,7 +44,7 @@ const exportDelphiData = async () => {
 
   const feesPerDayRaw = await sql<{ fees: number; date: Date }[]>`
     SELECT SUM(base_fee_sum) AS fees, DATE_TRUNC('day', mined_at) AS date
-    FROM base_fees_per_block
+    FROM blocks
     GROUP BY date
   `;
   const feesPerDay = pipe(
@@ -54,7 +54,7 @@ const exportDelphiData = async () => {
 
   const blocks = await sql<{ baseFees: FeeBreakdown; date: Date }[]>`
     SELECT base_fees, DATE_TRUNC('day', mined_at) AS date
-    FROM base_fees_per_block
+    FROM blocks
   `;
 
   const segmentedBlocks = pipe(

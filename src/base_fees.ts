@@ -33,7 +33,7 @@ export type FeeBreakdown = {
 
 export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
   sql`
-    SELECT MAX(number) AS number FROM base_fees_per_block
+    SELECT MAX(number) AS number FROM blocks
   `.then((result) => result[0]?.number || undefined);
 
 type BlockRow = {
@@ -97,7 +97,7 @@ const updateBlockBaseFees = async (
 
   const updateBlockTask = () =>
     sql`
-      UPDATE base_fees_per_block
+      UPDATE blocks
       SET
         ${sql(blockRow)}
       WHERE
@@ -134,7 +134,7 @@ const insertBlockBaseFees = async (
 
   const insertTask = () =>
     sql`
-      INSERT INTO base_fees_per_block
+      INSERT INTO blocks
         ${sql(blockRow)}
     `.then(() => undefined);
 
@@ -272,31 +272,31 @@ const getBlocksYoungerThan = (
 const getFeeBurnFromDb = async (): Promise<TotalFeeBurnCache> => {
   const feesBurned1h = () =>
     sql<{ baseFeeSum: number; minedAt: Date }[]>`
-      SELECT base_fee_sum, mined_at FROM base_fees_per_block
+      SELECT base_fee_sum, mined_at FROM blocks
       WHERE mined_at >= now() - interval '1 hours'
   `;
 
   const feesBurned24h = () =>
     sql<{ baseFeeSum: number; minedAt: Date }[]>`
-      SELECT base_fee_sum, mined_at FROM base_fees_per_block
+      SELECT base_fee_sum, mined_at FROM blocks
       WHERE mined_at >= now() - interval '24 hours'
   `;
 
   const feesBurned7d = () =>
     sql<{ baseFeeSum: number; minedAt: Date }[]>`
-      SELECT base_fee_sum, mined_at FROM base_fees_per_block
+      SELECT base_fee_sum, mined_at FROM blocks
       WHERE mined_at >= now() - interval '7 days'
   `;
 
   const feesBurned30d = () =>
     sql<{ baseFeeSum: number; minedAt: Date }[]>`
-      SELECT base_fee_sum, mined_at FROM base_fees_per_block
+      SELECT base_fee_sum, mined_at FROM blocks
       WHERE mined_at >= now() - interval '30 days'
   `;
 
   const feesBurnedAll = () =>
     sql<{ baseFeeSum: number }[]>`
-      SELECT SUM(base_fee_sum) as base_fee_sum FROM base_fees_per_block
+      SELECT SUM(base_fee_sum) as base_fee_sum FROM blocks
   `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
   return sequenceS(T.ApplyPar)({
@@ -391,7 +391,7 @@ export const getFeesBurnedPerInterval =
   async (): Promise<FeesBurnedPerInterval> => {
     const blocks = await sql<{ baseFeeSum: number | null; date: Date }[]>`
       SELECT date_trunc('hour', mined_at) AS date, SUM(base_fee_sum) AS base_fee_sum
-      FROM base_fees_per_block
+      FROM blocks
       GROUP BY date
       ORDER BY date
     `.then((rows) => {
@@ -549,7 +549,7 @@ export const analyzeMissingBlocks = async () => {
   Log.info("checking for missing blocks");
   const latestBlock = await Blocks.getBlockWithRetry("latest");
   const knownBlockNumbers = await sql<{ number: number }[]>`
-    SELECT number FROM base_fees_per_block
+    SELECT number FROM blocks
   `.then((rows) => new Set(rows.map((row) => row.number)));
   const wantedBlockRange = Blocks.getBlockRange(
     Blocks.londonHardForkBlockNumber,
@@ -589,13 +589,13 @@ export type BurnRates = {
 export const getBurnRates = async () => {
   const burnRate1h = () =>
     sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / (1 * 60) AS burn_per_minute FROM base_fees_per_block
+      SELECT SUM(base_fee_sum) / (1 * 60) AS burn_per_minute FROM blocks
       WHERE mined_at >= now() - interval '1 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
   const burnRate24h = () =>
     sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / (24 * 60) AS burn_per_minute FROM base_fees_per_block
+      SELECT SUM(base_fee_sum) / (24 * 60) AS burn_per_minute FROM blocks
       WHERE mined_at >= now() - interval '24 hours'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
@@ -606,7 +606,7 @@ export const getBurnRates = async () => {
         SUM(base_fee_sum) / (
           EXTRACT(epoch FROM now() - min(mined_at)) / 60
         ) AS burn_per_minute
-      FROM base_fees_per_block
+      FROM blocks
       WHERE mined_at >= now() - interval '7 days'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
@@ -616,7 +616,7 @@ export const getBurnRates = async () => {
         SUM(base_fee_sum) / (
           EXTRACT(epoch FROM now() - min(mined_at)) / 60
         ) AS burn_per_minute
-      FROM base_fees_per_block
+      FROM blocks
       WHERE mined_at >= now() - interval '30 days'
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
@@ -626,7 +626,7 @@ export const getBurnRates = async () => {
         SUM(base_fee_sum) / (
           EXTRACT(epoch FROM now() - '2021-08-05 12:33:42+00') / 60
         ) AS burn_per_minute
-      FROM base_fees_per_block
+      FROM blocks
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
   return sequenceS(T.ApplyPar)({
