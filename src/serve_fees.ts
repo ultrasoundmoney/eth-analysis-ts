@@ -273,10 +273,9 @@ const serveFees = async () => {
     Canary.releaseCanary("leaderboard");
   } catch (error) {
     Log.error("serve fees top level error", { error });
-    throw error;
-  } finally {
     EthNode.closeConnection();
     sql.end();
+    throw error;
   }
 };
 
