@@ -340,3 +340,18 @@ type Head = {
   baseFeePerGas: string;
   hash: string;
 };
+
+// Doesn't seem to do anything.
+export const raiseLogLevel = async () => {
+  // {"method": "debug_vmodule", "params": [number]}
+  const [id] = registerMessageListener();
+
+  send({
+    method: "debug_vmodule",
+    params: [6],
+    id,
+    jsonrpc: "2.0",
+  });
+
+  inUseIds.delete(id);
+};
