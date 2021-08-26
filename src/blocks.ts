@@ -1,3 +1,10 @@
+import * as Sentry from "@sentry/node";
+import * as EthNode from "./eth_node.js";
+import { BlockLondon } from "./eth_node.js";
+import * as Duration from "./duration.js";
+import * as Log from "./log.js";
+import { delay } from "./delay.js";
+
 export const londonHardForkBlockNumber = 12965000;
 
 export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
@@ -5,3 +12,42 @@ export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
     .fill(undefined)
     .map((_, i) => toAndIncluding - i)
     .reverse();
+
+export const getBlockWithRetry = async (
+  blockNumber: number | "latest" | string,
+): Promise<BlockLondon> => {
+  let tries = 0;
+
+  // Retry continuously
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    tries += tries + 1;
+
+    const maybeBlock = await Blocks.getBlockWithRetry(blockNumber);
+
+    if (typeof maybeBlock?.hash === "string") {
+      return maybeBlock;
+    }
+
+    const delayMilis = Duration.milisFromSeconds(3);
+
+    if (tries === 10) {
+      Sentry.captureException(
+        new Error(
+          `stuck fetching block, for more than ${(tries * delayMilis) / 1000}s`,
+        ),
+      );
+    }
+
+    if (tries > 20) {
+      throw new Error("failed to fetch block, stayed null");
+    }
+
+    Log.warn(
+      `block was null for number ${blockNumber}, waiting ${
+        delayMilis / 1000
+      }s and trying again`,
+    );
+    await delay(delayMilis);
+  }
+};

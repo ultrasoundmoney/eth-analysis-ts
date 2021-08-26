@@ -11,14 +11,15 @@ import type {
 import { differenceInSeconds } from "date-fns";
 import * as Log from "./log.js";
 import * as BaseFees from "./base_fees.js";
-import * as eth from "./web3.js";
-import type { BlockLondon } from "./web3.js";
+import * as EthNode from "./eth_node.js";
+import type { BlockLondon } from "./eth_node.js";
 import { delay } from "./delay.js";
 import * as Transactions from "./transactions.js";
 import * as T from "fp-ts/lib/Task.js";
 import { sequenceT } from "fp-ts/lib/Apply.js";
 import * as Contracts from "./contracts.js";
 import { weiToEth } from "./convert_unit.js";
+import * as Blocks from "./blocks.js";
 
 type ContractAddress = string;
 
@@ -490,7 +491,7 @@ export const watchAndCalcTotalFees = async () => {
 
   let nextBlockNumberToAnalyze = latestBlockNumberAtStart + 1;
 
-  await eth.webSocketOpen;
+  await EthNode.webSocketOpen;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -517,7 +518,7 @@ export const watchAndCalcTotalFees = async () => {
     Log.info(
       `analyzing block ${nextBlockNumberToAnalyze} to update fee totals`,
     );
-    const block = await eth.getBlock(nextBlockNumberToAnalyze);
+    const block = await Blocks.getBlockWithRetry(nextBlockNumberToAnalyze);
     const txrs = await Transactions.getTxrsWithRetry(block);
 
     const baseFees = BaseFees.calcBlockFeeBreakdown(block, txrs);

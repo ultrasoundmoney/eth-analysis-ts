@@ -4,7 +4,7 @@ import Config from "./config.js";
 import * as BaseFees from "./base_fees.js";
 import * as Log from "./log.js";
 import { sql } from "./db.js";
-import * as Eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 
 if (Config.env !== "dev") {
   Sentry.init({
@@ -16,7 +16,7 @@ if (Config.env !== "dev") {
 
 BaseFees.watchAndCalcBaseFees().catch((error) => {
   Log.error("error watching and analyzing new blocks", { error });
-  Eth.closeWeb3Ws();
+  EthNode.closeConnection();
   sql.end();
   throw error;
 });

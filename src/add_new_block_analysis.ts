@@ -2,12 +2,13 @@ import * as Log from "./log.js";
 import { sql } from "./db.js";
 import * as BaseFees from "./base_fees.js";
 import * as Transactions from "./transactions.js";
-import * as eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 import ProgressBar from "progress";
 import { hexToNumber } from "./hexadecimal.js";
 import PQueue from "p-queue";
 import * as Contracts from "./contracts.js";
 import A from "fp-ts/lib/Array.js";
+import * as Blocks from "./blocks.js";
 
 const buildSqlQueue = new PQueue({ concurrency: 8 });
 
@@ -19,13 +20,13 @@ const addDataToBlocks = async (): Promise<void> => {
 
   Log.info(`adding new analysis for ${blocksMissingData.length} blocks`);
 
-  const bar = new ProgressBar("[:bar] :rate/s :percent :etas", {
+  const bar = new ProgressBar("chunks [:bar] :rate/s :percent :etas", {
     total: Math.ceil(blocksMissingData.length / 1000),
     stream: process.stdout,
   });
 
   const toSqlBits = async (number: number) => {
-    const block = await eth.getBlock(number);
+    const block = await Blocks.getBlockWithRetry(number);
     const txrs = await Transactions.getTxrsWithRetry(block);
     const feeBreakdown = BaseFees.calcBlockFeeBreakdown(block, txrs);
     const tips = BaseFees.calcBlockTips(block, txrs);
@@ -43,17 +44,8 @@ const addDataToBlocks = async (): Promise<void> => {
   };
 
   for (const chunk of A.chunksOf(1000)(blocksMissingData)) {
-    const sqlBuildingBar = new ProgressBar("[:bar] :rate/s :percent :etas", {
-      total: 1000,
-    });
     const bits = await buildSqlQueue.addAll(
-      chunk.map(
-        (number) => () =>
-          toSqlBits(number).then((result) => {
-            sqlBuildingBar.tick();
-            return result;
-          }),
-      ),
+      chunk.map((number) => () => toSqlBits(number)),
     );
 
     const addresses = bits.map((bit) => bit.addresses).flat();
@@ -80,7 +72,7 @@ const addDataToBlocks = async (): Promise<void> => {
 addDataToBlocks()
   .then(async () => {
     Log.info("done adding new analysis");
-    eth.closeWeb3Ws();
+    EthNode.closeConnection();
     await sql.end();
   })
   .catch((error) => {

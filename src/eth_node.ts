@@ -53,7 +53,7 @@ export const benchmarkTxrFetch = async () => {
   console.log("connected!");
   const block = await getBlock("latest");
 
-  const blockRange = Blocks.getBlockRange(block.number - 1000, block.number);
+  const blockRange = Blocks.getBlockRange(block!.number - 1000, block!.number);
 
   const blocks = await Promise.all(blockRange.map(getBlock));
 
@@ -64,7 +64,7 @@ export const benchmarkTxrFetch = async () => {
   await blockQueue.addAll(
     blocks.map((block) => async () => {
       await txrsQueue.addAll(
-        block.transactions.map(
+        block!.transactions.map(
           (hash) => () =>
             getTransactionReceipt(hash).then((txr) => {
               return txr;
@@ -138,7 +138,7 @@ const translateBlock = (rawBlock: RawBlock): BlockLondon => ({
 
 export const getBlock = async (
   number: number | "latest" | string,
-): Promise<BlockLondon> => {
+): Promise<BlockLondon | undefined> => {
   const [id, messageP] = registerMessageListener<RawBlock>();
 
   const numberAsHex =
@@ -157,8 +157,9 @@ export const getBlock = async (
 
   const rawBlock = await messageP;
 
+  // NOTE: Some blocks come back as null. Unclear why.
   if (rawBlock === null) {
-    Log.error(`raw block null for number: ${number}`);
+    return undefined;
   }
 
   return translateBlock(rawBlock);
@@ -241,7 +242,7 @@ ws.on("message", (event) => {
   }
 });
 
-export const closeWeb3Ws = () => {
+export const closeConnection = () => {
   ws.close();
 };
 

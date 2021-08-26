@@ -1,11 +1,12 @@
-import * as eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 import type { TransactionReceipt as TxRWeb3 } from "web3-core";
 import PQueue from "p-queue";
 import * as Log from "./log.js";
 import { delay } from "./delay.js";
-import { BlockLondon } from "./web3.js";
+import { BlockLondon } from "./eth_node.js";
 import * as Sentry from "@sentry/node";
 import * as Duration from "./duration.js";
+import * as Blocks from "./blocks.js";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
@@ -36,7 +37,7 @@ export const getTxrsWithRetry = async (
     await txrsPQ.addAll(
       tryBlock.transactions.map(
         (txHash) => () =>
-          eth.getTransactionReceipt(txHash).then((txr) => {
+          EthNode.getTransactionReceipt(txHash).then((txr) => {
             if (txr === undefined) {
               missingHashes.push(txHash);
             } else {
@@ -81,7 +82,7 @@ export const getTxrsWithRetry = async (
     await delay(delayMilis);
 
     // Maybe the block got forked and that's why the receipts are null?  Refetch the block.
-    tryBlock = await eth.getBlock(block.number);
+    tryBlock = await Blocks.getBlockWithRetry(block.number);
 
     // Empty accumulated results
     missingHashes = [];
@@ -100,7 +101,7 @@ export const getTxrsUnsafe = async (
   await txrsPQ.addAll(
     block.transactions.map(
       (txHash) => () =>
-        eth.getTransactionReceipt(txHash).then((txr) => {
+        EthNode.getTransactionReceipt(txHash).then((txr) => {
           if (txr === undefined) {
             missingHashes.push(txHash);
           } else {

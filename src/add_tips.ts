@@ -2,8 +2,9 @@ import * as Log from "./log.js";
 import { sql } from "./db.js";
 import * as BaseFees from "./base_fees.js";
 import * as Transactions from "./transactions.js";
-import * as eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 import ProgressBar from "progress";
+import * as Blocks from "./blocks.js";
 
 const addTipsToAnalyzedBlocks = async (): Promise<void> => {
   const blocksMissingTips = await sql<{ number: number }[]>`
@@ -18,7 +19,7 @@ const addTipsToAnalyzedBlocks = async (): Promise<void> => {
   });
 
   for (const blockNumber of blocksMissingTips) {
-    const block = await eth.getBlock(blockNumber);
+    const block = await Blocks.getBlockWithRetry(blockNumber);
     const txrs = await Transactions.getTxrsWithRetry(block);
     const tips = BaseFees.calcBlockTips(block, txrs);
     await sql`
@@ -33,7 +34,7 @@ const addTipsToAnalyzedBlocks = async (): Promise<void> => {
 addTipsToAnalyzedBlocks()
   .then(async () => {
     Log.info("done adding tips");
-    eth.closeWeb3Ws();
+    EthNode.closeConnection();
     await sql.end();
   })
   .catch((error) => {

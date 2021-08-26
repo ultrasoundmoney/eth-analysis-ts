@@ -6,11 +6,11 @@ import R from "fp-ts/lib/Record.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as Log from "./log.js";
 import { sum } from "./numbers.js";
-import { BlockLondon } from "./web3.js";
+import { BlockLondon } from "./eth_node.js";
 import neatCsv from "neat-csv";
 import fs from "fs/promises";
 import * as Transactions from "./transactions.js";
-import * as eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 import * as DisplayProgress from "./display_progress.js";
 import PQueue from "p-queue";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
@@ -482,7 +482,7 @@ const calcBaseFeesForBlockNumber = (
   pipe(
     () => {
       Log.info(`analyzing block ${blockNumber}`);
-      return eth.getBlock(blockNumber);
+      return Blocks.getBlockWithRetry(blockNumber);
     },
     T.chain((block) =>
       sequenceT(T.ApplyPar)(T.of(block), () =>
@@ -513,9 +513,9 @@ const calcBaseFeesForBlockNumber = (
 
 export const reanalyzeAllBlocks = async () => {
   Log.info("reanalyzing all blocks");
-  await eth.webSocketOpen;
+  await EthNode.webSocketOpen;
 
-  const latestBlock = await eth.getBlock("latest");
+  const latestBlock = await Blocks.getBlockWithRetry("latest");
   Log.debug(`latest block is ${latestBlock.number}`);
 
   const blocksToAnalyze = Blocks.getBlockRange(
@@ -543,9 +543,9 @@ export const reanalyzeAllBlocks = async () => {
 export const watchAndCalcBaseFees = async () => {
   Log.info("watching and analyzing new blocks");
 
-  await eth.webSocketOpen;
+  await EthNode.webSocketOpen;
 
-  eth.subscribeNewHeads((head) =>
+  EthNode.subscribeNewHeads((head) =>
     seqBlockAnalysisQueue.add(calcBaseFeesForBlockNumber(head.number, true)),
   );
 
@@ -554,9 +554,9 @@ export const watchAndCalcBaseFees = async () => {
 
 export const analyzeMissingBlocks = async () => {
   Log.info("checking for missing blocks");
-  await eth.webSocketOpen;
+  await EthNode.webSocketOpen;
 
-  const latestBlock = await eth.getBlock("latest");
+  const latestBlock = await Blocks.getBlockWithRetry("latest");
   const knownBlockNumbers = await sql<{ number: number }[]>`
     SELECT number FROM base_fees_per_block
   `.then((rows) => new Set(rows.map((row) => row.number)));

@@ -3,7 +3,7 @@ import "@sentry/tracing";
 import Config from "./config.js";
 import * as BaseFeeTotals from "./base_fee_totals.js";
 import * as Log from "./log.js";
-import * as Eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 import { sql } from "./db.js";
 
 if (Config.env !== "dev") {
@@ -18,7 +18,7 @@ BaseFeeTotals.watchAndCalcTotalFees().catch((error) => {
   Log.error("error watching and analyzing for new base fee totals", {
     error,
   });
-  Eth.closeWeb3Ws();
+  EthNode.closeConnection();
   sql.end();
   throw error;
 });

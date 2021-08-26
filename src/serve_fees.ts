@@ -10,7 +10,7 @@ import conditional from "koa-conditional-get";
 import etag from "koa-etag";
 import { pipe } from "fp-ts/lib/function.js";
 import * as A from "fp-ts/lib/Array.js";
-import * as eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 import { hexToNumber } from "./hexadecimal.js";
 import {
   LeaderboardEntry,
@@ -126,7 +126,7 @@ const handleGetAll: Middleware = async (ctx) => {
 const updateCachesForBlockNumber = async (
   newLatestBlockNumber: number,
 ): Promise<void> => {
-  const block = await eth.getBlock(newLatestBlockNumber);
+  const block = await Blocks.getBlockWithRetry(newLatestBlockNumber);
 
   const [newBurnRates, newFeesBurnedPerInterval] = await Promise.all([
     BaseFees.getBurnRates(),
@@ -157,7 +157,9 @@ const updateCachesForBlockNumber = async (
       newLatestBlockNumber,
     );
 
-    const blocks = await Promise.all(blocksToFetch.map(eth.getBlock));
+    const blocks = await Promise.all(
+      blocksToFetch.map(Blocks.getBlockWithRetry),
+    );
     latestBlockFees = blocks.map((block) => ({
       fees: BaseFees.calcBlockBaseFeeSum(block),
       number: block.number,
@@ -255,8 +257,8 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 const serveFees = async () => {
-  await eth.webSocketOpen;
-  const block = await eth.getBlock("latest");
+  await EthNode.webSocketOpen;
+  const block = await Blocks.getBlockWithRetry("latest");
   await updateCachesForBlockNumber(block.number);
   await updateLeaderboardCacheForBlockNumber(block.number);
 

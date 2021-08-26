@@ -1,17 +1,18 @@
 import * as BaseFees from "./base_fees.js";
 import * as Log from "./log";
-import * as eth from "./web3";
+import * as EthNode from "./eth_node";
 import { hexToNumber } from "./hexadecimal.js";
 import { weiToEth, weiToGwei } from "./convert_unit.js";
+import * as Blocks from "./blocks.js";
 
 (async () => {
-  await eth.webSocketOpen;
+  await EthNode.webSocketOpen;
 
-  const block = await eth.getBlock(12965893);
+  const block = await Blocks.getBlockWithRetry(12965893);
   Log.debug(`block: ${block.number}, base fee per gas: ${block.baseFeePerGas}`);
 
   const txrs = await Promise.all(
-    block.transactions.map((txHash) => eth.getTransactionReceipt(txHash)),
+    block.transactions.map((txHash) => EthNode.getTransactionReceipt(txHash)),
   );
 
   const fees = txrs
@@ -39,5 +40,5 @@ import { weiToEth, weiToGwei } from "./convert_unit.js";
 
   Log.debug(`fees: ${weiToEth(fees)}`);
 
-  eth.closeWeb3Ws();
+  EthNode.closeConnection();
 })();

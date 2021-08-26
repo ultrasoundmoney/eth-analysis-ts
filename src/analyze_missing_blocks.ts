@@ -1,11 +1,11 @@
 import * as BaseFees from "./base_fees.js";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
-import * as Eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 
 BaseFees.analyzeMissingBlocks()
   .then(async () => {
-    Eth.closeWeb3Ws();
+    EthNode.closeConnection();
     await sql.end();
   })
   .catch((error) => {
