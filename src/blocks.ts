@@ -23,7 +23,7 @@ export const getBlockWithRetry = async (
   while (true) {
     tries += tries + 1;
 
-    const maybeBlock = await Blocks.getBlockWithRetry(blockNumber);
+    const maybeBlock = await EthNode.getBlock(blockNumber);
 
     if (typeof maybeBlock?.hash === "string") {
       return maybeBlock;
