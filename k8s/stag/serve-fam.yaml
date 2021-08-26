@@ -25,6 +25,7 @@ spec:
       labels:
         app: serve-fam
     spec:
+      restartPolicy: Always
       containers:
         - name: serve-fam
           image: registry.digitalocean.com/ultrasoundmoney/twitter-crawler

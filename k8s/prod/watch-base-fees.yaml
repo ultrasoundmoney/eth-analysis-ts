@@ -16,6 +16,7 @@ spec:
       annotations:
         linkerd.io/inject: enabled
     spec:
+      restartPolicy: Always
       containers:
         - name: watch-base-fees
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis

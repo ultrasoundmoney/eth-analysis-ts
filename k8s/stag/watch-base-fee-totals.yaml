@@ -14,6 +14,7 @@ spec:
       labels:
         app: watch-base-fee-totals
     spec:
+      restartPolicy: Always
       containers:
         - name: watch-base-fee-totals
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis

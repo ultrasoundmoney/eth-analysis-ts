@@ -25,6 +25,7 @@ spec:
       labels:
         app: serve-fees
     spec:
+      restartPolicy: Always
       containers:
         - name: serve-fees
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
