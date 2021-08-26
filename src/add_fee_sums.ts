@@ -1,7 +1,8 @@
 import * as Log from "./log.js";
 import { sql } from "./db.js";
-import * as eth from "./web3.js";
+import * as EthNode from "./eth_node.js";
 import ProgressBar from "progress";
+import * as Blocks from "./blocks.js";
 
 const addTipsToAnalyzedBlocks = async (): Promise<void> => {
   const blocksMissingBaseFeeSum = await sql<{ number: number }[]>`
@@ -16,7 +17,7 @@ const addTipsToAnalyzedBlocks = async (): Promise<void> => {
   });
 
   for (const blockNumber of blocksMissingBaseFeeSum) {
-    const block = await eth.getBlock(blockNumber);
+    const block = await Blocks.getBlockWithRetry(blockNumber);
     const baseFeeSum = Number(block.baseFeePerGas) * block.gasUsed;
     await sql`
       UPDATE base_fees_per_block
@@ -30,7 +31,7 @@ const addTipsToAnalyzedBlocks = async (): Promise<void> => {
 addTipsToAnalyzedBlocks()
   .then(async () => {
     Log.info("done adding base fee sums");
-    eth.closeWeb3Ws();
+    EthNode.closeConnection();
     await sql.end();
   })
   .catch((error) => {
