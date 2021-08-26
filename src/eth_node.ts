@@ -37,15 +37,22 @@ export const connect = async () => {
 
 type MessageErr = { code: number; message: string };
 
-let randomInts: number[] = [];
+let randomIds: number[] = [];
+const inUseIds = new Set<number>();
 
 const getNewMessageId = (): number => {
-  if (randomInts.length === 0) {
-    randomInts = new Array(10000).fill(undefined).map((_, i) => i);
+  if (randomIds.length === 0) {
+    randomIds = new Array(10000).fill(undefined).map((_, i) => i);
   }
 
   // We fill the array when it's empty above. pop() can't return undefined.
-  return randomInts.pop()!;
+  let candidate = randomIds.pop()!;
+  while (inUseIds.has(candidate)) {
+    candidate = randomIds.pop()!;
+  }
+
+  inUseIds.add(candidate);
+  return candidate;
 };
 
 const messageListners = new Map();
@@ -55,6 +62,7 @@ const registerMessageListener = <A>(): [number, Promise<A>] => {
   const messageP: Promise<A> = new Promise((resolve, reject) => {
     messageListners.set(id, (err: MessageErr, data: A) => {
       messageListners.delete(id);
+      inUseIds.delete(id);
       if (err !== null) {
         reject(err);
       } else {
