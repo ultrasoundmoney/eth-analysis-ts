@@ -13,6 +13,23 @@ let ws: WebSocket | undefined = undefined;
 
 export const connect = async () => {
   ws = new WebSocket(mainnetNode);
+
+  ws.on("message", (event) => {
+    const message: {
+      id: number;
+      result: unknown;
+      error: { code: number; message: string };
+    } = JSON.parse(event.toString());
+    const cb = messageListners.get(message.id);
+    if (cb !== undefined) {
+      if ("error" in message) {
+        cb(message.error);
+      } else {
+        cb(null, message.result);
+      }
+    }
+  });
+
   return new Promise((resolve) => {
     ws!.on("open", resolve);
   });
@@ -232,22 +249,6 @@ export const getTransactionReceipt = async (
 
   return translateTxr(rawTxr);
 };
-
-ws!.on("message", (event) => {
-  const message: {
-    id: number;
-    result: unknown;
-    error: { code: number; message: string };
-  } = JSON.parse(event.toString());
-  const cb = messageListners.get(message.id);
-  if (cb !== undefined) {
-    if ("error" in message) {
-      cb(message.error);
-    } else {
-      cb(null, message.result);
-    }
-  }
-});
 
 export const closeConnection = () => {
   ws!.close();
