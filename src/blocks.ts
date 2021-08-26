@@ -16,6 +16,8 @@ export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
 export const getBlockWithRetry = async (
   blockNumber: number | "latest" | string,
 ): Promise<BlockLondon> => {
+  const delayMilis = Duration.milisFromSeconds(3);
+  const delaySeconds = delayMilis * 1000;
   let tries = 0;
 
   // Retry continuously
@@ -29,12 +31,10 @@ export const getBlockWithRetry = async (
       return maybeBlock;
     }
 
-    const delayMilis = Duration.milisFromSeconds(3);
-
     if (tries === 10) {
       Sentry.captureException(
         new Error(
-          `stuck fetching block, for more than ${(tries * delayMilis) / 1000}s`,
+          `stuck fetching block, for more than ${tries * delaySeconds}s`,
         ),
       );
     }
@@ -44,9 +44,7 @@ export const getBlockWithRetry = async (
     }
 
     Log.warn(
-      `block was null for number ${blockNumber}, waiting ${
-        delayMilis / 1000
-      }s and trying again`,
+      `asked for block ${blockNumber}, got null, waiting ${delaySeconds}s and trying again`,
     );
     await delay(delayMilis);
   }
