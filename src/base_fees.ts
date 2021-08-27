@@ -458,8 +458,8 @@ export const calcBlockTips = (
   );
 };
 
-const parBlockAnalysisQueue = new PQueue({ concurrency: 8 });
-const seqBlockAnalysisQueue = new PQueue({ concurrency: 1 });
+const storeBlockQueuePar = new PQueue({ concurrency: 8 });
+const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
 
 export type NewBlockPayload = {
   number: number;
@@ -475,10 +475,7 @@ const notifyNewBlock = async (block: BlockLondon): Promise<void> => {
 // We try to get away with tracking what blocks we've seen in a simple set. If this results in errors start checking against the DB.
 const knownBlockNumbers = new Set<number>();
 
-const calcBaseFeesForBlockNumber = (
-  blockNumber: number,
-  notify: boolean,
-): T.Task<void> =>
+const storeNewBlock = (blockNumber: number, notify: boolean): T.Task<void> =>
   pipe(
     () => {
       Log.info(`analyzing block ${blockNumber}`);
@@ -530,27 +527,26 @@ export const reanalyzeAllBlocks = async () => {
     knownBlockNumbers.add(number);
   });
 
-  await parBlockAnalysisQueue.addAll(
-    blocksToAnalyze.map((blockNumber) =>
-      calcBaseFeesForBlockNumber(blockNumber, false),
-    ),
+  await storeBlockQueuePar.addAll(
+    blocksToAnalyze.map((blockNumber) => storeNewBlock(blockNumber, false)),
   );
 };
 
 export const watchAndCalcBaseFees = async () => {
   EthNode.subscribeNewHeads((head) =>
-    seqBlockAnalysisQueue.add(calcBaseFeesForBlockNumber(head.number, true)),
+    storeBlockQueueSeq.add(storeNewBlock(head.number, true)),
   );
 
-  await analyzeMissingBlocks();
+  await storeMissingBlocks();
 };
 
-export const analyzeMissingBlocks = async () => {
+export const storeMissingBlocks = async () => {
   Log.info("checking for missing blocks");
   const latestBlock = await Blocks.getBlockWithRetry("latest");
-  const knownBlockNumbers = await sql<{ number: number }[]>`
+  const rows = await sql<{ number: number }[]>`
     SELECT number FROM blocks
-  `.then((rows) => new Set(rows.map((row) => row.number)));
+  `;
+  const knownBlockNumbers = new Set(rows.map((row) => row.number));
   const wantedBlockRange = Blocks.getBlockRange(
     Blocks.londonHardForkBlockNumber,
     latestBlock.number,
@@ -567,10 +563,8 @@ export const analyzeMissingBlocks = async () => {
       DisplayProgress.start(missingBlocks.length);
     }
 
-    await parBlockAnalysisQueue.addAll(
-      missingBlocks.map((blockNumber) =>
-        calcBaseFeesForBlockNumber(blockNumber, false),
-      ),
+    await storeBlockQueuePar.addAll(
+      missingBlocks.map((blockNumber) => storeNewBlock(blockNumber, false)),
     );
     Log.info("done analysing missing blocks");
   } else {

@@ -6,7 +6,7 @@ import * as EthNode from "./eth_node.js";
 const main = async () => {
   try {
     await EthNode.connect();
-    await BaseFees.analyzeMissingBlocks();
+    await BaseFees.storeMissingBlocks();
   } catch (error) {
     Log.error("error watching and analyzing new blocks", { error });
     throw error;
