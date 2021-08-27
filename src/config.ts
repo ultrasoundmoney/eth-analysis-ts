@@ -21,7 +21,6 @@ const parseEnv = (): Env => {
 const parseLocalNodeAvailable = (): boolean =>
   !(
     process.env.LOCAL_NODE_AVAILABLE === undefined ||
-    process.env.LOCAL_NODE_AVAILABLE === "" ||
     process.env.LOCAL_NODE_AVAILABLE === "false"
   );
 
