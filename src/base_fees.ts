@@ -556,20 +556,21 @@ export const storeMissingBlocks = async () => {
     (wantedBlockNumber) => !knownBlockNumbers.has(wantedBlockNumber),
   );
 
-  if (missingBlocks.length !== 0) {
-    Log.info(`${missingBlocks.length} missing blocks, fetching`);
-
-    if (process.env.SHOW_PROGRESS !== undefined) {
-      DisplayProgress.start(missingBlocks.length);
-    }
-
-    await storeBlockQueuePar.addAll(
-      missingBlocks.map((blockNumber) => storeNewBlock(blockNumber, false)),
-    );
-    Log.info("done analysing missing blocks");
-  } else {
+  if (missingBlocks.length === 0) {
     Log.info("no missing blocks");
+    return;
   }
+
+  Log.info(`${missingBlocks.length} missing blocks, fetching`);
+
+  if (process.env.SHOW_PROGRESS !== undefined) {
+    DisplayProgress.start(missingBlocks.length);
+  }
+
+  await storeBlockQueuePar.addAll(
+    missingBlocks.map((blockNumber) => storeNewBlock(blockNumber, false)),
+  );
+  Log.info("done analysing missing blocks");
 };
 
 export type BurnRates = {
