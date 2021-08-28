@@ -119,14 +119,13 @@ const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
       latestBlockFees,
     }),
     T.map(({ derivedBlockStats, latestBlockFees }) => {
-      const { burnRates, feesBurned, leaderboards } = derivedBlockStats;
       cache = {
         latestBlockFees,
-        burnRates,
+        burnRates: derivedBlockStats.burnRates,
         number,
-        feesBurned,
+        feesBurned: derivedBlockStats.feesBurned,
         baseFeePerGas,
-        leaderboards,
+        leaderboards: derivedBlockStats.leaderboards,
       };
     }),
     T.map(() => undefined),
