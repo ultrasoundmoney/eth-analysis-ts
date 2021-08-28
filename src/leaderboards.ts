@@ -114,7 +114,7 @@ const calcRawLeaderboardForTimeframe = (
       FROM contract_base_fees
       JOIN blocks ON number = block_number
       WHERE block_number <= ${block.number}
-      AND mined_at <= NOW() - interval '${sql(String(hours))} hours'
+      AND mined_at >= NOW() - interval '${sql(String(hours))} hours'
       GROUP BY (contract_address)
       ORDER BY (2) DESC
       LIMIT 24
