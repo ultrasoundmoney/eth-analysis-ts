@@ -6,11 +6,12 @@ import fetch from "node-fetch";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { URL } from "url";
 import * as BaseFees from "./base_fees.js";
-import { LeaderboardEntry, FeeBreakdown } from "./base_fees.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
 import * as Log from "./log.js";
 import * as Contracts from "./contracts.js";
+import { LeaderboardEntry } from "./leaderboards.js";
+import { FeeBreakdown } from "./base_fees.js";
 
 const getBaseFeeBurners = async () => {
   const baseFeesPerBlock = await sql<{ baseFees: FeeBreakdown }[]>`
@@ -186,7 +187,7 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
       return healMaybeUrl(mIcon2Url.href);
     }
   } catch (error) {
-    Log.error("unexpected error finding icon", error);
+    Log.error("unexpected error finding icon", { error });
   }
 
   return undefined;
