@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: watch-base-fees
+  name: watch-blocks
   labels:
-    app: watch-base-fees
+    app: watch-blocks
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: watch-base-fees
+      app: watch-blocks
   template:
     metadata:
       labels:
-        app: watch-base-fees
+        app: watch-blocks
     spec:
       restartPolicy: Always
       containers:
-        - name: watch-base-fees
+        - name: watch-blocks
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
           command: ["node", "src/watch_blocks.js"]
           envFrom:

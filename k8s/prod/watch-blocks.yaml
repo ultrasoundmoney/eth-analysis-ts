@@ -1,35 +1,40 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: watch-base-fee-totals
+  name: watch-blocks
   labels:
-    app: watch-base-fee-totals
+    app: watch-blocks
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: watch-base-fee-totals
+      app: watch-blocks
   template:
     metadata:
       labels:
-        app: watch-base-fee-totals
+        app: watch-blocks
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       restartPolicy: Always
       containers:
-        - name: watch-base-fee-totals
+        - name: watch-blocks
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/watch_base_fee_totals.js"]
+          command: ["node", "src/watch_blocks.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: pg-password-lilly
           env:
             - name: NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
           resources:
+            limits:
+              cpu: 400m
+              memory: 512Mi
             requests:
               cpu: 100m
-              memory: 2Gi
+              memory: 256Mi
