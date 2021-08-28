@@ -1,10 +1,8 @@
-import { sql } from "./db.js";
 import type { TxRWeb3London } from "./transactions";
 import A from "fp-ts/lib/Array.js";
 import NEA from "fp-ts/lib/NonEmptyArray.js";
 import R from "fp-ts/lib/Record.js";
 import { pipe } from "fp-ts/lib/function.js";
-import * as Log from "./log.js";
 import { sum } from "./numbers.js";
 import { BlockLondon } from "./eth_node.js";
 import neatCsv from "neat-csv";
@@ -12,7 +10,6 @@ import fs from "fs/promises";
 import * as Transactions from "./transactions.js";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
 import { hexToNumber } from "./hexadecimal.js";
-import { fromUnixTime, isAfter, subDays, subHours } from "date-fns";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */
