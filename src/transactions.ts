@@ -17,7 +17,7 @@ export type TxRWeb3London = TxRWeb3 & {
   effectiveGasPrice: string;
 };
 
-const txrsPQ = new PQueue({
+export const txrsPQ = new PQueue({
   concurrency: 64,
 });
 

@@ -1,0 +1,185 @@
+import A from "fp-ts/lib/Array.js";
+import { pipe } from "fp-ts/lib/function.js";
+import * as T from "fp-ts/lib/Task.js";
+import { sql } from "./db.js";
+import { BlockLondon } from "./eth_node.js";
+import { seqSPar } from "./sequence.js";
+
+export type LeaderboardsT = {
+  leaderboard1h: LeaderboardRow[];
+  leaderboard24h: LeaderboardRow[];
+  leaderboard7d: LeaderboardRow[];
+  leaderboard30d: LeaderboardRow[];
+  leaderboardAll: LeaderboardRow[];
+};
+
+// Name is undefined because we don't always know the name for a contract. Image is undefined because we don't always have an image for a contract. Address is undefined because base fees paid for ETH transfers are shared between many addresses.
+export type LeaderboardEntry = {
+  name: string | undefined;
+  image: string | undefined;
+  fees: number;
+  id: string;
+  type: "eth-transfers" | "bot" | "other" | "contract-creations";
+};
+
+export type LeaderboardEntries = {
+  leaderboard1h: LeaderboardEntry[];
+  leaderboard24h: LeaderboardEntry[];
+  leaderboard7d: LeaderboardEntry[];
+  leaderboard30d: LeaderboardEntry[];
+  leaderboardAll: LeaderboardEntry[];
+};
+
+type LeaderboardRow = {
+  contractAddress: string;
+  name: string;
+  isBot: boolean;
+  baseFees: number;
+};
+
+export type Timeframe = LimitedTimeframe | "all";
+export type LimitedTimeframe = "1h" | "24h" | "7d" | "30d";
+
+const timeframeHoursMap: Record<LimitedTimeframe, number> = {
+  "1h": 1,
+  "24h": 24,
+  "7d": 24 * 7,
+  "30d": 24 * 30,
+};
+
+const getEthTransferFeesForTimeframe = async (
+  timeframe: Timeframe,
+): Promise<number> => {
+  if (timeframe === "all") {
+    const rows = await sql<{ sum: number }[]>`
+      SELECT SUM(eth_transfer_sum) FROM blocks
+    `;
+    return rows[0]?.sum ?? 0;
+  }
+
+  const hours = timeframeHoursMap[timeframe];
+  const rows_1 = await sql<{ sum: number }[]>`
+      SELECT SUM(eth_transfer_sum) FROM blocks
+      WHERE mined_at >= NOW() - interval '${sql(String(hours))} hours'
+  `;
+  return rows_1[0]?.sum ?? 0;
+};
+
+const getContractCreationFeesForTimeframe = async (
+  timeframe: Timeframe,
+): Promise<number> => {
+  if (timeframe === "all") {
+    const rows = await sql<{ sum: number }[]>`
+      SELECT SUM(contract_creation_sum) FROM blocks
+    `;
+    return rows[0]?.sum ?? 0;
+  }
+
+  const hours = timeframeHoursMap[timeframe];
+  const rows_1 = await sql<{ sum: number }[]>`
+      SELECT SUM(contract_creation_sum) FROM blocks
+      WHERE mined_at >= NOW() - interval '${sql(String(hours))} hours'
+  `;
+  return rows_1[0]?.sum ?? 0;
+};
+
+const calcRawLeaderboardForTimeframe = (
+  block: BlockLondon,
+  timeframe: Timeframe,
+): T.Task<LeaderboardRow[]> => {
+  if (timeframe === "all") {
+    return () => sql<LeaderboardRow[]>`
+      WITH top_contracts AS (
+        SELECT
+          contract_address,
+          SUM(contract_base_fees.base_fees) AS base_fees
+        FROM contract_base_fees
+        JOIN blocks ON number = block_number
+        WHERE block_number <= ${block.number}
+        GROUP BY (contract_address)
+        ORDER BY (2) DESC
+        LIMIT 24
+      )
+      SELECT contract_address, base_fees, name, is_bot FROM top_contracts
+      JOIN contracts ON address = contract_address
+    `;
+  }
+
+  const hours = timeframeHoursMap[timeframe];
+  return () => sql<LeaderboardRow[]>`
+    WITH top_contracts AS (
+      SELECT
+        contract_address,
+        SUM(contract_base_fees.base_fees) AS base_fees
+      FROM contract_base_fees
+      JOIN blocks ON number = block_number
+      WHERE block_number <= ${block.number}
+      AND mined_at <= NOW() - interval '${sql(String(hours))} hours'
+      GROUP BY (contract_address)
+      ORDER BY (2) DESC
+      LIMIT 24
+    )
+    SELECT contract_address, base_fees, name, is_bot FROM top_contracts
+    JOIN contracts ON address = contract_address
+  `;
+};
+
+const calcLeaderboardForTimeframe = (
+  block: BlockLondon,
+  timeframe: Timeframe,
+): T.Task<LeaderboardEntry[]> => {
+  return pipe(
+    seqSPar({
+      contractRows: calcRawLeaderboardForTimeframe(block, timeframe),
+      ethTransferBaseFees: () => getEthTransferFeesForTimeframe(timeframe),
+      contractCreationFees: () =>
+        getContractCreationFeesForTimeframe(timeframe),
+    }),
+    T.map(({ contractRows, contractCreationFees, ethTransferBaseFees }) => {
+      const contractEntries: LeaderboardEntry[] = contractRows.map(
+        ({ contractAddress, baseFees, name, isBot }) => ({
+          fees: Number(baseFees),
+          id: contractAddress,
+          name: name || contractAddress,
+          image: undefined,
+          type: isBot ? "bot" : "other",
+        }),
+      );
+      const contractCreationEntry: LeaderboardEntry = {
+        fees: contractCreationFees,
+        id: "contract-creations",
+        image: undefined,
+        name: "Contract creations",
+        type: "contract-creations",
+      };
+      const ethTransfersEntry: LeaderboardEntry = {
+        fees: ethTransferBaseFees,
+        id: "eth-transfers",
+        image: undefined,
+        name: "ETH transfers",
+        type: "eth-transfers",
+      };
+
+      return pipe(
+        [...contractEntries, ethTransfersEntry, contractCreationEntry],
+        A.sort<LeaderboardEntry>({
+          compare: (first, second) =>
+            first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
+          equals: (first, second) => first.fees === second.fees,
+        }),
+        A.takeLeft(24),
+      );
+    }),
+  );
+};
+export const calcLeaderboards = (
+  block: BlockLondon,
+): T.Task<LeaderboardEntries> => {
+  return seqSPar({
+    leaderboard1h: calcLeaderboardForTimeframe(block, "1h"),
+    leaderboard24h: calcLeaderboardForTimeframe(block, "24h"),
+    leaderboard7d: calcLeaderboardForTimeframe(block, "7d"),
+    leaderboard30d: calcLeaderboardForTimeframe(block, "30d"),
+    leaderboardAll: calcLeaderboardForTimeframe(block, "all"),
+  });
+};

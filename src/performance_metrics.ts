@@ -1,5 +1,6 @@
 import { differenceInSeconds } from "date-fns";
 import * as Log from "./log.js";
+import * as Transactions from "./transactions.js";
 
 const start = new Date();
 let lastReport = new Date();
@@ -16,6 +17,7 @@ export const onBlockReceived = () => {
     const txrsRate = (txrsReceived / secondsSinceStart).toFixed(2);
     Log.debug(`block fetch rate: ${blocksRate} b/s`);
     Log.debug(`txr fetch rate: ${txrsRate} txr/s`);
+    Log.debug(`txr queue size: ${Transactions.txrsPQ.size}`);
   }
   blocksReceived = blocksReceived + 1;
 };

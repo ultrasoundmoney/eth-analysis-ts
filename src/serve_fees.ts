@@ -1,27 +1,27 @@
 import * as Sentry from "@sentry/node";
+import * as Blocks from "./blocks.js";
+import * as Canary from "./canary.js";
+import * as Duration from "./duration.js";
+import * as EthNode from "./eth_node.js";
+import * as EthPrice from "./eth_price.js";
+import * as LatestBlockFees from "./latest_block_fees.js";
+import * as Log from "./log.js";
+import * as T from "fp-ts/lib/Task.js";
 import Config from "./config.js";
 import Koa, { Middleware } from "koa";
-import * as Log from "./log.js";
-import * as BaseFees from "./base_fees.js";
 import Router from "@koa/router";
-import { sql } from "./db.js";
-import * as EthPrice from "./eth_price.js";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
-import { pipe } from "fp-ts/lib/function.js";
-import * as A from "fp-ts/lib/Array.js";
-import * as EthNode from "./eth_node.js";
 import { hexToNumber } from "./hexadecimal.js";
-import {
-  LeaderboardEntry,
-  BurnRates,
-  FeesBurned,
-  NewBlockPayload,
-} from "./base_fees.js";
-import * as Blocks from "./blocks.js";
-import * as Duration from "./duration.js";
-import * as BaseFeeTotals from "./base_fee_totals.js";
-import * as Canary from "./canary.js";
+import { pipe } from "fp-ts/lib/function.js";
+import { sql } from "./db.js";
+import { FeesBurnedT } from "./fees_burned.js";
+import { BurnRatesT } from "./burn_rates.js";
+import { seqSPar } from "./sequence.js";
+import * as DerivedBlockStats from "./derived_block_stats.js";
+import { NewBlockPayload } from "./blocks.js";
+import { LeaderboardEntries } from "./leaderboards.js";
+import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
 
 if (Config.env !== "dev") {
   Sentry.init({
@@ -30,6 +30,25 @@ if (Config.env !== "dev") {
   });
 }
 
+type Cache = {
+  baseFeePerGas?: number;
+  burnRates?: BurnRatesT;
+  feesBurned?: FeesBurnedT;
+  feesBurnedPerInterval?: Record<string, number>;
+  latestBlockFees?: { fees: number; number: number }[];
+  number?: number;
+  leaderboards?: LeaderboardEntries;
+};
+
+let cache: Cache = {
+  baseFeePerGas: undefined,
+  burnRates: undefined,
+  feesBurned: undefined,
+  latestBlockFees: undefined,
+  number: undefined,
+  leaderboards: undefined,
+};
+
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=5, stale-while-revalidate=30");
   ctx.res.setHeader("Content-Type", "application/json");
@@ -37,14 +56,16 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
 };
 
 const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
+  const feesBurnedPerInterval =
+    await FeesBurnedPerInterval.getFeesBurnedPerInterval();
   ctx.res.setHeader(
     "Cache-Control",
     `max-age=6, stale-while-revalidate=${Duration.secondsFromHours(24)}`,
   );
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = {
-    feesBurnedPerInterval: cache.feesBurnedPerInterval,
-    number: cache.number,
+    feesBurnedPerInterval: feesBurnedPerInterval,
+    number: "unknown",
   };
 };
 
@@ -61,12 +82,10 @@ const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.body = { burnRates: cache.burnRates, number: cache.number };
 };
 
-let latestBlockFees: { fees: number; number: number }[] = [];
-
 const handleGetLatestBlocks: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = latestBlockFees;
+  ctx.body = cache.latestBlockFees;
 };
 
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
@@ -75,46 +94,10 @@ const handleGetBaseFeePerGas: Middleware = async (ctx) => {
   ctx.body = { baseFeePerGas: cache.baseFeePerGas };
 };
 
-type LeaderboardCache = {
-  leaderboard1h: LeaderboardEntry[] | undefined;
-  leaderboard24h: LeaderboardEntry[] | undefined;
-  leaderboard7d: LeaderboardEntry[] | undefined;
-  leaderboard30d: LeaderboardEntry[] | undefined;
-  leaderboardAll: LeaderboardEntry[] | undefined;
-  number: number | undefined;
-};
-
-let leaderboardCache: LeaderboardCache = {
-  leaderboard1h: undefined,
-  leaderboard24h: undefined,
-  leaderboard30d: undefined,
-  leaderboard7d: undefined,
-  leaderboardAll: undefined,
-  number: undefined,
-};
-
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = leaderboardCache;
-};
-
-type Cache = {
-  baseFeePerGas?: number;
-  burnRates?: BurnRates;
-  feesBurned?: Record<keyof FeesBurned, number>;
-  feesBurnedPerInterval?: Record<string, number>;
-  latestBlockFees?: { fees: number; number: number }[];
-  number?: number;
-};
-
-const cache: Cache = {
-  baseFeePerGas: undefined,
-  burnRates: undefined,
-  feesBurned: undefined,
-  feesBurnedPerInterval: undefined,
-  latestBlockFees: undefined,
-  number: undefined,
+  ctx.body = cache.leaderboards;
 };
 
 const handleGetAll: Middleware = async (ctx) => {
@@ -123,91 +106,38 @@ const handleGetAll: Middleware = async (ctx) => {
   ctx.body = cache;
 };
 
-const updateCachesForBlockNumber = async (
-  newLatestBlockNumber: number,
-): Promise<void> => {
-  const block = await Blocks.getBlockWithRetry(newLatestBlockNumber);
+const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
+  const block = await Blocks.getBlockWithRetry(newBlock);
+  const derivedBlockStats = DerivedBlockStats.getDerivedBlockStats(block);
+  const latestBlockFees = LatestBlockFees.getLatestBlockFees(block);
+  const baseFeePerGas = hexToNumber(block.baseFeePerGas);
+  const number = block.number;
 
-  const [newBurnRates, newFeesBurnedPerInterval] = await Promise.all([
-    BaseFees.getBurnRates(),
-    BaseFees.getFeesBurnedPerInterval(),
-    BaseFees.updateTotalFeeBurnCache(block),
-  ]);
-
-  const newTotalFeesBurned = BaseFees.getTotalFeesBurned();
-
-  // There are multiple cases where the new block is not simply the next block from the last we saw.
-  // Sometimes a new block has the same number as an old block. Blocks our node sees are not always final.
-  // Sometimes the node advances the chain multiple blocks at once.
-  // We consider our list of latest blocks out of sync and refetch.
-  if (newLatestBlockNumber === (cache.number ?? 0) + 1) {
-    // we're in sync, append one
-    latestBlockFees.push({
-      fees: BaseFees.calcBlockBaseFeeSum(block),
-      number: newLatestBlockNumber,
-    });
-
-    if (latestBlockFees.length > 10) {
-      latestBlockFees = pipe(latestBlockFees, A.takeRight(10));
-    }
-  } else {
-    // we're out of resync, refetch last ten
-    const blocksToFetch = Blocks.getBlockRange(
-      newLatestBlockNumber - 10,
-      newLatestBlockNumber,
-    );
-
-    const blocks = await Promise.all(
-      blocksToFetch.map(Blocks.getBlockWithRetry),
-    );
-    latestBlockFees = blocks.map((block) => ({
-      fees: BaseFees.calcBlockBaseFeeSum(block),
-      number: block.number,
-    }));
-  }
-
-  cache.baseFeePerGas = hexToNumber(block.baseFeePerGas);
-  cache.burnRates = newBurnRates;
-  cache.feesBurned = newTotalFeesBurned;
-  cache.feesBurnedPerInterval = newFeesBurnedPerInterval;
-  cache.latestBlockFees = latestBlockFees;
-  cache.number = newLatestBlockNumber;
+  return pipe(
+    seqSPar({
+      derivedBlockStats,
+      latestBlockFees,
+    }),
+    T.map(({ derivedBlockStats, latestBlockFees }) => {
+      const { burnRates, feesBurned, leaderboards } = derivedBlockStats;
+      cache = {
+        latestBlockFees,
+        burnRates,
+        number,
+        feesBurned,
+        baseFeePerGas,
+        leaderboards,
+      };
+    }),
+    T.map(() => undefined),
+  )();
 };
 
 sql.listen("new-block", (payload) => {
-  Log.debug("new block update received");
+  Log.debug("new block stored");
   Canary.resetCanary("block");
   const latestBlock: NewBlockPayload = JSON.parse(payload!);
   updateCachesForBlockNumber(latestBlock.number);
-});
-
-type BurnLeaderboardUpdate = {
-  number: number;
-  leaderboard1h: LeaderboardEntry[];
-  leaderboard24h: LeaderboardEntry[];
-  leaderboard7d: LeaderboardEntry[];
-  leaderboard30d: LeaderboardEntry[];
-  leaderboardAll: LeaderboardEntry[];
-};
-
-const updateLeaderboardCacheForBlockNumber = async (
-  number: number,
-): Promise<void> => {
-  const leaderboard = await BaseFeeTotals.getNewLeaderboard();
-
-  leaderboardCache = {
-    number,
-    ...leaderboard,
-  };
-};
-
-sql.listen("burn-leaderboard-update", async (payload) => {
-  Log.debug("new leaderboard update received");
-  Canary.resetCanary("leaderboard");
-
-  const update: BurnLeaderboardUpdate = JSON.parse(payload!);
-
-  updateLeaderboardCacheForBlockNumber(update.number);
 });
 
 const port = process.env.PORT || 8080;
@@ -261,7 +191,6 @@ const serveFees = async () => {
     await EthNode.connect();
     const block = await Blocks.getBlockWithRetry("latest");
     await updateCachesForBlockNumber(block.number);
-    await updateLeaderboardCacheForBlockNumber(block.number);
 
     await new Promise((resolve) => {
       app.listen(port, () => {
@@ -270,7 +199,6 @@ const serveFees = async () => {
     });
     Log.info(`listening on ${port}`);
     Canary.releaseCanary("block");
-    Canary.releaseCanary("leaderboard");
   } catch (error) {
     Log.error("serve fees top level error", { error });
     EthNode.closeConnection();

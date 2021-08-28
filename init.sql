@@ -62,6 +62,13 @@ CREATE TABLE "dapps" (
   "name" text
 );
 
+CREATE TABLE "derived_block_stats" (
+  "number" int PRIMARY KEY,
+  "burn_rates" jsonb,
+  "fees_burned" jsonb,
+  "leaderboards" jsonb
+);
+
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
 
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
@@ -87,6 +94,8 @@ ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("contract_address") REFERENCE
 ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
 
 ALTER TABLE "contracts" ADD FOREIGN KEY ("dapp_id") REFERENCES "dapps" ("dapp_id");
+
+ALTER TABLE "derived_block_stats" ADD FOREIGN KEY ("number") REFERENCES "blocks" ("number");
 
 CREATE INDEX ON "blocks" ("number");
 
