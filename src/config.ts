@@ -24,16 +24,24 @@ const parseLocalNodeAvailable = (): boolean =>
     process.env.LOCAL_NODE_AVAILABLE === "false"
   );
 
+const parseShowProgress = (): boolean =>
+  !(
+    process.env.SHOW_PROGRESS === undefined ||
+    process.env.SHOW_PROGRESS === "false"
+  );
+
 type Config = {
   env: Env;
   localNodeAvailable: boolean;
   name: string;
+  showProgress: boolean;
 };
 
 const config: Config = {
   env: parseEnv(),
   localNodeAvailable: parseLocalNodeAvailable(),
   name: process.env.NAME || "unknown",
+  showProgress: parseShowProgress(),
 };
 
 export default config;
