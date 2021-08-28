@@ -6,7 +6,9 @@ import ProgressBar from "progress";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
 import A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
+import { flow, pipe } from "fp-ts/lib/function.js";
+import * as T from "fp-ts/lib/Task.js";
+import * as O from "fp-ts/lib/Option.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -110,26 +112,53 @@ export const fetchMissingContractNames = async () => {
   clearInterval(nameFetchIntervalId);
 };
 
-export const insertContracts = async (addresses: string[]) => {
-  const knownAddresses = await sql<
-    { address: string }[]
-  >`SELECT address FROM contracts`;
-  const knownAddressSet = pipe(
-    knownAddresses,
-    A.map(({ address }) => address),
-    (knownAddresses) => new Set(knownAddresses),
+let onStartKnownAddresses: Set<string> | undefined = undefined;
+
+const getKnownAddresses = (): T.Task<Set<string>> =>
+  pipe(
+    () => sql<{ address: string }[]>`SELECT address FROM contracts`,
+    T.map((rows) =>
+      pipe(
+        rows,
+        A.map(({ address }) => address),
+        (knownAddresses) => new Set(knownAddresses),
+      ),
+    ),
+    T.chainFirstIOK((knownAddresses) => () => {
+      onStartKnownAddresses = knownAddresses;
+    }),
   );
 
-  // Our sql lib thinks we want to insert a string instead of a new row if we don't wrap in object.
-  const insertableAddresses = addresses
-    .filter((address) => !knownAddressSet.has(address))
-    .map((address) => ({ address }));
+export const storeContracts = (addresses: string[]): T.Task<void> => {
+  const writeAddressChunk = (chunk: { address: string }[]): T.Task<void> =>
+    pipe(
+      () => sql`
+        INSERT INTO contracts
+        ${sql(chunk, "address")}
+        ON CONFLICT DO NOTHING
+      `,
+      T.map(() => undefined),
+    );
 
-  // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
-  for (const addressChunk of A.chunksOf(20000)(insertableAddresses)) {
-    await sql`
-      INSERT INTO contracts
-      ${sql(addressChunk, "address")}
-      ON CONFLICT DO NOTHING`;
-  }
+  return pipe(
+    onStartKnownAddresses,
+    O.fromNullable,
+    O.map(T.of),
+    O.getOrElse(getKnownAddresses),
+    T.map((knownAddresses) =>
+      pipe(
+        addresses,
+        A.filter((address) => !knownAddresses.has(address)),
+      ),
+    ),
+    T.chain(
+      flow(
+        A.map((address) => ({ address })),
+        // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
+        A.chunksOf(20000),
+        T.traverseArray(writeAddressChunk),
+        T.map(() => undefined),
+      ),
+    ),
+  );
 };

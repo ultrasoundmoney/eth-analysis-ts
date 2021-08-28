@@ -18,9 +18,11 @@ import * as Blocks from "./blocks.js";
 import * as T from "fp-ts/lib/Task.js";
 import { sequenceT, sequenceS } from "fp-ts/lib/Apply.js";
 import { hexToNumber } from "./hexadecimal.js";
-import { weiToEth } from "./convert_unit.js";
 import { fromUnixTime, isAfter, subDays, subHours } from "date-fns";
 import * as Contracts from "./contracts.js";
+import * as B from "fp-ts/lib/boolean.js";
+import Config from "./config.js";
+import { seqTPar, seqTSeq } from "./sequence.js";
 
 export type FeeBreakdown = {
   /** fees burned for simple transfers. */
@@ -86,10 +88,10 @@ const getContractRows = (
     })),
   );
 
-const updateBlockBaseFees = async (
+const updateBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
-): Promise<void> => {
+): T.Task<void> => {
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
   const tips = calcBlockTips(block, txrs);
   const blockRow = getBlockRow(block, feeBreakdown, tips);
@@ -115,13 +117,13 @@ const updateBlockBaseFees = async (
   return pipe(
     T.sequenceArray([updateBlockTask, updateContractBaseFeesTask]),
     T.map(() => undefined),
-  )();
+  );
 };
 
-const insertBlockBaseFees = async (
+const storeBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
-): Promise<void> => {
+): T.Task<void> => {
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
   const tips = calcBlockTips(block, txrs);
   const blockRow = getBlockRow(block, feeBreakdown, tips);
@@ -130,32 +132,36 @@ const insertBlockBaseFees = async (
   const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
   );
-  const insertContractsTask = () => Contracts.insertContracts(addresses);
 
-  const insertTask = () =>
-    sql`
-      INSERT INTO blocks
-        ${sql(blockRow)}
-    `.then(() => undefined);
+  const writeBlockT = () => sql`INSERT INTO blocks ${sql(blockRow)}`;
 
   if (contractBaseFeesRows.length === 0) {
-    // When a new analyzed block is inserted, base fee totals are updated. Those depend on contract addresses being known i.e. contracts have to be inserted first.
-    await insertContractsTask();
-    await insertTask();
-    return;
+    return pipe(
+      seqTPar(Contracts.storeContracts(addresses), writeBlockT),
+      T.map(() => undefined),
+    );
   }
 
-  const insertContractBaseFeesTask = () =>
-    sql`
-      INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}
-    `.then(() => undefined);
+  const writeContractBaseFeesT = () =>
+    sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
 
-  await T.sequenceSeqArray([
-    insertContractsTask,
-    insertTask,
-    insertContractBaseFeesTask,
-  ])();
+  return pipe(
+    seqTSeq(
+      seqTPar(Contracts.storeContracts(addresses), writeBlockT),
+      writeContractBaseFeesT,
+    ),
+    T.map(() => undefined),
+  );
 };
+
+const getIsKnownBlock = (block: BlockLondon): T.Task<boolean> =>
+  pipe(
+    () =>
+      sql<
+        { isKnown: boolean }[]
+      >`SELECT EXISTS(SELECT number FROM blocks WHERE number = ${block.number}) AS is_known`,
+    T.map((rows) => rows[0]?.isKnown ?? false),
+  );
 
 export const calcTxrBaseFee = (
   block: BlockLondon,
@@ -464,48 +470,52 @@ const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
 export type NewBlockPayload = {
   number: number;
 };
-const notifyNewBlock = async (block: BlockLondon): Promise<void> => {
+const notifyNewBlock = (block: BlockLondon): T.Task<void> => {
   const payload: NewBlockPayload = {
     number: block.number,
   };
 
-  await sql.notify("new-block", JSON.stringify(payload));
+  return pipe(
+    () => sql.notify("new-block", JSON.stringify(payload)),
+    T.map(() => undefined),
+  );
 };
 
 // We try to get away with tracking what blocks we've seen in a simple set. If this results in errors start checking against the DB.
 const knownBlockNumbers = new Set<number>();
 
+const sequenceTPar = sequenceT(T.ApplyPar);
+
 const storeNewBlock = (blockNumber: number, notify: boolean): T.Task<void> =>
   pipe(
-    () => {
-      Log.info(`analyzing block ${blockNumber}`);
-      return Blocks.getBlockWithRetry(blockNumber);
-    },
+    () => Blocks.getBlockWithRetry(blockNumber),
+    T.apFirst(() => {
+      Log.debug(`analyzing block ${blockNumber}`);
+      return Promise.resolve();
+    }),
     T.chain((block) =>
-      sequenceT(T.ApplyPar)(T.of(block), () =>
-        Transactions.getTxrsWithRetry(block),
-      ),
+      sequenceTPar(T.of(block), () => Transactions.getTxrsWithRetry(block)),
     ),
-    T.chain(([block, txrs]) => {
-      Log.debug(`block number: ${blockNumber}`);
-      Log.debug(`  fees burned: ${weiToEth(calcBlockBaseFeeSum(block))} ETH`);
-      Log.debug(`  tips: ${weiToEth(calcBlockTips(block, txrs))} ETH`);
-
-      if (process.env.SHOW_PROGRESS !== undefined) {
+    T.chainFirstIOK(() => () => {
+      if (Config.showProgress) {
         DisplayProgress.onBlockAnalyzed();
       }
-
-      return pipe(
-        () =>
-          knownBlockNumbers.has(blockNumber)
-            ? updateBlockBaseFees(block, txrs)
-            : insertBlockBaseFees(block, txrs),
-        T.map(() => {
-          knownBlockNumbers.add(blockNumber);
-        }),
-        T.chain(() => (notify ? () => notifyNewBlock(block) : T.of(undefined))),
-      );
     }),
+    T.chain(([block, txrs]) =>
+      pipe(
+        getIsKnownBlock(block),
+        T.chain(
+          B.match(
+            () => storeBlock(block, txrs),
+            () => updateBlock(block, txrs),
+          ),
+        ),
+        T.chain(() => {
+          knownBlockNumbers.add(blockNumber);
+          return notify ? notifyNewBlock(block) : T.of(undefined);
+        }),
+      ),
+    ),
   );
 
 export const reanalyzeAllBlocks = async () => {
