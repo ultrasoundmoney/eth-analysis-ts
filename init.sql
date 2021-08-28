@@ -54,7 +54,8 @@ CREATE TABLE "contracts" (
   "last_name_fetch_at" timestamptz,
   "last_metadata_fetch_at" timestamptz,
   "is_bot" boolean DEFAULT false,
-  "dapp_id" text
+  "dapp_id" text,
+  "category" text
 );
 
 CREATE TABLE "dapps" (
@@ -63,7 +64,7 @@ CREATE TABLE "dapps" (
 );
 
 CREATE TABLE "derived_block_stats" (
-  "number" int PRIMARY KEY,
+  "block_number" int PRIMARY KEY,
   "burn_rates" jsonb,
   "fees_burned" jsonb,
   "leaderboards" jsonb
@@ -95,7 +96,7 @@ ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("oldest_included_block") REFE
 
 ALTER TABLE "contracts" ADD FOREIGN KEY ("dapp_id") REFERENCES "dapps" ("dapp_id");
 
-ALTER TABLE "derived_block_stats" ADD FOREIGN KEY ("number") REFERENCES "blocks" ("number");
+ALTER TABLE "derived_block_stats" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
 
 CREATE INDEX ON "blocks" ("number");
 
