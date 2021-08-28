@@ -155,7 +155,7 @@ const updateBlock = (
   const updateContractBaseFeesTask = () =>
     sql.begin(async (sql) => {
       await sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`;
-      if (txrs.length !== 0) {
+      if (contractBaseFeesRows.length !== 0) {
         await sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
       }
     });
