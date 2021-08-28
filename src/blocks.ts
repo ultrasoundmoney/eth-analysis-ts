@@ -4,6 +4,7 @@ import { BlockLondon } from "./eth_node.js";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
 import { delay } from "./delay.js";
+import * as PerformanceMetrics from "./performance_metrics.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -28,6 +29,7 @@ export const getBlockWithRetry = async (
     const maybeBlock = await EthNode.getBlock(blockNumber);
 
     if (typeof maybeBlock?.hash === "string") {
+      PerformanceMetrics.onBlockReceived();
       return maybeBlock;
     }
 

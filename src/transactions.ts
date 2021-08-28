@@ -7,6 +7,7 @@ import { BlockLondon } from "./eth_node.js";
 import * as Sentry from "@sentry/node";
 import * as Duration from "./duration.js";
 import * as Blocks from "./blocks.js";
+import * as PerformanceMetrics from "./performance_metrics.js";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
@@ -41,6 +42,7 @@ export const getTxrsWithRetry = async (
             if (txr === undefined) {
               missingHashes.push(txHash);
             } else {
+              PerformanceMetrics.onTxrReceived();
               txrs.push(txr);
             }
           }),
