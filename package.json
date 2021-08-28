@@ -24,7 +24,7 @@
     "neat-csv": "^6.0.1",
     "node-fetch": "^2.6.1",
     "p-queue": "^7.1.0",
-    "postgres": "^2.0.0-beta.7",
+    "postgres": "2.0.0-beta.7",
     "progress": "^2.0.3",
     "quick-lru": "^6.0.1",
     "utf-8-validate": "^5.0.5",
