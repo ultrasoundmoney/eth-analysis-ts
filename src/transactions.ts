@@ -94,32 +94,6 @@ export const getTxrsWithRetry = async (
   return txrs;
 };
 
-export const getTxrsUnsafe = async (
-  block: BlockLondon,
-): Promise<TxRWeb3London[]> => {
-  const missingHashes: string[] = [];
-  const txrs: TxRWeb3London[] = [];
-
-  await txrsPQ.addAll(
-    block.transactions.map(
-      (txHash) => () =>
-        EthNode.getTransactionReceipt(txHash).then((txr) => {
-          if (txr === undefined) {
-            missingHashes.push(txHash);
-          } else {
-            txrs.push(txr);
-          }
-        }),
-    ),
-  );
-
-  if (missingHashes.length !== 0) {
-    throw new Error("block had null txrs");
-  }
-
-  return txrs;
-};
-
 export type TxrSegments = {
   contractCreationTxrs: TxRWeb3London[];
   ethTransferTxrs: TxRWeb3London[];
