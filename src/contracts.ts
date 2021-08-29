@@ -6,9 +6,8 @@ import ProgressBar from "progress";
 import { sql } from "./db.js";
 import * as Log from "./log.js";
 import A from "fp-ts/lib/Array.js";
-import { flow, pipe } from "fp-ts/lib/function.js";
+import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
-import * as O from "fp-ts/lib/Option.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -112,53 +111,20 @@ export const fetchMissingContractNames = async () => {
   clearInterval(nameFetchIntervalId);
 };
 
-let onStartKnownAddresses: Set<string> | undefined = undefined;
-
-const getKnownAddresses = (): T.Task<Set<string>> =>
-  pipe(
-    () => sql<{ address: string }[]>`SELECT address FROM contracts`,
-    T.map((rows) =>
-      pipe(
-        rows,
-        A.map(({ address }) => address),
-        (knownAddresses) => new Set(knownAddresses),
-      ),
-    ),
-    T.chainFirstIOK((knownAddresses) => () => {
-      onStartKnownAddresses = knownAddresses;
-    }),
-  );
-
 export const storeContracts = (addresses: string[]): T.Task<void> => {
-  const writeAddressChunk = (chunk: { address: string }[]): T.Task<void> =>
-    pipe(
-      () => sql`
-        INSERT INTO contracts
-        ${sql(chunk, "address")}
-        ON CONFLICT DO NOTHING
-      `,
-      T.map(() => undefined),
-    );
+  if (addresses.length === 0) {
+    return T.of(undefined);
+  }
 
   return pipe(
-    onStartKnownAddresses,
-    O.fromNullable,
-    O.map(T.of),
-    O.getOrElse(getKnownAddresses),
-    T.map((knownAddresses) =>
-      pipe(
-        addresses,
-        A.filter((address) => !knownAddresses.has(address)),
-      ),
-    ),
-    T.chain(
-      flow(
-        A.map((address) => ({ address })),
-        // We have more rows to insert than sql parameter substitution will allow. We insert in chunks.
-        A.chunksOf(20000),
-        T.traverseArray(writeAddressChunk),
-        T.map(() => undefined),
-      ),
-    ),
+    addresses,
+    A.map((address) => ({ address })),
+    (addresses) => () =>
+      sql`
+        INSERT INTO contracts
+        ${sql(addresses, "address")}
+        ON CONFLICT DO NOTHING
+      `,
+    T.map(() => undefined),
   );
 };
