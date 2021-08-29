@@ -156,13 +156,13 @@ const updateBlock = (
         number = ${block.number}
     `.then(() => undefined);
 
-  const updateContractBaseFeesTask = () =>
-    sql.begin(async (sql) => {
-      await sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`;
-      if (contractBaseFeesRows.length !== 0) {
-        await sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
-      }
-    });
+  const updateContractBaseFeesTask = seqTSeq(
+    () =>
+      sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`,
+    contractBaseFeesRows.length !== 0
+      ? () => sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`
+      : T.of(undefined),
+  );
 
   const storeContractsTask = Contracts.storeContracts(addresses);
 
