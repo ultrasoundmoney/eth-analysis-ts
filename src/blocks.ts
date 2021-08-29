@@ -143,6 +143,10 @@ const updateBlock = (
   const blockRow = getBlockRow(block, feeBreakdown, tips);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
+  const addresses = contractBaseFeesRows.map(
+    (contractBurnRow) => contractBurnRow.contract_address,
+  );
+
   const updateBlockTask = () =>
     sql`
       UPDATE blocks
@@ -160,8 +164,13 @@ const updateBlock = (
       }
     });
 
+  const storeContractsTask = Contracts.storeContracts(addresses);
+
   return pipe(
-    T.sequenceArray([updateBlockTask, updateContractBaseFeesTask]),
+    seqTSeq(
+      seqTPar(storeContractsTask, updateBlockTask),
+      updateContractBaseFeesTask,
+    ),
     T.map(() => undefined),
   );
 };
@@ -179,22 +188,17 @@ const storeBlock = (
     (contractBurnRow) => contractBurnRow.contract_address,
   );
 
-  const writeBlockT = () => sql`INSERT INTO blocks ${sql(blockRow)}`;
+  const storeBlockTask = () => sql`INSERT INTO blocks ${sql(blockRow)}`;
 
-  if (contractBaseFeesRows.length === 0) {
-    return pipe(
-      seqTPar(Contracts.storeContracts(addresses), writeBlockT),
-      T.map(() => undefined),
-    );
-  }
+  const storeContractsTask = Contracts.storeContracts(addresses);
 
-  const writeContractBaseFeesT = () =>
+  const storeContractsBaseFeesTask = () =>
     sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
 
   return pipe(
     seqTSeq(
-      seqTPar(Contracts.storeContracts(addresses), writeBlockT),
-      writeContractBaseFeesT,
+      seqTPar(storeContractsTask, storeBlockTask),
+      storeContractsBaseFeesTask,
     ),
     T.map(() => undefined),
   );
