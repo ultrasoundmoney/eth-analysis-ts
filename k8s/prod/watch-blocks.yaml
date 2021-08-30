@@ -16,7 +16,6 @@ spec:
       annotations:
         linkerd.io/inject: enabled
     spec:
-      restartPolicy: Always
       containers:
         - name: watch-blocks
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
