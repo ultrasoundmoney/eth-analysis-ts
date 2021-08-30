@@ -44,6 +44,10 @@ export const storeDerivedBlockStats = (
         ${sql.json(feesBurned)},
         ${sql.json(leaderboards)}
       )
+      ON CONFLICT (block_number) DO UPDATE SET
+        burn_rates = ${sql.json(burnRates)},
+        fees_burned = ${sql.json(feesBurned)},
+        leaderboards = ${sql.json(leaderboards)}
     `,
     T.map(() => undefined),
   );
