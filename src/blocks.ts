@@ -192,8 +192,10 @@ const storeBlock = (
 
   const storeContractsTask = Contracts.storeContracts(addresses);
 
-  const storeContractsBaseFeesTask = () =>
-    sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
+  const storeContractsBaseFeesTask =
+    contractBaseFeesRows.length !== 0
+      ? () => sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`
+      : T.of(undefined);
 
   return pipe(
     seqTSeq(
