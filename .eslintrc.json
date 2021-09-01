@@ -3,10 +3,20 @@
   "rules": {
     "quotes": ["warn", "double", { "avoidEscape": true }],
     "prettier/prettier": "off",
-    "node/no-unsupported-features/es-builtins": ["error", {
+    "node/no-unsupported-features/es-builtins": [
+      "error",
+      {
         "version": ">=16.0.0",
         "ignores": []
-    }],
+      }
+    ],
+    "node/no-unsupported-features/node-builtins": [
+      "error",
+      {
+        "version": ">=16.0.0",
+        "ignores": []
+      }
+    ],
     "node/no-unpublished-import": "off"
   }
 }

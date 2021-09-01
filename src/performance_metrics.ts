@@ -7,11 +7,12 @@ let lastReport = new Date();
 
 let blocksReceived = 0;
 let txrsReceived = 0;
+let reportPerformance = false;
 
 export const onBlockReceived = () => {
   const secondsSinceStart = differenceInSeconds(new Date(), start);
   const secondsSinceLastReport = differenceInSeconds(new Date(), lastReport);
-  if (secondsSinceLastReport >= 10) {
+  if (secondsSinceLastReport >= 10 && reportPerformance) {
     lastReport = new Date();
     const blocksRate = (blocksReceived / secondsSinceStart).toFixed(2);
     const txrsRate = (txrsReceived / secondsSinceStart).toFixed(2);
@@ -24,4 +25,8 @@ export const onBlockReceived = () => {
 
 export const onTxrReceived = () => {
   txrsReceived = txrsReceived + 1;
+};
+
+export const setReportPerformance = (newReportPerformance: boolean): void => {
+  reportPerformance = newReportPerformance;
 };

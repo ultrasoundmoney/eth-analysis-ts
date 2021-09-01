@@ -15,7 +15,7 @@ export type FeeBreakdown = {
   /** fees burned for simple transfers. */
   transfers: number;
   /** fees burned for use of contracts. */
-  contract_use_fees: Partial<Record<string, number>>;
+  contract_use_fees: Record<string, number>;
   /** fees burned for the creation of contracts. */
   contract_creation_fees: number;
 };

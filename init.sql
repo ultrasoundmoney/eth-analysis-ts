@@ -1,3 +1,11 @@
+CREATE TYPE "timeframe" AS ENUM (
+  '1h',
+  '24h',
+  '7d',
+  '30d',
+  'all'
+);
+
 CREATE TABLE "blocks" (
   "hash" text PRIMARY KEY,
   "number" int UNIQUE NOT NULL,
@@ -70,6 +78,17 @@ CREATE TABLE "derived_block_stats" (
   "leaderboards" jsonb
 );
 
+CREATE TABLE "contract_base_fee_sums" (
+  "contract_address" text PRIMARY KEY,
+  "base_fee_sum" float
+);
+
+CREATE TABLE "base_fee_sum_included_blocks" (
+  "oldest_included_block" int,
+  "newest_included_block" int,
+  "timeframe" timeframe PRIMARY KEY
+);
+
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
 
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
@@ -97,6 +116,8 @@ ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("oldest_included_block") REFE
 ALTER TABLE "contracts" ADD FOREIGN KEY ("dapp_id") REFERENCES "dapps" ("dapp_id");
 
 ALTER TABLE "derived_block_stats" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
+
+ALTER TABLE "contract_base_fee_sums" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
 CREATE INDEX ON "blocks" ("number");
 

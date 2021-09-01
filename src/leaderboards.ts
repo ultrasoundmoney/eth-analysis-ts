@@ -1,4 +1,4 @@
-import A from "fp-ts/lib/Array.js";
+import * as A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import { sql } from "./db.js";
@@ -30,7 +30,7 @@ export type LeaderboardEntries = {
   leaderboardAll: LeaderboardEntry[];
 };
 
-type LeaderboardRow = {
+export type LeaderboardRow = {
   contractAddress: string;
   name: string;
   isBot: boolean;
@@ -40,14 +40,14 @@ type LeaderboardRow = {
 export type Timeframe = LimitedTimeframe | "all";
 export type LimitedTimeframe = "1h" | "24h" | "7d" | "30d";
 
-const timeframeHoursMap: Record<LimitedTimeframe, number> = {
+export const timeframeHoursMap: Record<LimitedTimeframe, number> = {
   "1h": 1,
   "24h": 24,
   "7d": 24 * 7,
   "30d": 24 * 30,
 };
 
-const getEthTransferFeesForTimeframe = async (
+export const getEthTransferFeesForTimeframe = async (
   timeframe: Timeframe,
 ): Promise<number> => {
   if (timeframe === "all") {
@@ -65,7 +65,7 @@ const getEthTransferFeesForTimeframe = async (
   return rows_1[0]?.sum ?? 0;
 };
 
-const getContractCreationFeesForTimeframe = async (
+export const getContractCreationBaseFeesForTimeframe = async (
   timeframe: Timeframe,
 ): Promise<number> => {
   if (timeframe === "all") {
@@ -133,7 +133,7 @@ const calcLeaderboardForTimeframe = (
       contractRows: calcRawLeaderboardForTimeframe(block, timeframe),
       ethTransferBaseFees: () => getEthTransferFeesForTimeframe(timeframe),
       contractCreationFees: () =>
-        getContractCreationFeesForTimeframe(timeframe),
+        getContractCreationBaseFeesForTimeframe(timeframe),
     }),
     T.map(({ contractRows, contractCreationFees, ethTransferBaseFees }) => {
       const contractEntries: LeaderboardEntry[] = contractRows.map(
@@ -172,6 +172,7 @@ const calcLeaderboardForTimeframe = (
     }),
   );
 };
+
 export const calcLeaderboards = (
   block: BlockLondon,
 ): T.Task<LeaderboardEntries> => {
@@ -182,4 +183,44 @@ export const calcLeaderboards = (
     leaderboard30d: calcLeaderboardForTimeframe(block, "30d"),
     leaderboardAll: calcLeaderboardForTimeframe(block, "all"),
   });
+};
+
+export const buildLeaderboard = (
+  contractRows: LeaderboardRow[],
+  ethTransferBaseFees: number,
+  contractCreationBaseFees: number,
+): LeaderboardEntry[] => {
+  const contractEntries: LeaderboardEntry[] = contractRows.map(
+    ({ contractAddress, baseFees, name, isBot }) => ({
+      fees: Number(baseFees),
+      id: contractAddress,
+      name: name || contractAddress,
+      image: undefined,
+      type: isBot ? "bot" : "other",
+    }),
+  );
+  const contractCreationEntry: LeaderboardEntry = {
+    fees: contractCreationBaseFees,
+    id: "contract-creations",
+    image: undefined,
+    name: "Contract creations",
+    type: "contract-creations",
+  };
+  const ethTransfersEntry: LeaderboardEntry = {
+    fees: ethTransferBaseFees,
+    id: "eth-transfers",
+    image: undefined,
+    name: "ETH transfers",
+    type: "eth-transfers",
+  };
+
+  return pipe(
+    [...contractEntries, ethTransfersEntry, contractCreationEntry],
+    A.sort<LeaderboardEntry>({
+      compare: (first, second) =>
+        first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
+      equals: (first, second) => first.fees === second.fees,
+    }),
+    A.takeLeft(24),
+  );
 };

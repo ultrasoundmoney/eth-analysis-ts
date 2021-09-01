@@ -1,14 +1,20 @@
-import Sentry from "@sentry/node";
 import "@sentry/tracing";
 import * as Blocks from "./blocks.js";
 import * as DisplayProgress from "./display_progress.js";
 import * as EthNode from "./eth_node.js";
+import * as LeaderboardsAll from "./leaderboards_all.js";
+import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
+import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
 import Config from "./config.js";
 import PQueue from "p-queue";
+import Sentry from "@sentry/node";
+import { O, TE } from "./fp.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
+import { BlockLondon } from "./eth_node.js";
+import { seqTPar } from "./sequence.js";
 
 if (Config.env !== "dev") {
   Sentry.init({
@@ -21,13 +27,13 @@ if (Config.env !== "dev") {
 const storeBlockQueuePar = new PQueue({ concurrency: 8 });
 const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
 
-const watchBlocks = async () => {
-  Log.debug("starting watch blocks");
+PerformanceMetrics.setReportPerformance(true);
+
+const runBlocks = async (latestBlockOnStart: BlockLondon) => {
   const knownBlocksNumbers = await Blocks.getKnownBlocks()();
   const knownBlocks = new Set(knownBlocksNumbers);
   Log.debug(`${knownBlocks.size} known blocks`);
 
-  const latestBlockOnStart = await Blocks.getBlockWithRetry("latest");
   EthNode.subscribeNewHeads((head) =>
     storeBlockQueueSeq.add(
       pipe(
@@ -52,32 +58,78 @@ const watchBlocks = async () => {
 
   if (missingBlocks.length === 0) {
     Blocks.setSyncStatus("in-sync");
-    Log.info("blocks table in-sync");
-    return;
+  } else {
+    Log.info("blocks table out-of-sync");
+    Blocks.setSyncStatus("out-of-sync");
+
+    Log.info(`adding ${missingBlocks.length} missing blocks`);
+
+    if (process.env.SHOW_PROGRESS !== undefined) {
+      DisplayProgress.start(missingBlocks.length);
+    }
+
+    await storeBlockQueuePar.addAll(
+      missingBlocks.map((blockNumber) =>
+        Blocks.storeNewBlock(knownBlocks, blockNumber, false),
+      ),
+    );
+    Blocks.setSyncStatus("in-sync");
   }
-
-  Log.info("blocks table out-of-sync");
-  Blocks.setSyncStatus("out-of-sync");
-
-  Log.info(`adding ${missingBlocks.length} missing blocks`);
-
-  if (process.env.SHOW_PROGRESS !== undefined) {
-    DisplayProgress.start(missingBlocks.length);
-  }
-
-  await storeBlockQueuePar.addAll(
-    missingBlocks.map((blockNumber) =>
-      Blocks.storeNewBlock(knownBlocks, blockNumber, false),
-    ),
-  );
-  Blocks.setSyncStatus("in-sync");
   Log.info("blocks table in-sync");
+  PerformanceMetrics.setReportPerformance(false);
+};
+
+const initLeaderboardAll = async (latestBlockOnStart: BlockLondon) => {
+  Log.info("checking leaderboard all total in-sync");
+  const newestIncludedBlockNumber =
+    await LeaderboardsAll.getNewestIncludedBlockNumber()();
+  if (
+    O.isNone(newestIncludedBlockNumber) ||
+    newestIncludedBlockNumber.value !== latestBlockOnStart.number
+  ) {
+    LeaderboardsAll.setSyncStatus("out-of-sync");
+    await Blocks.addLeaderboardAllQueue.add(
+      pipe(
+        LeaderboardsAll.addMissingBlocks(),
+        TE.mapLeft((e) => {
+          if (e._tag === "no-blocks") {
+            Log.warn("no latest stored block, won't update leaderboard!");
+            return;
+          }
+
+          throw new Error(String(e));
+        }),
+      ),
+    );
+    LeaderboardsAll.setSyncStatus("in-sync");
+  } else {
+    LeaderboardsAll.setSyncStatus("in-sync");
+  }
+  Log.info("leaderboard all in-sync");
+};
+
+const initLeaderboardLimitedTimeframe = async (
+  latestBlockOnStart: BlockLondon,
+) => {
+  Log.info("loading leaderboards for limited timeframes");
+  await LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes(
+    latestBlockOnStart.number,
+  )();
+  LeaderboardsLimitedTimeframe.setSyncStatus("in-sync");
+  Log.info("done loading leaderboards for limited timeframes");
 };
 
 const main = async () => {
   try {
     await EthNode.connect();
-    await watchBlocks();
+    Log.debug("starting watch blocks");
+    const latestBlockOnStart = await Blocks.getBlockWithRetry("latest");
+
+    await seqTPar(
+      () => runBlocks(latestBlockOnStart),
+      () => initLeaderboardAll(latestBlockOnStart),
+      () => initLeaderboardLimitedTimeframe(latestBlockOnStart),
+    )();
   } catch (error) {
     Log.error("error adding new blocks", { error });
     EthNode.closeConnection();

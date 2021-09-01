@@ -1,29 +1,33 @@
-import * as Sentry from "@sentry/node";
-import * as EthNode from "./eth_node.js";
-import { BlockLondon } from "./eth_node.js";
-import * as Duration from "./duration.js";
-import * as Log from "./log.js";
-import { delay } from "./delay.js";
-import * as PerformanceMetrics from "./performance_metrics.js";
-import { sql } from "./db.js";
-import { FeeBreakdown } from "./base_fees.js";
-import { fromUnixTime } from "date-fns";
-import * as BaseFees from "./base_fees.js";
-import { hexToNumber } from "./hexadecimal.js";
-import { pipe } from "fp-ts/lib/function.js";
 import * as A from "fp-ts/lib/Array.js";
-import * as T from "fp-ts/lib/Task.js";
-import { seqSPar, seqTPar, seqTSeq } from "./sequence.js";
-import { TxRWeb3London } from "./transactions.js";
+import * as B from "fp-ts/lib/boolean.js";
+import * as BaseFees from "./base_fees.js";
+import * as BurnRates from "./burn_rates.js";
 import * as Contracts from "./contracts.js";
+import * as DerivedBlockStats from "./derived_block_stats.js";
+import * as DisplayProgress from "./display_progress.js";
+import * as Duration from "./duration.js";
+import * as EthNode from "./eth_node.js";
+import * as FeesBurned from "./fees_burned.js";
+import * as LeaderboardsAll from "./leaderboards_all.js";
+import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
+import * as Log from "./log.js";
+import * as O from "fp-ts/lib/Option.js";
+import * as PerformanceMetrics from "./performance_metrics.js";
+import * as Sentry from "@sentry/node";
+import * as T from "fp-ts/lib/Task.js";
 import * as Transactions from "./transactions.js";
 import Config from "./config.js";
-import * as DisplayProgress from "./display_progress.js";
-import * as B from "fp-ts/lib/boolean.js";
-import * as BurnRates from "./burn_rates.js";
-import * as FeesBurned from "./fees_burned.js";
-import * as Leaderboards from "./leaderboards.js";
-import * as DerivedBlockStats from "./derived_block_stats.js";
+import { BlockLondon } from "./eth_node.js";
+import { FeeBreakdown } from "./base_fees.js";
+import { TxRWeb3London } from "./transactions.js";
+import { delay } from "./delay.js";
+import { fromUnixTime } from "date-fns";
+import { hexToNumber } from "./hexadecimal.js";
+import { pipe } from "fp-ts/lib/function.js";
+import { seqSPar, seqTPar, seqTSeq } from "./sequence.js";
+import { sql } from "./db.js";
+import { LeaderboardEntries } from "./leaderboards.js";
+import PQueue from "p-queue";
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
 let syncStatus: SyncStatus = "unknown";
@@ -79,10 +83,10 @@ export const getBlockWithRetry = async (
   }
 };
 
-export const getLatestAnalyzedBlockNumber = (): Promise<number | undefined> =>
+export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> => () =>
   sql`
     SELECT MAX(number) AS number FROM blocks
-  `.then((result) => result[0]?.number || undefined);
+  `.then((result) => pipe(result[0]?.number, O.fromNullable));
 
 type BlockRow = {
   hash: string;
@@ -233,7 +237,19 @@ const notifyNewBlock = (block: BlockLondon): T.Task<void> => {
 const updateDerivedBlockStats = (block: BlockLondon) => {
   const feesBurned = FeesBurned.calcFeesBurned(block);
   const burnRates = BurnRates.calcBurnRates(block);
-  const leaderboards = Leaderboards.calcLeaderboards(block);
+  const leaderboardAll = LeaderboardsAll.calcLeaderboardAll();
+  const leaderboardLimitedTimeframes =
+    LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes();
+  const leaderboards: T.Task<LeaderboardEntries> = pipe(
+    seqTPar(leaderboardLimitedTimeframes, leaderboardAll),
+    T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
+      leaderboard1h: leaderboardLimitedTimeframes["1h"],
+      leaderboard24h: leaderboardLimitedTimeframes["24h"],
+      leaderboard7d: leaderboardLimitedTimeframes["7d"],
+      leaderboard30d: leaderboardLimitedTimeframes["30d"],
+      leaderboardAll: leaderboardAll,
+    })),
+  );
 
   return pipe(
     seqSPar({ burnRates, feesBurned, leaderboards }),
@@ -242,6 +258,15 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     ),
   );
 };
+
+// Removing blocks in parallel is problematic. Make sure to do so one by one.
+const removeBlocksQueue = new PQueue({ concurrency: 1 });
+
+// Adding blocks in parallel is problematic. Make sure to do so one by one.
+export const addLeaderboardAllQueue = new PQueue({ concurrency: 1 });
+export const addLeaderboardLimitedTimeframeQueue = new PQueue({
+  concurrency: 1,
+});
 
 export const storeNewBlock = (
   knownBlocks: Set<number>,
@@ -269,9 +294,29 @@ export const storeNewBlock = (
           () => storeBlock(block, txrs),
           () => updateBlock(block, txrs),
         ),
+        T.chain(() => {
+          addLeaderboardLimitedTimeframeQueue.add(() =>
+            LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
+              block,
+              BaseFees.calcBlockFeeBreakdown(block, txrs),
+            ),
+          );
+          return seqTPar(
+            () =>
+              removeBlocksQueue.add(
+                LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+              ),
+            () =>
+              addLeaderboardAllQueue.add(
+                LeaderboardsAll.addBlock(block.number),
+              ),
+          );
+        }),
         T.chain(() =>
           pipe(
-            getSyncStatus() === "in-sync",
+            getSyncStatus() === "in-sync" &&
+              LeaderboardsAll.getSyncStatus() === "in-sync" &&
+              LeaderboardsLimitedTimeframe.getSyncStatus() === "in-sync",
             B.match(
               () => T.of(undefined),
               () =>
