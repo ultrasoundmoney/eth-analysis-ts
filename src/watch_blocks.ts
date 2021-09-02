@@ -14,7 +14,7 @@ import { O, TE } from "./fp.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
-import { seqTPar } from "./sequence.js";
+import { seqTPar, seqTSeq } from "./sequence.js";
 
 if (Config.env !== "dev") {
   Sentry.init({
@@ -29,7 +29,7 @@ const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
 
 PerformanceMetrics.setReportPerformance(true);
 
-const runBlocks = async (latestBlockOnStart: BlockLondon) => {
+const syncBlocks = async (latestBlockOnStart: BlockLondon) => {
   const knownBlocksNumbers = await Blocks.getKnownBlocks()();
   const knownBlocks = new Set(knownBlocksNumbers);
   Log.debug(`${knownBlocks.size} known blocks`);
@@ -79,7 +79,7 @@ const runBlocks = async (latestBlockOnStart: BlockLondon) => {
   PerformanceMetrics.setReportPerformance(false);
 };
 
-const initLeaderboardAll = async (latestBlockOnStart: BlockLondon) => {
+const syncLeaderboardAll = async (latestBlockOnStart: BlockLondon) => {
   Log.info("checking leaderboard all total in-sync");
   const newestIncludedBlockNumber =
     await LeaderboardsAll.getNewestIncludedBlockNumber()();
@@ -108,7 +108,7 @@ const initLeaderboardAll = async (latestBlockOnStart: BlockLondon) => {
   Log.info("leaderboard all in-sync");
 };
 
-const initLeaderboardLimitedTimeframe = async (
+const loadLeaderboardLimitedTimeframes = async (
   latestBlockOnStart: BlockLondon,
 ) => {
   Log.info("loading leaderboards for limited timeframes");
@@ -126,9 +126,12 @@ const main = async () => {
     const latestBlockOnStart = await Blocks.getBlockWithRetry("latest");
 
     await seqTPar(
-      () => runBlocks(latestBlockOnStart),
-      () => initLeaderboardAll(latestBlockOnStart),
-      () => initLeaderboardLimitedTimeframe(latestBlockOnStart),
+      seqTSeq(
+        () => syncBlocks(latestBlockOnStart),
+        // We can only load leaderboards when blocks are in-sync. We otherwise risk loading empty leaderboards as blocks are missing from the timeframes.
+        () => loadLeaderboardLimitedTimeframes(latestBlockOnStart),
+      ),
+      () => syncLeaderboardAll(latestBlockOnStart),
     )();
   } catch (error) {
     Log.error("error adding new blocks", { error });
