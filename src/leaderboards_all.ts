@@ -1,15 +1,17 @@
 import * as Blocks from "./blocks.js";
-import * as E from "fp-ts/lib/Either.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
-import * as O from "fp-ts/lib/Option.js";
-import * as T from "fp-ts/lib/Task.js";
-import * as TE from "fp-ts/lib/TaskEither.js";
-import { LeaderboardEntry, LeaderboardRow } from "./leaderboards.js";
+import { A, B, E, O, T, TE } from "./fp.js";
+import {
+  AddedBaseFeesLog,
+  ContractBaseFees,
+  LeaderboardEntry,
+  LeaderboardRow,
+} from "./leaderboards.js";
+import { Row } from "postgres";
 import { pipe } from "fp-ts/lib/function.js";
-import { seqTPar } from "./sequence.js";
+import { seqTPar, seqTSeq } from "./sequence.js";
 import { sql } from "./db.js";
-import { A } from "./fp.js";
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
 let syncStatus: SyncStatus = "unknown";
@@ -30,75 +32,136 @@ export const getNewestIncludedBlockNumber = (): T.Task<O.Option<number>> =>
     T.map((rows) => pipe(rows[0]?.newestIncludedBlock, O.fromNullable)),
   );
 
-const setNewestIncludedBlockNumber = (blockNumber: number): T.Task<void> => {
-  return pipe(
-    () => sql`
+const setNewestIncludedBlockNumber =
+  (blockNumber: number): T.Task<Row[]> =>
+  () =>
+    sql`
       INSERT INTO base_fee_sum_included_blocks (oldest_included_block, newest_included_block, timeframe)
       VALUES (${Blocks.londonHardForkBlockNumber}, ${blockNumber}, 'all')
       ON CONFLICT (timeframe) DO UPDATE SET
-        oldest_included_block = ${Blocks.londonHardForkBlockNumber},
-        newest_included_block = ${blockNumber}
-    `,
-    T.map(() => undefined),
-  );
-};
+      oldest_included_block = ${Blocks.londonHardForkBlockNumber},
+      newest_included_block = ${blockNumber}
+    `;
 
-type ContractBaseFeesRow = {
-  contractAddress: string;
-  baseFees: number;
-};
-
-const addBlocks = (from: number, upToIncluding: number): T.Task<void> =>
+const addContractBaseFeeSums = (baseFeeSums: ContractBaseFees): T.Task<void> =>
   pipe(
-    () =>
-      sql<ContractBaseFeesRow[]>`
-        SELECT contract_address, SUM(base_fees) AS base_fees
-        FROM contract_base_fees
-        WHERE block_number >= ${from}
-        AND block_number <= ${upToIncluding}
-        GROUP BY (contract_address)
-      `,
-    T.map((rows) => (rows.length === 0 ? O.none : O.some(rows))),
-    T.chain(
-      O.match(
-        () => T.of(undefined),
-        (rows) =>
-          pipe(
-            rows,
-            A.chunksOf(20000),
-            A.map((chunk) => [
-              chunk.map((row) => row.contractAddress),
-              chunk.map((row) => row.baseFees),
-            ]),
-            T.traverseArray(
-              ([addresses, baseFees]) =>
-                () =>
-                  sql`
-                    INSERT INTO contract_base_fee_sums (contract_address, base_fee_sum)
-                    SELECT
+    baseFeeSums.size === 0,
+    B.match(
+      () =>
+        pipe(
+          Array.from(baseFeeSums.entries()),
+          A.chunksOf(20000),
+          A.map(A.unzip),
+          T.traverseArray(
+            ([addresses, baseFees]) =>
+              () =>
+                sql`
+                  INSERT INTO contract_base_fee_sums (contract_address, base_fee_sum)
+                  SELECT
                     UNNEST(${sql.array(addresses)}::text[]),
                     UNNEST(${sql.array(baseFees)}::float[])
-                    ON CONFLICT (contract_address) DO UPDATE SET
-                    base_fee_sum = contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::float
-                  `,
-            ),
-            T.chain(() => getNewestIncludedBlockNumber()),
-            T.chain(
-              O.match(
-                () => setNewestIncludedBlockNumber(upToIncluding),
-                (newestIncludedBlock) =>
-                  upToIncluding > newestIncludedBlock
-                    ? setNewestIncludedBlockNumber(upToIncluding)
-                    : T.of(undefined),
-              ),
-            ),
+                  ON CONFLICT (contract_address) DO UPDATE SET
+                  base_fee_sum = contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::float
+                `,
           ),
+          T.map(() => undefined),
+        ),
+      // Nothing to add.
+      () => T.of(undefined),
+    ),
+  );
+
+const removeContractBaseFeeSums = (
+  baseFeeSums: ContractBaseFees,
+): T.Task<void> => {
+  return pipe(
+    baseFeeSums.size === 0,
+    B.match(
+      () => {
+        const addresses = Array.from(baseFeeSums.keys());
+        const baseFees = Array.from(baseFeeSums.values());
+        return pipe(
+          () => sql`
+                  UPDATE contract_base_fee_sums
+                    SET base_fee_sum = base_fee_sum - data_table.base_fees
+                  FROM
+                    (SELECT
+                      UNNEST(${sql.array(
+                        addresses,
+                      )}::text[]) as contract_address,
+                      UNNEST(${sql.array(baseFees)}::float[]) as base_fees
+                    ) as data_table
+                  WHERE contract_base_fee_sums.contract_address = data_table.contract_address;
+                `,
+          T.map(() => undefined),
+        );
+      },
+      // Nothing to remove.
+      () => T.of(undefined),
+    ),
+  );
+};
+
+let addedRowsLog: AddedBaseFeesLog[] = [];
+
+export const addBlock = (
+  blockNumber: number,
+  baseFeeSums: ContractBaseFees,
+): T.Task<void> =>
+  pipe(
+    getNewestIncludedBlockNumber(),
+    T.map(
+      O.getOrElseW(() => {
+        throw new Error(
+          "tried to add a block to empty leaderboard all, load all blocks first",
+        );
+      }),
+    ),
+    T.chain((newestIncludedBlock) =>
+      pipe(
+        blockNumber <= newestIncludedBlock,
+        B.match(
+          // no rollback
+          () =>
+            pipe(
+              seqTPar(
+                addContractBaseFeeSums(baseFeeSums),
+                setNewestIncludedBlockNumber(blockNumber),
+              ),
+              T.map(() => undefined),
+            ),
+          // should rollback first!
+          () => {
+            Log.info(
+              `rollback - newest included: ${newestIncludedBlock}, block number: ${blockNumber}`,
+            );
+
+            const sumsToRollback = Leaderboards.getPreviouslyAddedSums(
+              addedRowsLog,
+              blockNumber,
+              newestIncludedBlock,
+            );
+            const numberOfBlocksToRollback =
+              newestIncludedBlock - blockNumber + 1;
+
+            return pipe(
+              removeContractBaseFeeSums(sumsToRollback),
+              T.chainIOK(() => () => {
+                addedRowsLog = addedRowsLog.slice(0, -numberOfBlocksToRollback);
+              }),
+              T.chain(() =>
+                seqTSeq(
+                  addContractBaseFeeSums(baseFeeSums),
+                  setNewestIncludedBlockNumber(blockNumber),
+                ),
+              ),
+              T.map(() => undefined),
+            );
+          },
+        ),
       ),
     ),
-    T.map(() => undefined),
   );
-export const addBlock = (blockNumber: number): T.Task<void> =>
-  addBlocks(blockNumber, blockNumber);
 
 type NoBlocks = { _tag: "no-blocks" };
 
@@ -108,37 +171,38 @@ export const addMissingBlocks = (): TE.TaskEither<NoBlocks, void> =>
       Blocks.getLatestStoredBlockNumber(),
       getNewestIncludedBlockNumber(),
     ),
-    T.map(([latestStoredBlock, newestIncludedBlock]) => {
+    T.map(([latestStoredBlock, newestIncludedBlockO]) => {
       if (O.isNone(latestStoredBlock)) {
         return E.left({ _tag: "no-blocks" } as NoBlocks);
       }
 
-      return E.right([latestStoredBlock.value, newestIncludedBlock] as [
-        number,
-        O.Option<number>,
-      ]);
-    }),
-    TE.chain(
-      ([latestStoredBlock, newestIncludedBlockO]): TE.TaskEither<
-        NoBlocks,
-        void
-      > => {
-        let newestIncludedBlock: number;
-        if (O.isNone(newestIncludedBlockO)) {
+      const newestIncludedBlock = pipe(
+        newestIncludedBlockO,
+        O.getOrElse(() => {
           Log.info(
             "no newest included block for leaderboard 'all', assuming fresh start",
           );
-          newestIncludedBlock = Blocks.londonHardForkBlockNumber - 1;
-        } else {
-          newestIncludedBlock = newestIncludedBlockO.value;
-        }
+          return Blocks.londonHardForkBlockNumber - 1;
+        }),
+      );
 
-        return pipe(
-          addBlocks(newestIncludedBlock, latestStoredBlock),
-          T.map(() => E.right(undefined)),
-        );
-      },
-    ),
+      return E.right([latestStoredBlock.value, newestIncludedBlock] as [
+        number,
+        number,
+      ]);
+    }),
+    TE.chain(([latestStoredBlock, newestIncludedBlock]) => {
+      return pipe(
+        Leaderboards.getRangeBaseFees(newestIncludedBlock, latestStoredBlock),
+        T.chain((baseFeeSums) =>
+          seqTPar(
+            addContractBaseFeeSums(baseFeeSums),
+            setNewestIncludedBlockNumber(latestStoredBlock),
+          ),
+        ),
+        T.map(() => E.right(undefined)),
+      );
+    }),
   );
 
 const getTopBaseFeeContracts = (): T.Task<LeaderboardRow[]> => {

@@ -1,29 +1,32 @@
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
+import { A, O, Ord, pipe, T } from "./fp.js";
+import { fromUnixTime, isAfter, subHours } from "date-fns";
+import { seqSPar, seqTPar } from "./sequence.js";
+import { sql } from "./db.js";
+import { BlockLondon } from "./eth_node.js";
+import { performance } from "perf_hooks";
 import {
+  AddedBaseFeesLog,
   LeaderboardEntry,
   LeaderboardRow,
   LimitedTimeframe,
 } from "./leaderboards.js";
-import { A, Ord, pipe, T } from "./fp.js";
-import { fromUnixTime, isAfter, subHours } from "date-fns";
-import { seqSPar, seqTPar } from "./sequence.js";
-import { sql } from "./db.js";
-import { FeeBreakdown } from "./base_fees.js";
-import { BlockLondon } from "./eth_node.js";
-import { performance } from "perf_hooks";
 
 type ContractAddress = string;
 
 type BlockForTotal = { number: number; minedAt: Date };
 
-type SumForTotal = { contractAddress: string; baseFeeSum: number };
+type ContractBaseFeesRow = {
+  contractAddress: ContractAddress;
+  baseFees: number;
+};
 
 type BlocksPerTimeframe = Record<LimitedTimeframe, BlockForTotal[]>;
 
 type ContractSumsPerTimeframe = Record<
   LimitedTimeframe,
-  Record<ContractAddress, number>
+  Map<ContractAddress, number>
 >;
 
 const blocksPerTimeframe: BlocksPerTimeframe = {
@@ -33,10 +36,10 @@ const blocksPerTimeframe: BlocksPerTimeframe = {
   "30d": [],
 };
 const contractSumsPerTimeframe: ContractSumsPerTimeframe = {
-  "1h": {},
-  "24h": {},
-  "7d": {},
-  "30d": {},
+  "1h": new Map(),
+  "24h": new Map(),
+  "7d": new Map(),
+  "30d": new Map(),
 };
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
@@ -62,54 +65,58 @@ const getBlocksForTimeframe = (
     `;
 };
 
-const getTotalsForBlocks = (
+const getBaseFeesForRange = (
   from: number,
   upToIncluding: number,
-): T.Task<Record<ContractAddress, number>> => {
+): T.Task<ContractBaseFees> => {
   return pipe(
     () =>
-      sql<SumForTotal[]>`
-        SELECT contract_address, SUM(base_fees) AS base_fee_sum
+      sql<ContractBaseFeesRow[]>`
+        SELECT contract_address, SUM(base_fees) AS base_fees
         FROM contract_base_fees
         WHERE block_number >= ${from}
         AND block_number <= ${upToIncluding}
         GROUP BY (contract_address)
       `,
-    T.map(A.map((row) => [row.contractAddress, row.baseFeeSum])),
-    T.map(Object.fromEntries),
+    T.map(collectInMap),
   );
 };
-type BaseFeesToAdd = Record<ContractAddress, number>;
+
+type ContractBaseFees = Map<ContractAddress, number>;
+
+const collectInMap = (rows: ContractBaseFeesRow[]): ContractBaseFees =>
+  pipe(
+    rows,
+
+    A.map((row) => [row.contractAddress, row.baseFees] as [string, number]),
+    (entries) => new Map(entries),
+  );
 
 const addToRunningSums = (
   timeframe: LimitedTimeframe,
-  baseFeesToAdd: BaseFeesToAdd,
-): ContractSumsPerTimeframe => {
+  baseFeesToAdd: ContractBaseFees,
+): void => {
   const contractSums = contractSumsPerTimeframe[timeframe];
 
-  Object.entries(baseFeesToAdd).forEach(([contractAddress, baseFees]) => {
-    const currentBaseFeeSum = contractSums[contractAddress] || 0;
-    contractSums[contractAddress] = currentBaseFeeSum + baseFees;
+  baseFeesToAdd.forEach((baseFees, contractAddress) => {
+    const currentBaseFeeSum = contractSums.get(contractAddress) || 0;
+    contractSums.set(contractAddress, currentBaseFeeSum + baseFees);
   });
-
-  return contractSumsPerTimeframe;
 };
 
 const removeFromRunningSums = (
   timeframe: LimitedTimeframe,
-  baseFeesToRemove: BaseFeesToAdd,
-): ContractSumsPerTimeframe => {
+  baseFeesToRemove: ContractBaseFees,
+): void => {
   const contractSums = contractSumsPerTimeframe[timeframe];
 
   Object.entries(baseFeesToRemove).forEach(([contractAddress, baseFees]) => {
-    const currentBaseFeeSum = contractSums[contractAddress];
+    const currentBaseFeeSum = contractSums.get(contractAddress);
     if (currentBaseFeeSum === undefined) {
       throw new Error("tried to remove base fees from a non-existing sum");
     }
-    contractSums[contractAddress] = currentBaseFeeSum - baseFees;
+    contractSums.set(contractAddress, currentBaseFeeSum - baseFees);
   });
-
-  return contractSumsPerTimeframe;
 };
 
 const blockForTotalOrd: Ord<BlockForTotal> = {
@@ -123,18 +130,17 @@ const addAllBlocks = (
 ): T.Task<void> => {
   const t0 = performance.now();
   Log.debug(`loading sums for ${timeframe}`);
-  const includedBlocks = blocksPerTimeframe[timeframe];
   return pipe(
     getBlocksForTimeframe(timeframe, upToIncluding),
     T.chain((blocks) =>
       seqTPar(
         T.of(blocks),
-        getTotalsForBlocks(blocks[0].number, blocks[blocks.length - 1].number),
+        getBaseFeesForRange(blocks[0].number, blocks[blocks.length - 1].number),
       ),
     ),
     T.map(([blocks, sums]) => {
       blocksPerTimeframe[timeframe] = pipe(
-        includedBlocks,
+        blocksPerTimeframe[timeframe],
         A.concat(blocks),
         A.sort(blockForTotalOrd),
       );
@@ -160,33 +166,93 @@ export const addAllBlocksForAllTimeframes = (
     T.map(() => undefined),
   );
 
+let addedRowsLog: AddedBaseFeesLog[] = [];
+
+const rollbackToBefore = (blockNumber: number): void => {
+  const indexOfBlockToRollbackToBefore = blocksPerTimeframe["1h"].findIndex(
+    (block) => block.number === blockNumber,
+  );
+  const blocksToRollback = blocksPerTimeframe["1h"].slice(
+    indexOfBlockToRollbackToBefore,
+  );
+  if (blocksToRollback.length === 0) {
+    Log.warn("tried to rollback empty timeframe");
+  }
+
+  const baseFeesToRollback = Leaderboards.getPreviouslyAddedSums(
+    addedRowsLog,
+    blocksToRollback[0].number,
+    blocksToRollback[blocksToRollback.length - 1].number,
+  );
+
+  removeFromRunningSums("1h", baseFeesToRollback);
+  removeFromRunningSums("24h", baseFeesToRollback);
+  removeFromRunningSums("7d", baseFeesToRollback);
+  removeFromRunningSums("30d", baseFeesToRollback);
+
+  addedRowsLog = addedRowsLog.slice(0, -blocksToRollback.length);
+};
+
 const addBlockForTimeframe = (
   timeframe: LimitedTimeframe,
   block: BlockLondon,
-  feeBreakdown: FeeBreakdown,
+  baseFeesToAdd: ContractBaseFees,
 ): void => {
   const includedBlocks = blocksPerTimeframe[timeframe];
+  const shouldRollback = pipe(
+    includedBlocks,
+    A.last,
+    O.match(
+      () => {
+        Log.warn(
+          `limited timeframe ${timeframe} is empty, assuming no rollback`,
+        );
+        return false;
+      },
+      (lastStoredBlock) => block.number <= lastStoredBlock.number,
+    ),
+  );
+
+  if (shouldRollback) {
+    rollbackToBefore(block.number);
+  }
+
   includedBlocks.push({
     number: block.number,
     minedAt: fromUnixTime(block.timestamp),
   });
   includedBlocks.sort(blockForTotalOrd.compare);
-  addToRunningSums(timeframe, feeBreakdown.contract_use_fees);
+  addToRunningSums(timeframe, baseFeesToAdd);
+};
+
+const logAddedBaseFees = (
+  blockNumber: number,
+  baseFees: ContractBaseFees,
+): void => {
+  pipe(
+    addedRowsLog,
+    A.append({ blockNumber, baseFees }),
+    A.takeRight(50),
+    (rows) => {
+      addedRowsLog = rows;
+    },
+  );
 };
 
 export const addBlockForAllTimeframes = (
   block: BlockLondon,
-  feeBreakdown: FeeBreakdown,
+  baseFeesToAdd: ContractBaseFees,
 ): void => {
-  addBlockForTimeframe("1h", block, feeBreakdown);
-  addBlockForTimeframe("24h", block, feeBreakdown);
-  addBlockForTimeframe("7d", block, feeBreakdown);
-  addBlockForTimeframe("30d", block, feeBreakdown);
+  logAddedBaseFees(block.number, baseFeesToAdd);
+  addBlockForTimeframe("1h", block, baseFeesToAdd);
+  addBlockForTimeframe("24h", block, baseFeesToAdd);
+  addBlockForTimeframe("7d", block, baseFeesToAdd);
+  addBlockForTimeframe("30d", block, baseFeesToAdd);
 };
 
 export const removeExpiredBlocksFromSums = (
   timeframe: LimitedTimeframe,
-): T.Task<[BlocksPerTimeframe, ContractSumsPerTimeframe]> => {
+): T.Task<void> => {
   const includedBlocks = blocksPerTimeframe[timeframe];
   const ageLimit = subHours(
     new Date(),
@@ -197,7 +263,8 @@ export const removeExpiredBlocksFromSums = (
   );
 
   if (youngEnoughIndex === -1) {
-    return T.of([blocksPerTimeframe, contractSumsPerTimeframe]);
+    // All blocks are still valid for the given timeframe.
+    return T.of(undefined);
   }
 
   const blocksToRemove = includedBlocks.slice(0, youngEnoughIndex + 1);
@@ -210,17 +277,13 @@ export const removeExpiredBlocksFromSums = (
   );
   blocksPerTimeframe[timeframe] = includedBlocks.slice(youngEnoughIndex + 1);
   return pipe(
-    getTotalsForBlocks(
+    getBaseFeesForRange(
       blocksToRemove[0].number,
       blocksToRemove[blocksToRemove.length - 1].number,
     ),
     T.map((baseFeesToRemove) =>
       removeFromRunningSums(timeframe, baseFeesToRemove),
     ),
-    T.map((newContractSumsPerTimeframe) => [
-      blocksPerTimeframe,
-      newContractSumsPerTimeframe,
-    ]),
   );
 };
 
@@ -241,8 +304,7 @@ const getTopBaseFeeContracts = (
 ): T.Task<LeaderboardRow[]> => {
   const contractSums = contractSumsPerTimeframe[timeframe];
   const topAddresses = pipe(
-    contractSums,
-    Object.entries,
+    Array.from(contractSums.entries()),
     A.sort<[string, number]>({
       equals: ([, baseFeeA], [, baseFeeB]) => baseFeeA === baseFeeB,
       compare: ([, baseFeeA], [, baseFeeB]) => (baseFeeA < baseFeeB ? 1 : -1),
@@ -250,19 +312,22 @@ const getTopBaseFeeContracts = (
     A.takeLeft(24),
     A.map(([address]) => address),
   );
+
+  type ContractRow = { address: string; name: string; isBot: boolean };
+
   return pipe(
     () =>
-      sql<{ address: string; name: string; isBot: boolean }[]>`
-      SELECT address, name, is_bot
-      FROM contracts
-      WHERE address IN (${topAddresses})
-    `,
+      sql<ContractRow[]>`
+        SELECT address, name, is_bot
+        FROM contracts
+        WHERE address IN (${topAddresses})
+      `,
     T.map(
       A.map((row) => ({
         contractAddress: row.address,
         name: row.name,
         isBot: row.isBot,
-        baseFees: contractSums[row.address],
+        baseFees: contractSums.get(row.address)!,
       })),
     ),
   );

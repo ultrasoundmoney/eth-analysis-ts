@@ -101,10 +101,10 @@ const syncLeaderboardAll = async (latestBlockOnStart: BlockLondon) => {
         }),
       ),
     );
-    LeaderboardsAll.setSyncStatus("in-sync");
-  } else {
-    LeaderboardsAll.setSyncStatus("in-sync");
   }
+
+  LeaderboardsAll.setSyncStatus("in-sync");
+  Blocks.addLeaderboardAllQueue.start();
   Log.info("leaderboard all in-sync");
 };
 
@@ -116,6 +116,7 @@ const loadLeaderboardLimitedTimeframes = async (
     latestBlockOnStart.number,
   )();
   LeaderboardsLimitedTimeframe.setSyncStatus("in-sync");
+  Blocks.addLeaderboardLimitedTimeframeQueue.start();
   Log.info("done loading leaderboards for limited timeframes");
 };
 
@@ -126,11 +127,8 @@ const main = async () => {
     const latestBlockOnStart = await Blocks.getBlockWithRetry("latest");
 
     await seqTPar(
-      seqTSeq(
-        () => syncBlocks(latestBlockOnStart),
-        // We can only load leaderboards when blocks are in-sync. We otherwise risk loading empty leaderboards as blocks are missing from the timeframes.
-        () => loadLeaderboardLimitedTimeframes(latestBlockOnStart),
-      ),
+      () => syncBlocks(latestBlockOnStart),
+      () => loadLeaderboardLimitedTimeframes(latestBlockOnStart),
       () => syncLeaderboardAll(latestBlockOnStart),
     )();
   } catch (error) {

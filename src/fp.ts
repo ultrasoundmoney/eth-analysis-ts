@@ -1,10 +1,12 @@
 export * as A from "fp-ts/lib/Array.js";
-export * as Blocks from "./blocks.js";
+export * as B from "fp-ts/lib/boolean.js";
 export * as E from "fp-ts/lib/Either.js";
 export * as Leaderboards from "./leaderboards.js";
 export * as Log from "./log.js";
+export * as NEA from "fp-ts/lib/NonEmptyArray.js";
 export * as O from "fp-ts/lib/Option.js";
+export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as T from "fp-ts/lib/Task.js";
 export * as TE from "fp-ts/lib/TaskEither.js";
-export { flow, pipe } from "fp-ts/lib/function.js";
 export { Ord } from "fp-ts/lib/Ord.js";
+export { flow, pipe } from "fp-ts/lib/function.js";

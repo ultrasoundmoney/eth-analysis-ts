@@ -263,8 +263,12 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
 const removeBlocksQueue = new PQueue({ concurrency: 1 });
 
 // Adding blocks in parallel is problematic. Make sure to do so one by one.
-export const addLeaderboardAllQueue = new PQueue({ concurrency: 1 });
+export const addLeaderboardAllQueue = new PQueue({
+  autoStart: false,
+  concurrency: 1,
+});
 export const addLeaderboardLimitedTimeframeQueue = new PQueue({
+  autoStart: false,
   concurrency: 1,
 });
 
@@ -294,22 +298,24 @@ export const storeNewBlock = (
           () => storeBlock(block, txrs),
           () => updateBlock(block, txrs),
         ),
-        T.chain(() => {
+        T.chainIOK(() => () => {
+          const contractBaseFees = pipe(
+            BaseFees.calcBlockFeeBreakdown(block, txrs),
+            (feeBreakdown) => feeBreakdown.contract_use_fees,
+            (useFees) => Object.entries(useFees),
+            (entries) => new Map(entries),
+          );
           addLeaderboardLimitedTimeframeQueue.add(() =>
             LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
               block,
-              BaseFees.calcBlockFeeBreakdown(block, txrs),
+              contractBaseFees,
             ),
           );
-          return seqTPar(
-            () =>
-              removeBlocksQueue.add(
-                LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
-              ),
-            () =>
-              addLeaderboardAllQueue.add(
-                LeaderboardsAll.addBlock(block.number),
-              ),
+          removeBlocksQueue.add(
+            LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+          );
+          addLeaderboardAllQueue.add(
+            LeaderboardsAll.addBlock(block.number, contractBaseFees),
           );
         }),
         T.chain(() =>

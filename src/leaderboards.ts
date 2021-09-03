@@ -5,12 +5,14 @@ import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { seqSPar } from "./sequence.js";
 
-export type LeaderboardsT = {
-  leaderboard1h: LeaderboardRow[];
-  leaderboard24h: LeaderboardRow[];
-  leaderboard7d: LeaderboardRow[];
-  leaderboard30d: LeaderboardRow[];
-  leaderboardAll: LeaderboardRow[];
+export type Timeframe = LimitedTimeframe | "all";
+export type LimitedTimeframe = "1h" | "24h" | "7d" | "30d";
+
+export type LeaderboardRow = {
+  contractAddress: string;
+  name: string;
+  isBot: boolean;
+  baseFees: number;
 };
 
 // Name is undefined because we don't always know the name for a contract. Image is undefined because we don't always have an image for a contract. Address is undefined because base fees paid for ETH transfers are shared between many addresses.
@@ -30,15 +32,90 @@ export type LeaderboardEntries = {
   leaderboardAll: LeaderboardEntry[];
 };
 
-export type LeaderboardRow = {
+export type ContractBaseFees = Map<string, number>;
+export type ContractBaseFeesRow = {
   contractAddress: string;
-  name: string;
-  isBot: boolean;
   baseFees: number;
 };
 
-export type Timeframe = LimitedTimeframe | "all";
-export type LimitedTimeframe = "1h" | "24h" | "7d" | "30d";
+export const collectInMap = (rows: ContractBaseFeesRow[]): ContractBaseFees =>
+  pipe(
+    rows,
+
+    A.map((row) => [row.contractAddress, row.baseFees] as [string, number]),
+    (entries) => new Map(entries),
+  );
+
+export const getRangeBaseFees = (
+  from: number,
+  upToIncluding: number,
+): T.Task<ContractBaseFees> => {
+  return pipe(
+    () =>
+      sql<ContractBaseFeesRow[]>`
+        SELECT contract_address, SUM(base_fees) AS base_fees
+        FROM contract_base_fees
+        WHERE block_number >= ${from}
+        AND block_number <= ${upToIncluding}
+        GROUP BY (contract_address)
+      `,
+    T.map(collectInMap),
+  );
+};
+export type LeaderboardsT = {
+  leaderboard1h: LeaderboardRow[];
+  leaderboard24h: LeaderboardRow[];
+  leaderboard7d: LeaderboardRow[];
+  leaderboard30d: LeaderboardRow[];
+  leaderboardAll: LeaderboardRow[];
+};
+
+export const mergeBaseFees = (
+  baseFeeRowsList: ContractBaseFees[],
+): ContractBaseFees => {
+  return pipe(
+    baseFeeRowsList,
+    A.reduce(new Map(), (sumMap, [address, baseFees]) => {
+      const sum = sumMap.get(address) ?? 0;
+      return sumMap.set(address, sum + baseFees);
+    }),
+  );
+};
+
+export type AddedBaseFeesLog = {
+  blockNumber: number;
+  baseFees: ContractBaseFees;
+};
+
+export const getPreviouslyAddedSums = (
+  addedRowsLog: AddedBaseFeesLog[],
+  from: number,
+  upToIncluding: number,
+): ContractBaseFees => {
+  return pipe(
+    addedRowsLog,
+    A.filter(
+      (row) => row.blockNumber >= from && row.blockNumber <= upToIncluding,
+    ),
+    A.map((row) => row.baseFees),
+    mergeBaseFees,
+  );
+};
+
+export const logAddedBaseFees = (
+  addedRowsLog: AddedBaseFeesLog[],
+  blockNumber: number,
+  baseFees: ContractBaseFees,
+): void => {
+  pipe(
+    addedRowsLog,
+    A.append({ blockNumber, baseFees }),
+    A.takeRight(50),
+    (rows) => {
+      addedRowsLog = rows;
+    },
+  );
+};
 
 export const timeframeHoursMap: Record<LimitedTimeframe, number> = {
   "1h": 1,
