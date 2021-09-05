@@ -238,7 +238,7 @@ const rollbackToBeforeTimeframe = (
 
   if (indexOfBlockToRollbackToBefore === -1) {
     Log.warn(
-      "received rollback but no blocks in timeframe ${timeframe} matched, doing nothing",
+      `received rollback but no blocks in timeframe ${timeframe} matched, doing nothing`,
     );
     return;
   }
