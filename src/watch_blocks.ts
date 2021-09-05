@@ -46,9 +46,7 @@ const syncBlocks = async (latestBlockNumberOnStart: number) => {
     (wantedBlockNumber) => !knownBlocks.has(wantedBlockNumber),
   );
 
-  if (missingBlocks.length === 0) {
-    return;
-  } else {
+  if (missingBlocks.length !== 0) {
     Log.info("blocks table out-of-sync");
 
     Log.info(`adding ${missingBlocks.length} missing blocks`);
@@ -63,6 +61,8 @@ const syncBlocks = async (latestBlockNumberOnStart: number) => {
       ),
     );
   }
+
+  PerformanceMetrics.setReportPerformance(false);
 };
 
 const syncLeaderboardAll = (): T.Task<void> => {
