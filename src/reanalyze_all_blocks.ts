@@ -2,6 +2,7 @@ import * as Blocks from "./blocks.js";
 import * as DisplayProgress from "./display_progress.js";
 import * as EthNode from "./eth_node.js";
 import * as Log from "./log.js";
+import * as Transactions from "./transactions.js";
 import { sql } from "./db.js";
 import PQueue from "p-queue";
 
@@ -22,13 +23,15 @@ const reanalyzeAllBlocks = async () => {
 
   Log.debug(`${blocksToAnalyze.length} blocks to analyze`);
 
-  // We assume all blocks up to the latest block are blocks we have in the DB, or will have in the DB by the time we get around to reanalyzing the latest blocks.
-  const knownBlocks = new Set(blocksToAnalyze);
-
   await storeBlockQueuePar.addAll(
-    blocksToAnalyze.map((blockNumber) =>
-      Blocks.storeNewBlock(knownBlocks, blockNumber, false),
-    ),
+    blocksToAnalyze.map((blockNumber) => async () => {
+      const block = await Blocks.getBlockWithRetry(blockNumber);
+      const txrs = await Transactions.getTxrsWithRetry(block);
+      await Blocks.updateBlock(block, txrs)();
+      if (process.env.SHOW_PROGRESS !== undefined) {
+        DisplayProgress.onBlockAnalyzed();
+      }
+    }),
   );
 };
 
