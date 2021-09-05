@@ -4,6 +4,7 @@ export * as E from "fp-ts/lib/Either.js";
 export * as Leaderboards from "./leaderboards.js";
 export * as Log from "./log.js";
 export * as NEA from "fp-ts/lib/NonEmptyArray.js";
+export * as Num from "fp-ts/lib/number.js";
 export * as O from "fp-ts/lib/Option.js";
 export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as T from "fp-ts/lib/Task.js";

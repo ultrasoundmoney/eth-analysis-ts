@@ -1,9 +1,8 @@
 import * as Blocks from "./blocks.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
-import { A, B, E, O, T, TE } from "./fp.js";
+import { A, B, O, T } from "./fp.js";
 import {
-  AddedBaseFeesLog,
   ContractBaseFees,
   LeaderboardEntry,
   LeaderboardRow,
@@ -71,7 +70,7 @@ const addContractBaseFeeSums = (baseFeeSums: ContractBaseFees): T.Task<void> =>
     ),
   );
 
-const removeContractBaseFeeSums = (
+export const removeContractBaseFeeSums = (
   baseFeeSums: ContractBaseFees,
 ): T.Task<void> => {
   return pipe(
@@ -102,81 +101,23 @@ const removeContractBaseFeeSums = (
   );
 };
 
-let addedRowsLog: AddedBaseFeesLog[] = [];
-
 export const addBlock = (
   blockNumber: number,
   baseFeeSums: ContractBaseFees,
 ): T.Task<void> =>
   pipe(
-    getNewestIncludedBlockNumber(),
-    T.map(
-      O.getOrElseW(() => {
-        throw new Error(
-          "tried to add a block to empty leaderboard all, load all blocks first",
-        );
-      }),
+    seqTPar(
+      addContractBaseFeeSums(baseFeeSums),
+      setNewestIncludedBlockNumber(blockNumber),
     ),
-    T.chain((newestIncludedBlock) =>
-      pipe(
-        blockNumber <= newestIncludedBlock,
-        B.match(
-          // no rollback
-          () =>
-            pipe(
-              seqTPar(
-                addContractBaseFeeSums(baseFeeSums),
-                setNewestIncludedBlockNumber(blockNumber),
-              ),
-              T.map(() => undefined),
-            ),
-          // should rollback first!
-          () => {
-            Log.info(
-              `rollback - newest included: ${newestIncludedBlock}, block number: ${blockNumber}`,
-            );
-
-            const sumsToRollback = Leaderboards.getPreviouslyAddedSums(
-              addedRowsLog,
-              blockNumber,
-              newestIncludedBlock,
-            );
-            const numberOfBlocksToRollback =
-              newestIncludedBlock - blockNumber + 1;
-
-            return pipe(
-              removeContractBaseFeeSums(sumsToRollback),
-              T.chainIOK(() => () => {
-                addedRowsLog = addedRowsLog.slice(0, -numberOfBlocksToRollback);
-              }),
-              T.chain(() =>
-                seqTSeq(
-                  addContractBaseFeeSums(baseFeeSums),
-                  setNewestIncludedBlockNumber(blockNumber),
-                ),
-              ),
-              T.map(() => undefined),
-            );
-          },
-        ),
-      ),
-    ),
+    T.map(() => undefined),
   );
 
-type NoBlocks = { _tag: "no-blocks" };
-
-export const addMissingBlocks = (): TE.TaskEither<NoBlocks, void> =>
+export const addMissingBlocks = (upToIncluding: number): T.Task<void> =>
   pipe(
-    seqTPar(
-      Blocks.getLatestStoredBlockNumber(),
-      getNewestIncludedBlockNumber(),
-    ),
-    T.map(([latestStoredBlock, newestIncludedBlockO]) => {
-      if (O.isNone(latestStoredBlock)) {
-        return E.left({ _tag: "no-blocks" } as NoBlocks);
-      }
-
-      const newestIncludedBlock = pipe(
+    seqTPar(getNewestIncludedBlockNumber()),
+    T.map(([newestIncludedBlockO]) => {
+      return pipe(
         newestIncludedBlockO,
         O.getOrElse(() => {
           Log.info(
@@ -185,22 +126,16 @@ export const addMissingBlocks = (): TE.TaskEither<NoBlocks, void> =>
           return Blocks.londonHardForkBlockNumber - 1;
         }),
       );
-
-      return E.right([latestStoredBlock.value, newestIncludedBlock] as [
-        number,
-        number,
-      ]);
     }),
-    TE.chain(([latestStoredBlock, newestIncludedBlock]) => {
+    T.chain((newestIncludedBlock) => {
+      if (upToIncluding === newestIncludedBlock) {
+        // All blocks already stored. Nothing to do.
+        return T.of(undefined);
+      }
+
       return pipe(
-        Leaderboards.getRangeBaseFees(newestIncludedBlock, latestStoredBlock),
-        T.chain((baseFeeSums) =>
-          seqTPar(
-            addContractBaseFeeSums(baseFeeSums),
-            setNewestIncludedBlockNumber(latestStoredBlock),
-          ),
-        ),
-        T.map(() => E.right(undefined)),
+        Leaderboards.getRangeBaseFees(newestIncludedBlock + 1, upToIncluding),
+        T.chain(addContractBaseFeeSums),
       );
     }),
   );

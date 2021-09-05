@@ -82,41 +82,6 @@ export const mergeBaseFees = (
   );
 };
 
-export type AddedBaseFeesLog = {
-  blockNumber: number;
-  baseFees: ContractBaseFees;
-};
-
-export const getPreviouslyAddedSums = (
-  addedRowsLog: AddedBaseFeesLog[],
-  from: number,
-  upToIncluding: number,
-): ContractBaseFees => {
-  return pipe(
-    addedRowsLog,
-    A.filter(
-      (row) => row.blockNumber >= from && row.blockNumber <= upToIncluding,
-    ),
-    A.map((row) => row.baseFees),
-    mergeBaseFees,
-  );
-};
-
-export const logAddedBaseFees = (
-  addedRowsLog: AddedBaseFeesLog[],
-  blockNumber: number,
-  baseFees: ContractBaseFees,
-): void => {
-  pipe(
-    addedRowsLog,
-    A.append({ blockNumber, baseFees }),
-    A.takeRight(50),
-    (rows) => {
-      addedRowsLog = rows;
-    },
-  );
-};
-
 export const timeframeHoursMap: Record<LimitedTimeframe, number> = {
   "1h": 1,
   "24h": 24,

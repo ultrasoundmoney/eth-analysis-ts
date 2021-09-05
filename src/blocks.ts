@@ -8,6 +8,7 @@ import * as DisplayProgress from "./display_progress.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import * as FeesBurned from "./fees_burned.js";
+import * as Leaderboards from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
@@ -28,14 +29,7 @@ import { seqSPar, seqTPar, seqTSeq } from "./sequence.js";
 import { sql } from "./db.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 import PQueue from "p-queue";
-
-type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
-let syncStatus: SyncStatus = "unknown";
-
-const getSyncStatus = (): SyncStatus => syncStatus;
-export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
-  syncStatus = newSyncStatus;
-};
+import { Num } from "./fp.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -88,6 +82,9 @@ export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> => () =>
     SELECT MAX(number) AS number FROM blocks
   `.then((result) => pipe(result[0]?.number, O.fromNullable));
 
+export const storeBlockQueuePar = new PQueue({ concurrency: 8 });
+export const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
+
 type BlockRow = {
   hash: string;
   number: number;
@@ -138,7 +135,7 @@ const getContractRows = (
     })),
   );
 
-const updateBlock = (
+export const updateBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
 ): T.Task<void> => {
@@ -223,13 +220,13 @@ export type NewBlockPayload = {
   number: number;
 };
 
-const notifyNewBlock = (block: BlockLondon): T.Task<void> => {
+const notifyNewDerivedStats = (block: BlockLondon): T.Task<void> => {
   const payload: NewBlockPayload = {
     number: block.number,
   };
 
   return pipe(
-    () => sql.notify("new-block", JSON.stringify(payload)),
+    () => sql.notify("new-derived-stats", JSON.stringify(payload)),
     T.map(() => undefined),
   );
 };
@@ -275,13 +272,37 @@ export const addLeaderboardLimitedTimeframeQueue = new PQueue({
 export const storeNewBlock = (
   knownBlocks: Set<number>,
   blockNumber: number,
-  notify: boolean,
 ): T.Task<void> =>
   pipe(
     () => getBlockWithRetry(blockNumber),
-    T.apFirst(() => {
+    T.chainFirstIOK(() => () => {
       Log.debug(`analyzing block ${blockNumber}`);
-      return Promise.resolve();
+    }),
+    // Rollback leadersboards if needed.
+    T.chainFirst((block) => {
+      if (!knownBlocks.has(block.number)) {
+        return T.of(undefined);
+      }
+      const blocksToRollback = pipe(
+        knownBlocks.values(),
+        (blocksIter) => Array.from(blocksIter),
+        A.filter((knownBlockNumber) => knownBlockNumber >= block.number),
+        A.sort(Num.Ord),
+      );
+
+      return pipe(
+        Leaderboards.getRangeBaseFees(
+          blocksToRollback[0],
+          blocksToRollback[blocksToRollback.length - 1],
+        ),
+        T.chain((sumsToRollback) => {
+          LeaderboardsLimitedTimeframe.rollbackToBefore(
+            block.number,
+            sumsToRollback,
+          );
+          return LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback);
+        }),
+      );
     }),
     T.chain((block) =>
       seqTPar(T.of(block), () => Transactions.getTxrsWithRetry(block)),
@@ -299,42 +320,54 @@ export const storeNewBlock = (
           () => updateBlock(block, txrs),
         ),
         T.chainIOK(() => () => {
+          knownBlocks.add(block.number);
           const contractBaseFees = pipe(
             BaseFees.calcBlockFeeBreakdown(block, txrs),
             (feeBreakdown) => feeBreakdown.contract_use_fees,
             (useFees) => Object.entries(useFees),
             (entries) => new Map(entries),
           );
-          addLeaderboardLimitedTimeframeQueue.add(() =>
-            LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
-              block,
-              contractBaseFees,
-            ),
-          );
-          removeBlocksQueue.add(
-            LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
-          );
-          addLeaderboardAllQueue.add(
-            LeaderboardsAll.addBlock(block.number, contractBaseFees),
+
+          return seqTPar(
+            () =>
+              addLeaderboardLimitedTimeframeQueue.add(() =>
+                LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
+                  block,
+                  contractBaseFees,
+                ),
+              ),
+            () =>
+              removeBlocksQueue.add(
+                LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+              ),
+            () =>
+              addLeaderboardAllQueue.add(
+                LeaderboardsAll.addBlock(block.number, contractBaseFees),
+              ),
           );
         }),
-        T.chain(() =>
-          pipe(
-            getSyncStatus() === "in-sync" &&
-              LeaderboardsAll.getSyncStatus() === "in-sync" &&
-              LeaderboardsLimitedTimeframe.getSyncStatus() === "in-sync",
-            B.match(
-              () => T.of(undefined),
-              () =>
-                pipe(
-                  updateDerivedBlockStats(block),
-                  T.chain(() =>
-                    notify ? notifyNewBlock(block) : T.of(undefined),
-                  ),
-                ),
-            ),
-          ),
-        ),
+        T.chain(() => {
+          const allBlocksProcessed =
+            storeBlockQueuePar.size === 0 &&
+            storeBlockQueuePar.pending === 0 &&
+            storeBlockQueueSeq.size === 0 &&
+            storeBlockQueueSeq.pending === 0 &&
+            addLeaderboardAllQueue.size === 0 &&
+            addLeaderboardAllQueue.pending === 0 &&
+            addLeaderboardLimitedTimeframeQueue.size === 0 &&
+            addLeaderboardLimitedTimeframeQueue.pending === 0;
+          if (allBlocksProcessed) {
+            return pipe(
+              updateDerivedBlockStats(block),
+              T.chain(() => notifyNewDerivedStats(block)),
+            );
+          } else {
+            Log.debug(
+              "blocks left to process, skipping computation of derived stats",
+            );
+            return T.of(undefined);
+          }
+        }),
       ),
     ),
   );

@@ -1,13 +1,12 @@
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
-import { A, O, Ord, pipe, T } from "./fp.js";
+import { A, Ord, pipe, T } from "./fp.js";
 import { fromUnixTime, isAfter, subHours } from "date-fns";
 import { seqSPar, seqTPar } from "./sequence.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { performance } from "perf_hooks";
 import {
-  AddedBaseFeesLog,
   LeaderboardEntry,
   LeaderboardRow,
   LimitedTimeframe,
@@ -166,57 +165,12 @@ export const addAllBlocksForAllTimeframes = (
     T.map(() => undefined),
   );
 
-let addedRowsLog: AddedBaseFeesLog[] = [];
-
-const rollbackToBefore = (blockNumber: number): void => {
-  const indexOfBlockToRollbackToBefore = blocksPerTimeframe["1h"].findIndex(
-    (block) => block.number === blockNumber,
-  );
-  const blocksToRollback = blocksPerTimeframe["1h"].slice(
-    indexOfBlockToRollbackToBefore,
-  );
-  if (blocksToRollback.length === 0) {
-    Log.warn("tried to rollback empty timeframe");
-  }
-
-  const baseFeesToRollback = Leaderboards.getPreviouslyAddedSums(
-    addedRowsLog,
-    blocksToRollback[0].number,
-    blocksToRollback[blocksToRollback.length - 1].number,
-  );
-
-  removeFromRunningSums("1h", baseFeesToRollback);
-  removeFromRunningSums("24h", baseFeesToRollback);
-  removeFromRunningSums("7d", baseFeesToRollback);
-  removeFromRunningSums("30d", baseFeesToRollback);
-
-  addedRowsLog = addedRowsLog.slice(0, -blocksToRollback.length);
-};
-
 const addBlockForTimeframe = (
   timeframe: LimitedTimeframe,
   block: BlockLondon,
   baseFeesToAdd: ContractBaseFees,
 ): void => {
   const includedBlocks = blocksPerTimeframe[timeframe];
-  const shouldRollback = pipe(
-    includedBlocks,
-    A.last,
-    O.match(
-      () => {
-        Log.warn(
-          `limited timeframe ${timeframe} is empty, assuming no rollback`,
-        );
-        return false;
-      },
-      (lastStoredBlock) => block.number <= lastStoredBlock.number,
-    ),
-  );
-
-  if (shouldRollback) {
-    rollbackToBefore(block.number);
-  }
-
   includedBlocks.push({
     number: block.number,
     minedAt: fromUnixTime(block.timestamp),
@@ -225,25 +179,10 @@ const addBlockForTimeframe = (
   addToRunningSums(timeframe, baseFeesToAdd);
 };
 
-const logAddedBaseFees = (
-  blockNumber: number,
-  baseFees: ContractBaseFees,
-): void => {
-  pipe(
-    addedRowsLog,
-    A.append({ blockNumber, baseFees }),
-    A.takeRight(50),
-    (rows) => {
-      addedRowsLog = rows;
-    },
-  );
-};
-
 export const addBlockForAllTimeframes = (
   block: BlockLondon,
   baseFeesToAdd: ContractBaseFees,
 ): void => {
-  logAddedBaseFees(block.number, baseFeesToAdd);
   addBlockForTimeframe("1h", block, baseFeesToAdd);
   addBlockForTimeframe("24h", block, baseFeesToAdd);
   addBlockForTimeframe("7d", block, baseFeesToAdd);
@@ -285,6 +224,40 @@ export const removeExpiredBlocksFromSums = (
       removeFromRunningSums(timeframe, baseFeesToRemove),
     ),
   );
+};
+
+const rollbackToBeforeTimeframe = (
+  timeframe: LimitedTimeframe,
+  blockNumber: number,
+  baseFeesToRemove: ContractBaseFees,
+) => {
+  const includedBlocks = blocksPerTimeframe[timeframe];
+  const indexOfBlockToRollbackToBefore = includedBlocks.findIndex(
+    (block) => block.number === blockNumber,
+  );
+
+  if (indexOfBlockToRollbackToBefore === -1) {
+    Log.warn(
+      "received rollback but no blocks in timeframe ${timeframe} matched, doing nothing",
+    );
+    return;
+  }
+
+  blocksPerTimeframe[timeframe] = includedBlocks.slice(
+    0,
+    indexOfBlockToRollbackToBefore,
+  );
+  removeFromRunningSums(timeframe, baseFeesToRemove);
+};
+
+export const rollbackToBefore = (
+  blockNumber: number,
+  baseFeesToRemove: ContractBaseFees,
+) => {
+  rollbackToBeforeTimeframe("1h", blockNumber, baseFeesToRemove);
+  rollbackToBeforeTimeframe("24h", blockNumber, baseFeesToRemove);
+  rollbackToBeforeTimeframe("7d", blockNumber, baseFeesToRemove);
+  rollbackToBeforeTimeframe("30d", blockNumber, baseFeesToRemove);
 };
 
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> => {

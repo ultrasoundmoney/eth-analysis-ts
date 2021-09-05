@@ -119,6 +119,10 @@ ALTER TABLE "derived_block_stats" ADD FOREIGN KEY ("block_number") REFERENCES "b
 
 ALTER TABLE "contract_base_fee_sums" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
+ALTER TABLE "base_fee_sum_included_blocks" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
+
+ALTER TABLE "base_fee_sum_included_blocks" ADD FOREIGN KEY ("newest_included_block") REFERENCES "blocks" ("number");
+
 CREATE INDEX ON "blocks" ("number");
 
 CREATE INDEX ON "blocks" ("mined_at");

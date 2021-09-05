@@ -132,7 +132,7 @@ const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
   )();
 };
 
-sql.listen("new-block", (payload) => {
+sql.listen("new-derived-stats", (payload) => {
   Log.debug("new block stored");
   Canary.resetCanary("block");
   const latestBlock: NewBlockPayload = JSON.parse(payload!);
