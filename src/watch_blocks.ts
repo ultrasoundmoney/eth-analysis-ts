@@ -112,6 +112,7 @@ const main = async () => {
     await EthNode.connect();
     Log.debug("starting watch blocks");
     const latestBlockNumberOnStart = await EthNode.getLatestBlockNumber();
+    Log.debug(`latest block on start: ${latestBlockNumberOnStart}`);
 
     await seqTPar(
       () => syncBlocks(latestBlockNumberOnStart),

@@ -357,7 +357,7 @@ export const raiseLogLevel = async () => {
 };
 
 export const getLatestBlockNumber = async (): Promise<number> => {
-  const [id, messageP] = registerMessageListener<{ result: string }>();
+  const [id, messageP] = registerMessageListener<string>();
 
   send({
     method: "eth_blockNumber",
@@ -367,5 +367,5 @@ export const getLatestBlockNumber = async (): Promise<number> => {
 
   const rawBlockNumber = await messageP;
 
-  return hexToNumber(rawBlockNumber.result);
+  return hexToNumber(rawBlockNumber);
 };
