@@ -13,12 +13,12 @@ const addMissingBlocks = async () => {
   const knownBlocks = new Set(knownBlocksNumbers);
   Log.debug(`${knownBlocks.size} known blocks`);
 
-  const latestBlockOnStart = await Blocks.getBlockWithRetry("latest");
+  const latestBlockOnStart = await EthNode.getLatestBlockNumber();
 
   Log.debug("checking for missing blocks");
   const wantedBlockRange = Blocks.getBlockRange(
     Blocks.londonHardForkBlockNumber,
-    latestBlockOnStart.number,
+    latestBlockOnStart,
   );
 
   const missingBlocks = wantedBlockRange.filter(
@@ -38,7 +38,7 @@ const addMissingBlocks = async () => {
 
   await storeBlockQueuePar.addAll(
     missingBlocks.map((blockNumber) =>
-      Blocks.storeNewBlock(knownBlocks, blockNumber, false),
+      Blocks.storeNewBlock(knownBlocks, blockNumber),
     ),
   );
   Log.info("done adding missing blocks");

@@ -9,12 +9,12 @@ import PQueue from "p-queue";
 const storeBlockQueuePar = new PQueue({ concurrency: 8 });
 
 const reanalyzeAllBlocks = async () => {
-  const latestBlock = await Blocks.getBlockWithRetry("latest");
-  Log.debug(`latest block is ${latestBlock.number}`);
+  const latestBlockNumber = await EthNode.getLatestBlockNumber();
+  Log.debug(`latest block is ${latestBlockNumber}`);
 
   const blocksToAnalyze = Blocks.getBlockRange(
     Blocks.londonHardForkBlockNumber,
-    latestBlock.number,
+    latestBlockNumber,
   );
 
   if (process.env.SHOW_PROGRESS !== undefined) {

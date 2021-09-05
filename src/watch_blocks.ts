@@ -25,7 +25,7 @@ if (Config.env !== "dev") {
 
 PerformanceMetrics.setReportPerformance(true);
 
-const syncBlocks = async (latestBlockOnStart: BlockLondon) => {
+const syncBlocks = async (latestBlockNumberOnStart: number) => {
   const knownBlocksNumbers = await Blocks.getKnownBlocks()();
   const knownBlocks = new Set(knownBlocksNumbers);
   Log.debug(`${knownBlocks.size} known blocks`);
@@ -40,7 +40,7 @@ const syncBlocks = async (latestBlockOnStart: BlockLondon) => {
   Log.debug("checking for missing blocks");
   const wantedBlockRange = Blocks.getBlockRange(
     Blocks.londonHardForkBlockNumber,
-    latestBlockOnStart.number,
+    latestBlockNumberOnStart,
   );
 
   const missingBlocks = wantedBlockRange.filter(
@@ -89,7 +89,7 @@ const syncLeaderboardAll = async () => {
 };
 
 const loadLeaderboardLimitedTimeframes = async (
-  latestBlockOnStart: BlockLondon,
+  latestBlockNumberOnStart: number,
 ) => {
   return pipe(
     T.fromIO(() => {
@@ -97,7 +97,7 @@ const loadLeaderboardLimitedTimeframes = async (
     }),
     T.chain(() =>
       LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes(
-        latestBlockOnStart.number,
+        latestBlockNumberOnStart,
       ),
     ),
     T.chainIOK(() => () => {
@@ -111,11 +111,11 @@ const main = async () => {
   try {
     await EthNode.connect();
     Log.debug("starting watch blocks");
-    const latestBlockOnStart = await Blocks.getBlockWithRetry("latest");
+    const latestBlockNumberOnStart = await EthNode.getLatestBlockNumber();
 
     await seqTPar(
-      () => syncBlocks(latestBlockOnStart),
-      () => loadLeaderboardLimitedTimeframes(latestBlockOnStart),
+      () => syncBlocks(latestBlockNumberOnStart),
+      () => loadLeaderboardLimitedTimeframes(latestBlockNumberOnStart),
       () => syncLeaderboardAll(),
     )();
   } catch (error) {

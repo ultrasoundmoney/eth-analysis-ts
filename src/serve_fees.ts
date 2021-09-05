@@ -188,8 +188,8 @@ app.use(router.allowedMethods());
 const serveFees = async () => {
   try {
     await EthNode.connect();
-    const block = await Blocks.getBlockWithRetry("latest");
-    await updateCachesForBlockNumber(block.number);
+    const blockNumber = await EthNode.getLatestBlockNumber();
+    await updateCachesForBlockNumber(blockNumber);
 
     await new Promise((resolve) => {
       app.listen(port, () => {
