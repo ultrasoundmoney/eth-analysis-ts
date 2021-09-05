@@ -30,6 +30,7 @@ import { sql } from "./db.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 import PQueue from "p-queue";
 import { Num } from "./fp.js";
+import { performance } from "perf_hooks";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -232,6 +233,8 @@ const notifyNewDerivedStats = (block: BlockLondon): T.Task<void> => {
 };
 
 const updateDerivedBlockStats = (block: BlockLondon) => {
+  Log.debug("updating derived stats");
+  const t0 = performance.now();
   const feesBurned = FeesBurned.calcFeesBurned(block);
   const burnRates = BurnRates.calcBurnRates(block);
   const leaderboardAll = LeaderboardsAll.calcLeaderboardAll();
@@ -253,6 +256,11 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chain((derivedBlockStats) =>
       DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
     ),
+    T.chainFirstIOK(() => () => {
+      const t1 = performance.now();
+      const took = ((t1 - t0) / 1000).toFixed(2);
+      Log.debug(`calculating derived stats took ${took}s`);
+    }),
   );
 };
 
