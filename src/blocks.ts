@@ -319,7 +319,7 @@ export const storeNewBlock = (
           () => storeBlock(block, txrs),
           () => updateBlock(block, txrs),
         ),
-        T.chainIOK(() => () => {
+        T.chain(() => {
           knownBlocks.add(block.number);
           const contractBaseFees = pipe(
             BaseFees.calcBlockFeeBreakdown(block, txrs),
@@ -351,7 +351,8 @@ export const storeNewBlock = (
             storeBlockQueuePar.size === 0 &&
             storeBlockQueuePar.pending === 0 &&
             storeBlockQueueSeq.size === 0 &&
-            storeBlockQueueSeq.pending === 0 &&
+            // This function is on this queue.
+            storeBlockQueueSeq.pending <= 1 &&
             addLeaderboardAllQueue.size === 0 &&
             addLeaderboardAllQueue.pending === 0 &&
             addLeaderboardLimitedTimeframeQueue.size === 0 &&

@@ -54,7 +54,6 @@ const getBlocksForTimeframe = (
   upToIncluding: number,
 ): T.Task<BlockForTotal[]> => {
   const hours = Leaderboards.timeframeHoursMap[timeframe];
-
   return () =>
     sql<BlockForTotal[]>`
       SELECT number, mined_at FROM blocks
@@ -238,7 +237,7 @@ const rollbackToBeforeTimeframe = (
 
   if (indexOfBlockToRollbackToBefore === -1) {
     Log.warn(
-      `received rollback but no blocks in timeframe ${timeframe} matched, doing nothing`,
+      `received rollback but no blocks in timeframe ${timeframe} matched block number: ${blockNumber}, doing nothing`,
     );
     return;
   }

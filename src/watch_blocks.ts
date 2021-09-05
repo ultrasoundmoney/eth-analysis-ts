@@ -12,7 +12,6 @@ import Sentry from "@sentry/node";
 import { O } from "./fp.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
-import { BlockLondon } from "./eth_node.js";
 import { seqTPar } from "./sequence.js";
 
 if (Config.env !== "dev") {
@@ -66,7 +65,7 @@ const syncBlocks = async (latestBlockNumberOnStart: number) => {
   }
 };
 
-const syncLeaderboardAll = async () => {
+const syncLeaderboardAll = (): T.Task<void> => {
   Log.info("adding missing blocks to leaderboard all");
   return pipe(
     Blocks.getLatestStoredBlockNumber(),
@@ -88,18 +87,15 @@ const syncLeaderboardAll = async () => {
   );
 };
 
-const loadLeaderboardLimitedTimeframes = async (
+const loadLeaderboardLimitedTimeframes = (
   latestBlockNumberOnStart: number,
-) => {
+): T.Task<void> => {
   return pipe(
-    T.fromIO(() => {
-      Log.info("loading leaderboards for limited timeframes");
-    }),
-    T.chain(() =>
+    Log.info("loading leaderboards for limited timeframes"),
+    () =>
       LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes(
         latestBlockNumberOnStart,
       ),
-    ),
     T.chainIOK(() => () => {
       Blocks.addLeaderboardLimitedTimeframeQueue.start();
       Log.info("done loading leaderboards for limited timeframes");
@@ -116,8 +112,8 @@ const main = async () => {
 
     await seqTPar(
       () => syncBlocks(latestBlockNumberOnStart),
-      () => loadLeaderboardLimitedTimeframes(latestBlockNumberOnStart),
-      () => syncLeaderboardAll(),
+      loadLeaderboardLimitedTimeframes(latestBlockNumberOnStart),
+      syncLeaderboardAll(),
     )();
   } catch (error) {
     Log.error("error adding new blocks", { error });
