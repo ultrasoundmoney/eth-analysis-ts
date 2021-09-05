@@ -355,3 +355,17 @@ export const raiseLogLevel = async () => {
 
   inUseIds.delete(id);
 };
+
+export const getLatestBlockNumber = async (): Promise<number> => {
+  const [id, messageP] = registerMessageListener<{ result: string }>();
+
+  send({
+    method: "eth_blockNumber",
+    id,
+    jsonrpc: "2.0",
+  });
+
+  const rawBlockNumber = await messageP;
+
+  return hexToNumber(rawBlockNumber.result);
+};
