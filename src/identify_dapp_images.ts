@@ -73,7 +73,7 @@ const guessOriginFromName = async (name: string): Promise<string> => {
   const firstResultUrl = (await googlePage.$eval(
     // eslint-disable-next-line quotes
     "#search a",
-    (e) => (e as { href: string }).href,
+    (e) => (e as unknown as { href: string }).href,
   )) as unknown as string;
 
   const possibleOrigin = new URL(firstResultUrl).origin;
@@ -96,8 +96,10 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
     if (mManifestRes.status === 200) {
       Log.debug("/manifest.webmanifest found!");
       try {
-        const manifest = await mManifestRes.json();
-        const mIcon: { src: string } | undefined = manifest?.icons?.pop();
+        const manifest = (await mManifestRes.json()) as {
+          icons?: Array<{ src: string }>;
+        };
+        const mIcon = manifest?.icons?.pop();
         if (mIcon !== undefined) {
           return healMaybeUrl(mIcon.src);
         }
@@ -110,7 +112,9 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
     if (mManifest2Res.status === 200) {
       Log.debug("/manifest.json found");
       try {
-        const manifest2 = await mManifest2Res.json();
+        const manifest2 = (await mManifest2Res.json()) as {
+          icons?: Array<{ src: string }>;
+        };
         const mIcon = manifest2?.icons?.pop();
         if (mIcon !== undefined) {
           return healMaybeUrl(mIcon.src);
@@ -124,7 +128,9 @@ const findIconUrl = async (origin: string): Promise<string | undefined> => {
     if (mManifest3Res.status === 200) {
       Log.debug("/manifest.json found");
       try {
-        const manifest3 = await mManifest3Res.json();
+        const manifest3 = (await mManifest3Res.json()) as {
+          icons?: Array<{ src: string }>;
+        };
         const mIcon = manifest3?.icons?.pop();
         if (mIcon !== undefined) {
           return healMaybeUrl(mIcon.src);
