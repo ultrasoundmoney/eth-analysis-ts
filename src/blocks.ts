@@ -31,6 +31,7 @@ import { LeaderboardEntries } from "./leaderboards.js";
 import PQueue from "p-queue";
 import { Num } from "./fp.js";
 import { performance } from "perf_hooks";
+import { logPerfT } from "./performance.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -235,11 +236,22 @@ const notifyNewDerivedStats = (block: BlockLondon): T.Task<void> => {
 const updateDerivedBlockStats = (block: BlockLondon) => {
   Log.debug("updating derived stats");
   const t0 = performance.now();
-  const feesBurned = FeesBurned.calcFeesBurned(block);
-  const burnRates = BurnRates.calcBurnRates(block);
-  const leaderboardAll = LeaderboardsAll.calcLeaderboardAll();
-  const leaderboardLimitedTimeframes =
-    LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes();
+  const feesBurned = pipe(
+    FeesBurned.calcFeesBurned(block),
+    T.chainFirstIOK(logPerfT("calc fees burned", t0)),
+  );
+  const burnRates = pipe(
+    BurnRates.calcBurnRates(block),
+    T.chainFirstIOK(logPerfT("calc burn rates", t0)),
+  );
+  const leaderboardAll = pipe(
+    LeaderboardsAll.calcLeaderboardAll(),
+    T.chainFirstIOK(logPerfT("calc leaderboard all", t0)),
+  );
+  const leaderboardLimitedTimeframes = pipe(
+    LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
+    T.chainFirstIOK(logPerfT("calc leaderboard LT", t0)),
+  );
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
     seqTPar(leaderboardLimitedTimeframes, leaderboardAll),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
@@ -256,11 +268,6 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chain((derivedBlockStats) =>
       DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
     ),
-    T.chainFirstIOK(() => () => {
-      const t1 = performance.now();
-      const took = ((t1 - t0) / 1000).toFixed(2);
-      Log.debug(`calculating derived stats took ${took}s`);
-    }),
   );
 };
 
@@ -291,6 +298,7 @@ export const storeNewBlock = (
       if (!knownBlocks.has(block.number)) {
         return T.of(undefined);
       }
+      const t0 = performance.now();
       const blocksToRollback = pipe(
         knownBlocks.values(),
         (blocksIter) => Array.from(blocksIter),
@@ -310,6 +318,7 @@ export const storeNewBlock = (
           );
           return LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback);
         }),
+        T.chainFirstIOK(logPerfT("rollback", t0)),
       );
     }),
     T.chain((block) =>
@@ -336,22 +345,27 @@ export const storeNewBlock = (
             (entries) => new Map(entries),
           );
 
-          return seqTPar(
-            () =>
-              addLeaderboardLimitedTimeframeQueue.add(() =>
-                LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
-                  block,
-                  contractBaseFees,
+          const t0 = performance.now();
+
+          return pipe(
+            seqTPar(
+              () =>
+                addLeaderboardLimitedTimeframeQueue.add(() =>
+                  LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
+                    block,
+                    contractBaseFees,
+                  ),
                 ),
-              ),
-            () =>
-              removeBlocksQueue.add(
-                LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
-              ),
-            () =>
-              addLeaderboardAllQueue.add(
-                LeaderboardsAll.addBlock(block.number, contractBaseFees),
-              ),
+              () =>
+                removeBlocksQueue.add(
+                  LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+                ),
+              () =>
+                addLeaderboardAllQueue.add(
+                  LeaderboardsAll.addBlock(block.number, contractBaseFees),
+                ),
+            ),
+            T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
           );
         }),
         T.chain(() => {
