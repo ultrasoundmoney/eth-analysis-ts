@@ -3,7 +3,7 @@ import * as Blocks from "./blocks.js";
 import * as Canary from "./canary.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import * as EthPrice from "./eth_price.js";
+import * as Coingecko from "./coingecko.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
 import * as T from "fp-ts/lib/Task.js";
@@ -70,10 +70,17 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
 };
 
 const handleGetEthPrice: Middleware = async (ctx) => {
-  const ethPrice = await EthPrice.getEthPrice();
+  const { eth } = await Coingecko.getPrices();
   ctx.res.setHeader("Cache-Control", "max-age=60, stale-while-revalidate=600");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = ethPrice;
+  ctx.body = eth;
+};
+
+const handleGetPrices: Middleware = async (ctx) => {
+  const prices = await Coingecko.getPrices();
+  ctx.res.setHeader("Cache-Control", "max-age=60, stale-while-revalidate=600");
+  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.body = prices;
 };
 
 const handleGetBurnRate: Middleware = async (ctx) => {
@@ -133,9 +140,9 @@ const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
 };
 
 sql.listen("new-derived-stats", (payload) => {
-  Log.debug("new block stored");
   Canary.resetCanary("block");
   const latestBlock: NewBlockPayload = JSON.parse(payload!);
+  Log.debug(`derived stats available for block: ${latestBlock.number}`);
   updateCachesForBlockNumber(latestBlock.number);
 });
 
@@ -176,6 +183,7 @@ const router = new Router();
 router.get("/fees/total-burned", handleGetFeesBurned);
 router.get("/fees/burned-per-interval", handleGetFeesBurnedPerInterval);
 router.get("/fees/eth-price", handleGetEthPrice);
+router.get("/fees/prices", handleGetPrices);
 router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
