@@ -107,13 +107,13 @@ const removeFromRunningSums = (
   baseFeesToRemove: ContractBaseFees,
 ): void => {
   const contractSums = contractSumsPerTimeframe[timeframe];
-  Object.entries(baseFeesToRemove).forEach(([contractAddress, baseFees]) => {
+  for (const [contractAddress, baseFees] of baseFeesToRemove.entries()) {
     const currentBaseFeeSum = contractSums.get(contractAddress);
     if (currentBaseFeeSum === undefined) {
       throw new Error("tried to remove base fees from a non-existing sum");
     }
     contractSums.set(contractAddress, currentBaseFeeSum - baseFees);
-  });
+  }
 };
 
 const blockForTotalOrd: Ord<BlockForTotal> = {
