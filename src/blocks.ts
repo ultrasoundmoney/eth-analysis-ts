@@ -307,7 +307,17 @@ export const addMissingBlocks = async (upToIncluding: number) => {
       DisplayProgress.start(missingBlocks.length);
     }
 
-    await storeBlockQueuePar.addAll(missingBlocks.map(storeNewBlock));
+    await storeBlockQueuePar.addAll(
+      missingBlocks.map((blockNumber) =>
+        pipe(
+          () => getBlockWithRetry(blockNumber),
+          T.chain((block) =>
+            seqTPar(T.of(block), () => Transactions.getTxrsWithRetry(block)),
+          ),
+          T.chain(([block, txrs]) => storeBlock(block, txrs)),
+        ),
+      ),
+    );
     Log.info(`added ${missingBlocks.length} missing blocks`);
   }
 

@@ -27,8 +27,8 @@ const syncBlocks = async (latestBlockNumberOnStart: number) => {
     Blocks.storeBlockQueueSeq.add(Blocks.storeNewBlock(head.number)),
   );
   Log.info("listening for and adding new blocks");
-
   await Blocks.addMissingBlocks(latestBlockNumberOnStart);
+  Log.info("done adding missing blocks");
 };
 
 const syncLeaderboardAll = (latestBlockNumberOnStart: number): T.Task<void> => {
