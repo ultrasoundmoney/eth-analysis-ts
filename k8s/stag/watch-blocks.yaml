@@ -6,6 +6,8 @@ metadata:
     app: watch-blocks
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: watch-blocks
@@ -14,7 +16,6 @@ spec:
       labels:
         app: watch-blocks
     spec:
-      strategy: Recreate
       containers:
         - name: watch-blocks
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
