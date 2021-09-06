@@ -178,7 +178,7 @@ export const updateBlock = (
   );
 };
 
-const storeBlock = (
+export const storeBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
 ): T.Task<void> => {
@@ -284,10 +284,37 @@ export const addLeaderboardLimitedTimeframeQueue = new PQueue({
   concurrency: 1,
 });
 
-export const storeNewBlock = (
-  knownBlocks: Set<number>,
-  blockNumber: number,
-): T.Task<void> =>
+const knownBlocks = new Set<number>();
+
+export const addMissingBlocks = async (upToIncluding: number) => {
+  Log.debug("checking for missing blocks");
+  const wantedBlockRange = getBlockRange(
+    londonHardForkBlockNumber,
+    upToIncluding,
+  );
+
+  const storedBlocks = await getKnownBlocks()();
+  const missingBlocks = wantedBlockRange.filter(
+    (wantedBlockNumber) => !storedBlocks.has(wantedBlockNumber),
+  );
+
+  if (missingBlocks.length !== 0) {
+    Log.info("blocks table out-of-sync");
+
+    Log.info(`adding ${missingBlocks.length} missing blocks`);
+
+    if (process.env.SHOW_PROGRESS !== undefined) {
+      DisplayProgress.start(missingBlocks.length);
+    }
+
+    await storeBlockQueuePar.addAll(missingBlocks.map(storeNewBlock));
+    Log.info(`added ${missingBlocks.length} missing blocks`);
+  }
+
+  PerformanceMetrics.setReportPerformance(false);
+};
+
+export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
     () => getBlockWithRetry(blockNumber),
     T.chainFirstIOK(() => () => {

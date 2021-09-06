@@ -1,6 +1,5 @@
 import "@sentry/tracing";
 import * as Blocks from "./blocks.js";
-import * as DisplayProgress from "./display_progress.js";
 import * as EthNode from "./eth_node.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
@@ -9,7 +8,6 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
 import Config from "./config.js";
 import Sentry from "@sentry/node";
-import { O } from "./fp.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { seqTPar } from "./sequence.js";
@@ -25,62 +23,18 @@ if (Config.env !== "dev") {
 PerformanceMetrics.setReportPerformance(true);
 
 const syncBlocks = async (latestBlockNumberOnStart: number) => {
-  const knownBlocksNumbers = await Blocks.getKnownBlocks()();
-  const knownBlocks = new Set(knownBlocksNumbers);
-  Log.debug(`${knownBlocks.size} known blocks`);
-
   EthNode.subscribeNewHeads((head) =>
-    Blocks.storeBlockQueueSeq.add(
-      Blocks.storeNewBlock(knownBlocks, head.number),
-    ),
+    Blocks.storeBlockQueueSeq.add(Blocks.storeNewBlock(head.number)),
   );
   Log.info("listening for and adding new blocks");
 
-  Log.debug("checking for missing blocks");
-  const wantedBlockRange = Blocks.getBlockRange(
-    Blocks.londonHardForkBlockNumber,
-    latestBlockNumberOnStart,
-  );
-
-  const missingBlocks = wantedBlockRange.filter(
-    (wantedBlockNumber) => !knownBlocks.has(wantedBlockNumber),
-  );
-
-  if (missingBlocks.length !== 0) {
-    Log.info("blocks table out-of-sync");
-
-    Log.info(`adding ${missingBlocks.length} missing blocks`);
-
-    if (process.env.SHOW_PROGRESS !== undefined) {
-      DisplayProgress.start(missingBlocks.length);
-    }
-
-    await Blocks.storeBlockQueuePar.addAll(
-      missingBlocks.map((blockNumber) =>
-        Blocks.storeNewBlock(knownBlocks, blockNumber),
-      ),
-    );
-  }
-
-  PerformanceMetrics.setReportPerformance(false);
+  await Blocks.addMissingBlocks(latestBlockNumberOnStart);
 };
 
-const syncLeaderboardAll = (): T.Task<void> => {
+const syncLeaderboardAll = (latestBlockNumberOnStart: number): T.Task<void> => {
   Log.info("adding missing blocks to leaderboard all");
   return pipe(
-    Blocks.getLatestStoredBlockNumber(),
-    T.chain(
-      O.match(
-        () => {
-          Log.warn(
-            "no latest stored block, building leaderboard all block by block",
-          );
-          return T.of(undefined);
-        },
-        (latestStoredBlockNumber) =>
-          LeaderboardsAll.addMissingBlocks(latestStoredBlockNumber),
-      ),
-    ),
+    LeaderboardsAll.addMissingBlocks(latestBlockNumberOnStart),
     T.chainIOK(() => () => {
       Blocks.addLeaderboardAllQueue.start();
     }),
@@ -110,10 +64,10 @@ const main = async () => {
     const latestBlockNumberOnStart = await EthNode.getLatestBlockNumber();
     Log.debug(`latest block on start: ${latestBlockNumberOnStart}`);
 
+    await syncBlocks(latestBlockNumberOnStart);
     await seqTPar(
-      () => syncBlocks(latestBlockNumberOnStart),
       loadLeaderboardLimitedTimeframes(latestBlockNumberOnStart),
-      syncLeaderboardAll(),
+      syncLeaderboardAll(latestBlockNumberOnStart),
     )();
   } catch (error) {
     Log.error("error adding new blocks", { error });
