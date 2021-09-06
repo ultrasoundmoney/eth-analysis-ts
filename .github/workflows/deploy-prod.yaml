@@ -36,8 +36,8 @@ jobs:
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
           command: rollout status deployment/serve-fees
-  deploy-watch-base-fees:
-    name: Deploy watch-base-fees
+  deploy-watch-blocks:
+    name: Deploy watch-blocks
     runs-on: ubuntu-latest
     needs: wait-on-build
     steps:
@@ -49,28 +49,9 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/watch-base-fees watch-base-fees=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/watch-blocks watch-base-fees=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: rollout status deployment/watch-base-fees
-  deploy-watch-base-fee-totals:
-    name: Deploy watch-base-fee-totals
-    runs-on: ubuntu-latest
-    needs: wait-on-build
-    steps:
-      - uses: actions/checkout@master
-      - name: Make short SHA available
-        id: vars
-        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
-      - name: Deploy
-        uses: steebchen/kubectl@v2.0.0
-        with:
-          config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/watch-base-fee-totals watch-base-fee-totals=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
-      - name: Verify deployment
-        uses: steebchen/kubectl@v2.0.0
-        with:
-          config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: rollout status deployment/watch-base-fee-totals
+          command: rollout status deployment/watch-blocks
