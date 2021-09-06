@@ -48,7 +48,7 @@ const logMap: Record<Severity, (message: string) => void> = {
 export const log = (
   severity = "DEFAULT" as Severity,
   message: string,
-  meta?: Record<string, unknown>,
+  meta?: unknown,
 ) => {
   if (severityMap[severity] < severityMap[logLevel]) {
     return;
@@ -72,23 +72,23 @@ export const log = (
   // Log json to stdout during non-dev.
   console.log(
     JSON.stringify({
-      ...meta,
+      meta,
       severity,
       message,
     }),
   );
 };
 
-export const debug = (message: string, meta?: Record<string, unknown>) =>
+export const debug = (message: string, meta?: unknown) =>
   log("DEBUG", message, meta);
 
-export const info = (message: string, meta?: Record<string, unknown>) =>
+export const info = (message: string, meta?: unknown) =>
   log("INFO", message, meta);
 
-export const warn = (message: string, meta?: Record<string, unknown>) =>
+export const warn = (message: string, meta?: unknown) =>
   log("WARNING", message, meta);
 
-export const error = (message: string, meta?: Record<string, unknown>) =>
+export const error = (message: string, meta?: unknown) =>
   log("ERROR", message, meta);
 
 /**
