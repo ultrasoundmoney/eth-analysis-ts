@@ -36,6 +36,7 @@ const syncLeaderboardAll = (latestBlockNumberOnStart: number): T.Task<void> => {
   return pipe(
     LeaderboardsAll.addMissingBlocks(latestBlockNumberOnStart),
     T.chainIOK(() => () => {
+      Log.info("done adding missing blocks to leaderboard all");
       Blocks.addLeaderboardAllQueue.start();
     }),
   );
