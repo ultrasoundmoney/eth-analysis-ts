@@ -11,6 +11,7 @@ const pricesKey = "eth-price";
 type PriceBreakdown = {
   usd: number;
   usd24hChange: number;
+  usdMarketCap: number;
   btc: number;
   btc24hChange: number;
 };
@@ -23,12 +24,14 @@ type EthPriceCG = {
   ethereum: {
     usd: number;
     usd_24h_change: number;
+    usd_market_cap: number;
     btc: number;
     btc_24h_change: number;
   };
   bitcoin: {
     usd: number;
     usd_24h_change: number;
+    usd_market_cap: number;
     btc: number;
     btc_24h_change: number;
   };
@@ -42,19 +45,21 @@ export const getPrices = async (): Promise<Prices> => {
   }
 
   const prices = await fetch(
-    "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd%2Cbtc&include_24hr_change=true",
+    "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd%2Cbtc&include_24hr_change=true&include_market_cap=true",
   )
     .then((res) => res.json() as Promise<EthPriceCG>)
     .then(({ ethereum, bitcoin }) => ({
       eth: {
         usd: ethereum.usd,
         usd24hChange: ethereum.usd_24h_change,
+        usdMarketCap: ethereum.usd_market_cap,
         btc: ethereum.btc,
         btc24hChange: ethereum.btc_24h_change,
       },
       btc: {
         usd: bitcoin.usd,
         usd24hChange: bitcoin.usd_24h_change,
+        usdMarketCap: bitcoin.usd_market_cap,
         btc: bitcoin.btc,
         btc24hChange: bitcoin.btc_24h_change,
       },
