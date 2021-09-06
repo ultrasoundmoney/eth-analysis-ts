@@ -1,6 +1,6 @@
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
-import { A, Ord, pipe, T } from "./fp.js";
+import { A, O, Ord, pipe, T } from "./fp.js";
 import { fromUnixTime, isAfter, subHours } from "date-fns";
 import { seqSPar, seqTPar } from "./sequence.js";
 import { sql } from "./db.js";
@@ -107,7 +107,6 @@ const removeFromRunningSums = (
   baseFeesToRemove: ContractBaseFees,
 ): void => {
   const contractSums = contractSumsPerTimeframe[timeframe];
-
   Object.entries(baseFeesToRemove).forEach(([contractAddress, baseFees]) => {
     const currentBaseFeeSum = contractSums.get(contractAddress);
     if (currentBaseFeeSum === undefined) {
@@ -131,22 +130,33 @@ const addAllBlocks = (
   return pipe(
     getBlocksForTimeframe(timeframe, upToIncluding),
     T.chain((blocks) =>
-      seqTPar(
-        T.of(blocks),
-        getBaseFeesForRange(blocks[0].number, blocks[blocks.length - 1].number),
+      pipe(
+        O.sequenceArray([A.head(blocks), A.last(blocks)]),
+        O.match(
+          () => {
+            Log.warn(
+              `zero blocks in blocks table for interval now - ${timeframe}, skipping ${timeframe} fast leaderboard init`,
+            );
+            return T.of(undefined);
+          },
+          ([head, last]) =>
+            pipe(
+              getBaseFeesForRange(head.number, last.number),
+              T.map((sums) => {
+                blocksPerTimeframe[timeframe] = pipe(
+                  blocksPerTimeframe[timeframe],
+                  A.concat(blocks),
+                  A.sort(blockForTotalOrd),
+                );
+                addToRunningSums(timeframe, sums);
+                const t1 = performance.now();
+                const took = Number((t1 - t0) / 1000).toFixed(2);
+                Log.debug(`loading leaderboard ${timeframe} took ${took}s`);
+              }),
+            ),
+        ),
       ),
     ),
-    T.map(([blocks, sums]) => {
-      blocksPerTimeframe[timeframe] = pipe(
-        blocksPerTimeframe[timeframe],
-        A.concat(blocks),
-        A.sort(blockForTotalOrd),
-      );
-      addToRunningSums(timeframe, sums);
-      const t1 = performance.now();
-      const took = Number((t1 - t0) / 1000).toFixed(2);
-      Log.debug(`loading leaderboard ${timeframe} took ${took}s`);
-    }),
     T.map(() => undefined),
   );
 };
@@ -196,16 +206,15 @@ export const removeExpiredBlocksFromSums = (
     new Date(),
     Leaderboards.timeframeHoursMap[timeframe],
   );
-  const youngEnoughIndex = includedBlocks.findIndex((block) =>
-    isAfter(ageLimit, block.minedAt),
+  const { left: blocksToKeep, right: blocksToRemove } = pipe(
+    includedBlocks,
+    A.partition((block) => isAfter(ageLimit, block.minedAt)),
   );
 
-  if (youngEnoughIndex === -1) {
-    // All blocks are still valid for the given timeframe.
+  if (blocksToRemove.length === 0) {
+    // All blocks are young enough.
     return T.of(undefined);
   }
-
-  const blocksToRemove = includedBlocks.slice(0, youngEnoughIndex + 1);
 
   const blocksToRemoveStr = blocksToRemove
     .map((block) => block.number)
@@ -213,7 +222,7 @@ export const removeExpiredBlocksFromSums = (
   Log.debug(
     `some blocks are too old in ${timeframe} timeframe, removing ${blocksToRemoveStr}`,
   );
-  blocksPerTimeframe[timeframe] = includedBlocks.slice(youngEnoughIndex + 1);
+  blocksPerTimeframe[timeframe] = blocksToKeep;
   return pipe(
     getBaseFeesForRange(
       blocksToRemove[0].number,
