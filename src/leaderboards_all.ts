@@ -9,7 +9,7 @@ import {
 } from "./leaderboards.js";
 import { Row } from "postgres";
 import { pipe } from "fp-ts/lib/function.js";
-import { seqTPar, seqTSeq } from "./sequence.js";
+import { seqTPar } from "./sequence.js";
 import { sql } from "./db.js";
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
