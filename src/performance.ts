@@ -1,5 +1,4 @@
 import { performance } from "perf_hooks";
-import { T } from "./fp.js";
 import * as Log from "./log.js";
 
 export const logPerf = (name: string, t0: number): void => {
