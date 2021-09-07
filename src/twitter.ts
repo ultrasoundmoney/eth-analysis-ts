@@ -1,4 +1,5 @@
 import * as Log from "./log.js";
+import fetch from "node-fetch";
 import urlcat from "urlcat";
 import { E, pipe, T, TE } from "./fp.js";
 import { getTwitterToken } from "./config.js";
