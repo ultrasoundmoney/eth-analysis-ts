@@ -10,6 +10,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import { getEtherscanToken } from "./config.js";
 import { web3 } from "./eth_node.js";
+import * as PerformanceMetrics from "./performance_metrics.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -170,8 +171,9 @@ const identifyContract = async (address: string): Promise<void> => {
     return updateContractLastNameFetchToNow(address);
   }
 
-  const contract = new web3.eth.Contract(abi, address);
+  const contract = new web3!.eth.Contract(abi, address);
   const hasNameMethod = contract.methods["name"] !== undefined;
+  PerformanceMetrics.onContractIdentified();
 
   if (!hasNameMethod) {
     // No name method.
@@ -210,7 +212,12 @@ export const getAbi = async (address: string) => {
   return fetch(
     `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
   )
-    .then((res) => res.json() as Promise<{ status: "0" | "1"; result: string }>)
+    .then((res) => {
+      if (res.status !== 200) {
+        throw new Error(`get abi failed with status ${res.status}`);
+      }
+      return res.json() as Promise<{ status: "0" | "1"; result: string }>;
+    })
     .then((body) =>
       body.status === "1" ? JSON.parse(body.result) : undefined,
     );
