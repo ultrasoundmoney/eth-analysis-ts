@@ -184,6 +184,11 @@ const identifyContract = async (address: string): Promise<void> => {
   return updateContractName(address, name);
 };
 
+export const identifyContracts = (addresses: string[]): Promise<void[]> =>
+  identifyContractQueue.addAll(
+    addresses.map((address) => () => identifyContract(address)),
+  );
+
 export const storeContracts = (addresses: string[]): T.Task<void> => {
   if (addresses.length === 0) {
     return T.of(undefined);
@@ -198,12 +203,6 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
         ${sql(addresses, "address")}
         ON CONFLICT DO NOTHING
       `,
-    T.chain(() => {
-      return () =>
-        identifyContractQueue.addAll(
-          addresses.map((address) => () => identifyContract(address)),
-        );
-    }),
     T.map(() => undefined),
   );
 };

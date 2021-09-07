@@ -382,6 +382,9 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
             (entries) => new Map(entries),
           );
 
+          // Works with a queue, we don't wait.
+          Contracts.identifyContracts(Array.from(contractBaseFees.keys()));
+
           const t0 = performance.now();
 
           return pipe(
