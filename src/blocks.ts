@@ -279,7 +279,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
         (set) => Array.from(set),
       );
       // Works with a queue, we don't wait.
-      Contracts.identifyContracts(addresses);
+      Contracts.addContractsMetadata(addresses);
 
       return DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats);
     }),

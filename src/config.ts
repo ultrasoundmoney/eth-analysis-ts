@@ -55,3 +55,13 @@ export const getEtherscanToken = (): string => {
 
   return rawToken;
 };
+
+export const getTwitterToken = (): string => {
+  const rawToken = process.env.TWITTER_TOKEN;
+
+  if (typeof rawToken !== "string") {
+    throw new Error("missing TWITTER_TOKEN env var");
+  }
+
+  return rawToken;
+};

@@ -29,6 +29,8 @@ spec:
                 name: pg-password-lilly
             - secretRef:
                 name: etherscan-token-usm
+            - secretRef:
+                name: twitter-token-spidey
           env:
             - name: NAME
               valueFrom:

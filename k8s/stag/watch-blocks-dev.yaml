@@ -26,6 +26,8 @@ spec:
                 name: pg-password-anton
             - secretRef:
                 name: etherscan-token-alextes
+            - secretRef:
+                name: twitter-token-spidey
           env:
             - name: NAME
               valueFrom:

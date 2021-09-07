@@ -1,16 +1,17 @@
-import { differenceInDays, differenceInHours } from "date-fns";
-import { parseHTML } from "linkedom";
-import fetch from "node-fetch";
+import * as Log from "./log.js";
+import * as PerformanceMetrics from "./performance_metrics.js";
+import * as T from "fp-ts/lib/Task.js";
+import * as Twitter from "./twitter.js";
+import A from "fp-ts/lib/Array.js";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
-import { sql } from "./db.js";
-import * as Log from "./log.js";
-import A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
-import * as T from "fp-ts/lib/Task.js";
+import fetch from "node-fetch";
+import { differenceInDays, differenceInHours } from "date-fns";
 import { getEtherscanToken } from "./config.js";
+import { parseHTML } from "linkedom";
+import { pipe } from "fp-ts/lib/function.js";
+import { sql } from "./db.js";
 import { web3 } from "./eth_node.js";
-import * as PerformanceMetrics from "./performance_metrics.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -120,45 +121,49 @@ export const identifyContractQueue = new PQueue({
   interval: 2000,
 });
 
-const updateContractLastNameFetchToNow = (address: string): Promise<void> =>
+const updateContractLastMetadataFetchNow = (address: string): Promise<void> =>
   sql`
     UPDATE contracts
-    SET last_name_fetch_at = NOW()
+    SET last_metadata_fetch_at = NOW()
     WHERE address = ${address}
   `.then(() => undefined);
 
-const updateContractName = (address: string, name: string): Promise<void> =>
+const updateContractMetadata = (
+  address: string,
+  name: string,
+  imageUrl: string | null,
+): Promise<void> =>
   sql`
     UPDATE contracts
     SET
-      last_name_fetch_at = NOW(),
-      name = ${name}
+      last_metadata_fetch_at = NOW(),
+      name = ${name},
+      image_url = ${imageUrl}
     WHERE address = ${address}
   `.then(() => undefined);
 
-const getContractIdentificationStatus = (
+const getContractMetadata = (
   address: string,
-): Promise<{ hasName: boolean; lastNameFetchAt: Date | undefined }> =>
-  sql`
-    SELECT name, last_name_fetch_at FROM contracts
+): Promise<{
+  twitterHandle: string | undefined;
+  lastMetadataFetchAt: Date | undefined;
+}> =>
+  sql<{ twitterHandle: string; lastMetadataFetchAt: Date }[]>`
+    SELECT twitter_handle, last_metadata_fetch_at FROM contracts
     WHERE address = ${address}
   `.then((rows) => ({
-    hasName: typeof rows[0]?.name === "string",
-    lastNameFetchAt: rows[0]?.lastNameFetchAt,
+    twitterHandle: rows[0]?.twitterHandle ?? undefined,
+    lastMetadataFetchAt: rows[0]?.lastMetadataFetchAt ?? undefined,
   }));
 
-const identifyContract = async (address: string): Promise<void> => {
-  const { hasName, lastNameFetchAt } = await getContractIdentificationStatus(
+const addContractMetadata = async (address: string): Promise<void> => {
+  const { lastMetadataFetchAt, twitterHandle } = await getContractMetadata(
     address,
   );
 
-  if (hasName) {
-    return;
-  }
-
   if (
-    lastNameFetchAt !== undefined &&
-    differenceInHours(new Date(), lastNameFetchAt) > 3
+    lastMetadataFetchAt !== undefined &&
+    differenceInHours(new Date(), lastMetadataFetchAt) > 3
   ) {
     // Don't attempt to fetch contract names more than once every three hours.
     return;
@@ -168,7 +173,7 @@ const identifyContract = async (address: string): Promise<void> => {
 
   if (abi === undefined) {
     // No contract source yet.
-    return updateContractLastNameFetchToNow(address);
+    return updateContractLastMetadataFetchNow(address);
   }
 
   const contract = new web3!.eth.Contract(abi, address);
@@ -177,16 +182,21 @@ const identifyContract = async (address: string): Promise<void> => {
 
   if (!hasNameMethod) {
     // No name method.
-    return updateContractLastNameFetchToNow(address);
+    return updateContractLastMetadataFetchNow(address);
   }
 
   const name = await contract.methods.name().call();
-  return updateContractName(address, name);
+
+  let imageUrl = null;
+  if (twitterHandle !== undefined) {
+    imageUrl = (await Twitter.getImageUrl(twitterHandle)) ?? null;
+  }
+  await updateContractMetadata(address, name, imageUrl);
 };
 
-export const identifyContracts = (addresses: string[]): Promise<void[]> =>
+export const addContractsMetadata = (addresses: string[]): Promise<void[]> =>
   identifyContractQueue.addAll(
-    addresses.map((address) => () => identifyContract(address)),
+    addresses.map((address) => () => addContractMetadata(address)),
   );
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
