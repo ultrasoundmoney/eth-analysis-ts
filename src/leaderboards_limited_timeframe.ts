@@ -294,12 +294,17 @@ const getTopBaseFeeContracts = (
     A.map(([address]) => address),
   );
 
-  type ContractRow = { address: string; name: string; isBot: boolean };
+  type ContractRow = {
+    address: string;
+    name: string;
+    isBot: boolean;
+    imageUrl: string | undefined;
+  };
 
   return pipe(
     () =>
       sql<ContractRow[]>`
-        SELECT address, name, is_bot
+        SELECT address, name, is_bot, image_url
         FROM contracts
         WHERE address IN (${topAddresses})
       `,
@@ -309,6 +314,7 @@ const getTopBaseFeeContracts = (
         name: row.name,
         isBot: row.isBot,
         baseFees: contractSums.get(row.address)!,
+        imageUrl: row.imageUrl,
       })),
     ),
   );

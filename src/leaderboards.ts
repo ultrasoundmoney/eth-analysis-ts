@@ -13,6 +13,7 @@ export type LeaderboardRow = {
   name: string;
   isBot: boolean;
   baseFees: number;
+  imageUrl: string | undefined;
 };
 
 // Name is undefined because we don't always know the name for a contract. Image is undefined because we don't always have an image for a contract. Address is undefined because base fees paid for ETH transfers are shared between many addresses.
@@ -139,10 +140,10 @@ const calcRawLeaderboardForTimeframe = (
         JOIN blocks ON number = block_number
         WHERE block_number <= ${block.number}
         GROUP BY (contract_address)
-        ORDER BY (2) DESC
+        ORDER BY (base_fees) DESC
         LIMIT 24
       )
-      SELECT contract_address, base_fees, name, is_bot FROM top_contracts
+      SELECT contract_address, base_fees, name, is_bot, image_url FROM top_contracts
       JOIN contracts ON address = contract_address
     `;
   }
@@ -161,7 +162,7 @@ const calcRawLeaderboardForTimeframe = (
       ORDER BY (2) DESC
       LIMIT 24
     )
-    SELECT contract_address, base_fees, name, is_bot FROM top_contracts
+    SELECT contract_address, base_fees, name, is_bot, image_url FROM top_contracts
     JOIN contracts ON address = contract_address
   `;
 };
@@ -179,11 +180,11 @@ const calcLeaderboardForTimeframe = (
     }),
     T.map(({ contractRows, contractCreationFees, ethTransferBaseFees }) => {
       const contractEntries: LeaderboardEntry[] = contractRows.map(
-        ({ contractAddress, baseFees, name, isBot }) => ({
+        ({ contractAddress, baseFees, name, imageUrl, isBot }) => ({
           fees: Number(baseFees),
           id: contractAddress,
           name: name || contractAddress,
-          image: undefined,
+          image: imageUrl,
           type: isBot ? "bot" : "other",
         }),
       );
