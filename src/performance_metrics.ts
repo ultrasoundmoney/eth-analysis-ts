@@ -1,4 +1,5 @@
 import { differenceInSeconds } from "date-fns";
+import * as Contracts from "./contracts.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
 
@@ -29,4 +30,20 @@ export const onTxrReceived = () => {
 
 export const setReportPerformance = (newReportPerformance: boolean): void => {
   reportPerformance = newReportPerformance;
+};
+
+let contractsIdentified = 0;
+
+export const onContractIdentified = () => {
+  contractsIdentified = contractsIdentified + 1;
+  const secondsSinceStart = differenceInSeconds(new Date(), start);
+  const secondsSinceLastReport = differenceInSeconds(new Date(), lastReport);
+  if (secondsSinceLastReport >= 30) {
+    lastReport = new Date();
+    const identifyRate = (contractsIdentified / secondsSinceStart).toFixed(2);
+    Log.debug(`contract identify rate: ${identifyRate} c/s`);
+    Log.debug(
+      `contrcat identify queue size: ${Contracts.identifyContractQueue.size}`,
+    );
+  }
 };

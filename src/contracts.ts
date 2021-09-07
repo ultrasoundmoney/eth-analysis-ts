@@ -8,6 +8,8 @@ import * as Log from "./log.js";
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
+import Config from "./config.js";
+import { web3 } from "./eth_node.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -111,10 +113,67 @@ export const fetchMissingContractNames = async () => {
   clearInterval(nameFetchIntervalId);
 };
 
+export const identifyContractQueue = new PQueue({
+  concurrency: 4,
+  intervalCap: 5,
+  interval: 1000,
+});
+
+const updateContractLastNameFetchToNow = (address: string): Promise<void> =>
+  sql`
+    UPDATE contracts
+    SET last_name_fetch_at = NOW()
+    WHERE address = ${address}
+  `.then(() => undefined);
+
+const updateContractName = (address: string, name: string): Promise<void> =>
+  sql`
+    UPDATE contracts
+    SET
+      last_name_fetch_at = NOW(),
+      name = ${name}
+    WHERE address = ${address}
+  `.then(() => undefined);
+
+const getContractHasName = (address: string): Promise<boolean> =>
+  sql`
+    SELECT name FROM contracts
+    WHERE address = ${address}
+  `.then((rows) => typeof rows[0]?.name === "string");
+
+const identifyContract = async (address: string): Promise<void> => {
+  const hasName = await getContractHasName(address);
+  if (hasName) {
+    return;
+  }
+
+  const abi = await getAbi(address);
+
+  if (abi === undefined) {
+    // No contract source yet.
+    return updateContractLastNameFetchToNow(address);
+  }
+
+  const contract = new web3.eth.Contract(abi, address);
+  const hasNameMethod = contract.methods["name"] !== undefined;
+
+  if (!hasNameMethod) {
+    // No name method.
+    return updateContractLastNameFetchToNow(address);
+  }
+
+  const name = await contract.methods.name().call();
+  return updateContractName(address, name);
+};
+
 export const storeContracts = (addresses: string[]): T.Task<void> => {
   if (addresses.length === 0) {
     return T.of(undefined);
   }
+
+  identifyContractQueue.addAll(
+    addresses.map((address) => () => identifyContract(address)),
+  );
 
   return pipe(
     addresses,
@@ -127,4 +186,14 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
       `,
     T.map(() => undefined),
   );
+};
+
+export const getAbi = async (address: string) => {
+  return fetch(
+    `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${Config.ETHERSCAN_TOKEN}`,
+  )
+    .then((res) => res.json() as Promise<{ status: "0" | "1"; result: string }>)
+    .then((body) =>
+      body.status === "1" ? JSON.parse(body.result) : undefined,
+    );
 };

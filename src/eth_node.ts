@@ -6,8 +6,10 @@ import PQueue from "p-queue";
 import ProgressBar from "progress";
 import * as Blocks from "./blocks.js";
 import * as Log from "./log.js";
+import Web3 from "web3";
 
 const mainnetNode = `ws://${process.env.NODE_IP}:8546/`;
+export const web3 = new Web3(mainnetNode);
 
 let ws: WebSocket | undefined = undefined;
 

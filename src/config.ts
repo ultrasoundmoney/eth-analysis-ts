@@ -30,11 +30,22 @@ const parseShowProgress = (): boolean =>
     process.env.SHOW_PROGRESS === "false"
   );
 
+const parseEtherscanToken = () => {
+  const rawToken = process.env.ETHERSCAN_TOKEN;
+
+  if (typeof rawToken !== "string") {
+    throw new Error("missing ETHERSCAN_TOKEN env var");
+  }
+
+  return rawToken;
+};
+
 type Config = {
   env: Env;
   localNodeAvailable: boolean;
   name: string;
   showProgress: boolean;
+  ETHERSCAN_TOKEN: string;
 };
 
 const config: Config = {
@@ -42,6 +53,7 @@ const config: Config = {
   localNodeAvailable: parseLocalNodeAvailable(),
   name: process.env.NAME || "unknown",
   showProgress: parseShowProgress(),
+  ETHERSCAN_TOKEN: parseEtherscanToken(),
 };
 
 export default config;

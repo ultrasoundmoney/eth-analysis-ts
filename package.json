@@ -29,6 +29,7 @@
     "progress": "^2.0.3",
     "quick-lru": "^6.0.1",
     "utf-8-validate": "^5.0.5",
+    "web3": "^1.5.2",
     "ws": "^8.2.1"
   },
   "devDependencies": {
