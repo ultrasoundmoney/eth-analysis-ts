@@ -49,7 +49,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/watch-blocks watch-base-fees=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/watch-blocks watch-blocks=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
