@@ -116,8 +116,8 @@ export const fetchMissingContractNames = async () => {
 };
 
 export const addContractMetadataQueue = new PQueue({
-  concurrency: 4,
-  intervalCap: 5,
+  concurrency: 2,
+  intervalCap: 3,
   interval: 2000,
 });
 
