@@ -9,11 +9,12 @@ import * as Log from "./log.js";
 import Web3 from "web3";
 
 const mainnetNode = `ws://${process.env.NODE_IP}:8546/`;
-export const web3 = new Web3(mainnetNode);
+export let web3: Web3 | undefined = undefined;
 
 let ws: WebSocket | undefined = undefined;
 
 export const connect = async () => {
+  web3 = new Web3(mainnetNode);
   ws = new WebSocket(mainnetNode);
 
   ws.on("message", (event) => {
