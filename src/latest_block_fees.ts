@@ -2,7 +2,11 @@ import { sql } from "./db.js";
 import * as T from "fp-ts/lib/Task.js";
 import { BlockLondon } from "./eth_node.js";
 
-export type LatestBlock = { fees: number; number: number };
+export type LatestBlock = {
+  fees: number;
+  number: number;
+  baseFeePerGas: number;
+};
 export type LatestBlockFees = LatestBlock[];
 
 export const getLatestBlockFees = (
@@ -18,7 +22,7 @@ export const getLatestBlockFees = (
       rows.map((row) => ({
         number: row.number,
         fees: row.baseFeeSum,
-        baseFeePerGas: row.baseFeePerGas,
+        baseFeePerGas: Number(row.baseFeePerGas),
       })),
     );
 };
