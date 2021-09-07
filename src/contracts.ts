@@ -1,4 +1,4 @@
-import { differenceInDays } from "date-fns";
+import { differenceInDays, differenceInHours } from "date-fns";
 import { parseHTML } from "linkedom";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
@@ -135,15 +135,31 @@ const updateContractName = (address: string, name: string): Promise<void> =>
     WHERE address = ${address}
   `.then(() => undefined);
 
-const getContractHasName = (address: string): Promise<boolean> =>
+const getContractIdentificationStatus = (
+  address: string,
+): Promise<{ hasName: boolean; lastNameFetchAt: Date | undefined }> =>
   sql`
-    SELECT name FROM contracts
+    SELECT name, last_name_fetch_at FROM contracts
     WHERE address = ${address}
-  `.then((rows) => typeof rows[0]?.name === "string");
+  `.then((rows) => ({
+    hasName: typeof rows[0]?.name === "string",
+    lastNameFetchAt: rows[0]?.lastNameFetchAt,
+  }));
 
 const identifyContract = async (address: string): Promise<void> => {
-  const hasName = await getContractHasName(address);
+  const { hasName, lastNameFetchAt } = await getContractIdentificationStatus(
+    address,
+  );
+
   if (hasName) {
+    return;
+  }
+
+  if (
+    lastNameFetchAt !== undefined &&
+    differenceInHours(new Date(), lastNameFetchAt) > 3
+  ) {
+    // Don't attempt to fetch contract names more than once every three hours.
     return;
   }
 
@@ -171,10 +187,6 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
     return T.of(undefined);
   }
 
-  identifyContractQueue.addAll(
-    addresses.map((address) => () => identifyContract(address)),
-  );
-
   return pipe(
     addresses,
     A.map((address) => ({ address })),
@@ -184,6 +196,12 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
         ${sql(addresses, "address")}
         ON CONFLICT DO NOTHING
       `,
+    T.chain(() => {
+      return () =>
+        identifyContractQueue.addAll(
+          addresses.map((address) => () => identifyContract(address)),
+        );
+    }),
     T.map(() => undefined),
   );
 };
