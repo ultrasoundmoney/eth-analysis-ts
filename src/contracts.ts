@@ -8,7 +8,7 @@ import * as Log from "./log.js";
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
-import Config from "./config.js";
+import { getEtherscanToken } from "./config.js";
 import { web3 } from "./eth_node.js";
 
 export const fetchEtherscanName = async (
@@ -208,7 +208,7 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
 
 export const getAbi = async (address: string) => {
   return fetch(
-    `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${Config.ETHERSCAN_TOKEN}`,
+    `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
   )
     .then((res) => res.json() as Promise<{ status: "0" | "1"; result: string }>)
     .then((body) =>

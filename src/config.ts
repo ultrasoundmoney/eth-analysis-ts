@@ -30,7 +30,23 @@ const parseShowProgress = (): boolean =>
     process.env.SHOW_PROGRESS === "false"
   );
 
-const parseEtherscanToken = () => {
+type Config = {
+  env: Env;
+  localNodeAvailable: boolean;
+  name: string;
+  showProgress: boolean;
+};
+
+const config: Config = {
+  env: parseEnv(),
+  localNodeAvailable: parseLocalNodeAvailable(),
+  name: process.env.NAME || "unknown",
+  showProgress: parseShowProgress(),
+};
+
+export default config;
+
+export const getEtherscanToken = (): string => {
   const rawToken = process.env.ETHERSCAN_TOKEN;
 
   if (typeof rawToken !== "string") {
@@ -39,21 +55,3 @@ const parseEtherscanToken = () => {
 
   return rawToken;
 };
-
-type Config = {
-  env: Env;
-  localNodeAvailable: boolean;
-  name: string;
-  showProgress: boolean;
-  ETHERSCAN_TOKEN: string;
-};
-
-const config: Config = {
-  env: parseEnv(),
-  localNodeAvailable: parseLocalNodeAvailable(),
-  name: process.env.NAME || "unknown",
-  showProgress: parseShowProgress(),
-  ETHERSCAN_TOKEN: parseEtherscanToken(),
-};
-
-export default config;
