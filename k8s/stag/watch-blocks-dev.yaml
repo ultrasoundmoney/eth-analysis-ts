@@ -24,6 +24,8 @@ spec:
                 name: gas-analysis-env
             - secretRef:
                 name: pg-password-anton
+            - secretRef:
+                name: etherscan-token-alextes
           env:
             - name: NAME
               valueFrom:

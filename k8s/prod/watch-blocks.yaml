@@ -27,6 +27,8 @@ spec:
                 name: gas-analysis-env
             - secretRef:
                 name: pg-password-lilly
+            - secretRef:
+                name: etherscan-token-usm
           env:
             - name: NAME
               valueFrom:
