@@ -130,7 +130,7 @@ const updateContractLastMetadataFetchNow = (address: string): Promise<void> =>
 
 const updateContractMetadata = (
   address: string,
-  name: string,
+  name: string | null,
   imageUrl: string | null,
 ): Promise<void> =>
   sql`
@@ -145,21 +145,31 @@ const updateContractMetadata = (
 const getContractMetadata = (
   address: string,
 ): Promise<{
-  twitterHandle: string | undefined;
+  name: string | undefined;
   lastMetadataFetchAt: Date | undefined;
+  twitterHandle: string | undefined;
 }> =>
-  sql<{ twitterHandle: string; lastMetadataFetchAt: Date }[]>`
-    SELECT twitter_handle, last_metadata_fetch_at FROM contracts
+  sql<
+    {
+      name: string | null;
+      twitterHandle: string | null;
+      lastMetadataFetchAt: Date | null;
+    }[]
+  >`
+    SELECT name, twitter_handle, last_metadata_fetch_at FROM contracts
     WHERE address = ${address}
   `.then((rows) => ({
-    twitterHandle: rows[0]?.twitterHandle ?? undefined,
+    name: rows[0]?.name ?? undefined,
     lastMetadataFetchAt: rows[0]?.lastMetadataFetchAt ?? undefined,
+    twitterHandle: rows[0]?.twitterHandle ?? undefined,
   }));
 
 const addContractMetadata = async (address: string): Promise<void> => {
-  const { lastMetadataFetchAt, twitterHandle } = await getContractMetadata(
-    address,
-  );
+  const {
+    name: currentName,
+    lastMetadataFetchAt,
+    twitterHandle,
+  } = await getContractMetadata(address);
 
   if (
     lastMetadataFetchAt !== undefined &&
@@ -169,23 +179,28 @@ const addContractMetadata = async (address: string): Promise<void> => {
     return;
   }
 
-  const abi = await getAbi(address);
+  let name;
+  if (typeof currentName === "string") {
+    // Don't overwrite existing names.
+    name = currentName;
+  } else {
+    const abi = await getAbi(address);
+    if (abi === undefined) {
+      // No contract source yet.
+      return updateContractLastMetadataFetchNow(address);
+    }
 
-  if (abi === undefined) {
-    // No contract source yet.
-    return updateContractLastMetadataFetchNow(address);
+    const contract = new web3!.eth.Contract(abi, address);
+    const hasNameMethod = contract.methods["name"] !== undefined;
+
+    if (hasNameMethod) {
+      name = await contract.methods.name().call();
+    } else {
+      name = null;
+    }
   }
 
-  const contract = new web3!.eth.Contract(abi, address);
-  const hasNameMethod = contract.methods["name"] !== undefined;
   PerformanceMetrics.onContractIdentified();
-
-  if (!hasNameMethod) {
-    // No name method.
-    return updateContractLastMetadataFetchNow(address);
-  }
-
-  const name = await contract.methods.name().call();
 
   let imageUrl = null;
   if (twitterHandle !== undefined) {
