@@ -117,7 +117,7 @@ export const fetchMissingContractNames = async () => {
 export const identifyContractQueue = new PQueue({
   concurrency: 4,
   intervalCap: 5,
-  interval: 1000,
+  interval: 2000,
 });
 
 const updateContractLastNameFetchToNow = (address: string): Promise<void> =>
