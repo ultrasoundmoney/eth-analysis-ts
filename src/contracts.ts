@@ -115,7 +115,7 @@ export const fetchMissingContractNames = async () => {
   clearInterval(nameFetchIntervalId);
 };
 
-export const identifyContractQueue = new PQueue({
+export const addContractMetadataQueue = new PQueue({
   concurrency: 4,
   intervalCap: 5,
   interval: 2000,
@@ -195,7 +195,7 @@ const addContractMetadata = async (address: string): Promise<void> => {
 };
 
 export const addContractsMetadata = (addresses: string[]): Promise<void[]> =>
-  identifyContractQueue.addAll(
+  addContractMetadataQueue.addAll(
     addresses.map((address) => () => addContractMetadata(address)),
   );
 

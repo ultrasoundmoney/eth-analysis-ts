@@ -43,7 +43,7 @@ export const onContractIdentified = () => {
     const identifyRate = (contractsIdentified / secondsSinceStart).toFixed(2);
     Log.debug(`contract identify rate: ${identifyRate} c/s`);
     Log.debug(
-      `contract identify queue size: ${Contracts.identifyContractQueue.size}`,
+      `contract identify queue size: ${Contracts.addContractMetadataQueue.size}`,
     );
   }
 };
