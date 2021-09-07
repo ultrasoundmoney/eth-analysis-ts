@@ -70,17 +70,17 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
 };
 
 const handleGetEthPrice: Middleware = async (ctx) => {
-  const { eth } = await Coingecko.getPrices();
+  const { eth } = await Coingecko.getMarketData();
   ctx.res.setHeader("Cache-Control", "max-age=60, stale-while-revalidate=600");
   ctx.res.setHeader("Content-Type", "application/json");
   ctx.body = eth;
 };
 
-const handleGetPrices: Middleware = async (ctx) => {
-  const prices = await Coingecko.getPrices();
+const handleGetMarketData: Middleware = async (ctx) => {
+  const marketData = await Coingecko.getMarketData();
   ctx.res.setHeader("Cache-Control", "max-age=60, stale-while-revalidate=600");
   ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = prices;
+  ctx.body = marketData;
 };
 
 const handleGetBurnRate: Middleware = async (ctx) => {
@@ -183,7 +183,7 @@ const router = new Router();
 router.get("/fees/total-burned", handleGetFeesBurned);
 router.get("/fees/burned-per-interval", handleGetFeesBurnedPerInterval);
 router.get("/fees/eth-price", handleGetEthPrice);
-router.get("/fees/prices", handleGetPrices);
+router.get("/fees/market-data", handleGetMarketData);
 router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
