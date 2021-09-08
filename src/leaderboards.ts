@@ -142,7 +142,7 @@ const calcRawLeaderboardForTimeframe = (
         WHERE block_number <= ${block.number}
         GROUP BY (contract_address)
         ORDER BY (base_fees) DESC
-        LIMIT 24
+        LIMIT 32
       )
       SELECT contract_address, base_fees, name, is_bot, image_url FROM top_contracts
       JOIN contracts ON address = contract_address
@@ -161,7 +161,7 @@ const calcRawLeaderboardForTimeframe = (
       AND mined_at >= NOW() - interval '${sql(String(hours))} hours'
       GROUP BY (contract_address)
       ORDER BY (2) DESC
-      LIMIT 24
+      LIMIT 32
     )
     SELECT contract_address, base_fees, name, is_bot, image_url FROM top_contracts
     JOIN contracts ON address = contract_address
@@ -268,6 +268,6 @@ export const buildLeaderboard = (
         first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
       equals: (first, second) => first.fees === second.fees,
     }),
-    A.takeLeft(24),
+    A.takeLeft(32),
   );
 };

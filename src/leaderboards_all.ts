@@ -145,7 +145,7 @@ const getTopBaseFeeContracts = (): T.Task<LeaderboardRow[]> => {
     WITH top_base_fee_contracts AS (
       SELECT contract_address, base_fee_sum FROM contract_base_fee_sums
       ORDER BY (base_fee_sum) DESC
-      LIMIT 24
+      LIMIT 32
     )
     SELECT contract_address, base_fee_sum AS base_fees, name, is_bot, image_url FROM top_base_fee_contracts
     JOIN contracts ON address = contract_address

@@ -290,7 +290,7 @@ const getTopBaseFeeContracts = (
       equals: ([, baseFeeA], [, baseFeeB]) => baseFeeA === baseFeeB,
       compare: ([, baseFeeA], [, baseFeeB]) => (baseFeeA < baseFeeB ? 1 : -1),
     }),
-    A.takeLeft(24),
+    A.takeLeft(32),
     A.map(([address]) => address),
   );
 
