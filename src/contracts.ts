@@ -42,12 +42,6 @@ const contractNameFetchQueue = new PQueue({
   intervalCap: 1,
 });
 
-// type Contract = {
-//   address: string;
-//   name: string | null;
-//   lastNameFetchAt: Date | null;
-// };
-
 export const getContractNameFetchedLongAgo = ({
   lastNameFetchAt,
 }: {
