@@ -253,3 +253,34 @@ export const getAbi = async (address: string, retries = 3): Promise<string> => {
   }>);
   return body.status === "1" ? JSON.parse(body.result) : undefined;
 };
+
+export const getAbi2 = (address: string): T.Task<E.Either<string, string>> =>
+  retrying(
+    monoidRetryPolicy.concat(constantDelay(2000), limitRetries(3)),
+    (): T.Task<E.Either<string, string>> => {
+      return pipe(
+        TE.tryCatch(
+          () =>
+            fetch(
+              `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
+            ),
+          (e) => String(e),
+        ),
+        TE.chain((res): TE.TaskEither<string, string> => {
+          if (res.status === 503) {
+            return TE.left("503");
+          }
+
+          if (res.status !== 200) {
+            return TE.left("!200");
+          }
+
+          return TE.tryCatch(
+            () => res.json() as Promise<string>,
+            (e) => String(e),
+          );
+        }),
+      );
+    },
+    E.isLeft,
+  );
