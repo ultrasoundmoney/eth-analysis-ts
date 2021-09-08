@@ -12,8 +12,10 @@ import { parseHTML } from "linkedom";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { web3 } from "./eth_node.js";
-import { delay } from "./delay.js";
 import type { AbiItem } from "web3-utils";
+import { constantDelay, limitRetries, Monoid } from "retry-ts";
+import { retrying } from "retry-ts/lib/Task.js";
+import { E, TE } from "./fp.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -117,13 +119,6 @@ export const addContractMetadataQueue = new PQueue({
   interval: 2000,
 });
 
-const updateContractLastMetadataFetchNow = (address: string): Promise<void> =>
-  sql`
-    UPDATE contracts
-    SET last_metadata_fetch_at = NOW()
-    WHERE address = ${address}
-  `.then(() => undefined);
-
 const updateContractMetadata = (
   address: string,
   name: string | null,
@@ -160,6 +155,50 @@ const getContractMetadata = (
     twitterHandle: rows[0]?.twitterHandle ?? undefined,
   }));
 
+const getContractName = async (
+  address: string,
+  currentName: string | undefined,
+): Promise<string | undefined> => {
+  if (typeof currentName === "string") {
+    // Don't overwrite existing names.
+    return currentName;
+  }
+
+  const abi = await pipe(
+    getAbi(address),
+    TE.matchW(
+      (e) => {
+        if (e._tag === "api-error") {
+          // Contract is not verified. Continue.
+        } else {
+          if (e._tag === "unknown") {
+            Log.error("failed to fetch ABI", {
+              address,
+              type: e._tag,
+              error: e.error,
+            });
+          } else {
+            Log.error("failed to fetch ABI", { address, type: e._tag });
+          }
+        }
+        return undefined;
+      },
+      (abi) => abi,
+    ),
+  )();
+
+  if (abi !== undefined) {
+    const contract = new web3!.eth.Contract(abi, address);
+    const hasNameMethod = contract.methods["name"] !== undefined;
+
+    if (hasNameMethod) {
+      return contract.methods.name().call();
+    }
+  }
+
+  return undefined;
+};
+
 const addContractMetadata = async (address: string): Promise<void> => {
   const {
     name: currentName,
@@ -175,33 +214,15 @@ const addContractMetadata = async (address: string): Promise<void> => {
     return;
   }
 
-  let name;
-  if (typeof currentName === "string") {
-    // Don't overwrite existing names.
-    name = currentName;
-  } else {
-    const abi = await getAbi(address);
-    if (abi === undefined) {
-      // No contract source yet.
-      return updateContractLastMetadataFetchNow(address);
-    }
-
-    const contract = new web3!.eth.Contract(abi, address);
-    const hasNameMethod = contract.methods["name"] !== undefined;
-
-    if (hasNameMethod) {
-      name = await contract.methods.name().call();
-    } else {
-      name = null;
-    }
-  }
+  const name = (await getContractName(address, currentName)) ?? null;
 
   PerformanceMetrics.onContractIdentified();
 
-  let imageUrl = null;
-  if (twitterHandle !== undefined) {
-    imageUrl = (await Twitter.getImageUrl(twitterHandle)) ?? null;
-  }
+  const imageUrl =
+    twitterHandle === undefined
+      ? null
+      : (await Twitter.getImageUrl(twitterHandle)) ?? null;
+
   await updateContractMetadata(address, name, imageUrl);
 };
 
@@ -228,26 +249,74 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
   );
 };
 
-export const getAbi = async (
+type AbiRaw = { status: "0" | "1"; result: string; message: string };
+
+type BadGateway = { _tag: "bad-gateway" };
+type ServiceUnavailable = { _tag: "service-unavailable" };
+type UnknownError = { _tag: "unknown"; error: Error };
+type EtherscanBadResponse = { _tag: "bad-response"; statusCode: number };
+type EtherscanApiError = { _tag: "api-error"; message: string };
+type JsonDecodeError = { _tag: "json-decode" };
+type GetAbiError =
+  | BadGateway
+  | ServiceUnavailable
+  | EtherscanApiError
+  | EtherscanBadResponse
+  | JsonDecodeError
+  | UnknownError;
+
+export const getAbi = (
   address: string,
-  retries = 3,
-): Promise<AbiItem[]> => {
-  const res = await fetch(
-    `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
+): TE.TaskEither<GetAbiError, AbiItem[]> =>
+  retrying(
+    Monoid.concat(constantDelay(1000), limitRetries(3)),
+    () =>
+      pipe(
+        TE.tryCatch(
+          () =>
+            fetch(
+              `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
+            ),
+          (e) => ({ _tag: "unknown" as const, error: e as Error }),
+        ),
+        TE.chain((res): TE.TaskEither<GetAbiError, AbiItem[]> => {
+          if (res.status === 502) {
+            return TE.left({
+              _tag: "bad-gateway",
+            });
+          }
+
+          if (res.status === 503) {
+            return TE.left({
+              _tag: "service-unavailable",
+            });
+          }
+
+          if (res.status !== 200) {
+            return TE.left({
+              _tag: "bad-response",
+              statusCode: res.status,
+            });
+          }
+
+          return pipe(
+            TE.tryCatch(
+              () => res.json() as Promise<AbiRaw>,
+              () => ({ _tag: "json-decode" as const }),
+            ),
+            TE.chain(
+              (abiRaw): TE.TaskEither<GetAbiError, AbiItem[]> =>
+                abiRaw.status === "1"
+                  ? TE.right(JSON.parse(abiRaw.result))
+                  : abiRaw.status === "0"
+                  ? TE.left({
+                      _tag: "api-error" as const,
+                      message: `${abiRaw.message} - ${abiRaw.result}`,
+                    })
+                  : TE.left({ _tag: "api-error", message: abiRaw.result }),
+            ),
+          );
+        }),
+      ),
+    E.isLeft,
   );
-
-  if ((res.status === 502 || res.status === 503) && retries !== 0) {
-    await delay(500);
-    return getAbi(address, retries - 1);
-  }
-
-  if (res.status !== 200) {
-    throw new Error(`get abi failed with status ${res.status}`);
-  }
-
-  const body = await (res.json() as Promise<{
-    status: "0" | "1";
-    result: string;
-  }>);
-  return body.status === "1" ? JSON.parse(body.result) : undefined;
-};
