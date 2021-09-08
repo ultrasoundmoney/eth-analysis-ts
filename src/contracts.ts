@@ -12,6 +12,7 @@ import { parseHTML } from "linkedom";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { web3 } from "./eth_node.js";
+import { delay } from "./delay.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -190,7 +191,7 @@ const addContractMetadata = async (address: string): Promise<void> => {
       return updateContractLastMetadataFetchNow(address);
     }
 
-    const contract = new web3!.eth.Contract(abi, address);
+    const contract = new web3!.eth.Contract(abi as any, address);
     const hasNameMethod = contract.methods["name"] !== undefined;
 
     if (hasNameMethod) {
@@ -232,17 +233,23 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
   );
 };
 
-export const getAbi = async (address: string) => {
-  return fetch(
+export const getAbi = async (address: string, retries = 3): Promise<string> => {
+  const res = await fetch(
     `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
-  )
-    .then((res) => {
-      if (res.status !== 200) {
-        throw new Error(`get abi failed with status ${res.status}`);
-      }
-      return res.json() as Promise<{ status: "0" | "1"; result: string }>;
-    })
-    .then((body) =>
-      body.status === "1" ? JSON.parse(body.result) : undefined,
-    );
+  );
+
+  if ((res.status === 502 || res.status === 503) && retries !== 0) {
+    await delay(500);
+    return getAbi(address, retries - 1);
+  }
+
+  if (res.status !== 200) {
+    throw new Error(`get abi failed with status ${res.status}`);
+  }
+
+  const body = await (res.json() as Promise<{
+    status: "0" | "1";
+    result: string;
+  }>);
+  return body.status === "1" ? JSON.parse(body.result) : undefined;
 };
