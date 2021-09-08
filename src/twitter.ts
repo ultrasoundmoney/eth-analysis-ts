@@ -1,12 +1,11 @@
 import * as Log from "./log.js";
 import fetch from "node-fetch";
-import urlcatModule from "urlcat";
 import { E, pipe, T, TE } from "./fp.js";
 import { getTwitterToken } from "./config.js";
+import urlcatM from "urlcat";
 
-// get "urlcat is not a function" otherwise.
-const urlcat =
-  urlcatModule || (urlcatModule as { default: typeof urlcatModule }).default;
+// NOTE: import is broken somehow, "urlcat is not a function" without.
+const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 type UserTwitterApiRaw = {
   profile_image_url: string;
