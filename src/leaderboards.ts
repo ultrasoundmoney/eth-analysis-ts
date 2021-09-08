@@ -1,9 +1,10 @@
 import * as A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
+import * as Contracts from "./contracts.js";
 import * as T from "fp-ts/lib/Task.js";
-import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
+import { pipe } from "fp-ts/lib/function.js";
 import { seqSPar } from "./sequence.js";
+import { sql } from "./db.js";
 
 export type Timeframe = LimitedTimeframe | "all";
 export type LimitedTimeframe = "1h" | "24h" | "7d" | "30d";
@@ -256,6 +257,9 @@ export const buildLeaderboard = (
     name: "ETH transfers",
     type: "eth-transfers",
   };
+
+  // Works with a queue, we don't wait.
+  Contracts.addContractsMetadata(contractEntries.map((entry) => entry.id));
 
   return pipe(
     [...contractEntries, ethTransfersEntry, contractCreationEntry],

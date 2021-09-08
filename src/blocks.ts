@@ -265,24 +265,9 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
 
   return pipe(
     seqSPar({ burnRates, feesBurned, leaderboards }),
-    T.chain((derivedBlockStats) => {
-      const leaderboards = derivedBlockStats.leaderboards;
-      const addresses = pipe(
-        [
-          ...leaderboards.leaderboardAll.map((entry) => entry.id),
-          ...leaderboards.leaderboard30d.map((entry) => entry.id),
-          ...leaderboards.leaderboard7d.map((entry) => entry.id),
-          ...leaderboards.leaderboard24h.map((entry) => entry.id),
-          ...leaderboards.leaderboard1h.map((entry) => entry.id),
-        ],
-        (allLeaderboardAddresses) => new Set(allLeaderboardAddresses),
-        (set) => Array.from(set),
-      );
-      // Works with a queue, we don't wait.
-      Contracts.addContractsMetadata(addresses);
-
-      return DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats);
-    }),
+    T.chain((derivedBlockStats) =>
+      DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
+    ),
   );
 };
 
