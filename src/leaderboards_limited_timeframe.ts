@@ -29,12 +29,14 @@ type ContractSumsPerTimeframe = Record<
 >;
 
 const blocksPerTimeframe: BlocksPerTimeframe = {
+  "5m": [],
   "1h": [],
   "24h": [],
   "7d": [],
   "30d": [],
 };
 const contractSumsPerTimeframe: ContractSumsPerTimeframe = {
+  "5m": new Map(),
   "1h": new Map(),
   "24h": new Map(),
   "7d": new Map(),
@@ -53,11 +55,11 @@ const getBlocksForTimeframe = (
   timeframe: LimitedTimeframe,
   upToIncluding: number,
 ): T.Task<BlockForTotal[]> => {
-  const hours = Leaderboards.timeframeHoursMap[timeframe];
+  const minutes = Leaderboards.timeframeMinutesMap[timeframe];
   return () =>
     sql<BlockForTotal[]>`
       SELECT number, mined_at FROM blocks
-      WHERE mined_at >= NOW() - interval '${sql(String(hours))} hours'
+      WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
       AND number <= ${upToIncluding}
       ORDER BY (number) ASC
     `;
@@ -166,6 +168,7 @@ export const addAllBlocksForAllTimeframes = (
 ): T.Task<void> =>
   pipe(
     seqTPar(
+      addAllBlocks("5m", upToIncluding),
       addAllBlocks("1h", upToIncluding),
       addAllBlocks("24h", upToIncluding),
       addAllBlocks("7d", upToIncluding),
@@ -192,6 +195,7 @@ export const addBlockForAllTimeframes = (
   block: BlockLondon,
   baseFeesToAdd: ContractBaseFees,
 ): void => {
+  addBlockForTimeframe("5m", block, baseFeesToAdd);
   addBlockForTimeframe("1h", block, baseFeesToAdd);
   addBlockForTimeframe("24h", block, baseFeesToAdd);
   addBlockForTimeframe("7d", block, baseFeesToAdd);
@@ -204,7 +208,7 @@ export const removeExpiredBlocksFromSums = (
   const includedBlocks = blocksPerTimeframe[timeframe];
   const ageLimit = subHours(
     new Date(),
-    Leaderboards.timeframeHoursMap[timeframe],
+    Leaderboards.timeframeMinutesMap[timeframe],
   );
   const { left: blocksToKeep, right: blocksToRemove } = pipe(
     includedBlocks,
@@ -262,6 +266,7 @@ export const rollbackToBefore = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFees,
 ) => {
+  rollbackToBeforeTimeframe("5m", blockNumber, baseFeesToRemove);
   rollbackToBeforeTimeframe("1h", blockNumber, baseFeesToRemove);
   rollbackToBeforeTimeframe("24h", blockNumber, baseFeesToRemove);
   rollbackToBeforeTimeframe("7d", blockNumber, baseFeesToRemove);
@@ -271,6 +276,7 @@ export const rollbackToBefore = (
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> => {
   return pipe(
     seqTPar(
+      removeExpiredBlocksFromSums("5m"),
       removeExpiredBlocksFromSums("1h"),
       removeExpiredBlocksFromSums("24h"),
       removeExpiredBlocksFromSums("7d"),
@@ -339,6 +345,7 @@ export const calcLeaderboardForLimitedTimeframes = (): T.Task<
   Record<LimitedTimeframe, LeaderboardEntry[]>
 > =>
   seqSPar({
+    "5m": calcLeaderboardForLimitedTimeframe("5m"),
     "1h": calcLeaderboardForLimitedTimeframe("1h"),
     "24h": calcLeaderboardForLimitedTimeframe("24h"),
     "7d": calcLeaderboardForLimitedTimeframe("7d"),

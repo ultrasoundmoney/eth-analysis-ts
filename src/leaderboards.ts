@@ -7,7 +7,7 @@ import { seqSPar } from "./sequence.js";
 import { sql } from "./db.js";
 
 export type Timeframe = LimitedTimeframe | "all";
-export type LimitedTimeframe = "1h" | "24h" | "7d" | "30d";
+export type LimitedTimeframe = "5m" | "1h" | "24h" | "7d" | "30d";
 
 export type LeaderboardRow = {
   contractAddress: string;
@@ -27,6 +27,7 @@ export type LeaderboardEntry = {
 };
 
 export type LeaderboardEntries = {
+  leaderboard5m: LeaderboardEntry[];
   leaderboard1h: LeaderboardEntry[];
   leaderboard24h: LeaderboardEntry[];
   leaderboard7d: LeaderboardEntry[];
@@ -65,6 +66,7 @@ export const getRangeBaseFees = (
   );
 };
 export type LeaderboardsT = {
+  leaderboard5m: LeaderboardRow[];
   leaderboard1h: LeaderboardRow[];
   leaderboard24h: LeaderboardRow[];
   leaderboard7d: LeaderboardRow[];
@@ -84,11 +86,12 @@ export const mergeBaseFees = (
   );
 };
 
-export const timeframeHoursMap: Record<LimitedTimeframe, number> = {
-  "1h": 1,
-  "24h": 24,
-  "7d": 24 * 7,
-  "30d": 24 * 30,
+export const timeframeMinutesMap: Record<LimitedTimeframe, number> = {
+  "5m": 5,
+  "1h": 1 * 60,
+  "24h": 24 * 60,
+  "7d": 7 * 24 * 60,
+  "30d": 30 * 24 * 60,
 };
 
 export const getEthTransferFeesForTimeframe = async (
@@ -101,10 +104,10 @@ export const getEthTransferFeesForTimeframe = async (
     return rows[0]?.sum ?? 0;
   }
 
-  const hours = timeframeHoursMap[timeframe];
+  const minutes = timeframeMinutesMap[timeframe];
   const rows_1 = await sql<{ sum: number }[]>`
       SELECT SUM(eth_transfer_sum) FROM blocks
-      WHERE mined_at >= NOW() - interval '${sql(String(hours))} hours'
+      WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
   `;
   return rows_1[0]?.sum ?? 0;
 };
@@ -119,10 +122,10 @@ export const getContractCreationBaseFeesForTimeframe = async (
     return rows[0]?.sum ?? 0;
   }
 
-  const hours = timeframeHoursMap[timeframe];
+  const minutes = timeframeMinutesMap[timeframe];
   const rows_1 = await sql<{ sum: number }[]>`
       SELECT SUM(contract_creation_sum) FROM blocks
-      WHERE mined_at >= NOW() - interval '${sql(String(hours))} hours'
+      WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
   `;
   return rows_1[0]?.sum ?? 0;
 };
@@ -149,7 +152,7 @@ const calcRawLeaderboardForTimeframe = (
     `;
   }
 
-  const hours = timeframeHoursMap[timeframe];
+  const minutes = timeframeMinutesMap[timeframe];
   return () => sql<LeaderboardRow[]>`
     WITH top_contracts AS (
       SELECT
@@ -158,7 +161,7 @@ const calcRawLeaderboardForTimeframe = (
       FROM contract_base_fees
       JOIN blocks ON number = block_number
       WHERE block_number <= ${block.number}
-      AND mined_at >= NOW() - interval '${sql(String(hours))} hours'
+      AND mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
       GROUP BY (contract_address)
       ORDER BY (2) DESC
       LIMIT 32
@@ -221,6 +224,7 @@ export const calcLeaderboards = (
   block: BlockLondon,
 ): T.Task<LeaderboardEntries> => {
   return seqSPar({
+    leaderboard5m: calcLeaderboardForTimeframe(block, "5m"),
     leaderboard1h: calcLeaderboardForTimeframe(block, "1h"),
     leaderboard24h: calcLeaderboardForTimeframe(block, "24h"),
     leaderboard7d: calcLeaderboardForTimeframe(block, "7d"),

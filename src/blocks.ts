@@ -255,6 +255,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
     seqTPar(leaderboardLimitedTimeframes, leaderboardAll),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
+      leaderboard5m: leaderboardLimitedTimeframes["5m"],
       leaderboard1h: leaderboardLimitedTimeframes["1h"],
       leaderboard24h: leaderboardLimitedTimeframes["24h"],
       leaderboard7d: leaderboardLimitedTimeframes["7d"],
