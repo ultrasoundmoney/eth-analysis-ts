@@ -13,6 +13,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { web3 } from "./eth_node.js";
 import { delay } from "./delay.js";
+import type { AbiItem } from "web3-utils";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -185,7 +186,7 @@ const addContractMetadata = async (address: string): Promise<void> => {
       return updateContractLastMetadataFetchNow(address);
     }
 
-    const contract = new web3!.eth.Contract(abi as any, address);
+    const contract = new web3!.eth.Contract(abi, address);
     const hasNameMethod = contract.methods["name"] !== undefined;
 
     if (hasNameMethod) {
@@ -227,7 +228,10 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
   );
 };
 
-export const getAbi = async (address: string, retries = 3): Promise<string> => {
+export const getAbi = async (
+  address: string,
+  retries = 3,
+): Promise<AbiItem[]> => {
   const res = await fetch(
     `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
   );

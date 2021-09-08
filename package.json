@@ -31,6 +31,7 @@
     "urlcat": "^2.0.4",
     "utf-8-validate": "^5.0.5",
     "web3": "^1.5.2",
+    "web3-utils": "^1.5.2",
     "ws": "^8.2.1"
   },
   "devDependencies": {
