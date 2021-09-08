@@ -234,11 +234,11 @@ export const buildLeaderboard = (
   contractCreationBaseFees: number,
 ): LeaderboardEntry[] => {
   const contractEntries: LeaderboardEntry[] = contractRows.map(
-    ({ contractAddress, baseFees, name, isBot }) => ({
+    ({ contractAddress, baseFees, name, isBot, imageUrl }) => ({
       fees: Number(baseFees),
       id: contractAddress,
       name: name || contractAddress,
-      image: undefined,
+      image: imageUrl,
       type: isBot ? "bot" : "other",
     }),
   );
