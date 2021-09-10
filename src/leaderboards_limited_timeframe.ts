@@ -1,7 +1,7 @@
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
 import { A, O, Ord, pipe, T } from "./fp.js";
-import { fromUnixTime, isAfter, subHours } from "date-fns";
+import { fromUnixTime, isAfter, subMinutes } from "date-fns";
 import { seqSPar, seqTPar } from "./sequence.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
@@ -206,7 +206,7 @@ export const removeExpiredBlocksFromSums = (
   timeframe: LimitedTimeframe,
 ): T.Task<void> => {
   const includedBlocks = blocksPerTimeframe[timeframe];
-  const ageLimit = subHours(
+  const ageLimit = subMinutes(
     new Date(),
     Leaderboards.timeframeMinutesMap[timeframe],
   );
