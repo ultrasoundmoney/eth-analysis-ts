@@ -60,25 +60,6 @@ export const sumFeeMaps = (
     return sumMap;
   }, {} as Record<string, number>);
 
-let contractNameMap: Partial<Record<string, string>> | undefined = undefined;
-export const getContractNameMap = async () => {
-  if (contractNameMap !== undefined) {
-    return contractNameMap;
-  }
-
-  const knownContracts = await neatCsv<{ dapp: string; address: string }>(
-    await fs.readFile("./master_list.csv"),
-  );
-
-  contractNameMap = pipe(
-    knownContracts,
-    NEA.groupBy((knownContract) => knownContract.address),
-    R.map((knownContractsForAddress) => knownContractsForAddress[0].dapp),
-  );
-
-  return contractNameMap;
-};
-
 export const calcBlockBaseFeeSum = (block: BlockLondon): number =>
   block.gasUsed * hexToNumber(block.baseFeePerGas);
 
