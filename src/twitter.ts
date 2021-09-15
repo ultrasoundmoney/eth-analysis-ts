@@ -66,6 +66,7 @@ export const profileQueue = new PQueue({
   interval: 2000,
 });
 
+// Fetching profiles is on a 900 / 15min rate-limit, or 1/s.
 export const getProfileByHandle = (
   handle: string,
 ): TE.TaskEither<GetProfileError, UserTwitterApiRaw> =>
