@@ -3,8 +3,6 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
 import A from "fp-ts/lib/Array.js";
-import PQueue from "p-queue";
-import ProgressBar from "progress";
 import fetch from "node-fetch";
 import { differenceInDays, differenceInHours } from "date-fns";
 import { getEtherscanToken } from "./config.js";
@@ -39,12 +37,6 @@ export const fetchEtherscanName = async (
   return etherscanPublicName?.innerText;
 };
 
-const contractNameFetchQueue = new PQueue({
-  concurrency: 1,
-  interval: 1000,
-  intervalCap: 1,
-});
-
 export const getContractNameFetchedLongAgo = ({
   lastNameFetchAt,
 }: {
@@ -52,66 +44,6 @@ export const getContractNameFetchedLongAgo = ({
 }): boolean =>
   lastNameFetchAt === null ||
   differenceInDays(new Date(), lastNameFetchAt) >= 3;
-
-export const fetchMissingContractNames = async () => {
-  const namelessContracts = await sql<
-    { address: string; name: null; lastNameFetchAt: Date | null }[]
-  >`
-    SELECT address, last_name_fetch_at FROM contracts
-    WHERE contracts.name IS NULL`;
-
-  Log.info(`found ${namelessContracts.length} contracts without a name`);
-
-  const contractsToFetch = namelessContracts.filter(
-    getContractNameFetchedLongAgo,
-  );
-
-  Log.info(
-    `there are ${contractsToFetch.length} contracts we haven't recently attempted to fetch a name for`,
-  );
-
-  const storeNameFound = (address: string, name: string) => sql`
-    UPDATE contracts
-    SET name = ${name},
-        last_name_fetch_at = now()
-    WHERE address = ${address}
-  `;
-
-  const storeNoNameFound = (address: string) => sql`
-    UPDATE contracts
-    SET last_name_fetch_at = now()
-    WHERE address = ${address}
-  `;
-
-  const nameFetchIntervalId = setInterval(() => {
-    Log.debug(
-      `names left to fetch for ${contractNameFetchQueue.size} contract addresses`,
-    );
-  }, 8000);
-
-  let bar: ProgressBar | undefined = undefined;
-  if (process.env.SHOW_PROGRESS) {
-    bar = new ProgressBar("[:bar] :rate/s :percent :etas", {
-      total: contractsToFetch.length,
-    });
-  }
-
-  await contractNameFetchQueue.addAll(
-    contractsToFetch.map(
-      ({ address }) =>
-        () =>
-          fetchEtherscanName(address)
-            .then((name) =>
-              name === undefined
-                ? storeNoNameFound(address)
-                : storeNameFound(address, name),
-            )
-            .then(() => bar?.tick()),
-    ),
-  );
-
-  clearInterval(nameFetchIntervalId);
-};
 
 const updateContractMetadata = (
   address: string,

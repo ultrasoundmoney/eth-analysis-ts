@@ -29,7 +29,6 @@ CREATE TABLE "contract_base_fees" (
 CREATE TABLE "contracts" (
   "address" text PRIMARY KEY,
   "name" text,
-  "last_name_fetch_at" timestamptz,
   "last_metadata_fetch_at" timestamptz,
   "is_bot" boolean DEFAULT false,
   "dapp_id" text,
