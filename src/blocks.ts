@@ -90,7 +90,6 @@ export const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
 type BlockRow = {
   hash: string;
   number: number;
-  base_fees: unknown;
   mined_at: Date;
   tips: number;
   base_fee_sum: number;
@@ -107,7 +106,6 @@ const getBlockRow = (
 ): BlockRow => ({
   hash: block.hash,
   number: block.number,
-  base_fees: sql.json(feeBreakdown),
   mined_at: fromUnixTime(block.timestamp),
   tips: tips,
   base_fee_sum: BaseFees.calcBlockBaseFeeSum(block),
