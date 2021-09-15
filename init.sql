@@ -10,7 +10,6 @@ CREATE TYPE "timeframe" AS ENUM (
 CREATE TABLE "blocks" (
   "hash" text PRIMARY KEY,
   "number" int UNIQUE NOT NULL,
-  "base_fees" jsonb NOT NULL,
   "mined_at" timestamptz NOT NULL,
   "tips" float,
   "base_fee_sum" float,
@@ -27,36 +26,6 @@ CREATE TABLE "contract_base_fees" (
   PRIMARY KEY ("block_number", "contract_address")
 );
 
-CREATE TABLE "contract_1h_totals" (
-  "contract_address" text PRIMARY KEY,
-  "fee_total" numeric NOT NULL,
-  "oldest_included_block" int NOT NULL
-);
-
-CREATE TABLE "contract_24h_totals" (
-  "contract_address" text PRIMARY KEY,
-  "fee_total" numeric NOT NULL,
-  "oldest_included_block" int NOT NULL
-);
-
-CREATE TABLE "contract_7d_totals" (
-  "contract_address" text PRIMARY KEY,
-  "fee_total" numeric NOT NULL,
-  "oldest_included_block" int NOT NULL
-);
-
-CREATE TABLE "contract_30d_totals" (
-  "contract_address" text PRIMARY KEY,
-  "fee_total" numeric NOT NULL,
-  "oldest_included_block" int NOT NULL
-);
-
-CREATE TABLE "contract_all_totals" (
-  "contract_address" text PRIMARY KEY,
-  "fee_total" numeric NOT NULL,
-  "oldest_included_block" int NOT NULL
-);
-
 CREATE TABLE "contracts" (
   "address" text PRIMARY KEY,
   "name" text,
@@ -64,7 +33,9 @@ CREATE TABLE "contracts" (
   "last_metadata_fetch_at" timestamptz,
   "is_bot" boolean DEFAULT false,
   "dapp_id" text,
-  "category" text
+  "category" text,
+  "twitter_handle" text,
+  "image_url" text
 );
 
 CREATE TABLE "dapps" (
@@ -93,26 +64,6 @@ CREATE TABLE "base_fee_sum_included_blocks" (
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
 
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
-
-ALTER TABLE "contract_1h_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
-
-ALTER TABLE "contract_1h_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
-
-ALTER TABLE "contract_24h_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
-
-ALTER TABLE "contract_24h_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
-
-ALTER TABLE "contract_7d_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
-
-ALTER TABLE "contract_7d_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
-
-ALTER TABLE "contract_30d_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
-
-ALTER TABLE "contract_30d_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
-
-ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
-
-ALTER TABLE "contract_all_totals" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
 
 ALTER TABLE "contracts" ADD FOREIGN KEY ("dapp_id") REFERENCES "dapps" ("dapp_id");
 
