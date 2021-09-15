@@ -3,6 +3,7 @@ import fetch from "node-fetch";
 import { E, pipe, T, TE } from "./fp.js";
 import { getTwitterToken } from "./config.js";
 import urlcatM from "urlcat";
+import PQueue from "p-queue";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -59,17 +60,25 @@ export type GetProfileError =
   | UnknownApiError
   | UnknownApiResponse;
 
+export const profileQueue = new PQueue({
+  concurrency: 2,
+  intervalCap: 3,
+  interval: 2000,
+});
+
 export const getProfileByHandle = (
   handle: string,
 ): TE.TaskEither<GetProfileError, UserTwitterApiRaw> =>
   pipe(
     TE.tryCatch(
       () =>
-        fetch(makeProfileByUsernameUrl(handle), {
-          headers: {
-            Authorization: `Bearer ${getTwitterToken()}`,
-          },
-        }),
+        profileQueue.add(() =>
+          fetch(makeProfileByUsernameUrl(handle), {
+            headers: {
+              Authorization: `Bearer ${getTwitterToken()}`,
+            },
+          }),
+        ),
       (reason): HttpError => ({
         type: "HttpError",
         error: reason as Error,

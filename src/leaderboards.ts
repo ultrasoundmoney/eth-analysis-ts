@@ -262,7 +262,7 @@ export const buildLeaderboard = (
     type: "eth-transfers",
   };
 
-  // Works with a queue, we don't wait.
+  // We don't wait and expect the fn to work fast enough.
   Contracts.addContractsMetadata(contractEntries.map((entry) => entry.id));
 
   return pipe(

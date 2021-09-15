@@ -15,7 +15,7 @@ import { web3 } from "./eth_node.js";
 import type { AbiItem } from "web3-utils";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
-import { E, TE } from "./fp.js";
+import { B, E, O, TE } from "./fp.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -113,12 +113,6 @@ export const fetchMissingContractNames = async () => {
   clearInterval(nameFetchIntervalId);
 };
 
-export const addContractMetadataQueue = new PQueue({
-  concurrency: 2,
-  intervalCap: 3,
-  interval: 2000,
-});
-
 const updateContractMetadata = (
   address: string,
   name: string | null,
@@ -155,15 +149,7 @@ const getContractMetadata = (
     twitterHandle: rows[0]?.twitterHandle ?? undefined,
   }));
 
-const getContractName = async (
-  address: string,
-  currentName: string | undefined,
-): Promise<string | undefined> => {
-  if (typeof currentName === "string") {
-    // Don't overwrite existing names.
-    return currentName;
-  }
-
+const getOnChainName = async (address: string): Promise<string | undefined> => {
   const abi = await pipe(
     getAbi(address),
     TE.matchW(
@@ -199,6 +185,21 @@ const getContractName = async (
   return undefined;
 };
 
+const getContractName = async (address: string): Promise<O.Option<string>> => {
+  const abiName = await getOnChainName(address);
+  if (typeof abiName === "string") {
+    return O.some(abiName);
+  }
+
+  const etherscanTag = await fetchEtherscanName(address);
+  Log.debug(`tried to fetch etherscan tag got: ${etherscanTag}`);
+  if (typeof etherscanTag === "string") {
+    return O.some(etherscanTag);
+  }
+
+  return O.none;
+};
+
 const addContractMetadata = async (address: string): Promise<void> => {
   const {
     name: currentName,
@@ -214,7 +215,15 @@ const addContractMetadata = async (address: string): Promise<void> => {
     return;
   }
 
-  const name = (await getContractName(address, currentName)) ?? null;
+  const name: string | null = await pipe(
+    // Don't overwrite existing names.
+    typeof currentName === "string",
+    B.match(
+      () => () => getContractName(address),
+      () => T.of(O.some(currentName as string)),
+    ),
+    T.map(O.toNullable),
+  )();
 
   PerformanceMetrics.onContractIdentified();
 
@@ -227,9 +236,7 @@ const addContractMetadata = async (address: string): Promise<void> => {
 };
 
 export const addContractsMetadata = (addresses: string[]): Promise<void[]> =>
-  addContractMetadataQueue.addAll(
-    addresses.map((address) => () => addContractMetadata(address)),
-  );
+  Promise.all(addresses.map((address) => addContractMetadata(address)));
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
   if (addresses.length === 0) {

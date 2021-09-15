@@ -1,5 +1,5 @@
 import { differenceInSeconds } from "date-fns";
-import * as Contracts from "./contracts.js";
+import * as Twitter from "./twitter.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
 
@@ -42,8 +42,11 @@ export const onContractIdentified = () => {
     lastReport = new Date();
     const identifyRate = (contractsIdentified / secondsSinceStart).toFixed(2);
     Log.debug(`contract identify rate: ${identifyRate} c/s`);
-    Log.debug(
-      `contract identify queue size: ${Contracts.addContractMetadataQueue.size}`,
-    );
+    Log.debug(`twitter profile queue size: ${Twitter.profileQueue.size}`);
+    if (Twitter.profileQueue.size > 100) {
+      Log.warn(
+        `${Twitter.profileQueue.size} twitter profiles waiting to be fetched, overflowing!`,
+      );
+    }
   }
 };
