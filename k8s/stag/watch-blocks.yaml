@@ -28,7 +28,7 @@ spec:
             - secretRef:
                 name: etherscan-token-alextes
             - secretRef:
-                name: twitter-token-spidey
+                name: twitter-spidey-auth-token
           env:
             - name: NAME
               valueFrom:
