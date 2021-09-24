@@ -5,6 +5,7 @@ import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 
 export type BurnRatesT = {
+  burnRate5m: number;
   burnRate1h: number;
   burnRate24h: number;
   burnRate7d: number;
@@ -13,9 +14,16 @@ export type BurnRatesT = {
 };
 
 export const calcBurnRates = (block: BlockLondon): T.Task<BurnRatesT> => {
+  const burnRate5m = () =>
+    sql<{ burnPerMinute: number }[]>`
+      SELECT SUM(base_fee_sum) / 5 AS burn_per_minute FROM blocks
+      WHERE mined_at >= now() - interval '5 minutes'
+      AND number <= ${block.number}
+  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+
   const burnRate1h = () =>
     sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / (1 * 60) AS burn_per_minute FROM blocks
+      SELECT SUM(base_fee_sum) / 60 AS burn_per_minute FROM blocks
       WHERE mined_at >= now() - interval '1 hours'
       AND number <= ${block.number}
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
@@ -59,6 +67,7 @@ export const calcBurnRates = (block: BlockLondon): T.Task<BurnRatesT> => {
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
   return seqSPar({
+    burnRate5m,
     burnRate1h,
     burnRate24h,
     burnRate7d,

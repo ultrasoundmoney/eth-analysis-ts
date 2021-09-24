@@ -5,6 +5,7 @@ import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 
 export type FeesBurnedT = {
+  feesBurned5m: number;
   feesBurned1h: number;
   feesBurned24h: number;
   feesBurned7d: number;
@@ -13,6 +14,13 @@ export type FeesBurnedT = {
 };
 
 export const calcFeesBurned = (block: BlockLondon): T.Task<FeesBurnedT> => {
+  const feesBurned5m = () =>
+    sql<{ baseFeeSum: number }[]>`
+      SELECT SUM(base_fee_sum) AS base_fee_sum FROM blocks
+      WHERE mined_at >= now() - interval '5 minutes'
+      AND number <= ${block.number}
+  `.then((rows) => rows[0]?.baseFeeSum ?? 0);
+
   const feesBurned1h = () =>
     sql<{ baseFeeSum: number }[]>`
       SELECT SUM(base_fee_sum) AS base_fee_sum FROM blocks
@@ -48,6 +56,7 @@ export const calcFeesBurned = (block: BlockLondon): T.Task<FeesBurnedT> => {
   `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
   return seqSPar({
+    feesBurned5m,
     feesBurned1h,
     feesBurned24h,
     feesBurned7d,
