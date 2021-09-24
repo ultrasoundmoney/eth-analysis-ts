@@ -196,7 +196,7 @@ const calcLeaderboardForTimeframe = (
         fees: contractCreationFees,
         id: "contract-creations",
         image: undefined,
-        name: "Contract creations",
+        name: "contract creations",
         type: "contract-creations",
       };
       const ethTransfersEntry: LeaderboardEntry = {
