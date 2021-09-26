@@ -13,8 +13,15 @@ export const getLatestBlockFees = (
   block: BlockLondon,
 ): T.Task<LatestBlockFees> => {
   return () =>
-    sql<{ number: number; baseFeeSum: number; baseFeePerGas: number }[]>`
-    SELECT number, base_fee_sum, base_fee_per_gas FROM blocks
+    sql<
+      {
+        number: number;
+        baseFeeSum: number;
+        baseFeePerGas: number;
+        minedAt: Date;
+      }[]
+    >`
+    SELECT number, base_fee_sum, base_fee_per_gas, mined_at FROM blocks
     WHERE number <= ${block.number}
     ORDER BY (number) DESC
     LIMIT 7
@@ -23,6 +30,7 @@ export const getLatestBlockFees = (
         number: row.number,
         fees: row.baseFeeSum,
         baseFeePerGas: Number(row.baseFeePerGas),
+        minedAt: row.minedAt,
       })),
     );
 };
