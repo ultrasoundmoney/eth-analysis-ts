@@ -1,13 +1,14 @@
 import * as Sentry from "@sentry/node";
 import * as Blocks from "./blocks.js";
 import * as Canary from "./canary.js";
+import * as Contracts from "./contracts.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import * as Coingecko from "./coingecko.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
 import * as T from "fp-ts/lib/Task.js";
-import Config from "./config.js";
+import Config, { getAdminToken } from "./config.js";
 import Koa, { Middleware } from "koa";
 import Router from "@koa/router";
 import conditional from "koa-conditional-get";
@@ -113,6 +114,38 @@ const handleGetAll: Middleware = async (ctx) => {
   ctx.body = cache;
 };
 
+const handleGetAddContractTwitterHandle: Middleware = async (ctx) => {
+  const token = ctx.query.token;
+  if (typeof token !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing token param" };
+    return;
+  }
+
+  if (token !== getAdminToken()) {
+    ctx.status = 403;
+    ctx.body = { msg: "invalid token" };
+    return;
+  }
+
+  const handle = ctx.query.handle;
+  const address = ctx.query.address;
+
+  if (typeof handle !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing handle" };
+    return;
+  }
+  if (typeof address !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing address" };
+    return;
+  }
+
+  await Contracts.addTwitterHandle(address, handle)();
+  ctx.status = 200;
+};
+
 const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
   const block = await Blocks.getBlockWithRetry(newBlock);
   const derivedBlockStats = DerivedBlockStats.getDerivedBlockStats(block);
@@ -189,6 +222,7 @@ router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
 router.get("/fees/all", handleGetAll);
+router.get("/add-contract-twitter-handle", handleGetAddContractTwitterHandle);
 
 app.use(router.routes());
 app.use(router.allowedMethods());

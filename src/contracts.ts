@@ -259,3 +259,18 @@ export const getAbi = (
       ),
     E.isLeft,
   );
+
+export const addTwitterHandle = (
+  address: string,
+  handle: string,
+): T.Task<void> =>
+  pipe(
+    () => sql`
+      UPDATE contracts
+      SET
+        ${sql({ twitter_handle: handle })}
+      WHERE
+        address = ${address}
+    `,
+    T.map(() => undefined),
+  );

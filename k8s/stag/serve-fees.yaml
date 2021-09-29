@@ -36,6 +36,8 @@ spec:
                 name: gas-analysis-env
             - secretRef:
                 name: pg-password-anton
+            - secretRef:
+                name: fees-admin-token
           env:
             - name: NAME
               valueFrom:

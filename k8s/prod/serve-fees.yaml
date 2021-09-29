@@ -38,6 +38,8 @@ spec:
                 name: gas-analysis-env
             - secretRef:
                 name: pg-password-lilly
+            - secretRef:
+                name: fees-admin-token
           env:
             - name: NAME
               valueFrom:

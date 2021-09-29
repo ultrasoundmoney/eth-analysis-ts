@@ -65,3 +65,13 @@ export const getTwitterToken = (): string => {
 
   return rawToken;
 };
+
+export const getAdminToken = (): string => {
+  const rawToken = process.env.ADMIN_TOKEN;
+
+  if (typeof rawToken !== "string") {
+    throw new Error("missing ADMIN_TOKEN env var");
+  }
+
+  return rawToken;
+};
