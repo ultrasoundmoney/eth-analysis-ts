@@ -114,7 +114,7 @@ const handleGetAll: Middleware = async (ctx) => {
   ctx.body = cache;
 };
 
-const handleGetAddContractTwitterHandle: Middleware = async (ctx) => {
+const handleSetContractTwitterHandle: Middleware = async (ctx) => {
   const token = ctx.query.token;
   if (typeof token !== "string") {
     ctx.status = 400;
@@ -142,7 +142,7 @@ const handleGetAddContractTwitterHandle: Middleware = async (ctx) => {
     return;
   }
 
-  await Contracts.addTwitterHandle(address, handle)();
+  await Contracts.setTwitterHandle(address, handle)();
   ctx.status = 200;
 };
 
@@ -222,7 +222,7 @@ router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
 router.get("/fees/all", handleGetAll);
-router.get("/add-contract-twitter-handle", handleGetAddContractTwitterHandle);
+router.get("/set-contract-twitter-handle", handleSetContractTwitterHandle);
 
 app.use(router.routes());
 app.use(router.allowedMethods());

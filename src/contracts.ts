@@ -260,7 +260,7 @@ export const getAbi = (
     E.isLeft,
   );
 
-export const addTwitterHandle = (
+export const setTwitterHandle = (
   address: string,
   handle: string,
 ): T.Task<void> =>
