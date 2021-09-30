@@ -223,6 +223,8 @@ export const extendRowsWithFamDetails = (
     A.map((row) => row.twitterHandle),
     A.map(O.fromNullable),
     A.compact,
+    (list) => new Set(list),
+    (set) => Array.from(set),
     FamService.getDetails,
     T.map((famDetails) => {
       const map = new Map<string, FamDetails>();
