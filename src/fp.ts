@@ -1,6 +1,6 @@
 import * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
-import { sequenceS, sequenceT } from "fp-ts/lib/Apply";
+import { sequenceS, sequenceT } from "fp-ts/lib/Apply.js";
 
 export * as A from "fp-ts/lib/Array.js";
 export * as B from "fp-ts/lib/boolean.js";

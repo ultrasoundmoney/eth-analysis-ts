@@ -3,7 +3,7 @@ import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
 import { E, pipe, seqTParTE, TE } from "./fp.js";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
-import { retrying } from "retry-ts/lib/Task";
+import { retrying } from "retry-ts/lib/Task.js";
 
 const marketDataCache = new QuickLRU<string, MarketData>({
   maxSize: 1,
