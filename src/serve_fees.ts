@@ -146,6 +146,69 @@ const handleSetContractTwitterHandle: Middleware = async (ctx) => {
   ctx.status = 200;
 };
 
+const handleSetContractName: Middleware = async (ctx) => {
+  const token = ctx.query.token;
+  if (typeof token !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing token param" };
+    return;
+  }
+
+  if (token !== getAdminToken()) {
+    ctx.status = 403;
+    ctx.body = { msg: "invalid token" };
+    return;
+  }
+
+  const name = ctx.query.name;
+  const address = ctx.query.address;
+
+  if (typeof name !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing name" };
+    return;
+  }
+  if (typeof address !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing address" };
+    return;
+  }
+
+  await Contracts.setName(address, name)();
+  ctx.status = 200;
+};
+
+const handleSetContractCategory: Middleware = async (ctx) => {
+  const token = ctx.query.token;
+  if (typeof token !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing token param" };
+    return;
+  }
+
+  if (token !== getAdminToken()) {
+    ctx.status = 403;
+    ctx.body = { msg: "invalid token" };
+    return;
+  }
+
+  const category = ctx.query.category;
+  const address = ctx.query.address;
+
+  if (typeof category !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing category" };
+    return;
+  }
+  if (typeof address !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing address" };
+    return;
+  }
+
+  await Contracts.setCategory(address, category)();
+  ctx.status = 200;
+};
 const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
   const block = await Blocks.getBlockWithRetry(newBlock);
   const derivedBlockStats = DerivedBlockStats.getDerivedBlockStats(block);
@@ -223,6 +286,8 @@ router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
 router.get("/fees/all", handleGetAll);
 router.get("/set-contract-twitter-handle", handleSetContractTwitterHandle);
+router.get("/set-contract-name", handleSetContractName);
+router.get("/set-contract-category", handleSetContractCategory);
 
 app.use(router.routes());
 app.use(router.allowedMethods());

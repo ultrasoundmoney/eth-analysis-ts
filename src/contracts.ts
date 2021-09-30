@@ -274,3 +274,27 @@ export const setTwitterHandle = (
     `,
     T.map(() => undefined),
   );
+
+export const setName = (address: string, name: string): T.Task<void> =>
+  pipe(
+    () => sql`
+      UPDATE contracts
+      SET
+        ${sql({ name })}
+      WHERE
+        address = ${address}
+    `,
+    T.map(() => undefined),
+  );
+
+export const setCategory = (address: string, category: string): T.Task<void> =>
+  pipe(
+    () => sql`
+      UPDATE contracts
+      SET
+        ${sql({ category })}
+      WHERE
+        address = ${address}
+    `,
+    T.map(() => undefined),
+  );
