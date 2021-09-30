@@ -295,6 +295,7 @@ app.use(conditional());
 app.use(etag());
 
 app.on("error", (err, ctx) => {
+  Log.error(err);
   Sentry.withScope((scope) => {
     scope.addEventProcessor((event) => {
       return Sentry.Handlers.parseRequest(event, ctx.request);
