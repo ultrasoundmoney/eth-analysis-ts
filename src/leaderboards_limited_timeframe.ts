@@ -285,6 +285,15 @@ export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> => {
   );
 };
 
+type ContractRow = {
+  address: string;
+  name: string;
+  isBot: boolean;
+  imageUrl: string | null;
+  twitterHandle: string | null;
+  category: string | null;
+};
+
 const getTopBaseFeeContracts = (
   timeframe: LimitedTimeframe,
 ): T.Task<LeaderboardRow[]> => {
@@ -299,17 +308,10 @@ const getTopBaseFeeContracts = (
     A.map(([address]) => address),
   );
 
-  type ContractRow = {
-    address: string;
-    name: string;
-    isBot: boolean;
-    imageUrl: string | undefined;
-  };
-
   return pipe(
     () =>
       sql<ContractRow[]>`
-        SELECT address, name, is_bot, image_url
+        SELECT address, name, is_bot, image_url, twitter_handle, category
         FROM contracts
         WHERE address IN (${topAddresses})
       `,
@@ -320,6 +322,8 @@ const getTopBaseFeeContracts = (
         isBot: row.isBot,
         baseFees: contractSums.get(row.address)!,
         imageUrl: row.imageUrl,
+        twitterHandle: row.twitterHandle,
+        category: row.category,
       })),
     ),
   );
@@ -330,7 +334,10 @@ const calcLeaderboardForLimitedTimeframe = (
 ): T.Task<LeaderboardEntry[]> => {
   return pipe(
     seqTParT(
-      getTopBaseFeeContracts(timeframe),
+      pipe(
+        getTopBaseFeeContracts(timeframe),
+        T.chain(Leaderboards.extendRowsWithFamDetails),
+      ),
       () => Leaderboards.getEthTransferFeesForTimeframe(timeframe),
       () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeframe),
     ),

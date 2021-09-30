@@ -1,8 +1,11 @@
 import * as A from "fp-ts/lib/Array.js";
 import * as Contracts from "./contracts.js";
+import * as FamService from "./fam_service.js";
 import * as T from "fp-ts/lib/Task.js";
+import { O } from "./fp.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
+import { FamDetails } from "./fam_service.js";
 
 export type Timeframe = LimitedTimeframe | "all";
 export type LimitedTimeframe = "5m" | "1h" | "24h" | "7d" | "30d";
@@ -12,17 +15,58 @@ export type LeaderboardRow = {
   name: string;
   isBot: boolean;
   baseFees: number;
-  imageUrl: string | undefined;
+  imageUrl: string | null;
+  twitterHandle: string | null;
+  category: string | null;
+};
+
+export type LeaderboardRowWithFamDetails = {
+  contractAddress: string;
+  name: string;
+  isBot: boolean;
+  baseFees: number;
+  imageUrl: string | null;
+  twitterHandle: string | null;
+  bio: string | null;
+  followerCount: number | null;
+  famFollowerCount: number | null;
+  category: string | null;
+};
+
+type ContractEntry = {
+  type: "contract";
+  name: string | null;
+  image: string | null;
+  fees: number;
+  address: string;
+  category: string | null;
+  isBot: boolean;
+  twitterHandle: string | null;
+  /* deprecated */
+  id: string;
+};
+
+type EthTransfersEntry = {
+  type: "eth-transfers";
+  name: string;
+  fees: number;
+  /* deprecated */
+  id: string;
+};
+
+type ContractCreationsEntry = {
+  type: "contract-creations";
+  name: string;
+  fees: number;
+  /* deprecated */
+  id: string;
 };
 
 // Name is undefined because we don't always know the name for a contract. Image is undefined because we don't always have an image for a contract. Address is undefined because base fees paid for ETH transfers are shared between many addresses.
-export type LeaderboardEntry = {
-  name: string | undefined;
-  image: string | undefined;
-  fees: number;
-  id: string;
-  type: "eth-transfers" | "bot" | "other" | "contract-creations";
-};
+export type LeaderboardEntry =
+  | ContractEntry
+  | EthTransfersEntry
+  | ContractCreationsEntry;
 
 export type LeaderboardEntries = {
   leaderboard5m: LeaderboardEntry[];
@@ -133,26 +177,26 @@ export const buildLeaderboard = (
   ethTransferBaseFees: number,
   contractCreationBaseFees: number,
 ): LeaderboardEntry[] => {
-  const contractEntries: LeaderboardEntry[] = contractRows.map(
-    ({ contractAddress, baseFees, name, isBot, imageUrl }) => ({
-      fees: Number(baseFees),
-      id: contractAddress,
-      name: name || contractAddress,
-      image: imageUrl,
-      type: isBot ? "bot" : "other",
-    }),
-  );
-  const contractCreationEntry: LeaderboardEntry = {
+  const contractEntries: ContractEntry[] = contractRows.map((row) => ({
+    fees: Number(row.baseFees),
+    id: row.contractAddress,
+    name: row.name || row.contractAddress,
+    image: row.imageUrl,
+    type: "contract",
+    address: row.contractAddress,
+    isBot: row.isBot,
+    category: row.category,
+    twitterHandle: row.twitterHandle,
+  }));
+  const contractCreationEntry: ContractCreationsEntry = {
     fees: contractCreationBaseFees,
     id: "contract-creations",
-    image: undefined,
     name: "Contract creations",
     type: "contract-creations",
   };
-  const ethTransfersEntry: LeaderboardEntry = {
+  const ethTransfersEntry: EthTransfersEntry = {
     fees: ethTransferBaseFees,
     id: "eth-transfers",
-    image: undefined,
     name: "ETH transfers",
     type: "eth-transfers",
   };
@@ -170,3 +214,51 @@ export const buildLeaderboard = (
     A.takeLeft(32),
   );
 };
+
+export const extendRowsWithFamDetails = (
+  leaderboardRows: LeaderboardRow[],
+): T.Task<LeaderboardRowWithFamDetails[]> =>
+  pipe(
+    leaderboardRows,
+    A.map((row) => row.twitterHandle),
+    A.map(O.fromNullable),
+    A.compact,
+    FamService.getDetails,
+    T.map((famDetails) => {
+      const map = new Map<string, FamDetails>();
+      famDetails.forEach((famDetail) => {
+        map.set(famDetail.handle, famDetail);
+      });
+      return pipe(
+        leaderboardRows,
+        A.map((row) => {
+          if (row.twitterHandle === null) {
+            return {
+              ...row,
+              bio: null,
+              followerCount: null,
+              famFollowerCount: null,
+            };
+          }
+
+          const detail = map.get(row.twitterHandle);
+          if (detail === undefined) {
+            // Fam service did not have details for this twitter handle.
+            return {
+              ...row,
+              bio: null,
+              followerCount: null,
+              famFollowerCount: null,
+            };
+          }
+
+          return {
+            ...row,
+            bio: detail.bio,
+            followerCount: detail.followerCount,
+            famFollowerCount: detail.famFollowerCount,
+          };
+        }),
+      );
+    }),
+  );
