@@ -285,9 +285,9 @@ router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
 router.get("/fees/all", handleGetAll);
-router.get("/set-contract-twitter-handle", handleSetContractTwitterHandle);
-router.get("/set-contract-name", handleSetContractName);
-router.get("/set-contract-category", handleSetContractCategory);
+router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
+router.get("/fees/set-contract-name", handleSetContractName);
+router.get("/fees/set-contract-category", handleSetContractCategory);
 
 app.use(router.routes());
 app.use(router.allowedMethods());
