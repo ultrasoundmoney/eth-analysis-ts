@@ -286,14 +286,6 @@ const port = process.env.PORT || 8080;
 
 const app = new Koa();
 
-app.use(async (ctx, next) => {
-  ctx.set("Access-Control-Allow-Origin", "*");
-  await next();
-});
-
-app.use(conditional());
-app.use(etag());
-
 app.on("error", (err, ctx) => {
   Log.error(err);
   Sentry.withScope((scope) => {
@@ -303,6 +295,14 @@ app.on("error", (err, ctx) => {
     Sentry.captureException(err);
   });
 });
+
+app.use(async (ctx, next) => {
+  ctx.set("Access-Control-Allow-Origin", "*");
+  await next();
+});
+
+app.use(conditional());
+app.use(etag());
 
 // Health check middleware
 app.use(async (ctx, next) => {
