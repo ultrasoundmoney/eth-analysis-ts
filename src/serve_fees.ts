@@ -294,7 +294,6 @@ app.use(async (ctx, next) => {
 app.use(conditional());
 app.use(etag());
 
-// usual error handler
 app.on("error", (err, ctx) => {
   Sentry.withScope((scope) => {
     scope.addEventProcessor((event) => {
