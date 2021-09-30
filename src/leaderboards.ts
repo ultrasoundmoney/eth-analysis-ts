@@ -28,7 +28,7 @@ export type LeaderboardRowWithFamDetails = {
   imageUrl: string | null;
   twitterHandle: string | null;
   bio: string | null;
-  followerCount: number | null;
+  followersCount: number | null;
   famFollowerCount: number | null;
   category: string | null;
 };
@@ -173,7 +173,7 @@ export const getContractCreationBaseFeesForTimeframe = async (
 };
 
 export const buildLeaderboard = (
-  contractRows: LeaderboardRow[],
+  contractRows: LeaderboardRowWithFamDetails[],
   ethTransferBaseFees: number,
   contractCreationBaseFees: number,
 ): LeaderboardEntry[] => {
@@ -187,6 +187,9 @@ export const buildLeaderboard = (
     isBot: row.isBot,
     category: row.category,
     twitterHandle: row.twitterHandle,
+    bio: row.bio,
+    followersCount: row.followersCount,
+    famFollowerCount: row.famFollowerCount,
   }));
   const contractCreationEntry: ContractCreationsEntry = {
     fees: contractCreationBaseFees,
@@ -238,7 +241,7 @@ export const extendRowsWithFamDetails = (
             return {
               ...row,
               bio: null,
-              followerCount: null,
+              followersCount: null,
               famFollowerCount: null,
             };
           }
@@ -249,7 +252,7 @@ export const extendRowsWithFamDetails = (
             return {
               ...row,
               bio: null,
-              followerCount: null,
+              followersCount: null,
               famFollowerCount: null,
             };
           }
@@ -257,7 +260,7 @@ export const extendRowsWithFamDetails = (
           return {
             ...row,
             bio: detail.bio,
-            followerCount: detail.followerCount,
+            followersCount: detail.followersCount,
             famFollowerCount: detail.famFollowerCount,
           };
         }),
