@@ -18,13 +18,17 @@ export const getLatestDerivedBlockStats = (): T.Task<DerivedBlockStats> => () =>
   WHERE block_number = (SELECT MAX(block_number) FROM derived_block_stats)
 `.then((rows) => rows[0]);
 
-export const getDerivedBlockStats =
-  (block: BlockLondon): T.Task<DerivedBlockStats> =>
-  () =>
-    sql<DerivedBlockStats[]>`
+export const getDerivedBlockStats = (
+  block: BlockLondon,
+): T.Task<DerivedBlockStats | undefined> =>
+  pipe(
+    () =>
+      sql<DerivedBlockStats[]>`
       SELECT * FROM derived_block_stats
       WHERE block_number = ${block.number}
-    `.then((rows) => rows[0]);
+    `,
+    T.map((rows) => rows[0]),
+  );
 
 export const storeDerivedBlockStats = (
   block: BlockLondon,
