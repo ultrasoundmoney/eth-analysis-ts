@@ -25,11 +25,10 @@ import { delay } from "./delay.js";
 import { fromUnixTime } from "date-fns";
 import { hexToNumber } from "./hexadecimal.js";
 import { pipe } from "fp-ts/lib/function.js";
-import { seqSPar, seqTPar, seqTSeq } from "./sequence.js";
 import { sql } from "./db.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 import PQueue from "p-queue";
-import { Num } from "./fp.js";
+import { Num, seqSParT, seqTParT, seqTSeqT } from "./fp.js";
 import { performance } from "perf_hooks";
 import { logPerfT } from "./performance.js";
 
@@ -157,7 +156,7 @@ export const updateBlock = (
         number = ${block.number}
     `.then(() => undefined);
 
-  const updateContractBaseFeesTask = seqTSeq(
+  const updateContractBaseFeesTask = seqTSeqT(
     () =>
       sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`,
     contractBaseFeesRows.length !== 0
@@ -168,8 +167,8 @@ export const updateBlock = (
   const storeContractsTask = Contracts.storeContracts(addresses);
 
   return pipe(
-    seqTSeq(
-      seqTPar(storeContractsTask, updateBlockTask),
+    seqTSeqT(
+      seqTParT(storeContractsTask, updateBlockTask),
       updateContractBaseFeesTask,
     ),
     T.map(() => undefined),
@@ -199,8 +198,8 @@ export const storeBlock = (
       : T.of(undefined);
 
   return pipe(
-    seqTSeq(
-      seqTPar(storeContractsTask, storeBlockTask),
+    seqTSeqT(
+      seqTParT(storeContractsTask, storeBlockTask),
       storeContractsBaseFeesTask,
     ),
     T.map(() => undefined),
@@ -251,7 +250,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chainFirstIOK(logPerfT("calc leaderboard LT", t0)),
   );
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
-    seqTPar(leaderboardLimitedTimeframes, leaderboardAll),
+    seqTParT(leaderboardLimitedTimeframes, leaderboardAll),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
       leaderboard5m: leaderboardLimitedTimeframes["5m"],
       leaderboard1h: leaderboardLimitedTimeframes["1h"],
@@ -263,7 +262,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   );
 
   return pipe(
-    seqSPar({ burnRates, feesBurned, leaderboards }),
+    seqSParT({ burnRates, feesBurned, leaderboards }),
     T.chain((derivedBlockStats) =>
       DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
     ),
@@ -311,7 +310,7 @@ export const addMissingBlocks = async (upToIncluding: number) => {
         pipe(
           () => getBlockWithRetry(blockNumber),
           T.chain((block) =>
-            seqTPar(T.of(block), () => Transactions.getTxrsWithRetry(block)),
+            seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
           ),
           T.chain(([block, txrs]) => storeBlock(block, txrs)),
         ),
@@ -358,7 +357,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       );
     }),
     T.chain((block) =>
-      seqTPar(T.of(block), () => Transactions.getTxrsWithRetry(block)),
+      seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
     ),
     T.chainFirstIOK(() => () => {
       if (Config.showProgress) {
@@ -384,7 +383,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
           const t0 = performance.now();
 
           return pipe(
-            seqTPar(
+            seqTParT(
               () =>
                 addLeaderboardLimitedTimeframeQueue.add(() =>
                   LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(

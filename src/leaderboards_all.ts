@@ -1,7 +1,7 @@
 import * as Blocks from "./blocks.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
-import { A, B, O, T } from "./fp.js";
+import { A, B, O, seqTParT, T } from "./fp.js";
 import {
   ContractBaseFees,
   LeaderboardEntry,
@@ -9,7 +9,6 @@ import {
 } from "./leaderboards.js";
 import { Row } from "postgres";
 import { pipe } from "fp-ts/lib/function.js";
-import { seqTPar } from "./sequence.js";
 import { sql } from "./db.js";
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
@@ -106,7 +105,7 @@ export const addBlock = (
   baseFeeSums: ContractBaseFees,
 ): T.Task<void> =>
   pipe(
-    seqTPar(
+    seqTParT(
       addContractBaseFeeSums(baseFeeSums),
       setNewestIncludedBlockNumber(blockNumber),
     ),
@@ -115,7 +114,7 @@ export const addBlock = (
 
 export const addMissingBlocks = (upToIncluding: number): T.Task<void> =>
   pipe(
-    seqTPar(getNewestIncludedBlockNumber()),
+    seqTParT(getNewestIncludedBlockNumber()),
     T.map(([newestIncludedBlockO]) => {
       return pipe(
         newestIncludedBlockO,
@@ -154,7 +153,7 @@ const getTopBaseFeeContracts = (): T.Task<LeaderboardRow[]> => {
 
 export const calcLeaderboardAll = (): T.Task<LeaderboardEntry[]> => {
   return pipe(
-    seqTPar(
+    seqTParT(
       () => Leaderboards.getEthTransferFeesForTimeframe("all"),
       () => Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
       getTopBaseFeeContracts(),

@@ -10,7 +10,7 @@ import Config from "./config.js";
 import Sentry from "@sentry/node";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
-import { seqTPar } from "./sequence.js";
+import { seqTParT } from "./fp.js";
 
 if (Config.env !== "dev") {
   Sentry.init({
@@ -66,7 +66,7 @@ const main = async () => {
     Log.debug(`latest block on start: ${latestBlockNumberOnStart}`);
 
     await syncBlocks(latestBlockNumberOnStart);
-    await seqTPar(
+    await seqTParT(
       loadLeaderboardLimitedTimeframes(latestBlockNumberOnStart),
       syncLeaderboardAll(latestBlockNumberOnStart),
     )();

@@ -1,8 +1,7 @@
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
-import { A, O, Ord, pipe, T } from "./fp.js";
+import { A, O, Ord, pipe, seqSParT, seqTParT, T } from "./fp.js";
 import { fromUnixTime, isAfter, subMinutes } from "date-fns";
-import { seqSPar, seqTPar } from "./sequence.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { performance } from "perf_hooks";
@@ -167,7 +166,7 @@ export const addAllBlocksForAllTimeframes = (
   upToIncluding: number,
 ): T.Task<void> =>
   pipe(
-    seqTPar(
+    seqTParT(
       addAllBlocks("5m", upToIncluding),
       addAllBlocks("1h", upToIncluding),
       addAllBlocks("24h", upToIncluding),
@@ -275,7 +274,7 @@ export const rollbackToBefore = (
 
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> => {
   return pipe(
-    seqTPar(
+    seqTParT(
       removeExpiredBlocksFromSums("5m"),
       removeExpiredBlocksFromSums("1h"),
       removeExpiredBlocksFromSums("24h"),
@@ -330,7 +329,7 @@ const calcLeaderboardForLimitedTimeframe = (
   timeframe: LimitedTimeframe,
 ): T.Task<LeaderboardEntry[]> => {
   return pipe(
-    seqTPar(
+    seqTParT(
       getTopBaseFeeContracts(timeframe),
       () => Leaderboards.getEthTransferFeesForTimeframe(timeframe),
       () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeframe),
@@ -344,7 +343,7 @@ const calcLeaderboardForLimitedTimeframe = (
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
   Record<LimitedTimeframe, LeaderboardEntry[]>
 > =>
-  seqSPar({
+  seqSParT({
     "5m": calcLeaderboardForLimitedTimeframe("5m"),
     "1h": calcLeaderboardForLimitedTimeframe("1h"),
     "24h": calcLeaderboardForLimitedTimeframe("24h"),

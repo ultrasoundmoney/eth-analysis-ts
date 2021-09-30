@@ -3,8 +3,8 @@ import * as Contracts from "./contracts.js";
 import * as T from "fp-ts/lib/Task.js";
 import { BlockLondon } from "./eth_node.js";
 import { pipe } from "fp-ts/lib/function.js";
-import { seqSPar } from "./sequence.js";
 import { sql } from "./db.js";
+import { seqSParT } from "./fp.js";
 
 export type Timeframe = LimitedTimeframe | "all";
 export type LimitedTimeframe = "5m" | "1h" | "24h" | "7d" | "30d";
@@ -176,7 +176,7 @@ const calcLeaderboardForTimeframe = (
   timeframe: Timeframe,
 ): T.Task<LeaderboardEntry[]> => {
   return pipe(
-    seqSPar({
+    seqSParT({
       contractRows: calcRawLeaderboardForTimeframe(block, timeframe),
       ethTransferBaseFees: () => getEthTransferFeesForTimeframe(timeframe),
       contractCreationFees: () =>
@@ -223,7 +223,7 @@ const calcLeaderboardForTimeframe = (
 export const calcLeaderboards = (
   block: BlockLondon,
 ): T.Task<LeaderboardEntries> => {
-  return seqSPar({
+  return seqSParT({
     leaderboard5m: calcLeaderboardForTimeframe(block, "5m"),
     leaderboard1h: calcLeaderboardForTimeframe(block, "1h"),
     leaderboard24h: calcLeaderboardForTimeframe(block, "24h"),

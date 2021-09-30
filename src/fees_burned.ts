@@ -1,8 +1,8 @@
 import * as T from "fp-ts/lib/Task.js";
 import { pipe } from "fp-ts/lib/function.js";
-import { seqSPar } from "./sequence.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
+import { seqSParT } from "./fp.js";
 
 export type FeesBurnedT = {
   feesBurned5m: number;
@@ -55,7 +55,7 @@ export const calcFeesBurned = (block: BlockLondon): T.Task<FeesBurnedT> => {
       WHERE number <= ${block.number}
   `.then((rows) => rows[0]?.baseFeeSum ?? 0);
 
-  return seqSPar({
+  return seqSParT({
     feesBurned5m,
     feesBurned1h,
     feesBurned24h,

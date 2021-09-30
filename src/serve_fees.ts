@@ -18,11 +18,11 @@ import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { FeesBurnedT } from "./fees_burned.js";
 import { BurnRatesT } from "./burn_rates.js";
-import { seqSPar } from "./sequence.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import { NewBlockPayload } from "./blocks.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
+import { seqSParT, TE } from "./fp.js";
 
 if (Config.env !== "dev") {
   Sentry.init({
@@ -217,7 +217,7 @@ const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
   const number = block.number;
 
   return pipe(
-    seqSPar({
+    seqSParT({
       derivedBlockStats,
       latestBlockFees,
     }),

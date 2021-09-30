@@ -1,8 +1,8 @@
 import * as T from "fp-ts/lib/Task.js";
 import { pipe } from "fp-ts/lib/function.js";
-import { seqSPar } from "./sequence.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
+import { seqSParT } from "./fp.js";
 
 export type BurnRatesT = {
   burnRate5m: number;
@@ -66,7 +66,7 @@ export const calcBurnRates = (block: BlockLondon): T.Task<BurnRatesT> => {
       WHERE number <= ${block.number}
   `.then((rows) => rows[0]?.burnPerMinute ?? 0);
 
-  return seqSPar({
+  return seqSParT({
     burnRate5m,
     burnRate1h,
     burnRate24h,
