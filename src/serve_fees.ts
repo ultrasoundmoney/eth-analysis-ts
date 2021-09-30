@@ -52,19 +52,19 @@ let cache: Cache = {
 };
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=5, stale-while-revalidate=30");
-  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
+  ctx.set("Content-Type", "application/json");
   ctx.body = { number: cache.number, feesBurned: cache.feesBurned };
 };
 
 const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
   const feesBurnedPerInterval =
     await FeesBurnedPerInterval.getFeesBurnedPerInterval();
-  ctx.res.setHeader(
+  ctx.set(
     "Cache-Control",
     `max-age=6, stale-while-revalidate=${Duration.secondsFromHours(24)}`,
   );
-  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.set("Content-Type", "application/json");
   ctx.body = {
     feesBurnedPerInterval: feesBurnedPerInterval,
     number: "unknown",
@@ -125,32 +125,32 @@ const handleGetMarketData: Middleware = async (ctx) =>
   )();
 
 const handleGetBurnRate: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
-  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Content-Type", "application/json");
   ctx.body = { burnRates: cache.burnRates, number: cache.number };
 };
 
 const handleGetLatestBlocks: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
-  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Content-Type", "application/json");
   ctx.body = cache.latestBlockFees;
 };
 
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
-  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Content-Type", "application/json");
   ctx.body = { baseFeePerGas: cache.baseFeePerGas };
 };
 
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
-  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Content-Type", "application/json");
   ctx.body = cache.leaderboards;
 };
 
 const handleGetAll: Middleware = async (ctx) => {
-  ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
-  ctx.res.setHeader("Content-Type", "application/json");
+  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Content-Type", "application/json");
   ctx.body = cache;
 };
 
@@ -287,7 +287,7 @@ const port = process.env.PORT || 8080;
 const app = new Koa();
 
 app.use(async (ctx, next) => {
-  ctx.res.setHeader("Access-Control-Allow-Origin", "*");
+  ctx.set("Access-Control-Allow-Origin", "*");
   await next();
 });
 
