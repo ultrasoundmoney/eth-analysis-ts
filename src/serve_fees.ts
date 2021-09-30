@@ -9,7 +9,7 @@ import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
 import * as T from "fp-ts/lib/Task.js";
 import Config, { getAdminToken } from "./config.js";
-import Koa, { Middleware } from "koa";
+import Koa, { Context, Middleware } from "koa";
 import Router from "@koa/router";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
@@ -23,6 +23,7 @@ import { NewBlockPayload } from "./blocks.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
 import { seqSParT, TE } from "./fp.js";
+import { MarketDataError } from "./coingecko.js";
 
 if (Config.env !== "dev") {
   Sentry.init({
@@ -70,19 +71,58 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
   };
 };
 
-const handleGetEthPrice: Middleware = async (ctx) => {
-  const { eth } = await Coingecko.getMarketData();
-  ctx.res.setHeader("Cache-Control", "max-age=60, stale-while-revalidate=600");
-  ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = eth;
+const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
+  switch (error._type) {
+    case "fetch-error": {
+      Log.error(error.error);
+      ctx.status = 500;
+      ctx.body = { msg: "coingecko fetch error" };
+      return;
+    }
+    case "bad-response": {
+      Log.error(`coingecko bad response, status: ${error.status}`);
+      ctx.status = error.status;
+      ctx.body = {
+        msg: `coingecko bad response, status: ${error.status}`,
+      };
+      return;
+    }
+    default: {
+      Log.error("unexpected get market data error", error);
+      ctx.status = 500;
+      ctx.body = {
+        msg: "unexpected get market data error",
+      };
+      return;
+    }
+  }
 };
 
-const handleGetMarketData: Middleware = async (ctx) => {
-  const marketData = await Coingecko.getMarketData();
-  ctx.res.setHeader("Cache-Control", "max-age=60, stale-while-revalidate=600");
-  ctx.res.setHeader("Content-Type", "application/json");
-  ctx.body = marketData;
-};
+const handleGetEthPrice: Middleware = async (ctx) =>
+  pipe(
+    Coingecko.getMarketData(),
+    TE.match(
+      (error) => handleMarketDataError(ctx, error),
+      (marketData) => {
+        ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = marketData.eth;
+      },
+    ),
+  )();
+
+const handleGetMarketData: Middleware = async (ctx) =>
+  pipe(
+    Coingecko.getMarketData(),
+    TE.match(
+      (error) => handleMarketDataError(ctx, error),
+      (marketData) => {
+        ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = marketData;
+      },
+    ),
+  )();
 
 const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "max-age=6, stale-while-revalidate=16");
