@@ -15,7 +15,6 @@ export type FamDetails = {
 };
 
 export const getDetails = (handles: string[]): T.Task<FamDetails[]> => {
-  console.log("getting details for", handles);
   if (handles.length === 0) {
     return T.of([]);
   }
