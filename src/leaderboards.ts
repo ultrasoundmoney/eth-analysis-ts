@@ -1,10 +1,8 @@
 import * as A from "fp-ts/lib/Array.js";
 import * as Contracts from "./contracts.js";
 import * as T from "fp-ts/lib/Task.js";
-import { BlockLondon } from "./eth_node.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
-import { seqSParT } from "./fp.js";
 
 export type Timeframe = LimitedTimeframe | "all";
 export type LimitedTimeframe = "5m" | "1h" | "24h" | "7d" | "30d";
@@ -128,109 +126,6 @@ export const getContractCreationBaseFeesForTimeframe = async (
       WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
   `;
   return rows_1[0]?.sum ?? 0;
-};
-
-const calcRawLeaderboardForTimeframe = (
-  block: BlockLondon,
-  timeframe: Timeframe,
-): T.Task<LeaderboardRow[]> => {
-  if (timeframe === "all") {
-    return () => sql<LeaderboardRow[]>`
-      WITH top_contracts AS (
-        SELECT
-          contract_address,
-          SUM(contract_base_fees.base_fees) AS base_fees
-        FROM contract_base_fees
-        JOIN blocks ON number = block_number
-        WHERE block_number <= ${block.number}
-        GROUP BY (contract_address)
-        ORDER BY (base_fees) DESC
-        LIMIT 32
-      )
-      SELECT contract_address, base_fees, name, is_bot, image_url FROM top_contracts
-      JOIN contracts ON address = contract_address
-    `;
-  }
-
-  const minutes = timeframeMinutesMap[timeframe];
-  return () => sql<LeaderboardRow[]>`
-    WITH top_contracts AS (
-      SELECT
-        contract_address,
-        SUM(contract_base_fees.base_fees) AS base_fees
-      FROM contract_base_fees
-      JOIN blocks ON number = block_number
-      WHERE block_number <= ${block.number}
-      AND mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
-      GROUP BY (contract_address)
-      ORDER BY (2) DESC
-      LIMIT 32
-    )
-    SELECT contract_address, base_fees, name, is_bot, image_url FROM top_contracts
-    JOIN contracts ON address = contract_address
-  `;
-};
-
-const calcLeaderboardForTimeframe = (
-  block: BlockLondon,
-  timeframe: Timeframe,
-): T.Task<LeaderboardEntry[]> => {
-  return pipe(
-    seqSParT({
-      contractRows: calcRawLeaderboardForTimeframe(block, timeframe),
-      ethTransferBaseFees: () => getEthTransferFeesForTimeframe(timeframe),
-      contractCreationFees: () =>
-        getContractCreationBaseFeesForTimeframe(timeframe),
-    }),
-    T.map(({ contractRows, contractCreationFees, ethTransferBaseFees }) => {
-      const contractEntries: LeaderboardEntry[] = contractRows.map(
-        ({ contractAddress, baseFees, name, imageUrl, isBot }) => ({
-          fees: Number(baseFees),
-          id: contractAddress,
-          name: name || contractAddress,
-          image: imageUrl,
-          type: isBot ? "bot" : "other",
-        }),
-      );
-      const contractCreationEntry: LeaderboardEntry = {
-        fees: contractCreationFees,
-        id: "contract-creations",
-        image: undefined,
-        name: "contract creations",
-        type: "contract-creations",
-      };
-      const ethTransfersEntry: LeaderboardEntry = {
-        fees: ethTransferBaseFees,
-        id: "eth-transfers",
-        image: undefined,
-        name: "ETH transfers",
-        type: "eth-transfers",
-      };
-
-      return pipe(
-        [...contractEntries, ethTransfersEntry, contractCreationEntry],
-        A.sort<LeaderboardEntry>({
-          compare: (first, second) =>
-            first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
-          equals: (first, second) => first.fees === second.fees,
-        }),
-        A.takeLeft(24),
-      );
-    }),
-  );
-};
-
-export const calcLeaderboards = (
-  block: BlockLondon,
-): T.Task<LeaderboardEntries> => {
-  return seqSParT({
-    leaderboard5m: calcLeaderboardForTimeframe(block, "5m"),
-    leaderboard1h: calcLeaderboardForTimeframe(block, "1h"),
-    leaderboard24h: calcLeaderboardForTimeframe(block, "24h"),
-    leaderboard7d: calcLeaderboardForTimeframe(block, "7d"),
-    leaderboard30d: calcLeaderboardForTimeframe(block, "30d"),
-    leaderboardAll: calcLeaderboardForTimeframe(block, "all"),
-  });
 };
 
 export const buildLeaderboard = (
