@@ -268,7 +268,7 @@ export const setTwitterHandle = (
     () => sql`
       UPDATE contracts
       SET
-        ${sql({ twitter_handle: handle })}
+        ${sql({ twitter_handle: handle, last_metadata_fetch_at: null })}
       WHERE
         address = ${address}
     `,
