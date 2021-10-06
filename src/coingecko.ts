@@ -2,7 +2,7 @@ import * as Duration from "./duration.js";
 import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
 import { E, pipe, seqTParTE, TE } from "./fp.js";
-import { constantDelay, limitRetries, Monoid } from "retry-ts";
+import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 
 const marketDataCache = new QuickLRU<string, MarketData>({
@@ -58,7 +58,7 @@ type MarketData = {
 
 const fetchCoinGecko = <A>(url: string): TE.TaskEither<MarketDataError, A> => {
   return retrying(
-    Monoid.concat(constantDelay(1000), limitRetries(3)),
+    Monoid.concat(exponentialBackoff(1000), limitRetries(3)),
     () =>
       pipe(
         TE.tryCatch(
