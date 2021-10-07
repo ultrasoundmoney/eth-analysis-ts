@@ -13,6 +13,7 @@ import Koa, { Context, Middleware } from "koa";
 import Router from "@koa/router";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
+import bodyParser from "koa-bodyparser";
 import { hexToNumber } from "./hexadecimal.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
@@ -249,6 +250,7 @@ const handleSetContractCategory: Middleware = async (ctx) => {
   await Contracts.setCategory(address, category)();
   ctx.status = 200;
 };
+
 const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
   const block = await Blocks.getBlockWithRetry(newBlock);
   const derivedBlockStats = DerivedBlockStats.getDerivedBlockStats(block);
@@ -329,6 +331,7 @@ router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
 router.get("/fees/set-contract-name", handleSetContractName);
 router.get("/fees/set-contract-category", handleSetContractCategory);
 
+app.use(bodyParser());
 app.use(router.routes());
 app.use(router.allowedMethods());
 

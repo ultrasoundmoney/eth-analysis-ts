@@ -5,6 +5,7 @@ import { sequenceS, sequenceT } from "fp-ts/lib/Apply.js";
 export * as A from "fp-ts/lib/Array.js";
 export * as B from "fp-ts/lib/boolean.js";
 export * as E from "fp-ts/lib/Either.js";
+export * as D from "io-ts/lib/Decoder.js";
 export * as NEA from "fp-ts/lib/NonEmptyArray.js";
 export * as Num from "fp-ts/lib/number.js";
 export * as O from "fp-ts/lib/Option.js";
