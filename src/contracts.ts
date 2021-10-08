@@ -48,7 +48,6 @@ const fetchTokenTitleQueue = new PQueue({
 export const fetchEtherscanTokenTitle = async (
   address: string,
 ): Promise<string | undefined> => {
-  Log.info("fetching token title!");
   const html = await fetchTokenTitleQueue
     .add(() => fetch(`https://etherscan.io/token/${address}`))
     .then((res) => {
