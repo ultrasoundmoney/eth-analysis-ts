@@ -52,7 +52,7 @@ export const fetchEtherscanTokenTitle = async (
     .add(() => fetch(`https://etherscan.io/token/${address}`))
     .then((res) => {
       if (res === undefined) {
-        Log.debug("fetch token page timed out");
+        Log.debug(`fetch token page for ${address} timed out`);
         // Queue works with a timeout that returns undefined when hit.
         return undefined;
       }
@@ -60,7 +60,9 @@ export const fetchEtherscanTokenTitle = async (
       Log.debug(`fetched token page, status: ${res?.status}`);
 
       if (res.status === 403) {
-        Log.warn("fetch etherscan token page, 403 - forbidden, rate limit?");
+        Log.warn(
+          `fetch etherscan token page for ${address}, 403 - forbidden, rate limit?`,
+        );
         return undefined;
       }
 
