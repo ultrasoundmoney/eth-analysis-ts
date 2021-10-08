@@ -41,7 +41,7 @@ export const fetchEtherscanName = async (
 
 const fetchTokenTitleQueue = new PQueue({
   timeout: Duration.milisFromSeconds(16),
-  interval: Duration.milisFromSeconds(1),
+  interval: Duration.milisFromSeconds(2),
   intervalCap: 1,
 });
 
