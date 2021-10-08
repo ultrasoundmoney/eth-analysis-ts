@@ -13,7 +13,7 @@ import { web3 } from "./eth_node.js";
 import type { AbiItem } from "web3-utils";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
-import { B, E, O, TE } from "./fp.js";
+import { E, TE } from "./fp.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -22,7 +22,7 @@ export const fetchEtherscanName = async (
     (res) => {
       if (res.status !== 200) {
         throw new Error(
-          `bad request trying to fetch etherscan name, status: ${res.status}`,
+          `bad response trying to fetch etherscan name, status: ${res.status}`,
         );
       }
       return res.text();
@@ -35,6 +35,54 @@ export const fetchEtherscanName = async (
   } | null;
 
   return etherscanPublicName?.innerText;
+};
+
+export const fetchEtherscanTokenTitle = async (
+  address: string,
+): Promise<string | undefined> => {
+  const html = await fetch(`https://etherscan.io/token/${address}`).then(
+    (res) => {
+      if (res.status !== 200) {
+        throw new Error(
+          `bad response trying to fetch etherscan token page, status: ${res.status}`,
+        );
+      }
+      return res.text();
+    },
+  );
+
+  const { document } = parseHTML(html);
+  const etherscanTokenName = document.querySelector(
+    "meta[property='og:title']",
+  );
+
+  if (
+    etherscanTokenName === null ||
+    etherscanTokenName.getAttribute === undefined
+  ) {
+    return undefined;
+  }
+
+  const rawTokenName = etherscanTokenName.getAttribute("content");
+  if (rawTokenName === null) {
+    return undefined;
+  }
+
+  // Examples:
+  // SHIBA INU (SHIB) Token Tracker | Etherscan
+  // Tether USD (USDT) Token Tracker | Etherscan
+  // USD Coin | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+  const tokenRegex = new RegExp(/^(.+)\s\((.+)\)/);
+  const matches = tokenRegex.exec(rawTokenName);
+
+  if (matches === null) {
+    return undefined;
+  }
+
+  const tokenName = matches[1];
+  const tokenTicker = matches[2];
+
+  return tokenTicker === undefined ? tokenName : `${tokenName}: ${tokenTicker}`;
 };
 
 export const getContractNameFetchedLongAgo = ({
@@ -117,19 +165,26 @@ const getOnChainName = async (address: string): Promise<string | undefined> => {
   return undefined;
 };
 
-const getContractName = async (address: string): Promise<O.Option<string>> => {
+const getContractName = async (
+  address: string,
+): Promise<string | undefined> => {
   const abiName = await getOnChainName(address);
   if (typeof abiName === "string") {
-    return O.some(abiName);
+    return abiName;
   }
 
   const etherscanTag = await fetchEtherscanName(address);
   Log.debug(`tried to fetch etherscan tag got: ${etherscanTag}`);
   if (typeof etherscanTag === "string") {
-    return O.some(etherscanTag);
+    return etherscanTag;
   }
 
-  return O.none;
+  const etherscanTokenTitle = await fetchEtherscanTokenTitle(address);
+  if (typeof etherscanTokenTitle === "string") {
+    return etherscanTokenTitle;
+  }
+
+  return;
 };
 
 const addContractMetadata = async (address: string): Promise<void> => {
@@ -147,15 +202,11 @@ const addContractMetadata = async (address: string): Promise<void> => {
     return;
   }
 
-  const name: string | null = await pipe(
-    // Don't overwrite existing names.
-    typeof currentName === "string",
-    B.match(
-      () => () => getContractName(address),
-      () => T.of(O.some(currentName as string)),
-    ),
-    T.map(O.toNullable),
-  )();
+  const name =
+    (await (typeof currentName === "string"
+      ? // Don't overwrite existing names.
+        Promise.resolve(currentName)
+      : getContractName(address))) ?? null;
 
   PerformanceMetrics.onContractIdentified();
 
