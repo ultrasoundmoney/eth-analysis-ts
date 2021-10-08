@@ -1,19 +1,21 @@
+import * as Duration from "./duration.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
 import A from "fp-ts/lib/Array.js";
+import PQueue from "p-queue";
 import fetch from "node-fetch";
+import type { AbiItem } from "web3-utils";
+import { E, TE } from "./fp.js";
+import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { differenceInDays, differenceInHours } from "date-fns";
 import { getEtherscanToken } from "./config.js";
 import { parseHTML } from "linkedom";
 import { pipe } from "fp-ts/lib/function.js";
+import { retrying } from "retry-ts/lib/Task.js";
 import { sql } from "./db.js";
 import { web3 } from "./eth_node.js";
-import type { AbiItem } from "web3-utils";
-import { constantDelay, limitRetries, Monoid } from "retry-ts";
-import { retrying } from "retry-ts/lib/Task.js";
-import { E, TE } from "./fp.js";
 
 export const fetchEtherscanName = async (
   address: string,
@@ -37,27 +39,36 @@ export const fetchEtherscanName = async (
   return etherscanPublicName?.innerText;
 };
 
-const browserUA =
-  "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Mobile Safari/537.36";
+const fetchTokenTitleQueue = new PQueue({
+  timeout: Duration.milisFromSeconds(16),
+  interval: Duration.milisFromSeconds(1),
+  intervalCap: 1,
+});
 
 export const fetchEtherscanTokenTitle = async (
   address: string,
 ): Promise<string | undefined> => {
-  const html = await fetch(`https://etherscan.io/token/${address}`, {
-    headers: {
-      "User-Agent": browserUA,
-    },
-  }).then((res) => {
-    if (res.status === 403) {
-      Log.warn("fetch etherscan token page, 403 - forbidden, rate limit?");
-      return undefined;
-    }
+  Log.info("fetching token title!");
+  const html = await fetchTokenTitleQueue
+    .add(() => fetch(`https://etherscan.io/token/${address}`))
+    .then((res) => {
+      if (res === undefined) {
+        // Queue works with a timeout that returns undefined when hit.
+        return undefined;
+      }
 
-    if (res.status !== 200) {
-      throw new Error(`fetch etherscan token page, bad response ${res.status}`);
-    }
-    return res.text();
-  });
+      if (res.status === 403) {
+        Log.warn("fetch etherscan token page, 403 - forbidden, rate limit?");
+        return undefined;
+      }
+
+      if (res.status !== 200) {
+        throw new Error(
+          `fetch etherscan token page, bad response ${res.status}`,
+        );
+      }
+      return res.text();
+    });
 
   const { document } = parseHTML(html);
   const etherscanTokenName = document.querySelector(
@@ -357,21 +368,3 @@ export const setCategory = (address: string, category: string): T.Task<void> =>
     `,
     T.map(() => undefined),
   );
-
-const addresses = [
-  "0x4c4f05f0876592829b3caf81d394353183ed2b18",
-  "0x31de05f28568e3d3d612bfa6a78b356676367470",
-  "0x8943c7bac1914c9a7aba750bf2b6b09fd21037e0",
-  "0x0391d2021f89dc339f60fff84546ea23e337750f",
-  "0x5d3a536e4d6dbd6114cc1ead35777bab948e3643",
-  "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
-  "0x3845badade8e6dff049820680d1f14bd3903a5d0",
-  "0x7d655c57f71464b6f83811c55d84009cd9f5221c",
-  "0x111111111117dc0aa78b770fa6a738034120c302",
-  "0x4c19596f5aaff459fa38b0f7ed92f11ae6543784",
-  "0xd1669ac6044269b59fa12c5822439f609ca54f41",
-  "0x85f740958906b317de6ed79663012859067e745b",
-  "0xdd974d5c2e2928dea5f71b9825b8b646686bd200",
-];
-
-console.log(await Promise.all(addresses.map(fetchEtherscanTokenTitle)));
