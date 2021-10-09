@@ -74,7 +74,7 @@ export const log = (
     JSON.stringify({
       meta,
       severity,
-      message,
+      message: String(message),
     }),
   );
 };
