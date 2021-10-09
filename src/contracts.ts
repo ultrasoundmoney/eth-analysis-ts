@@ -75,6 +75,10 @@ export const fetchEtherscanTokenTitle = async (
       return res.text();
     });
 
+  if (html === undefined) {
+    return undefined;
+  }
+
   const { document } = parseHTML(html);
   const etherscanTokenName = document.querySelector(
     "meta[property='og:title']",
@@ -205,6 +209,7 @@ const getContractName = async (
 
   const etherscanTokenTitle = await fetchEtherscanTokenTitle(address);
   if (typeof etherscanTokenTitle === "string") {
+    Log.debug(`fetched token page name: ${etherscanTokenTitle}`);
     return etherscanTokenTitle;
   }
 
@@ -227,19 +232,19 @@ const addContractMetadata = async (address: string): Promise<void> => {
   }
 
   const name =
-    (await (typeof currentName === "string"
+    typeof currentName === "string"
       ? // Don't overwrite existing names.
-        Promise.resolve(currentName)
-      : getContractName(address))) ?? null;
+        currentName
+      : await getContractName(address);
 
   PerformanceMetrics.onContractIdentified();
 
   const imageUrl =
     twitterHandle === undefined
-      ? null
-      : (await Twitter.getImageUrl(twitterHandle)) ?? null;
+      ? undefined
+      : await Twitter.getImageUrl(twitterHandle);
 
-  await updateContractMetadata(address, name, imageUrl);
+  await updateContractMetadata(address, name ?? null, imageUrl ?? null);
 };
 
 export const addContractsMetadata = (addresses: string[]): Promise<void[]> =>
