@@ -62,7 +62,7 @@ export const fetchEtherscanTokenTitle = async (
 
       // Etherscan seems to 403 when we request too much.
       if (res.status === 403) {
-        Log.warn(`fetch etherscan token page for ${address}, 403 - forbidden`, {
+        Log.info(`fetch etherscan token page for ${address}, 403 - forbidden`, {
           address,
         });
         return undefined;
