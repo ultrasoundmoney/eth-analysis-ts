@@ -7,7 +7,7 @@ import { retrying } from "retry-ts/lib/Task.js";
 
 const marketDataCache = new QuickLRU<string, MarketData>({
   maxSize: 1,
-  maxAge: Duration.milisFromSeconds(5),
+  maxAge: Duration.milisFromSeconds(10),
 });
 const marketDataKey = "prices";
 
