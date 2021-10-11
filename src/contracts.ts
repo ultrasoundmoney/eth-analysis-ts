@@ -45,12 +45,19 @@ const fetchTokenTitleQueue = new PQueue({
   intervalCap: 1,
 });
 
+const browserUA =
+  "user-agent: Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Mobile Safari/537.36";
+
 export const fetchEtherscanTokenTitle = async (
   address: string,
 ): Promise<string | undefined> => {
   Log.debug(`fetching etherscan token title for ${address}`);
   const html = await fetchTokenTitleQueue
-    .add(() => fetch(`https://etherscan.io/token/${address}`))
+    .add(() =>
+      fetch(`https://etherscan.io/token/${address}`, {
+        headers: { "User-Agent": browserUA },
+      }),
+    )
     .then((res) => {
       if (res === undefined) {
         Log.debug(`fetch token page for ${address} timed out`);
