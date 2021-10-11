@@ -40,8 +40,8 @@ export const fetchEtherscanName = async (
 };
 
 const fetchTokenTitleQueue = new PQueue({
-  timeout: Duration.milisFromSeconds(32),
-  interval: Duration.milisFromSeconds(16),
+  timeout: Duration.milisFromSeconds(8),
+  interval: Duration.milisFromSeconds(60),
   intervalCap: 1,
 });
 
