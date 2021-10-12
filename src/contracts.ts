@@ -236,12 +236,6 @@ const addContractMetadata = async (address: string): Promise<void> => {
     twitterHandle: existingTwitterHandle,
   } = await getContractMetadata(address);
 
-  Log.debug(
-    `fetching metadata for ${address}, last updated: ${DateFns.formatDistanceToNow(
-      new Date(),
-    )} ago, existing name: ${existingName}, existing twitter handle: ${existingTwitterHandle}`,
-  );
-
   if (
     lastMetadataFetchAt !== undefined &&
     differenceInHours(new Date(), lastMetadataFetchAt) < 3
@@ -249,6 +243,12 @@ const addContractMetadata = async (address: string): Promise<void> => {
     // Don't attempt to fetch contract names more than once every three hours.
     return;
   }
+
+  const timeSinceUpdate =
+    lastMetadataFetchAt && DateFns.formatDistanceToNow(lastMetadataFetchAt);
+  Log.debug(
+    `fetching metadata for ${address}, last updated: ${timeSinceUpdate} ago, existing name: ${existingName}, existing twitter handle: ${existingTwitterHandle}`,
+  );
 
   const name =
     typeof existingName === "string"
