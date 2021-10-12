@@ -1,8 +1,10 @@
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
+import * as OpenSea from "./opensea.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
+import * as DateFns from "date-fns";
 import A from "fp-ts/lib/Array.js";
 import PQueue from "p-queue";
 import fetch from "node-fetch";
@@ -133,13 +135,15 @@ const updateContractMetadata = (
   address: string,
   name: string | null,
   imageUrl: string | null,
+  twitterHandle: string | null,
 ): Promise<void> =>
   sql`
     UPDATE contracts
     SET
       last_metadata_fetch_at = NOW(),
       name = ${name},
-      image_url = ${imageUrl}
+      image_url = ${imageUrl},
+      twitter_handle = ${twitterHandle}
     WHERE address = ${address}
   `.then(() => undefined);
 
@@ -227,10 +231,16 @@ const getContractName = async (
 
 const addContractMetadata = async (address: string): Promise<void> => {
   const {
-    name: currentName,
+    name: existingName,
     lastMetadataFetchAt,
-    twitterHandle,
+    twitterHandle: existingTwitterHandle,
   } = await getContractMetadata(address);
+
+  Log.debug(
+    `fetching metadata for ${address}, last updated: ${DateFns.formatDistanceToNow(
+      new Date(),
+    )} ago, existing name: ${existingName}, existing twitter handle: ${existingTwitterHandle}`,
+  );
 
   if (
     lastMetadataFetchAt !== undefined &&
@@ -241,19 +251,34 @@ const addContractMetadata = async (address: string): Promise<void> => {
   }
 
   const name =
-    typeof currentName === "string"
+    typeof existingName === "string"
       ? // Don't overwrite existing names.
-        currentName
+        existingName
       : await getContractName(address);
 
-  PerformanceMetrics.onContractIdentified();
+  const twitterHandle =
+    typeof existingTwitterHandle === "string"
+      ? // Don't overwrite existing twitter handle
+        existingTwitterHandle
+      : await OpenSea.getTwitterHandle(address);
 
   const imageUrl =
     twitterHandle === undefined
       ? undefined
       : await Twitter.getImageUrl(twitterHandle);
 
-  await updateContractMetadata(address, name ?? null, imageUrl ?? null);
+  PerformanceMetrics.onContractIdentified();
+
+  Log.debug(
+    `updating metadata for ${address}, name: ${name}, twitterHandle: ${twitterHandle}, imageUrl: ${imageUrl}`,
+  );
+
+  await updateContractMetadata(
+    address,
+    name ?? null,
+    imageUrl ?? null,
+    twitterHandle ?? null,
+  );
 };
 
 export const addContractsMetadata = (addresses: string[]): Promise<void[]> =>
