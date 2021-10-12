@@ -247,7 +247,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   );
   const leaderboardLimitedTimeframes = pipe(
     LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
-    T.chainFirstIOK(logPerfT("calc leaderboard LT", t0)),
+    T.chainFirstIOK(logPerfT("calc leaderboard limited timeframes", t0)),
   );
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
     seqTParT(leaderboardLimitedTimeframes, leaderboardAll),
