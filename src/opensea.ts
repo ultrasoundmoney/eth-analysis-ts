@@ -2,6 +2,7 @@ import * as Duration from "./duration.js";
 import * as Log from "./log.js";
 import fetch from "node-fetch";
 import { delay } from "./delay.js";
+import PQueue from "p-queue";
 
 type OpenSeaContract = {
   address: string;
@@ -11,12 +12,18 @@ type OpenSeaContract = {
   schema_name: "ERC721" | "ERC1155" | string;
 };
 
+const fetchContractQueue = new PQueue({
+  timeout: Duration.milisFromSeconds(60),
+  interval: Duration.milisFromSeconds(8),
+  intervalCap: 8,
+});
+
 export const getContract = async (
   address: string,
   attempt = 0,
 ): Promise<OpenSeaContract | undefined> => {
-  const res = await fetch(
-    `https://api.opensea.io/api/v1/asset_contract/${address}`,
+  const res = await fetchContractQueue.add(() =>
+    fetch(`https://api.opensea.io/api/v1/asset_contract/${address}`),
   );
 
   if ((res.status === 429 || res.status === 504) && attempt < 2) {
@@ -38,7 +45,7 @@ export const getContract = async (
 
   if (res.status !== 200) {
     throw new Error(
-      `fetch opensea contract ${address}, bad response: ${res.status}`,
+      `fetch opensea contract ${address}, attempt: ${attempt}, bad response: ${res.status}`,
     );
   }
 
