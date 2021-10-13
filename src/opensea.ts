@@ -104,14 +104,14 @@ export const getCategory = (contract: OpenSeaContract): string | undefined => {
 
   if (schemaName === "ERC20") {
     Log.debug(
-      "found opensea schema name: ${schemaName}, categorizing ERC20 as undefined",
+      `found opensea schema name: ${schemaName}, for ${contract.address}, categorizing ERC20 as undefined`,
     );
     return undefined;
   }
 
   if (typeof schemaName === "string") {
     Log.warn(
-      `found unknown opensea schema name: ${schemaName}, please explicitly categorize, setting category undefined`,
+      `found unknown opensea schema name: ${schemaName} for ${contract.address}, please explicitly categorize, setting category undefined`,
     );
     return undefined;
   }
