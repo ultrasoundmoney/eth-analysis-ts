@@ -9,7 +9,7 @@ import A from "fp-ts/lib/Array.js";
 import PQueue from "p-queue";
 import fetch from "node-fetch";
 import type { AbiItem } from "web3-utils";
-import { E, TE } from "./fp.js";
+import { E, O, seqSParT, TE } from "./fp.js";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { differenceInDays, differenceInHours } from "date-fns";
 import { getEtherscanToken } from "./config.js";
@@ -147,13 +147,13 @@ const updateContractMetadata = (
     WHERE address = ${address}
   `.then(() => undefined);
 
-const getContractMetadata = (
-  address: string,
-): Promise<{
+type ContractMetadata = {
   name: string | undefined;
   lastMetadataFetchAt: Date | undefined;
   twitterHandle: string | undefined;
-}> =>
+};
+
+const getContractMetadata = (address: string): Promise<ContractMetadata> =>
   sql<
     {
       name: string | null;
@@ -229,6 +229,78 @@ const getContractName = async (
   return;
 };
 
+export const addContractMetadataFp = (address: string): T.Task<void> => {
+  const updateMetadata = (metadata: ContractMetadata): T.Task<void> => {
+    const timeSinceUpdate =
+      metadata.lastMetadataFetchAt &&
+      DateFns.formatDistanceToNow(metadata.lastMetadataFetchAt);
+    Log.debug(
+      `fetching metadata for ${address}, last updated: ${timeSinceUpdate} ago, existing name: ${metadata.name}, existing twitter handle: ${metadata.twitterHandle}`,
+    );
+
+    const getNameTask =
+      typeof metadata.name === "string"
+        ? // Don't overwrite existing names.
+          T.of(metadata.name)
+        : () => getContractName(address);
+
+    const getTwitterHandleTask =
+      typeof metadata.twitterHandle === "string"
+        ? // Don't overwrite existing twitter handles
+          T.of(metadata.twitterHandle)
+        : () => OpenSea.getTwitterHandle(address);
+
+    type HandleAndImage = {
+      twitterHandle: string | undefined;
+      imageUrl: string | undefined;
+    };
+
+    return pipe(
+      seqSParT({
+        name: getNameTask,
+        handleAndImage: pipe(
+          getTwitterHandleTask,
+          T.map(O.fromNullable),
+          T.chain(
+            O.match(
+              () =>
+                T.of({
+                  twitterHandle: undefined,
+                  imageUrl: undefined,
+                } as HandleAndImage),
+              (twitterHandle) =>
+                seqSParT({
+                  twitterHandle: T.of(twitterHandle),
+                  imageUrl: () => Twitter.getImageUrl(twitterHandle),
+                }),
+            ),
+          ),
+        ),
+      }),
+      T.chain(({ name, handleAndImage }) => {
+        return () =>
+          updateContractMetadata(
+            address,
+            name ?? null,
+            handleAndImage.imageUrl ?? null,
+            handleAndImage.twitterHandle ?? null,
+          );
+      }),
+    );
+  };
+
+  return pipe(
+    () => getContractMetadata(address),
+    T.chain((metadata) => {
+      // Don't attempt to fetch contract names more than once every three hours.
+      return metadata.lastMetadataFetchAt !== undefined &&
+        differenceInHours(new Date(), metadata.lastMetadataFetchAt) < 3
+        ? T.of(undefined)
+        : updateMetadata(metadata);
+    }),
+  );
+};
+
 const addContractMetadata = async (address: string): Promise<void> => {
   const {
     name: existingName,
@@ -250,22 +322,31 @@ const addContractMetadata = async (address: string): Promise<void> => {
     `fetching metadata for ${address}, last updated: ${timeSinceUpdate} ago, existing name: ${existingName}, existing twitter handle: ${existingTwitterHandle}`,
   );
 
-  const name =
+  const getName = async () =>
     typeof existingName === "string"
       ? // Don't overwrite existing names.
         existingName
       : await getContractName(address);
 
-  const twitterHandle =
-    typeof existingTwitterHandle === "string"
-      ? // Don't overwrite existing twitter handle
-        existingTwitterHandle
-      : await OpenSea.getTwitterHandle(address);
+  const getHandleAndImage = async () => {
+    const twitterHandle =
+      typeof existingTwitterHandle === "string"
+        ? // Don't overwrite existing twitter handle
+          existingTwitterHandle
+        : await OpenSea.getTwitterHandle(address);
 
-  const imageUrl =
-    twitterHandle === undefined
-      ? undefined
-      : await Twitter.getImageUrl(twitterHandle);
+    if (twitterHandle === undefined) {
+      return [undefined, undefined];
+    }
+
+    const imageUrl = await Twitter.getImageUrl(twitterHandle);
+    return [twitterHandle, imageUrl];
+  };
+
+  const [name, [twitterHandle, imageUrl]] = await Promise.all([
+    getName(),
+    getHandleAndImage(),
+  ]);
 
   PerformanceMetrics.onContractIdentified();
 
@@ -281,8 +362,12 @@ const addContractMetadata = async (address: string): Promise<void> => {
   );
 };
 
-export const addContractsMetadata = (addresses: string[]): Promise<void[]> =>
-  Promise.all(addresses.map((address) => addContractMetadata(address)));
+export const addContractsMetadata = (addresses: Set<string>): T.Task<void> =>
+  pipe(
+    Array.from(addresses),
+    T.traverseArray((address) => () => addContractMetadata(address)),
+    T.map(() => undefined),
+  );
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
   if (addresses.length === 0) {

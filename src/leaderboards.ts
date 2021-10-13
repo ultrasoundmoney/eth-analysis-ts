@@ -204,9 +204,6 @@ export const buildLeaderboard = (
     type: "eth-transfers",
   };
 
-  // We don't wait and expect the fn to work fast enough to not have an infinitely growing queue.
-  Contracts.addContractsMetadata(contractEntries.map((entry) => entry.id));
-
   return pipe(
     [...contractEntries, ethTransfersEntry, contractCreationEntry],
     A.sort<LeaderboardEntry>({
@@ -266,4 +263,19 @@ export const extendRowsWithFamDetails = (
         }),
       );
     }),
+  );
+
+const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
+  entry.type === "contract" ? entry.address : undefined;
+
+export const getUniqueAddresses = (
+  leaderboards: LeaderboardEntries,
+): Set<string> =>
+  pipe(
+    Object.values(leaderboards),
+    A.flatten,
+    A.map(getAddressFromEntry),
+    A.map(O.fromNullable),
+    A.compact,
+    (addresses) => new Set(addresses),
   );

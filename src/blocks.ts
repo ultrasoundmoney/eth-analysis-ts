@@ -264,7 +264,16 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   return pipe(
     seqSParT({ burnRates, feesBurned, leaderboards }),
     T.chain((derivedBlockStats) =>
-      DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
+      pipe(
+        DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
+        // We don't wait and expect the fn to work fast enough to not have an infinitely growing queue.
+        T.apFirst(
+          pipe(
+            Leaderboards.getUniqueAddresses(derivedBlockStats.leaderboards),
+            Contracts.addContractsMetadata,
+          ),
+        ),
+      ),
     ),
   );
 };
