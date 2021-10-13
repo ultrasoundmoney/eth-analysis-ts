@@ -16,7 +16,7 @@ const fetchContractQueue = new PQueue({
   concurrency: 2,
   timeout: Duration.milisFromSeconds(60),
   interval: Duration.milisFromSeconds(8),
-  intervalCap: 4,
+  intervalCap: 2,
 });
 
 export const getContract = async (
@@ -31,7 +31,7 @@ export const getContract = async (
     Log.warn(
       `fetch opensea contract 429, attempt ${attempt}, waiting 3s and retrying`,
     );
-    await delay(Duration.milisFromSeconds(5));
+    await delay(Duration.milisFromSeconds(8));
     return getContract(address, attempt + 1);
   }
 
