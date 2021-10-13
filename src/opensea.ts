@@ -102,9 +102,9 @@ export const getCategory = (contract: OpenSeaContract): string | undefined => {
     return "nft";
   }
 
-  if (schemaName === "ERC20") {
+  if (schemaName === "ERC20" || schemaName === "UNKNOWN") {
     Log.debug(
-      `found opensea schema name: ${schemaName}, for ${contract.address}, categorizing ERC20 as undefined`,
+      `found known opensea schema name: ${schemaName}, for ${contract.address}, categorizing as undefined`,
     );
     return undefined;
   }
