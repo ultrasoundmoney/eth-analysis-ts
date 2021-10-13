@@ -328,10 +328,18 @@ const addContractMetadata = async (address: string): Promise<void> => {
   );
 };
 
+const addMetadataQueue = new PQueue({
+  timeout: Duration.milisFromSeconds(60),
+  concurrency: 1,
+});
+
 export const addContractsMetadata = (addresses: Set<string>): T.Task<void> =>
   pipe(
     Array.from(addresses),
-    T.traverseArray((address) => () => addContractMetadata(address)),
+    T.traverseArray(
+      (address) => () =>
+        addMetadataQueue.add(() => addContractMetadata(address)),
+    ),
     T.map(() => undefined),
   );
 
