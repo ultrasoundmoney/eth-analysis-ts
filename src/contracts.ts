@@ -28,14 +28,18 @@ export const fetchEtherscanName = async (
 
   // CloudFlare timeout
   if (res.status === 522 && attempt < 2) {
+    Log.warn(
+      `fetch etherscan name for ${address}, cloudflare 522, attempt: ${attempt}, waiting 3s and retrying`,
+    );
     await delay(Duration.milisFromSeconds(3));
     return fetchEtherscanName(address, attempt + 1);
   }
 
   if (res.status !== 200) {
-    throw new Error(
-      `bad response trying to fetch etherscan name, status: ${res.status}`,
+    Log.error(
+      `fetch etherscan name for ${address}, bad response ${res.status}`,
     );
+    return undefined;
   }
 
   const html = await res.text();
