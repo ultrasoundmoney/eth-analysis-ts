@@ -42,8 +42,30 @@ export const getTwitterHandle = async (
 
   const body = (await res.json()) as OpenSeaContract;
 
-  const twitterHandle = body.collection?.twitter_username ?? undefined;
-  Log.debug(`fetched opensea twitter handle ${twitterHandle} for ${address}`);
+  const rawTwitterHandle = body.collection?.twitter_username ?? undefined;
 
-  return twitterHandle;
+  if (rawTwitterHandle === undefined) {
+    Log.debug(`found no opensea contract for ${address}`);
+    return undefined;
+  }
+
+  const re1 = /^@?\w{1,15}$/;
+  const re2 = /^https:\/\/twitter.com\/@?(\w{1,15})/;
+
+  const match1 = re1.exec(rawTwitterHandle);
+  if (match1 !== null) {
+    Log.debug(`fetched opensea twitter handle ${match1[0]} for ${address}`);
+    return match1[0];
+  }
+
+  const match2 = re2.exec(rawTwitterHandle);
+  if (match2 !== null) {
+    Log.debug(`fetched opensea twitter handle ${match2[1]} for ${address}`);
+    return match2[1];
+  }
+
+  Log.debug(
+    `opensea twitter handle regex did not match, returning as is: ${rawTwitterHandle}`,
+  );
+  return rawTwitterHandle;
 };
