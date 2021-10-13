@@ -210,7 +210,7 @@ export const buildLeaderboard = (
         first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
       equals: (first, second) => first.fees === second.fees,
     }),
-    A.takeLeft(32),
+    A.takeLeft(100),
   );
 };
 
