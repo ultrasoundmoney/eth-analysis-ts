@@ -13,6 +13,7 @@ type OpenSeaContract = {
 };
 
 const fetchContractQueue = new PQueue({
+  concurrency: 2,
   timeout: Duration.milisFromSeconds(60),
   interval: Duration.milisFromSeconds(8),
   intervalCap: 8,
@@ -92,10 +93,27 @@ export const getTwitterHandle = (
 };
 
 export const getCategory = (contract: OpenSeaContract): string | undefined => {
-  const category = contract.schema_name;
+  const schemaName = contract.schema_name;
 
-  if (category === "ERC721" || category === "ERC1155") {
+  if (schemaName === "ERC721" || schemaName === "ERC1155") {
+    Log.debug(
+      `found opensea schema_name ${schemaName} for ${contract.address}, categorizing: nft`,
+    );
     return "nft";
+  }
+
+  if (schemaName === "ERC20") {
+    Log.debug(
+      "found opensea schema name: ${schemaName}, categorizing ERC20 as undefined",
+    );
+    return undefined;
+  }
+
+  if (typeof schemaName === "string") {
+    Log.warn(
+      `found unknown opensea schema name: ${schemaName}, please explicitly categorize, setting category undefined`,
+    );
+    return undefined;
   }
 
   return undefined;
