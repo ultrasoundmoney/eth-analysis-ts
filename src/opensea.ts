@@ -31,7 +31,7 @@ export const getContract = async (
     Log.warn(
       `fetch opensea contract 429, attempt ${attempt}, waiting 3s and retrying`,
     );
-    await delay(Duration.milisFromSeconds(3));
+    await delay(Duration.milisFromSeconds(5));
     return getContract(address, attempt + 1);
   }
 
