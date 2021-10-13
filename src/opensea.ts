@@ -4,15 +4,17 @@ import fetch from "node-fetch";
 import { delay } from "./delay.js";
 
 type OpenSeaContract = {
+  address: string;
   collection: {
     twitter_username: string | null;
   } | null;
+  schema_name: "ERC721" | "ERC1155" | string;
 };
 
-export const getTwitterHandle = async (
+export const getContract = async (
   address: string,
   attempt = 0,
-): Promise<string | undefined> => {
+): Promise<OpenSeaContract | undefined> => {
   const res = await fetch(
     `https://api.opensea.io/api/v1/asset_contract/${address}`,
   );
@@ -22,7 +24,7 @@ export const getTwitterHandle = async (
       `fetch opensea contract 429, attempt ${attempt}, waiting 3s and retrying`,
     );
     await delay(Duration.milisFromSeconds(3));
-    return getTwitterHandle(address, attempt + 1);
+    return getContract(address, attempt + 1);
   }
 
   if (res.status === 404) {
@@ -42,10 +44,18 @@ export const getTwitterHandle = async (
 
   const body = (await res.json()) as OpenSeaContract;
 
-  const rawTwitterHandle = body.collection?.twitter_username ?? undefined;
+  return body;
+};
+
+export const getTwitterHandle = (
+  contract: OpenSeaContract,
+): string | undefined => {
+  const rawTwitterHandle = contract.collection?.twitter_username ?? undefined;
 
   if (rawTwitterHandle === undefined) {
-    Log.debug(`found no opensea contract for ${address}`);
+    Log.debug(
+      `found no twitter handle in opensea contract ${contract.address}`,
+    );
     return undefined;
   }
 
@@ -54,13 +64,17 @@ export const getTwitterHandle = async (
 
   const match1 = re1.exec(rawTwitterHandle);
   if (match1 !== null) {
-    Log.debug(`fetched opensea twitter handle ${match1[0]} for ${address}`);
+    Log.debug(
+      `found opensea twitter handle ${match1[0]} for ${contract.address}`,
+    );
     return match1[0];
   }
 
   const match2 = re2.exec(rawTwitterHandle);
   if (match2 !== null) {
-    Log.debug(`fetched opensea twitter handle ${match2[1]} for ${address}`);
+    Log.debug(
+      `found opensea twitter handle ${match2[1]} for ${contract.address}`,
+    );
     return match2[1];
   }
 
@@ -68,4 +82,14 @@ export const getTwitterHandle = async (
     `opensea twitter handle regex did not match, returning as is: ${rawTwitterHandle}`,
   );
   return rawTwitterHandle;
+};
+
+export const getCategory = (contract: OpenSeaContract): string | undefined => {
+  const category = contract.schema_name;
+
+  if (category === "ERC721" || category === "ERC1155") {
+    return "nft";
+  }
+
+  return undefined;
 };

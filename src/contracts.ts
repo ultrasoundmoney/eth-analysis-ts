@@ -147,6 +147,7 @@ const updateContractMetadata = (
   name: string | null,
   imageUrl: string | null,
   twitterHandle: string | null,
+  category: string | null,
 ): Promise<void> =>
   sql`
     UPDATE contracts
@@ -154,7 +155,8 @@ const updateContractMetadata = (
       last_metadata_fetch_at = NOW(),
       name = ${name},
       image_url = ${imageUrl},
-      twitter_handle = ${twitterHandle}
+      twitter_handle = ${twitterHandle},
+      category = ${category}
     WHERE address = ${address}
   `.then(() => undefined);
 
@@ -162,6 +164,7 @@ type ContractMetadata = {
   name: string | undefined;
   lastMetadataFetchAt: Date | undefined;
   twitterHandle: string | undefined;
+  category: string | undefined;
 };
 
 const getContractMetadata = (address: string): Promise<ContractMetadata> =>
@@ -170,14 +173,16 @@ const getContractMetadata = (address: string): Promise<ContractMetadata> =>
       name: string | null;
       twitterHandle: string | null;
       lastMetadataFetchAt: Date | null;
+      category: string | null;
     }[]
   >`
-    SELECT name, twitter_handle, last_metadata_fetch_at FROM contracts
+    SELECT name, twitter_handle, last_metadata_fetch_at, category FROM contracts
     WHERE address = ${address}
   `.then((rows) => ({
     name: rows[0]?.name ?? undefined,
     lastMetadataFetchAt: rows[0]?.lastMetadataFetchAt ?? undefined,
     twitterHandle: rows[0]?.twitterHandle ?? undefined,
+    category: rows[0]?.category ?? undefined,
   }));
 
 const getOnChainName = async (address: string): Promise<string | undefined> => {
@@ -240,11 +245,43 @@ const getContractName = async (
   return;
 };
 
+const getHandleAndImageAndCategory = async (
+  address: string,
+  existingTwitterHandle: string | undefined,
+  existingCategory: string | undefined,
+) => {
+  const openSeaContract = await OpenSea.getContract(address);
+
+  const twitterHandle =
+    typeof existingTwitterHandle === "string"
+      ? existingTwitterHandle
+      : // OpenSea doesn't have inforamtion on this address.
+      openSeaContract === undefined
+      ? undefined
+      : OpenSea.getTwitterHandle(openSeaContract);
+
+  const category =
+    existingCategory === "string"
+      ? existingCategory
+      : // OpenSea doesn't have inforamtion on this address.
+      openSeaContract === undefined
+      ? undefined
+      : OpenSea.getCategory(openSeaContract);
+
+  const imageUrl =
+    typeof twitterHandle === "string"
+      ? await Twitter.getImageByHandle(twitterHandle)
+      : undefined;
+
+  return [twitterHandle, imageUrl, category];
+};
+
 const addContractMetadata = async (address: string): Promise<void> => {
   const {
     name: existingName,
     lastMetadataFetchAt,
     twitterHandle: existingTwitterHandle,
+    category: existingCategory,
   } = await getContractMetadata(address);
 
   if (
@@ -267,30 +304,19 @@ const addContractMetadata = async (address: string): Promise<void> => {
         existingName
       : await getContractName(address);
 
-  const getHandleAndImage = async () => {
-    const twitterHandle =
-      typeof existingTwitterHandle === "string"
-        ? // Don't overwrite existing twitter handle
-          existingTwitterHandle
-        : await OpenSea.getTwitterHandle(address);
-
-    if (twitterHandle === undefined) {
-      return [undefined, undefined];
-    }
-
-    const imageUrl = await Twitter.getImageByHandle(twitterHandle);
-    return [twitterHandle, imageUrl];
-  };
-
-  const [name, [twitterHandle, imageUrl]] = await Promise.all([
+  const [name, [twitterHandle, imageUrl, category]] = await Promise.all([
     getName(),
-    getHandleAndImage(),
+    getHandleAndImageAndCategory(
+      address,
+      existingTwitterHandle,
+      existingCategory,
+    ),
   ]);
 
   PerformanceMetrics.onContractIdentified();
 
   Log.debug(
-    `updating metadata for ${address}, name: ${name}, twitterHandle: ${twitterHandle}, imageUrl: ${imageUrl}`,
+    `updating metadata for ${address}, name: ${name}, twitterHandle: ${twitterHandle}, imageUrl: ${imageUrl}, category: ${category}`,
   );
 
   await updateContractMetadata(
@@ -298,6 +324,7 @@ const addContractMetadata = async (address: string): Promise<void> => {
     name ?? null,
     imageUrl ?? null,
     twitterHandle ?? null,
+    category ?? null,
   );
 };
 
