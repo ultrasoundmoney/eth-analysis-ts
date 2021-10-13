@@ -19,7 +19,7 @@ export const getTwitterHandle = async (
 
   if ((res.status === 429 || res.status === 504) && attempt < 2) {
     Log.warn(
-      "fetch opensea contract 429, attempt ${attempt}, waiting 3s and retrying",
+      `fetch opensea contract 429, attempt ${attempt}, waiting 3s and retrying`,
     );
     await delay(Duration.milisFromSeconds(3));
     return getTwitterHandle(address, attempt + 1);
