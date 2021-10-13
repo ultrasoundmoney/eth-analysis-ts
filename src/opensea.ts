@@ -16,7 +16,7 @@ const fetchContractQueue = new PQueue({
   concurrency: 2,
   timeout: Duration.milisFromSeconds(60),
   interval: Duration.milisFromSeconds(8),
-  intervalCap: 8,
+  intervalCap: 4,
 });
 
 export const getContract = async (
