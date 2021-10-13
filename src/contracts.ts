@@ -267,7 +267,7 @@ const addContractMetadata = async (address: string): Promise<void> => {
       return [undefined, undefined];
     }
 
-    const imageUrl = await Twitter.getImageUrl(twitterHandle);
+    const imageUrl = await Twitter.getImageByHandle(twitterHandle);
     return [twitterHandle, imageUrl];
   };
 
