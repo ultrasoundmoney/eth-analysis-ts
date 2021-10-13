@@ -1,16 +1,17 @@
+import * as DateFns from "date-fns";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
-import * as DateFns from "date-fns";
 import A from "fp-ts/lib/Array.js";
 import PQueue from "p-queue";
 import fetch from "node-fetch";
 import type { AbiItem } from "web3-utils";
 import { E, TE } from "./fp.js";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
+import { delay } from "./delay.js";
 import { differenceInDays, differenceInHours } from "date-fns";
 import { getEtherscanToken } from "./config.js";
 import { parseHTML } from "linkedom";
@@ -21,17 +22,23 @@ import { web3 } from "./eth_node.js";
 
 export const fetchEtherscanName = async (
   address: string,
+  attempt = 0,
 ): Promise<string | undefined> => {
-  const html = await fetch(`https://blockscan.com/address/${address}`).then(
-    (res) => {
-      if (res.status !== 200) {
-        throw new Error(
-          `bad response trying to fetch etherscan name, status: ${res.status}`,
-        );
-      }
-      return res.text();
-    },
-  );
+  const res = await fetch(`https://blockscan.com/address/${address}`);
+
+  // CloudFlare timeout
+  if (res.status === 522 && attempt < 2) {
+    await delay(Duration.milisFromSeconds(3));
+    return fetchEtherscanName(address, attempt + 1);
+  }
+
+  if (res.status !== 200) {
+    throw new Error(
+      `bad response trying to fetch etherscan name, status: ${res.status}`,
+    );
+  }
+
+  const html = await res.text();
 
   const { document } = parseHTML(html);
   const etherscanPublicName = document.querySelector(".badge-secondary") as {
