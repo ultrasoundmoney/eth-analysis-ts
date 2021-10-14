@@ -245,37 +245,6 @@ const getContractName = async (
   return;
 };
 
-const getHandleAndImageAndCategory = async (
-  address: string,
-  existingTwitterHandle: string | undefined,
-  existingCategory: string | undefined,
-) => {
-  const openSeaContract = await OpenSea.getContract(address);
-
-  const twitterHandle =
-    typeof existingTwitterHandle === "string"
-      ? existingTwitterHandle
-      : // OpenSea doesn't have inforamtion on this address.
-      openSeaContract === undefined
-      ? undefined
-      : OpenSea.getTwitterHandle(openSeaContract);
-
-  const category =
-    existingCategory === "string"
-      ? existingCategory
-      : // OpenSea doesn't have inforamtion on this address.
-      openSeaContract === undefined
-      ? undefined
-      : OpenSea.getCategory(openSeaContract);
-
-  const imageUrl =
-    typeof twitterHandle === "string"
-      ? await Twitter.getImageByHandle(twitterHandle)
-      : undefined;
-
-  return [twitterHandle, imageUrl, category];
-};
-
 const addContractMetadata = async (address: string): Promise<void> => {
   const {
     name: existingName,
@@ -304,13 +273,38 @@ const addContractMetadata = async (address: string): Promise<void> => {
         existingName
       : await getContractName(address);
 
+  const getHandleAndImageAndCategory = async (): Promise<
+    [string | undefined, string | undefined, string | undefined]
+  > => {
+    const openSeaContract = await OpenSea.getContract(address);
+
+    const twitterHandle =
+      typeof existingTwitterHandle === "string"
+        ? existingTwitterHandle
+        : // OpenSea doesn't have inforamtion on this address.
+        openSeaContract === undefined
+        ? undefined
+        : OpenSea.getTwitterHandle(openSeaContract);
+
+    const category =
+      existingCategory === "string"
+        ? existingCategory
+        : // OpenSea doesn't have inforamtion on this address.
+        openSeaContract === undefined
+        ? undefined
+        : OpenSea.getCategory(openSeaContract);
+
+    const imageUrl =
+      typeof twitterHandle === "string"
+        ? await Twitter.getImageByHandle(twitterHandle)
+        : undefined;
+
+    return [twitterHandle, imageUrl, category];
+  };
+
   const [name, [twitterHandle, imageUrl, category]] = await Promise.all([
     getName(),
-    getHandleAndImageAndCategory(
-      address,
-      existingTwitterHandle,
-      existingCategory,
-    ),
+    getHandleAndImageAndCategory(),
   ]);
 
   PerformanceMetrics.onContractIdentified();
