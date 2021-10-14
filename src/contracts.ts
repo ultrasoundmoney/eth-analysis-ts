@@ -97,6 +97,9 @@ export const fetchEtherscanTokenTitle = async (
     });
 
   if (html === undefined) {
+    Log.debug(
+      "hit timeout on etherscan token title page fetch, returning undefined",
+    );
     return undefined;
   }
 

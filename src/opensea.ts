@@ -27,6 +27,13 @@ export const getContract = async (
     fetch(`https://api.opensea.io/api/v1/asset_contract/${address}`),
   );
 
+  if (res === undefined) {
+    Log.debug(
+      "hit timeout for opensea contract fetch on queue, returning undefined",
+    );
+    return undefined;
+  }
+
   if (res.status === 504 && attempt < 3) {
     Log.warn(
       `fetch opensea contract 504, attempt ${attempt}, waiting 8s and retrying`,
