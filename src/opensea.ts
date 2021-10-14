@@ -27,9 +27,17 @@ export const getContract = async (
     fetch(`https://api.opensea.io/api/v1/asset_contract/${address}`),
   );
 
-  if ((res.status === 429 || res.status === 504) && attempt < 3) {
+  if (res.status === 504 && attempt < 3) {
     Log.warn(
-      `fetch opensea contract 429, attempt ${attempt}, waiting 3s and retrying`,
+      `fetch opensea contract 504, attempt ${attempt}, waiting 8s and retrying`,
+    );
+    await delay(Duration.milisFromSeconds(8));
+    return getContract(address, attempt + 1);
+  }
+
+  if (res.status === 429 && attempt < 3) {
+    Log.warn(
+      `fetch opensea contract 429, attempt ${attempt}, waiting 8s and retrying`,
     );
     await delay(Duration.milisFromSeconds(8));
     return getContract(address, attempt + 1);
