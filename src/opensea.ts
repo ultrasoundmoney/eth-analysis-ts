@@ -74,7 +74,7 @@ export const getTwitterHandle = (
     return undefined;
   }
 
-  const re1 = /^@?\w{1,15}$/;
+  const re1 = /^@?\w{1,15}/;
   const re2 = /^https:\/\/twitter.com\/@?(\w{1,15})/;
 
   const match1 = re1.exec(rawTwitterHandle);
