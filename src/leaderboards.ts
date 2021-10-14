@@ -267,11 +267,13 @@ export const extendRowsWithFamDetails = (
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;
 
-export const getUniqueAddresses = (
+export const getAddressesForMetadata = (
   leaderboards: LeaderboardEntries,
 ): Set<string> =>
   pipe(
     Object.values(leaderboards),
+    // We'd like to add metadata longest lasting, to shortest lasting timeframe.
+    A.reverse,
     A.flatten,
     A.map(getAddressFromEntry),
     A.map(O.fromNullable),
