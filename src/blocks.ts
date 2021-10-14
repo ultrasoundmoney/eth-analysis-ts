@@ -266,7 +266,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chain((derivedBlockStats) =>
       pipe(
         DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
-        // We don't wait and expect the fn to work fast enough to not have an infinitely growing queue.
+        // We don't wait and manage async queue overflows with timeouts in addContractsMetadata.
         T.apFirst(
           pipe(
             Leaderboards.getAddressesForMetadata(

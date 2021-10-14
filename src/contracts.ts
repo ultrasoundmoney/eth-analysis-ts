@@ -326,19 +326,17 @@ const addContractMetadata = async (address: string): Promise<void> => {
 };
 
 const addMetadataQueue = new PQueue({
-  timeout: Duration.milisFromSeconds(60),
+  timeout: Duration.milisFromSeconds(30),
   concurrency: 1,
 });
 
-export const addContractsMetadata = (addresses: Set<string>): T.Task<void> =>
-  pipe(
-    Array.from(addresses),
-    T.traverseArray(
-      (address) => () =>
-        addMetadataQueue.add(() => addContractMetadata(address)),
-    ),
-    T.map(() => undefined),
-  );
+export const addContractsMetadata = (addresses: Set<string>): T.Task<void> => {
+  return async () => {
+    for (const address of addresses) {
+      await addMetadataQueue.add(() => addContractMetadata(address));
+    }
+  };
+};
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
   if (addresses.length === 0) {
