@@ -12,7 +12,7 @@ type OpenSeaContract = {
   schema_name: "ERC721" | "ERC1155" | string;
 };
 
-const fetchContractQueue = new PQueue({
+export const fetchContractQueue = new PQueue({
   concurrency: 2,
   timeout: Duration.milisFromSeconds(32),
   interval: Duration.milisFromSeconds(16),

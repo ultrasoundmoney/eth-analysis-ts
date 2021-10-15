@@ -325,7 +325,7 @@ const addContractMetadata = async (address: string): Promise<void> => {
   );
 };
 
-const addMetadataQueue = new PQueue({
+export const fetchMetadataQueue = new PQueue({
   timeout: Duration.milisFromSeconds(30),
   concurrency: 1,
 });

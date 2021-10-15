@@ -331,7 +331,7 @@ export const addMissingBlocks = async (upToIncluding: number) => {
     Log.info(`added ${missingBlocks.length} missing blocks`);
   }
 
-  PerformanceMetrics.setReportPerformance(false);
+  PerformanceMetrics.setShouldLogBlockFetchRate(false);
 };
 
 export const storeNewBlock = (blockNumber: number): T.Task<void> =>
@@ -413,6 +413,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
                 ),
             ),
             T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
+            T.chainFirstIOK(() => () => PerformanceMetrics.logQueueSizes()),
           );
         }),
         T.chain(() => {

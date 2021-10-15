@@ -20,7 +20,7 @@ if (Config.env !== "dev") {
   });
 }
 
-PerformanceMetrics.setReportPerformance(true);
+PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
 const syncBlocks = async (latestBlockNumberOnStart: number) => {
   EthNode.subscribeNewHeads((head) =>
