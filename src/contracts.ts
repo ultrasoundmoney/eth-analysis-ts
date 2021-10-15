@@ -116,7 +116,7 @@ const getContractName = async (
   }
 
   // Starts failing with constant 403s after a while. Rate-limit seems to reset daily.
-  // const etherscanTokenTitle = await fetchEtherscanTokenTitle(address);
+  // const etherscanTokenTitle = await Etherscan.getTokenTitle(address);
   // if (typeof etherscanTokenTitle === "string") {
   //   Log.debug(`fetched token page name: ${etherscanTokenTitle}`);
   //   return etherscanTokenTitle;
