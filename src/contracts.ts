@@ -135,9 +135,8 @@ const addContractMetadata = async (address: string): Promise<void> => {
 
   if (
     lastMetadataFetchAt !== undefined &&
-    differenceInHours(new Date(), lastMetadataFetchAt) < 3
+    differenceInHours(new Date(), lastMetadataFetchAt) < 6
   ) {
-    // Don't attempt to fetch contract names more than once every three hours.
     return;
   }
 
