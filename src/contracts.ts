@@ -331,11 +331,13 @@ const addMetadataQueue = new PQueue({
 });
 
 export const addContractsMetadata = (addresses: Set<string>): T.Task<void> => {
-  return async () => {
-    for (const address of addresses) {
-      await addMetadataQueue.add(() => addContractMetadata(address));
-    }
-  };
+  return pipe(
+    Array.from(addresses),
+    T.traverseSeqArray((address) =>
+      constant(fetchMetadataQueue.add(constant(addContractMetadata(address)))),
+    ),
+    T.map(constVoid),
+  );
 };
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
