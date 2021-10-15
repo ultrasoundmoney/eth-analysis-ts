@@ -37,7 +37,9 @@ export const getContract = async (
   if (res.status === 504 && attempt < 3) {
     Log.warn(
       `fetch opensea contract 504, attempt ${attempt}, waiting 8s and retrying`,
+      { address, headers: res.headers },
     );
+
     await delay(Duration.milisFromSeconds(8));
     return getContract(address, attempt + 1);
   }
@@ -45,6 +47,7 @@ export const getContract = async (
   if (res.status === 429 && attempt < 3) {
     Log.warn(
       `fetch opensea contract 429, attempt ${attempt}, waiting 8s and retrying`,
+      { address },
     );
     await delay(Duration.milisFromSeconds(8));
     return getContract(address, attempt + 1);
@@ -53,6 +56,7 @@ export const getContract = async (
   if (res.status === 429 && attempt > 2) {
     Log.error(
       `fetch opensea contract 429, attempt ${attempt}, hit limit, slow request rate! returning undefined`,
+      { address },
     );
     return undefined;
   }
