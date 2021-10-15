@@ -7,6 +7,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 
 export type DerivedBlockStats = {
+  blockNumber: number;
   burnRates: BurnRatesT;
   feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
@@ -30,10 +31,12 @@ export const getDerivedBlockStats = (
     T.map((rows) => rows[0]),
   );
 
-export const storeDerivedBlockStats = (
-  block: BlockLondon,
-  { burnRates, feesBurned, leaderboards }: DerivedBlockStats,
-): T.Task<void> => {
+export const storeDerivedBlockStats = ({
+  blockNumber,
+  burnRates,
+  feesBurned,
+  leaderboards,
+}: DerivedBlockStats): T.Task<void> => {
   return pipe(
     () => sql`
       INSERT INTO derived_block_stats (
@@ -43,7 +46,7 @@ export const storeDerivedBlockStats = (
         leaderboards
       )
       VALUES (
-        ${block.number},
+        ${blockNumber},
         ${sql.json(burnRates)},
         ${sql.json(feesBurned)},
         ${sql.json(leaderboards)}

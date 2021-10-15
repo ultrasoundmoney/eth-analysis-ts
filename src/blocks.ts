@@ -265,20 +265,26 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     seqSParT({ burnRates, feesBurned, leaderboards }),
     T.chain((derivedBlockStats) =>
       pipe(
-        DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
-        // We don't wait and manage async queue overflows with timeouts in addContractsMetadata.
-        T.chain(() => {
-          pipe(
-            Leaderboards.getAddressesForMetadata(
-              derivedBlockStats.leaderboards,
-            ),
-            Contracts.addContractsMetadata,
-          )();
-          return T.of(undefined);
-        }),
+        T.chain(({burnRates, feesBurned, leaderboards}) =>
+          DerivedBlockStats.storeDerivedBlockStats({
+            blockNumber: block.number,
+            burnRates,
+            feesBurned,
+            leaderboards,
+          }),
+          // We don't wait and manage async queue overflows with timeouts in addContractsMetadata.
+          T.chain(() => {
+            pipe(
+              Leaderboards.getAddressesForMetadata(
+                derivedBlockStats.leaderboards,
+              ),
+              Contracts.addContractsMetadata,
+            )();
+            return T.of(undefined);
+          }),
+        ),
       ),
-    ),
-  );
+    );
 };
 
 // Removing blocks in parallel is problematic. Make sure to do so one by one.
