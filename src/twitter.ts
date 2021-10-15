@@ -38,7 +38,7 @@ type ApiError = {
   value?: string;
 };
 
-export const profileQueue = new PQueue({
+export const fetchProfileQueue = new PQueue({
   concurrency: 2,
   intervalCap: 10,
   interval: Duration.milisFromSeconds(10),
@@ -48,7 +48,7 @@ export const profileQueue = new PQueue({
 export const getProfileByHandle = async (
   handle: string,
 ): Promise<UserTwitterApiRaw | undefined> => {
-  const res = await profileQueue.add(() =>
+  const res = await fetchProfileQueue.add(() =>
     fetch(makeProfileByUsernameUrl(handle), {
       headers: {
         Authorization: `Bearer ${getTwitterToken()}`,

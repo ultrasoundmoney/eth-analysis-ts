@@ -1,4 +1,5 @@
 import * as Contracts from "./contracts.js";
+import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
 import * as Transactions from "./transactions.js";
@@ -58,14 +59,20 @@ export const logQueueSizes = () => {
     new Date(),
     lastLogQueueSizeTimestamp,
   );
+
   if (secondsSinceLastReport >= 30) {
     lastLogQueueSizeTimestamp = new Date();
     Log.debug(
-      `contract fetch metadata queue size: ${Contracts.fetchMetadataQueue.size}`,
+      `fetch metadata queue size: ${Contracts.fetchMetadataQueue.size}`,
     );
-    Log.debug(`twitter profile queue size: ${Twitter.profileQueue.size}`);
     Log.debug(
-      `opensea fetch contract queue size: ${OpenSea.fetchContractQueue.size}`,
+      `fetch twitter profile queue size: ${Twitter.fetchProfileQueue.size}`,
+    );
+    Log.debug(
+      `fetch opensea contract queue size: ${OpenSea.fetchContractQueue.size}`,
+    );
+    Log.debug(
+      `fetch etherscan token title queue size: ${Etherscan.fetchTokenTitleQueue.size}`,
     );
   }
 };

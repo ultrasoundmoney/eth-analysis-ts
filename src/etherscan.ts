@@ -114,7 +114,7 @@ export const getName = async (
   return etherscanPublicName?.innerText;
 };
 
-const fetchTokenTitleQueue = new PQueue({
+export const fetchTokenTitleQueue = new PQueue({
   timeout: Duration.milisFromSeconds(8),
   interval: Duration.milisFromSeconds(60),
   intervalCap: 1,
