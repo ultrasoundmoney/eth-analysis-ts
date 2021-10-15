@@ -35,13 +35,20 @@ export const getContract = async (
   }
 
   if (res.status === 504 && attempt < 3) {
-    Log.warn(
+    Log.info(
       `fetch opensea contract 504, attempt ${attempt}, waiting 8s and retrying`,
       { address },
     );
 
     await delay(Duration.milisFromSeconds(8));
     return getContract(address, attempt + 1);
+  }
+
+  if (res.status === 504 && attempt > 2) {
+    Log.info(
+      `fetch opensea contract 504, attempt ${attempt}, hit limit, returning undefined`,
+    );
+    return undefined;
   }
 
   if (res.status === 429 && attempt < 3) {
