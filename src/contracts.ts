@@ -10,7 +10,7 @@ import A from "fp-ts/lib/Array.js";
 import PQueue from "p-queue";
 import { TE } from "./fp.js";
 import { differenceInDays, differenceInHours } from "date-fns";
-import { constant, constVoid, pipe } from "fp-ts/lib/function.js";
+import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { web3 } from "./eth_node.js";
 
@@ -209,10 +209,11 @@ export const fetchMetadataQueue = new PQueue({
 export const addContractsMetadata = (addresses: Set<string>): T.Task<void> => {
   return pipe(
     Array.from(addresses),
-    T.traverseSeqArray((address) =>
-      constant(fetchMetadataQueue.add(constant(addContractMetadata(address)))),
+    T.traverseSeqArray(
+      (address) => () =>
+        fetchMetadataQueue.add(() => addContractMetadata(address)),
     ),
-    T.map(constVoid),
+    T.map(() => undefined),
   );
 };
 
