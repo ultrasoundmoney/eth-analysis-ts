@@ -267,14 +267,15 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
       pipe(
         DerivedBlockStats.storeDerivedBlockStats(block, derivedBlockStats),
         // We don't wait and manage async queue overflows with timeouts in addContractsMetadata.
-        T.apFirst(
+        T.chain(() => {
           pipe(
             Leaderboards.getAddressesForMetadata(
               derivedBlockStats.leaderboards,
             ),
             Contracts.addContractsMetadata,
-          ),
-        ),
+          )();
+          return T.of(undefined);
+        }),
       ),
     ),
   );
