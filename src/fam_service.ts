@@ -12,6 +12,7 @@ export type FamDetails = {
   famFollowerCount: number;
   followersCount: number;
   handle: string;
+  name: string;
 };
 
 export const getDetails = (handles: string[]): T.Task<FamDetails[]> => {

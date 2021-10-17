@@ -30,6 +30,7 @@ export type LeaderboardRowWithFamDetails = {
   isBot: boolean;
   name: string;
   twitterHandle: string | null;
+  twitterName: string | null;
 };
 
 type ContractEntry = {
@@ -189,6 +190,7 @@ export const buildLeaderboard = (
     bio: row.bio,
     followersCount: row.followersCount,
     famFollowerCount: row.famFollowerCount,
+    twitterName: row.twitterName,
   }));
   const contractCreationEntry: ContractCreationsEntry = {
     fees: contractCreationBaseFees,
@@ -239,6 +241,7 @@ export const extendRowsWithFamDetails = (
               bio: null,
               followersCount: null,
               famFollowerCount: null,
+              twitterName: null,
             };
           }
 
@@ -250,6 +253,7 @@ export const extendRowsWithFamDetails = (
               bio: null,
               followersCount: null,
               famFollowerCount: null,
+              twitterName: null,
             };
           }
 
@@ -258,6 +262,7 @@ export const extendRowsWithFamDetails = (
             bio: detail.bio,
             followersCount: detail.followersCount,
             famFollowerCount: detail.famFollowerCount,
+            twitterName: detail.name,
           };
         }),
       );
