@@ -9,8 +9,8 @@ const apiUrl =
 
 export type FamDetails = {
   bio: string | null;
-  followersCount: number;
   famFollowerCount: number;
+  followersCount: number;
   handle: string;
 };
 

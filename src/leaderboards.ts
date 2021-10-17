@@ -20,16 +20,16 @@ export type LeaderboardRow = {
 };
 
 export type LeaderboardRowWithFamDetails = {
-  contractAddress: string;
-  name: string;
-  isBot: boolean;
   baseFees: number;
-  imageUrl: string | null;
-  twitterHandle: string | null;
   bio: string | null;
-  followersCount: number | null;
-  famFollowerCount: number | null;
   category: string | null;
+  contractAddress: string;
+  famFollowerCount: number | null;
+  followersCount: number | null;
+  imageUrl: string | null;
+  isBot: boolean;
+  name: string;
+  twitterHandle: string | null;
 };
 
 type ContractEntry = {
