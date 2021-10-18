@@ -185,6 +185,7 @@ const handleSetContractTwitterHandle: Middleware = async (ctx) => {
 
   await Contracts.setTwitterHandle(address, handle)();
   ctx.status = 200;
+  return undefined;
 };
 
 const handleSetContractName: Middleware = async (ctx) => {
@@ -217,6 +218,7 @@ const handleSetContractName: Middleware = async (ctx) => {
 
   await Contracts.setName(address, name)();
   ctx.status = 200;
+  return undefined;
 };
 
 const handleSetContractCategory: Middleware = async (ctx) => {
@@ -249,6 +251,7 @@ const handleSetContractCategory: Middleware = async (ctx) => {
 
   await Contracts.setCategory(address, category)();
   ctx.status = 200;
+  return undefined;
 };
 
 const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
@@ -314,6 +317,7 @@ app.use(async (ctx, next) => {
     return undefined;
   }
   await next();
+  return undefined;
 });
 
 const router = new Router();
