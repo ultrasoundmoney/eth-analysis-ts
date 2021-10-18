@@ -17,7 +17,7 @@ type UserTwitterApiRaw = {
 const makeProfileByUsernameUrl = (handle: string) =>
   urlcat("https://api.twitter.com", "/2/users/by/username/:username", {
     username: handle,
-    "user.fields": ["profile_image_url"].join(","),
+    "user.fields": ["profile_image_url", "name", "description"].join(","),
   });
 
 const apiErrorTypes = {
