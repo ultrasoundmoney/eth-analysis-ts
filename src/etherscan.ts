@@ -119,11 +119,23 @@ export const fetchTokenTitleQueue = new PQueue({
   intervalCap: 2,
 });
 
+const browserUA =
+  "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Mobile Safari/537.36";
+
 export const getTokenTitle = async (
   address: string,
 ): Promise<string | undefined> => {
   const html = await fetchTokenTitleQueue
-    .add(() => fetch(`https://etherscan.io/token/${address}`))
+    .add(() =>
+      fetch(`https://etherscan.io/token/${address}`, {
+        compress: true,
+        highWaterMark: 1024 * 1024,
+        headers: {
+          Accept: "*/*",
+          UserAgent: browserUA,
+        },
+      }),
+    )
     .then((res) => {
       if (res === undefined) {
         Log.debug(`fetch token page for ${address} timed out`);
