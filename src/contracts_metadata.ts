@@ -115,6 +115,7 @@ const addMetadataFromSimilar = async (
   );
 
   if (typeof twitterHandle === "string") {
+    Contracts.setSimpleColumn("manual_twitter_handle", address, twitterHandle);
     addTwitterMetadata(address, twitterHandle);
   }
 
