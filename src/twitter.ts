@@ -38,13 +38,13 @@ type ApiError = {
   value?: string;
 };
 
+// Fetching profiles is on a 900 / 15min rate-limit, or 1/s.
 export const fetchProfileQueue = new PQueue({
   concurrency: 2,
   intervalCap: 10,
   interval: Duration.milisFromSeconds(10),
 });
 
-// Fetching profiles is on a 900 / 15min rate-limit, or 1/s.
 export const getProfileByHandle = async (
   handle: string,
 ): Promise<UserTwitterApiRaw | undefined> => {

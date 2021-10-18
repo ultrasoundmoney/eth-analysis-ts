@@ -1,71 +1,15 @@
-import * as DateFns from "date-fns";
-import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
-import * as OpenSea from "./opensea.js";
-import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
-import * as Twitter from "./twitter.js";
 import A from "fp-ts/lib/Array.js";
-import PQueue from "p-queue";
-import { TE } from "./fp.js";
-import { differenceInDays, differenceInHours } from "date-fns";
-import { pipe } from "fp-ts/lib/function.js";
+import { O, TE } from "./fp.js";
+import { constant, pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { web3 } from "./eth_node.js";
 
-export const getContractNameFetchedLongAgo = ({
-  lastNameFetchAt,
-}: {
-  lastNameFetchAt: Date | null;
-}): boolean =>
-  lastNameFetchAt === null ||
-  differenceInDays(new Date(), lastNameFetchAt) >= 3;
-
-const updateContractMetadata = (
+export const getOnChainName = async (
   address: string,
-  name: string | null,
-  imageUrl: string | null,
-  twitterHandle: string | null,
-  category: string | null,
-): Promise<void> =>
-  sql`
-    UPDATE contracts
-    SET
-      last_metadata_fetch_at = NOW(),
-      name = ${name},
-      image_url = ${imageUrl},
-      twitter_handle = ${twitterHandle},
-      category = ${category}
-    WHERE address = ${address}
-  `.then(() => undefined);
-
-type ContractMetadata = {
-  name: string | undefined;
-  lastMetadataFetchAt: Date | undefined;
-  twitterHandle: string | undefined;
-  category: string | undefined;
-};
-
-const getContractMetadata = (address: string): Promise<ContractMetadata> =>
-  sql<
-    {
-      name: string | null;
-      twitterHandle: string | null;
-      lastMetadataFetchAt: Date | null;
-      category: string | null;
-    }[]
-  >`
-    SELECT name, twitter_handle, last_metadata_fetch_at, category FROM contracts
-    WHERE address = ${address}
-  `.then((rows) => ({
-    name: rows[0]?.name ?? undefined,
-    lastMetadataFetchAt: rows[0]?.lastMetadataFetchAt ?? undefined,
-    twitterHandle: rows[0]?.twitterHandle ?? undefined,
-    category: rows[0]?.category ?? undefined,
-  }));
-
-const getOnChainName = async (address: string): Promise<string | undefined> => {
+): Promise<string | undefined> => {
   const abi = await pipe(
     Etherscan.getAbi(address),
     TE.matchW(
@@ -89,132 +33,18 @@ const getOnChainName = async (address: string): Promise<string | undefined> => {
     ),
   )();
 
-  if (abi !== undefined) {
-    const contract = new web3!.eth.Contract(abi, address);
-    const hasNameMethod = contract.methods["name"] !== undefined;
-
-    if (hasNameMethod) {
-      return contract.methods.name().call();
-    }
+  if (abi === undefined) {
+    return undefined;
   }
 
-  return undefined;
-};
+  const contract = new web3!.eth.Contract(abi, address);
+  const hasNameMethod = contract.methods["name"] !== undefined;
 
-const getContractName = async (
-  address: string,
-): Promise<string | undefined> => {
-  const abiName = await getOnChainName(address);
-  if (typeof abiName === "string") {
-    return abiName;
+  if (!hasNameMethod) {
+    return undefined;
   }
 
-  const etherscanTag = await Etherscan.getName(address);
-  Log.debug(`tried to fetch etherscan tag got: ${etherscanTag}`);
-  if (typeof etherscanTag === "string") {
-    return etherscanTag;
-  }
-
-  // Starts failing with constant 403s after a while. Rate-limit seems to reset daily.
-  // const etherscanTokenTitle = await Etherscan.getTokenTitle(address);
-  // if (typeof etherscanTokenTitle === "string") {
-  //   Log.debug(`fetched token page name: ${etherscanTokenTitle}`);
-  //   return etherscanTokenTitle;
-  // }
-
-  return;
-};
-
-const addContractMetadata = async (address: string): Promise<void> => {
-  const {
-    name: existingName,
-    lastMetadataFetchAt,
-    twitterHandle: existingTwitterHandle,
-    category: existingCategory,
-  } = await getContractMetadata(address);
-
-  if (
-    lastMetadataFetchAt !== undefined &&
-    differenceInHours(new Date(), lastMetadataFetchAt) < 6
-  ) {
-    return;
-  }
-
-  const timeSinceUpdate =
-    lastMetadataFetchAt && DateFns.formatDistanceToNow(lastMetadataFetchAt);
-  Log.debug(
-    `fetching metadata for ${address}, last updated: ${timeSinceUpdate} ago, existing name: ${existingName}, existing twitter handle: ${existingTwitterHandle}`,
-  );
-
-  const getName = async () =>
-    typeof existingName === "string"
-      ? // Don't overwrite existing names.
-        existingName
-      : await getContractName(address);
-
-  const getHandleAndImageAndCategory = async (): Promise<
-    [string | undefined, string | undefined, string | undefined]
-  > => {
-    const openSeaContract = await OpenSea.getContract(address);
-
-    const twitterHandle =
-      typeof existingTwitterHandle === "string"
-        ? existingTwitterHandle
-        : // OpenSea doesn't have inforamtion on this address.
-        openSeaContract === undefined
-        ? undefined
-        : OpenSea.getTwitterHandle(openSeaContract);
-
-    const category =
-      existingCategory === "string"
-        ? existingCategory
-        : // OpenSea doesn't have inforamtion on this address.
-        openSeaContract === undefined
-        ? undefined
-        : OpenSea.getCategory(openSeaContract);
-
-    const imageUrl =
-      typeof twitterHandle === "string"
-        ? await Twitter.getImageByHandle(twitterHandle)
-        : undefined;
-
-    return [twitterHandle, imageUrl, category];
-  };
-
-  const [name, [twitterHandle, imageUrl, category]] = await Promise.all([
-    getName(),
-    getHandleAndImageAndCategory(),
-  ]);
-
-  PerformanceMetrics.onContractIdentified();
-
-  Log.debug(
-    `updating metadata for ${address}, name: ${name}, twitterHandle: ${twitterHandle}, imageUrl: ${imageUrl}, category: ${category}`,
-  );
-
-  await updateContractMetadata(
-    address,
-    name ?? null,
-    imageUrl ?? null,
-    twitterHandle ?? null,
-    category ?? null,
-  );
-};
-
-export const fetchMetadataQueue = new PQueue({
-  timeout: Duration.milisFromSeconds(30),
-  concurrency: 1,
-});
-
-export const addContractsMetadata = (addresses: Set<string>): T.Task<void> => {
-  return pipe(
-    Array.from(addresses),
-    T.traverseSeqArray(
-      (address) => () =>
-        fetchMetadataQueue.add(() => addContractMetadata(address)),
-    ),
-    T.map(() => undefined),
-  );
+  return contract.methods.name().call();
 };
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
@@ -235,41 +65,136 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
   );
 };
 
-export const setTwitterHandle = (
+export type SimpleColumn =
+  | "category"
+  | "defi_llama_category"
+  | "defi_llama_twitter_handle"
+  | "etherscan_name_tag"
+  | "etherscan_name_token"
+  | "manual_category"
+  | "manual_name"
+  | "manual_twitter_handle"
+  | "name"
+  | "on_chain_name"
+  | "opensea_category"
+  | "opensea_name"
+  | "opensea_twitter_handle"
+  | "opensea_image_url"
+  | "twitter_image_url";
+
+export const setSimpleColumn = (
+  columnName: SimpleColumn,
   address: string,
-  handle: string,
+  value: string | null,
 ): T.Task<void> =>
   pipe(
     () => sql`
       UPDATE contracts
       SET
-        ${sql({ twitter_handle: handle, last_metadata_fetch_at: null })}
+        ${sql({ [columnName]: value })}
       WHERE
         address = ${address}
     `,
     T.map(() => undefined),
+  );
+
+type MetadataComponents = {
+  onChainName: string | null;
+  etherscanNameTag: string | null;
+  etherscanNameToken: string | null;
+  openseaName: string | null;
+  openseaImageUrl: string | null;
+  openseaTwitterHandle: string | null;
+  openseaCategory: string | null;
+  defiLlamaTwitterHandle: string | null;
+  defiLlamaCategory: string | null;
+  manualName: string | null;
+  manualTwitterHandle: string | null;
+  manualCategory: string | null;
+  twitterImageUrl: string | null;
+};
+
+const getPreferredName = (metadata: MetadataComponents): string | null =>
+  metadata.manualName ||
+  metadata.etherscanNameTag ||
+  metadata.etherscanNameToken ||
+  metadata.openseaName ||
+  null;
+
+const getPreferredCategory = (metadata: MetadataComponents): string | null =>
+  metadata.manualCategory ||
+  metadata.openseaCategory ||
+  (metadata.defiLlamaCategory !== null ? "defi" : null) ||
+  null;
+
+const getPreferredTwitterHandle = (
+  metadata: MetadataComponents,
+): string | null =>
+  metadata.manualTwitterHandle ||
+  metadata.openseaTwitterHandle ||
+  metadata.defiLlamaTwitterHandle ||
+  null;
+
+const getPreferredImageUrl = (metadata: MetadataComponents): string | null =>
+  metadata.twitterImageUrl || metadata.openseaImageUrl || null;
+
+export const updatePreferredMetadata = (address: string): T.Task<void> =>
+  pipe(
+    () => sql<MetadataComponents[]>`
+      SELECT
+        on_chain_name,
+        etherscan_name_tag,
+        etherscan_name_token,
+        opensea_name,
+        opensea_image_url,
+        opensea_twitter_handle,
+        opensea_category,
+        defi_llama_twitter_handle,
+        defi_llama_category,
+        manual_name,
+        manual_twitter_handle,
+        manual_category,
+        twitter_image_url
+      FROM contracts
+      WHERE address = ${address}
+    `,
+    T.map((rows) => rows[0]),
+    T.map(O.fromNullable),
+    T.chain(
+      O.match(constant(T.of(undefined)), (metadataComponents) =>
+        pipe(
+          () => sql`
+            UPDATE contracts
+            SET
+              name = ${getPreferredName(metadataComponents)},
+              category = ${getPreferredCategory(metadataComponents)},
+              twitter_handle = ${getPreferredTwitterHandle(metadataComponents)},
+              image_url = ${getPreferredImageUrl(metadataComponents)}
+            WHERE address = ${address}
+          `,
+          T.map(() => undefined),
+        ),
+      ),
+    ),
+  );
+
+export const setTwitterHandle = (
+  address: string,
+  handle: string,
+): T.Task<void> =>
+  pipe(
+    setSimpleColumn("manual_twitter_handle", address, handle),
+    T.chain(() => updatePreferredMetadata(address)),
   );
 
 export const setName = (address: string, name: string): T.Task<void> =>
   pipe(
-    () => sql`
-      UPDATE contracts
-      SET
-        ${sql({ name })}
-      WHERE
-        address = ${address}
-    `,
-    T.map(() => undefined),
+    setSimpleColumn("manual_name", address, name),
+    T.chain(() => updatePreferredMetadata(address)),
   );
 
 export const setCategory = (address: string, category: string): T.Task<void> =>
   pipe(
-    () => sql`
-      UPDATE contracts
-      SET
-        ${sql({ category })}
-      WHERE
-        address = ${address}
-    `,
-    T.map(() => undefined),
+    setSimpleColumn("manual_category", address, category),
+    T.chain(() => updatePreferredMetadata(address)),
   );

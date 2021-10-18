@@ -34,7 +34,19 @@ CREATE TABLE "contracts" (
   "dapp_id" text,
   "category" text,
   "twitter_handle" text,
-  "image_url" text
+  "image_url" text,
+  "on_chain_name" text,
+  "etherscan_name_tag" text,
+  "etherscan_name_token" text,
+  "opensea_name" text,
+  "opensea_twitter_handle" text,
+  "opensea_category" text,
+  "defi_llama_twitter_handle" text,
+  "defi_llama_category" text,
+  "manual_name" text,
+  "manual_twitter_handle" text,
+  "manual_category" text,
+  "twitter_image_url" text
 );
 
 CREATE TABLE "dapps" (

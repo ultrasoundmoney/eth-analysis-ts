@@ -10,13 +10,13 @@ type OpenSeaContract = {
     twitter_username: string | null;
   } | null;
   schema_name: "ERC721" | "ERC1155" | string;
+  image_url: string | null;
 };
 
 export const fetchContractQueue = new PQueue({
   concurrency: 2,
-  timeout: Duration.milisFromSeconds(32),
   interval: Duration.milisFromSeconds(16),
-  intervalCap: 4,
+  intervalCap: 3,
 });
 
 export const getContract = async (
@@ -100,15 +100,15 @@ export const getTwitterHandle = (
     return undefined;
   }
 
-  const re1 = /^@?\w{1,15}/;
+  const re1 = /^@?(\w{1,15})/;
   const re2 = /^https:\/\/twitter.com\/@?(\w{1,15})/;
 
   const match1 = re1.exec(rawTwitterHandle);
   if (match1 !== null) {
     Log.debug(
-      `found opensea twitter handle ${match1[0]} for ${contract.address}`,
+      `found opensea twitter handle ${match1[1]} for ${contract.address}`,
     );
-    return match1[0];
+    return match1[1];
   }
 
   const match2 = re2.exec(rawTwitterHandle);

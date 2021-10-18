@@ -263,25 +263,13 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
 
   return pipe(
     seqSParT({ burnRates, feesBurned, leaderboards }),
-    T.chain((derivedBlockStats) =>
-      pipe(
-        DerivedBlockStats.storeDerivedBlockStats({
-          blockNumber: block.number,
-          burnRates: derivedBlockStats.burnRates,
-          feesBurned: derivedBlockStats.feesBurned,
-          leaderboards: derivedBlockStats.leaderboards,
-        }),
-        T.chain(() => {
-          // We don't wait and manage async queue overflows with timeouts in addContractsMetadata.
-          pipe(
-            Leaderboards.getAddressesForMetadata(
-              derivedBlockStats.leaderboards,
-            ),
-            Contracts.addContractsMetadata,
-          )();
-          return T.of(undefined);
-        }),
-      ),
+    T.chain(({ burnRates, feesBurned, leaderboards }) =>
+      DerivedBlockStats.storeDerivedBlockStats({
+        blockNumber: block.number,
+        burnRates,
+        feesBurned,
+        leaderboards,
+      }),
     ),
   );
 };

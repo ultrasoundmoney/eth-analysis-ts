@@ -115,32 +115,21 @@ export const getName = async (
 };
 
 export const fetchTokenTitleQueue = new PQueue({
-  timeout: Duration.milisFromSeconds(8),
-  interval: Duration.milisFromSeconds(60),
-  intervalCap: 1,
+  interval: Duration.milisFromSeconds(8),
+  intervalCap: 2,
 });
-
-const browserUA =
-  "user-agent: Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Mobile Safari/537.36";
 
 export const getTokenTitle = async (
   address: string,
 ): Promise<string | undefined> => {
-  Log.debug(`fetching etherscan token title for ${address}`);
   const html = await fetchTokenTitleQueue
-    .add(() =>
-      fetch(`https://etherscan.io/token/${address}`, {
-        headers: { "User-Agent": browserUA },
-      }),
-    )
+    .add(() => fetch(`https://etherscan.io/token/${address}`))
     .then((res) => {
       if (res === undefined) {
         Log.debug(`fetch token page for ${address} timed out`);
         // Queue works with a timeout that returns undefined when hit.
         return undefined;
       }
-
-      Log.debug(`fetched token page, status: ${res?.status}`);
 
       // Etherscan seems to 403 when we request too much.
       if (res.status === 403) {

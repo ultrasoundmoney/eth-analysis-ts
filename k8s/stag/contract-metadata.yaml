@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contract-metadata
+  labels:
+    app: contract-metadata
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: contract-metadata
+  template:
+    metadata:
+      labels:
+        app: contract-metadata
+    spec:
+      containers:
+        - name: contract-metadata
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          command: ["node", "src/add_contract_metadata.js"]
+          envFrom:
+            - configMapRef:
+                name: gas-analysis-env
+            - secretRef:
+                name: pg-password-anton
+            - secretRef:
+                name: etherscan-token-alextes
+            - secretRef:
+                name: twitter-spidey-auth-token
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: 25m
+              memory: 512Mi
