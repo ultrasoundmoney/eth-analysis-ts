@@ -120,6 +120,7 @@ type MetadataComponents = {
 
 const getPreferredName = (metadata: MetadataComponents): string | null =>
   metadata.manualName ||
+  metadata.onChainName ||
   metadata.etherscanNameTag ||
   metadata.etherscanNameToken ||
   metadata.openseaName ||
