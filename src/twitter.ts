@@ -10,14 +10,9 @@ const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 type UserTwitterApiRaw = {
   profile_image_url: string;
+  name: string;
+  description: string | null;
 };
-
-const getProfileImage = (
-  profile: UserTwitterApiRaw | undefined,
-): string | undefined =>
-  typeof profile?.profile_image_url === "string"
-    ? profile.profile_image_url.replace("normal", "reasonably_small")
-    : undefined;
 
 const makeProfileByUsernameUrl = (handle: string) =>
   urlcat("https://api.twitter.com", "/2/users/by/username/:username", {
@@ -95,9 +90,9 @@ export const getProfileByHandle = async (
   return body.data;
 };
 
-export const getImageByHandle = async (
-  handle: string,
-): Promise<string | undefined> => {
-  const profile = await getProfileByHandle(handle);
-  return getProfileImage(profile);
-};
+export const getProfileImage = (
+  profile: UserTwitterApiRaw,
+): string | undefined =>
+  typeof profile?.profile_image_url === "string"
+    ? profile.profile_image_url.replace("normal", "reasonably_small")
+    : undefined;

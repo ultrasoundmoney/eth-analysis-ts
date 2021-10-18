@@ -112,17 +112,30 @@ const addTwitterImage = async (
     return;
   }
 
-  const imageUrl = await twitterImageQueue.add(() =>
-    Twitter.getImageByHandle(handle),
+  const profile = await twitterImageQueue.add(() =>
+    Twitter.getProfileByHandle(handle),
   );
 
   twitterImageLastAttemptMap[address] = new Date();
 
-  if (imageUrl === undefined) {
-    return;
+  if (profile === undefined) {
+    return undefined;
   }
 
-  await Contracts.setSimpleColumn("twitter_image_url", address, imageUrl)();
+  const imageUrl = Twitter.getProfileImage(profile) ?? null;
+
+  return pipe(
+    seqTParT(
+      Contracts.setSimpleColumn("twitter_image_url", address, imageUrl),
+      Contracts.setSimpleColumn("twitter_name", address, profile.name),
+      Contracts.setSimpleColumn(
+        "twitter_description",
+        address,
+        profile.description,
+      ),
+    ),
+    T.chain(() => Contracts.updatePreferredMetadata(address)),
+  )();
 };
 
 const openseaContractLastAttempMap: Record<string, Date | undefined> = {};

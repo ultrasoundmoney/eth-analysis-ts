@@ -77,10 +77,12 @@ export type SimpleColumn =
   | "name"
   | "on_chain_name"
   | "opensea_category"
+  | "opensea_image_url"
   | "opensea_name"
   | "opensea_twitter_handle"
-  | "opensea_image_url"
-  | "twitter_image_url";
+  | "twitter_description"
+  | "twitter_image_url"
+  | "twitter_name";
 
 export const setSimpleColumn = (
   columnName: SimpleColumn,
