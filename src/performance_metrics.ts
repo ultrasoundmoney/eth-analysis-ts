@@ -84,9 +84,9 @@ export const logQueueSizes = () => {
     Log.debug(
       `etherscan name tag queue size: ${ContractsMetadata.etherscanNameTagQueue.size}`,
     );
-    Log.debug(
-      `etherscan name token queue size: ${ContractsMetadata.etherscanNameTokenQueue.size}`,
-    );
+    // Log.debug(
+    //   `etherscan name token queue size: ${ContractsMetadata.etherscanNameTokenQueue.size}`,
+    // );
     Log.debug(
       `twitter image queue size: ${ContractsMetadata.twitterImageQueue.size}`,
     );
