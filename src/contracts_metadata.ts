@@ -85,7 +85,7 @@ const addWithThrottle = async (
   await Contracts.updatePreferredMetadata(address)();
 };
 
-const twitterImageLastAttemptMap: Record<string, Date | undefined> = {};
+const twitterProfileLastAttemptMap: Record<string, Date | undefined> = {};
 
 export const twitterProfileQueue = new PQueue({
   concurrency: 2,
@@ -96,7 +96,7 @@ const addTwitterMetadata = async (
   address: string,
   handle: string,
 ): Promise<void> => {
-  const lastAttempted = twitterImageLastAttemptMap[address];
+  const lastAttempted = twitterProfileLastAttemptMap[address];
 
   if (
     lastAttempted !== undefined &&
@@ -109,7 +109,7 @@ const addTwitterMetadata = async (
     Twitter.getProfileByHandle(handle),
   );
 
-  twitterImageLastAttemptMap[address] = new Date();
+  twitterProfileLastAttemptMap[address] = new Date();
 
   if (profile === undefined) {
     return undefined;
