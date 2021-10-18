@@ -122,6 +122,7 @@ export const fetchTokenTitleQueue = new PQueue({
 const browserUA =
   "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Mobile Safari/537.36";
 
+// Etherscan is behind cloudflare. Locally cloudflare seems fine with our scraping requests, but from the digital ocean IPs it appears we get refused with a 403, perhaps failing some challenge.
 export const getTokenTitle = async (
   address: string,
 ): Promise<string | undefined> => {

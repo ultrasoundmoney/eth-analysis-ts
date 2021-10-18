@@ -55,13 +55,6 @@ export const etherscanNameTagQueue = new PQueue({
   timeout: Duration.milisFromSeconds(60),
 });
 
-// const etherscanNameTokenLastAttempMap: Record<string, Date | undefined> = {};
-
-// export const etherscanNameTokenQueue = new PQueue({
-//   concurrency: 2,
-//   timeout: Duration.milisFromSeconds(60),
-// });
-
 type GetFn = (address: string) => Promise<string | undefined>;
 
 const addWithThrottle = async (
@@ -158,6 +151,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
   const openseaContract = await openseaContractQueue.add(() =>
     OpenSea.getContract(address),
   );
+
   openseaContractLastAttempMap[address] = new Date();
 
   if (openseaContract === undefined) {
@@ -242,15 +236,6 @@ const addMetadata = (address: string): T.Task<void> =>
           Etherscan.getName,
           address,
         ),
-      // Etherscan is behind cloudflare. Locally cloudflare seems fine with our scraping requests, but from the digital ocean IPs it appears we get refused with a 403, perhaps failing some challenge.
-      // () =>
-      //   addWithThrottle(
-      //     etherscanNameTokenLastAttempMap,
-      //     "etherscan_name_token",
-      //     etherscanNameTokenQueue,
-      //     Etherscan.getTokenTitle,
-      //     address,
-      //   ),
       () => addOpenseaMetadata(address),
       () => addDefiLlamaMetadata(address),
     ]),
