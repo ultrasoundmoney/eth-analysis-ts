@@ -87,10 +87,15 @@ const addMetadataFromSimilar = async (
   address: string,
   name: string,
 ): Promise<void> => {
+  Log.debug(`adding metadata from similar contract for ${name} - ${address}`);
   const similarContracts = await sql<SimilarContract[]>`
     SELECT category, twitter_handle FROM contracts
     WHERE name ILIKE '${sql(name)}%'
   `;
+
+  if (similarContracts.length !== 0) {
+    Log.debug("found similar contracts", { contracts: similarContracts });
+  }
 
   const category = pipe(
     similarContracts,
