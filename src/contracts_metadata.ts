@@ -92,7 +92,7 @@ export const twitterProfileQueue = new PQueue({
   timeout: Duration.milisFromSeconds(60),
 });
 
-const addTwitterMetadata = async (
+export const addTwitterMetadata = async (
   address: string,
   handle: string,
 ): Promise<void> => {
