@@ -82,7 +82,7 @@ export const getAbi = (
     E.isLeft,
   );
 
-export const getName = async (
+export const getNameTag = async (
   address: string,
   attempt = 0,
 ): Promise<string | undefined> => {
@@ -94,7 +94,7 @@ export const getName = async (
       `fetch etherscan name for ${address}, cloudflare 522, attempt: ${attempt}, waiting 3s and retrying`,
     );
     await delay(Duration.milisFromSeconds(3));
-    return getName(address, attempt + 1);
+    return getNameTag(address, attempt + 1);
   }
 
   if (res.status !== 200) {

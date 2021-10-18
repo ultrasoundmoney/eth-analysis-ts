@@ -10,7 +10,6 @@ import * as Twitter from "./twitter.js";
 import PQueue from "p-queue";
 import { A, O, pipe, seqTParT, T } from "./fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
-import { SimpleColumn } from "./contracts.js";
 import { sql } from "./db.js";
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
@@ -48,23 +47,8 @@ export const onChainNameQueue = new PQueue({
 
 const onChainLastAttemptMap: Record<string, Date | undefined> = {};
 
-const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
-
-export const etherscanNameTagQueue = new PQueue({
-  concurrency: 4,
-  timeout: Duration.milisFromSeconds(60),
-});
-
-type GetFn = (address: string) => Promise<string | undefined>;
-
-const addWithThrottle = async (
-  timemap: Record<string, Date | undefined>,
-  columnName: SimpleColumn,
-  queue: PQueue,
-  getFn: GetFn,
-  address: string,
-): Promise<void> => {
-  const lastAttempted = timemap[address];
+const addOnChainName = async (address: string): Promise<void> => {
+  const lastAttempted = onChainLastAttemptMap[address];
 
   if (
     lastAttempted !== undefined &&
@@ -73,15 +57,96 @@ const addWithThrottle = async (
     return undefined;
   }
 
-  const value = await queue.add(() => getFn(address));
+  const value = await onChainNameQueue.add(() =>
+    Contracts.getOnChainName(address),
+  );
 
-  timemap[address] = new Date();
+  onChainLastAttemptMap[address] = new Date();
 
   if (value === undefined) {
     return undefined;
   }
 
-  await Contracts.setSimpleColumn(columnName, address, value)();
+  await Contracts.setSimpleColumn("on_chain_name", address, value)();
+  await Contracts.updatePreferredMetadata(address)();
+};
+
+const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
+
+export const etherscanNameTagQueue = new PQueue({
+  concurrency: 4,
+  timeout: Duration.milisFromSeconds(60),
+});
+
+type SimilarContract = {
+  category: string | null;
+  twitterHandle: string | null;
+};
+
+const addMetadataFromSimilar = async (
+  address: string,
+  name: string,
+): Promise<void> => {
+  const similarContracts = await sql<SimilarContract[]>`
+    SELECT category, twitter_handle FROM contracts
+    WHERE name ILIKE '${sql(name)}%'
+  `;
+
+  const category = pipe(
+    similarContracts,
+    A.map((contract) => contract.category),
+    A.map(O.fromNullable),
+    A.compact,
+    A.head,
+    O.toUndefined,
+  );
+
+  if (typeof category === "string") {
+    await Contracts.setSimpleColumn("manual_category", address, category)();
+  }
+
+  const twitterHandle = pipe(
+    similarContracts,
+    A.map((contract) => contract.twitterHandle),
+    A.map(O.fromNullable),
+    A.compact,
+    A.head,
+    O.toUndefined,
+  );
+
+  if (typeof twitterHandle === "string") {
+    addTwitterMetadata(address, twitterHandle);
+  }
+
+  return undefined;
+};
+
+const addEtherscanNameTag = async (address: string): Promise<void> => {
+  const lastAttempted = etherscanNameTagLastAttemptMap[address];
+
+  if (
+    lastAttempted !== undefined &&
+    DateFns.differenceInHours(new Date(), lastAttempted) < 6
+  ) {
+    return undefined;
+  }
+
+  const name = await etherscanNameTagQueue.add(() =>
+    Etherscan.getNameTag(address),
+  );
+
+  etherscanNameTagLastAttemptMap[address] = new Date();
+
+  if (name === undefined) {
+    return undefined;
+  }
+
+  // The name is something like Compound: cCOMP Token in which case we can try to grab the metadata from the name before the colon.
+  if (name.indexOf(":") !== -1) {
+    addMetadataFromSimilar(address, name);
+  }
+
+  await Contracts.setSimpleColumn("etherscan_name_tag", address, name)();
   await Contracts.updatePreferredMetadata(address)();
 };
 
@@ -220,22 +285,8 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
 const addMetadata = (address: string): T.Task<void> =>
   pipe(
     T.sequenceArray([
-      () =>
-        addWithThrottle(
-          onChainLastAttemptMap,
-          "on_chain_name",
-          onChainNameQueue,
-          Contracts.getOnChainName,
-          address,
-        ),
-      () =>
-        addWithThrottle(
-          etherscanNameTagLastAttemptMap,
-          "etherscan_name_tag",
-          etherscanNameTagQueue,
-          Etherscan.getName,
-          address,
-        ),
+      () => addOnChainName(address),
+      () => addEtherscanNameTag(address),
       () => addOpenseaMetadata(address),
       () => addDefiLlamaMetadata(address),
     ]),
