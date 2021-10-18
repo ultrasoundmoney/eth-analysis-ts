@@ -81,7 +81,7 @@ export const getProfileByHandle = async (
   }
 
   if (body.data === undefined) {
-    Log.error("fetch twitter profile ${handle}, unexpected json response", {
+    Log.error(`fetch twitter profile ${handle}, unexpected json response`, {
       body,
     });
     return undefined;
