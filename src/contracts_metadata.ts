@@ -94,12 +94,12 @@ const addWithThrottle = async (
 
 const twitterImageLastAttemptMap: Record<string, Date | undefined> = {};
 
-export const twitterImageQueue = new PQueue({
+export const twitterProfileQueue = new PQueue({
   concurrency: 2,
   timeout: Duration.milisFromSeconds(60),
 });
 
-const addTwitterImage = async (
+const addTwitterMetadata = async (
   address: string,
   handle: string,
 ): Promise<void> => {
@@ -112,7 +112,7 @@ const addTwitterImage = async (
     return undefined;
   }
 
-  const profile = await twitterImageQueue.add(() =>
+  const profile = await twitterProfileQueue.add(() =>
     Twitter.getProfileByHandle(handle),
   );
 
@@ -167,8 +167,8 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
   const twitterHandle = OpenSea.getTwitterHandle(openseaContract);
 
   if (typeof twitterHandle === "string") {
-    // If we have a new handle, we can queue the fetching of a new image.
-    addTwitterImage(address, twitterHandle);
+    // If we have a new handle, we can queue the fetching of twitter metadata.
+    addTwitterMetadata(address, twitterHandle);
   }
 
   const category = OpenSea.getCategory(openseaContract) ?? null;
@@ -204,8 +204,8 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
   }
 
   if (typeof protocol.twitter === "string") {
-    // If we have a new handle, we can queue the fetching of a new image.
-    addTwitterImage(address, protocol.twitter);
+    // If we have a new handle, we can queue the fetching of twitter metadata.
+    addTwitterMetadata(address, protocol.twitter);
   }
 
   await seqTParT(
