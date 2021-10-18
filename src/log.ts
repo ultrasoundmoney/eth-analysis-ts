@@ -49,9 +49,9 @@ export const log = (
   severity = "DEFAULT" as Severity,
   message: string,
   meta?: unknown,
-) => {
+): void => {
   if (severityMap[severity] < severityMap[logLevel]) {
-    return;
+    return undefined;
   }
 
   const logFn = logMap[severity];
@@ -66,7 +66,7 @@ export const log = (
       console.debug(meta);
     }
 
-    return;
+    return undefined;
   }
 
   // Log json to stdout during non-dev.

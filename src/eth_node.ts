@@ -288,13 +288,14 @@ export const subscribeNewHeads = (
   headsWs.on("message", (data) => {
     if (!gotSubscription) {
       gotSubscription = true;
-      return;
+      return undefined;
     }
 
     const rawHead: RawHead = JSON.parse(data.toString()).params.result;
     const head = translateHead(rawHead);
 
     handleNewHead(head);
+    return undefined;
   });
 
   headsWs.on("open", () => {

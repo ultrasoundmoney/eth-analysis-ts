@@ -78,7 +78,7 @@ const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
       Log.error(error.error);
       ctx.status = 500;
       ctx.body = { msg: "coingecko fetch error" };
-      return;
+      return undefined;
     }
     case "bad-response": {
       Log.error(`coingecko bad response, status: ${error.status}`);
@@ -86,7 +86,7 @@ const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
       ctx.body = {
         msg: `coingecko bad response, status: ${error.status}`,
       };
-      return;
+      return undefined;
     }
     default: {
       Log.error("unexpected get market data error", error);
@@ -94,7 +94,7 @@ const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
       ctx.body = {
         msg: "unexpected get market data error",
       };
-      return;
+      return undefined;
     }
   }
 };
@@ -160,13 +160,13 @@ const handleSetContractTwitterHandle: Middleware = async (ctx) => {
   if (typeof token !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing token param" };
-    return;
+    return undefined;
   }
 
   if (token !== getAdminToken()) {
     ctx.status = 403;
     ctx.body = { msg: "invalid token" };
-    return;
+    return undefined;
   }
 
   const handle = ctx.query.handle;
@@ -175,12 +175,12 @@ const handleSetContractTwitterHandle: Middleware = async (ctx) => {
   if (typeof handle !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing handle" };
-    return;
+    return undefined;
   }
   if (typeof address !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing address" };
-    return;
+    return undefined;
   }
 
   await Contracts.setTwitterHandle(address, handle)();
@@ -192,13 +192,13 @@ const handleSetContractName: Middleware = async (ctx) => {
   if (typeof token !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing token param" };
-    return;
+    return undefined;
   }
 
   if (token !== getAdminToken()) {
     ctx.status = 403;
     ctx.body = { msg: "invalid token" };
-    return;
+    return undefined;
   }
 
   const name = ctx.query.name;
@@ -207,12 +207,12 @@ const handleSetContractName: Middleware = async (ctx) => {
   if (typeof name !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing name" };
-    return;
+    return undefined;
   }
   if (typeof address !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing address" };
-    return;
+    return undefined;
   }
 
   await Contracts.setName(address, name)();
@@ -224,13 +224,13 @@ const handleSetContractCategory: Middleware = async (ctx) => {
   if (typeof token !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing token param" };
-    return;
+    return undefined;
   }
 
   if (token !== getAdminToken()) {
     ctx.status = 403;
     ctx.body = { msg: "invalid token" };
-    return;
+    return undefined;
   }
 
   const category = ctx.query.category;
@@ -239,12 +239,12 @@ const handleSetContractCategory: Middleware = async (ctx) => {
   if (typeof category !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing category" };
-    return;
+    return undefined;
   }
   if (typeof address !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing address" };
-    return;
+    return undefined;
   }
 
   await Contracts.setCategory(address, category)();
@@ -311,7 +311,7 @@ app.use(async (ctx, next) => {
   if (ctx.path === "/healthz" || ctx.path === "/health") {
     ctx.res.writeHead(200);
     ctx.res.end();
-    return;
+    return undefined;
   }
   await next();
 });

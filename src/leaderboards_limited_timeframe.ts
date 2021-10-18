@@ -241,7 +241,7 @@ const rollbackToBeforeTimeframe = (
   timeframe: LimitedTimeframe,
   blockNumber: number,
   baseFeesToRemove: ContractBaseFees,
-) => {
+): void => {
   const includedBlocks = blocksPerTimeframe[timeframe];
   const indexOfBlockToRollbackToBefore = includedBlocks.findIndex(
     (block) => block.number === blockNumber,
@@ -251,7 +251,7 @@ const rollbackToBeforeTimeframe = (
     Log.warn(
       `received rollback but no blocks in timeframe ${timeframe} matched block number: ${blockNumber}, doing nothing`,
     );
-    return;
+    return undefined;
   }
 
   blocksPerTimeframe[timeframe] = includedBlocks.slice(
@@ -259,12 +259,13 @@ const rollbackToBeforeTimeframe = (
     indexOfBlockToRollbackToBefore,
   );
   removeFromRunningSums(timeframe, baseFeesToRemove);
+  return undefined;
 };
 
 export const rollbackToBefore = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFees,
-) => {
+): void => {
   rollbackToBeforeTimeframe("5m", blockNumber, baseFeesToRemove);
   rollbackToBeforeTimeframe("1h", blockNumber, baseFeesToRemove);
   rollbackToBeforeTimeframe("24h", blockNumber, baseFeesToRemove);

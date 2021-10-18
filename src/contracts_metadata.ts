@@ -77,7 +77,7 @@ const addWithThrottle = async (
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
-    return;
+    return undefined;
   }
 
   const value = await queue.add(() => getFn(address));
@@ -85,7 +85,7 @@ const addWithThrottle = async (
   timemap[address] = new Date();
 
   if (value === undefined) {
-    return;
+    return undefined;
   }
 
   await Contracts.setSimpleColumn(columnName, address, value)();
@@ -109,7 +109,7 @@ const addTwitterImage = async (
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
-    return;
+    return undefined;
   }
 
   const profile = await twitterImageQueue.add(() =>
@@ -152,7 +152,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
-    return;
+    return undefined;
   }
 
   const openseaContract = await openseaContractQueue.add(() =>
@@ -161,7 +161,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
   openseaContractLastAttempMap[address] = new Date();
 
   if (openseaContract === undefined) {
-    return;
+    return undefined;
   }
 
   const twitterHandle = OpenSea.getTwitterHandle(openseaContract);
