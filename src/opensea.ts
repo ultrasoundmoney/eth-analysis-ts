@@ -70,7 +70,7 @@ export const getContract = async (
 
   if (res.status === 503 && attempt < 3) {
     Log.warn(
-      `fetch opensea contract 504, attempt ${attempt}, waiting 8s and retrying`,
+      `fetch opensea contract 503, attempt ${attempt}, waiting 8s and retrying`,
       { address },
     );
 
