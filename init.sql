@@ -29,7 +29,6 @@ CREATE TABLE "contract_base_fees" (
 CREATE TABLE "contracts" (
   "address" text PRIMARY KEY,
   "name" text,
-  "last_metadata_fetch_at" timestamptz,
   "is_bot" boolean DEFAULT false,
   "dapp_id" text,
   "category" text,
@@ -38,15 +37,19 @@ CREATE TABLE "contracts" (
   "on_chain_name" text,
   "etherscan_name_tag" text,
   "etherscan_name_token" text,
+  "opensea_contract_last_fetch" timestamptz,
   "opensea_name" text,
   "opensea_twitter_handle" text,
-  "opensea_category" text,
+  "opensea_schema_name" text,
+  "opensea_image_url" text,
   "defi_llama_twitter_handle" text,
   "defi_llama_category" text,
   "manual_name" text,
   "manual_twitter_handle" text,
   "manual_category" text,
-  "twitter_image_url" text
+  "twitter_image_url" text,
+  "twitter_name" text,
+  "twitter_description" text
 );
 
 CREATE TABLE "dapps" (

@@ -1,6 +1,7 @@
 import * as ContractsMetadata from "./contracts_metadata.js";
 import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
+import * as OpenSea from "./opensea.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
 import A from "fp-ts/lib/Array.js";
@@ -78,9 +79,9 @@ export type SimpleColumn =
   | "manual_twitter_handle"
   | "name"
   | "on_chain_name"
-  | "opensea_category"
   | "opensea_image_url"
   | "opensea_name"
+  | "opensea_schema_name"
   | "opensea_twitter_handle"
   | "twitter_description"
   | "twitter_image_url"
@@ -109,7 +110,7 @@ type MetadataComponents = {
   openseaName: string | null;
   openseaImageUrl: string | null;
   openseaTwitterHandle: string | null;
-  openseaCategory: string | null;
+  openseaSchemaName: string | null;
   defiLlamaTwitterHandle: string | null;
   defiLlamaCategory: string | null;
   manualName: string | null;
@@ -128,7 +129,7 @@ const getPreferredName = (metadata: MetadataComponents): string | null =>
 
 const getPreferredCategory = (metadata: MetadataComponents): string | null =>
   metadata.manualCategory ||
-  metadata.openseaCategory ||
+  (OpenSea.checkSchemaImpliesNft(metadata.openseaSchemaName) ? "nft" : null) ||
   (metadata.defiLlamaCategory !== null ? "defi" : null) ||
   null;
 
@@ -153,7 +154,7 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
         opensea_name,
         opensea_image_url,
         opensea_twitter_handle,
-        opensea_category,
+        opensea_schema_name,
         defi_llama_twitter_handle,
         defi_llama_category,
         manual_name,

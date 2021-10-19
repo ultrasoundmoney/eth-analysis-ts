@@ -3,6 +3,7 @@ import * as Log from "./log.js";
 import fetch from "node-fetch";
 import { delay } from "./delay.js";
 import PQueue from "p-queue";
+import { sql } from "./db.js";
 
 type OpenSeaContract = {
   address: string;
@@ -146,29 +147,56 @@ export const getTwitterHandle = (
   return rawTwitterHandle;
 };
 
-export const getCategory = (contract: OpenSeaContract): string | undefined => {
+export const getSchemaName = (
+  contract: OpenSeaContract,
+): string | undefined => {
   const schemaName = contract.schema_name;
 
-  if (schemaName === "ERC721" || schemaName === "ERC1155") {
+  if (
+    schemaName === "ERC721" ||
+    schemaName === "ERC1155" ||
+    schemaName === "ERC20" ||
+    schemaName === "UNKNOWN"
+  ) {
     Log.debug(
-      `found opensea schema_name ${schemaName} for ${contract.address}, categorizing: nft`,
+      `found opensea schema name ${schemaName} for ${contract.address}`,
     );
-    return "nft";
-  }
-
-  if (schemaName === "ERC20" || schemaName === "UNKNOWN") {
-    Log.debug(
-      `found known opensea schema name: ${schemaName}, for ${contract.address}, categorizing as undefined`,
-    );
-    return undefined;
+    return schemaName;
   }
 
   if (typeof schemaName === "string") {
     Log.warn(
-      `found unknown opensea schema name: ${schemaName} for ${contract.address}, please explicitly categorize, setting category undefined`,
+      `found unknown opensea schema name: ${schemaName} for ${contract.address}, please explicitly handle, setting schema name undefined`,
     );
     return undefined;
   }
 
+  return undefined;
+};
+
+export const checkSchemaImpliesNft = (schemaName: unknown): boolean =>
+  typeof schemaName === "string" &&
+  (schemaName === "ERC721" || schemaName === "ERC1155");
+
+export const getContractLastFetch = async (
+  address: string,
+): Promise<Date | undefined> => {
+  const rows = await sql<{ openseaContractLastFetch: Date | null }[]>`
+    SELECT opensea_contract_last_fetch
+    FROM contracts
+    WHERE address = ${address}
+  `;
+
+  return rows[0]?.openseaContractLastFetch ?? undefined;
+};
+
+export const setContractLastFetchNow = async (
+  address: string,
+): Promise<void> => {
+  await sql`
+    UPDATE contracts
+    SET opensea_contract_last_fetch = ${new Date()}
+    WHERE address = ${address}
+  `;
   return undefined;
 };

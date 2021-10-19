@@ -202,16 +202,14 @@ export const addTwitterMetadata = async (
   )();
 };
 
-const openseaContractLastAttempMap: Record<string, Date | undefined> = {};
-
 export const openseaContractQueue = new PQueue({
   concurrency: 2,
   timeout: Duration.milisFromSeconds(120),
 });
 
 const addOpenseaMetadata = async (address: string): Promise<void> => {
-  const lastAttempted = openseaContractLastAttempMap[address];
-
+  // Because the OpenSea API is slow, we store the last fetched in the DB instead of memory to make sure we don't repeat ourselves on restarts.
+  const lastAttempted = await OpenSea.getContractLastFetch(address);
   if (
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
@@ -219,11 +217,37 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
     return undefined;
   }
 
+  // The OpenSea API is mighty slow, we attempt to shorten the request queue by skipping what we can.
+  const [existingOpenseaSchemaName] = await sql<
+    { openseaSchemaName: string | null }[]
+  >`
+    SELECT opensea_schema_name
+    FROM contracts
+    WHERE address = ${address}
+  `;
+
+  if (
+    existingOpenseaSchemaName !== null &&
+    OpenSea.checkSchemaImpliesNft(existingOpenseaSchemaName)
+  ) {
+    // OpenSea knows about this contract, and feels its not an NFT contract. We assume they're unlikely to add new information for it.
+    return undefined;
+  }
+
+  const existingCategory = await sql<{ category: string | null }[]>`
+    SELECT category FROM contracts WHERE address = ${address}
+  `.then((rows) => rows[0]?.category ?? undefined);
+
+  if (existingCategory !== null && existingCategory !== "nft") {
+    // We think this category not to be nft, we assume OpenSea will not have information on it and we skip.
+    return undefined;
+  }
+
   const openseaContract = await openseaContractQueue.add(() =>
     OpenSea.getContract(address),
   );
 
-  openseaContractLastAttempMap[address] = new Date();
+  await OpenSea.setContractLastFetchNow(address);
 
   if (openseaContract === undefined) {
     return undefined;
@@ -236,7 +260,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
     addTwitterMetadata(address, twitterHandle);
   }
 
-  const category = OpenSea.getCategory(openseaContract) ?? null;
+  const schemaName = OpenSea.getSchemaName(openseaContract) ?? null;
 
   await seqTParT(
     Contracts.setSimpleColumn(
@@ -244,7 +268,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
       address,
       twitterHandle ?? null,
     ),
-    Contracts.setSimpleColumn("opensea_category", address, category),
+    Contracts.setSimpleColumn("opensea_schema_name", address, schemaName),
     Contracts.setSimpleColumn(
       "opensea_image_url",
       address,
