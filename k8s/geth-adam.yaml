@@ -1,3 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: geth-adam
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8546
+      targetPort: 8546
+  selector:
+    app: geth-adam
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -19,7 +31,7 @@ spec:
           args: ["--ws", "--ws.addr=0.0.0.0", "--datadir=/data"]
           env:
           ports:
-            - containerPort: 8545
+            - containerPort: 8546
               name: gethrpc
             - containerPort: 30303
               name: gethdiscovery
