@@ -330,9 +330,8 @@ const addMetadata = (address: string): T.Task<void> =>
             imageUrl: string | null;
           }[]
         >`SELECT * FROM contracts WHERE address = ${address}`;
-        Log.info(`done storing metadata for ${metadata.name} - ${address}`);
         Log.debug(
-          `new metadata name=${metadata.name}, category=${metadata.category}, twitterHandle=${metadata.twitterHandle}, imageUrl=${metadata.imageUrl}`,
+          `metadata after fetch name=${metadata.name}, category=${metadata.category}, twitterHandle=${metadata.twitterHandle}, imageUrl=${metadata.imageUrl}`,
         );
       };
     }),
