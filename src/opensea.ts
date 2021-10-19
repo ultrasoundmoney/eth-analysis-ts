@@ -102,6 +102,8 @@ export const getContract = async (
     );
   }
 
+  Log.debug("fetch opensea contract success");
+
   const body = (await res.json()) as OpenSeaContract;
 
   return body;
