@@ -331,7 +331,7 @@ const addMetadata = (address: string): T.Task<void> =>
           }[]
         >`SELECT * FROM contracts WHERE address = ${address}`;
         Log.debug(
-          `metadata after fetch name=${metadata.name}, category=${metadata.category}, twitterHandle=${metadata.twitterHandle}, imageUrl=${metadata.imageUrl}`,
+          `new metadata name=${metadata.name}, category=${metadata.category}, twitterHandle=${metadata.twitterHandle}, imageUrl=${metadata.imageUrl}`,
         );
       };
     }),
