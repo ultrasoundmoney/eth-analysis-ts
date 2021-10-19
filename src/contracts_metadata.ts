@@ -206,7 +206,7 @@ const openseaContractLastAttempMap: Record<string, Date | undefined> = {};
 
 export const openseaContractQueue = new PQueue({
   concurrency: 2,
-  timeout: Duration.milisFromSeconds(60),
+  timeout: Duration.milisFromSeconds(120),
 });
 
 const addOpenseaMetadata = async (address: string): Promise<void> => {
