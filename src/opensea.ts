@@ -34,13 +34,15 @@ export const getContract = async (
     return undefined;
   }
 
+  const retryDelay = Duration.milisFromSeconds(16);
+
   if (res.status === 504 && attempt < 3) {
     Log.warn(
       `fetch opensea contract 504, attempt ${attempt}, waiting 8s and retrying`,
       { address },
     );
 
-    await delay(Duration.milisFromSeconds(8));
+    await delay(retryDelay);
     return getContract(address, attempt + 1);
   }
 
@@ -56,7 +58,7 @@ export const getContract = async (
       `fetch opensea contract 429, attempt ${attempt}, waiting 8s and retrying`,
       { address },
     );
-    await delay(Duration.milisFromSeconds(8));
+    await delay(retryDelay);
     return getContract(address, attempt + 1);
   }
 
@@ -74,7 +76,7 @@ export const getContract = async (
       { address },
     );
 
-    await delay(Duration.milisFromSeconds(8));
+    await delay(retryDelay);
     return getContract(address, attempt + 1);
   }
 
