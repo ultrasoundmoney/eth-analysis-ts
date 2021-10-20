@@ -5,13 +5,14 @@ import { delay } from "./delay.js";
 import PQueue from "p-queue";
 import { sql } from "./db.js";
 
-type OpenSeaContract = {
+type OpenseaContract = {
   address: string;
   collection: {
     twitter_username: string | null;
   } | null;
   schema_name: "ERC721" | "ERC1155" | string;
   image_url: string | null;
+  name: string | null;
 };
 
 export const fetchContractQueue = new PQueue({
@@ -23,7 +24,7 @@ export const fetchContractQueue = new PQueue({
 export const getContract = async (
   address: string,
   attempt = 0,
-): Promise<OpenSeaContract | undefined> => {
+): Promise<OpenseaContract | undefined> => {
   const res = await fetchContractQueue.add(() =>
     fetch(`https://api.opensea.io/api/v1/asset_contract/${address}`),
   );
@@ -105,13 +106,13 @@ export const getContract = async (
 
   Log.debug("fetch opensea contract success");
 
-  const body = (await res.json()) as OpenSeaContract;
+  const body = (await res.json()) as OpenseaContract;
 
   return body;
 };
 
 export const getTwitterHandle = (
-  contract: OpenSeaContract,
+  contract: OpenseaContract,
 ): string | undefined => {
   const rawTwitterHandle = contract.collection?.twitter_username ?? undefined;
 
@@ -148,7 +149,7 @@ export const getTwitterHandle = (
 };
 
 export const getSchemaName = (
-  contract: OpenSeaContract,
+  contract: OpenseaContract,
 ): string | undefined => {
   const schemaName = contract.schema_name;
 

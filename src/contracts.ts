@@ -119,13 +119,27 @@ type MetadataComponents = {
   twitterImageUrl: string | null;
 };
 
-const getPreferredName = (metadata: MetadataComponents): string | null =>
-  metadata.manualName ||
-  metadata.onChainName ||
-  metadata.etherscanNameTag ||
-  metadata.etherscanNameToken ||
-  metadata.openseaName ||
-  null;
+const getPreferredName = (metadata: MetadataComponents): string | null => {
+  if (metadata.manualName) {
+    return metadata.manualName;
+  }
+
+  if (metadata.onChainName) {
+    return metadata.onChainName;
+  }
+
+  const category = getPreferredCategory(metadata);
+  if (category === "nft" && typeof metadata.openseaName === "string") {
+    return metadata.openseaName;
+  }
+
+  return (
+    metadata.etherscanNameTag ||
+    metadata.etherscanNameToken ||
+    metadata.openseaName ||
+    null
+  );
+};
 
 const getPreferredCategory = (metadata: MetadataComponents): string | null =>
   metadata.manualCategory ||

@@ -270,6 +270,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
       address,
       openseaContract.image_url,
     ),
+    Contracts.setSimpleColumn("opensea_name", address, openseaContract.name),
   )();
   await Contracts.updatePreferredMetadata(address)();
 };
