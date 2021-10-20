@@ -1,10 +1,10 @@
 import * as A from "fp-ts/lib/Array.js";
 import * as FamService from "./fam_service.js";
 import * as T from "fp-ts/lib/Task.js";
+import { FamDetails } from "./fam_service.js";
 import { O } from "./fp.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
-import { FamDetails } from "./fam_service.js";
 
 export type Timeframe = LimitedTimeframe | "all";
 export type LimitedTimeframe = "5m" | "1h" | "24h" | "7d" | "30d";
