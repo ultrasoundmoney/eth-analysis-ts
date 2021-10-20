@@ -1,3 +1,4 @@
+import * as Log from "./log.js";
 import Config from "./config.js";
 import fetch from "node-fetch";
 import { pipe, T } from "./fp.js";
@@ -28,11 +29,18 @@ export const getDetails = (handles: string[]): T.Task<FamDetails[]> => {
         body: JSON.stringify({ handles }),
       }),
     T.chain((res) => {
+      if (res.status === 500) {
+        // This happens sometimes, no need to crash but should figure out the issue on the fam service side.
+        Log.error("fetch fam details 500 response, returning empty list");
+        return T.of([]);
+      }
+
       if (res.status !== 200) {
         throw new Error(
           `bad response fetching fam details, status: ${res.status}`,
         );
       }
+
       return () => res.json() as Promise<FamDetails[]>;
     }),
   );
