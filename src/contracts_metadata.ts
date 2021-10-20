@@ -29,13 +29,9 @@ export const getAddressesForMetadata = (
     (addresses) => new Set(addresses),
   );
 
-export const addMetadataForLeaderboards = (
-  leaderboards: LeaderboardEntries,
-): T.Task<void> =>
+export const addMetadataForLeaderboards = (addresses: string[]): T.Task<void> =>
   pipe(
-    leaderboards,
-    getAddressesForMetadata,
-    (set) => Array.from(set),
+    addresses,
     T.traverseArray(addMetadata),
     T.map(() => undefined),
   );

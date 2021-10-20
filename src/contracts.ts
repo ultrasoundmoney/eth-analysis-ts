@@ -206,3 +206,17 @@ export const setCategory = (address: string, category: string): T.Task<void> =>
     setSimpleColumn("manual_category", address, category),
     T.chain(() => updatePreferredMetadata(address)),
   );
+
+export const setLastLeaderboardEntryToNow = async (
+  addresses: string[],
+): Promise<void> => {
+  if (addresses.length === 0) {
+    return;
+  }
+
+  await sql`
+    UPDATE contracts
+    SET last_leaderboard_entry = NOW()
+    WHERE address IN ${addresses}
+  `;
+};
