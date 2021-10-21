@@ -9,9 +9,9 @@ import { delay } from "./delay.js";
 import { pipe } from "./fp.js";
 
 const main = async () => {
+  Log.info("starting add-contract-metadata");
   try {
     await EthNode.connect();
-    Log.info("starting add-contract-metadata");
 
     let lastSeenStats = await DerivedBlockStats.getLatestDerivedBlockStats()();
 
