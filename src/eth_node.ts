@@ -34,7 +34,10 @@ export const connect = async () => {
   });
 
   return new Promise((resolve) => {
-    ws!.on("open", resolve);
+    ws!.on("open", () => {
+      Log.debug("connected to eth node");
+      resolve(undefined);
+    });
   });
 };
 
