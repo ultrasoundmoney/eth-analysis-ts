@@ -64,7 +64,7 @@ const addWeb3Metadata = async (address: string): Promise<void> => {
 
   web3LastAttemptMap[address] = new Date();
 
-  const [supportsErc721, supportsErc1155, name] = await Promise.all([
+  const [supportsErc_721, supportsErc_1155, name] = await Promise.all([
     ContractsWeb3.getSupportedInterface(contract, "ERC721"),
     ContractsWeb3.getSupportedInterface(contract, "ERC1155"),
     ContractsWeb3.getName(contract),
@@ -75,12 +75,12 @@ const addWeb3Metadata = async (address: string): Promise<void> => {
     Contracts.setSimpleBooleanColumn(
       "supports_erc_721",
       address,
-      supportsErc721,
+      supportsErc_721,
     )(),
     Contracts.setSimpleBooleanColumn(
       "supports_erc_1155",
       address,
-      supportsErc1155,
+      supportsErc_1155,
     )(),
   ]);
 
@@ -337,6 +337,14 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
   await Contracts.updatePreferredMetadata(address)();
 };
 
+type Metadata = {
+  name: string | null;
+  category: string | null;
+  twitterHandle: string | null;
+  imageUrl: string | null;
+  supportsErc_721: boolean | null;
+  supportsErc_1155: boolean | null;
+};
 const addMetadata = (address: string): T.Task<void> =>
   pipe(
     T.sequenceArray([
@@ -347,19 +355,18 @@ const addMetadata = (address: string): T.Task<void> =>
     ]),
     T.chainFirst(() => {
       return async () => {
-        const [metadata] = await sql<
-          {
-            name: string | null;
-            category: string | null;
-            twitterHandle: string | null;
-            imageUrl: string | null;
-            supportsErc721: boolean | null;
-            supportsErc1155: boolean | null;
-          }[]
-        >`SELECT * FROM contracts WHERE address = ${address}`;
-        Log.debug(
-          `new metadata address=${address} name=${metadata.name}, category=${metadata.category}, twitterHandle=${metadata.twitterHandle}, imageUrl=${metadata.imageUrl}, ERC721=${metadata.supportsErc721}, ERC1155=${metadata.supportsErc1155}`,
-        );
+        const [metadata] = await sql<Metadata[]>`
+          SELECT * FROM contracts WHERE address = ${address}
+        `;
+        Log.debug("new metadata", {
+          address: address,
+          name: metadata.name,
+          category: metadata.category,
+          twitterHandle: metadata.twitterHandle,
+          imageUrl: metadata.imageUrl,
+          ERC721: metadata.supportsErc_721,
+          ERC1155: metadata.supportsErc_1155,
+        });
       };
     }),
     T.chainFirstIOK(() => () => {

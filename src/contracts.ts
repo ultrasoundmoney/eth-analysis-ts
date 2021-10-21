@@ -91,8 +91,8 @@ type MetadataComponents = {
   openseaName: string | null;
   openseaSchemaName: string | null;
   openseaTwitterHandle: string | null;
-  supportsErc721: boolean | null;
-  supportsErc1155: boolean | null;
+  supportsErc_721: boolean | null;
+  supportsErc_1155: boolean | null;
   twitterImageUrl: string | null;
 };
 
@@ -122,8 +122,8 @@ const getPreferredCategory = (metadata: MetadataComponents): string | null =>
   metadata.manualCategory ||
   (OpenSea.checkSchemaImpliesNft(metadata.openseaSchemaName) ? "nft" : null) ||
   (metadata.defiLlamaCategory !== null ? "defi" : null) ||
-  (metadata.supportsErc721 === true ? "nft" : null) ||
-  (metadata.supportsErc1155 === true ? "nft" : null) ||
+  (metadata.supportsErc_721 === true ? "nft" : null) ||
+  (metadata.supportsErc_1155 === true ? "nft" : null) ||
   null;
 
 const getPreferredTwitterHandle = (
