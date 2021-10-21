@@ -1,4 +1,5 @@
 import * as ContractsMetadata from "./contracts_metadata.js";
+import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
@@ -212,6 +213,6 @@ export const setLastLeaderboardEntryToNow = async (
   await sql`
     UPDATE contracts
     SET last_leaderboard_entry = NOW()
-    WHERE address IN ${addresses}
+    WHERE address IN (${addresses})
   `;
 };
