@@ -353,10 +353,12 @@ const addMetadata = (address: string): T.Task<void> =>
             category: string | null;
             twitterHandle: string | null;
             imageUrl: string | null;
+            supportsErc721: boolean | null;
+            supportsErc1155: boolean | null;
           }[]
         >`SELECT * FROM contracts WHERE address = ${address}`;
         Log.debug(
-          `new metadata address=${address} name=${metadata.name}, category=${metadata.category}, twitterHandle=${metadata.twitterHandle}, imageUrl=${metadata.imageUrl}`,
+          `new metadata address=${address} name=${metadata.name}, category=${metadata.category}, twitterHandle=${metadata.twitterHandle}, imageUrl=${metadata.imageUrl}, ERC721=${metadata.supportsErc721}, ERC1155=${metadata.supportsErc1155}`,
         );
       };
     }),
