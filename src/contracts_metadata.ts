@@ -44,7 +44,7 @@ export const web3Queue = new PQueue({
 
 const web3LastAttemptMap: Record<string, Date | undefined> = {};
 
-const addWeb3Metadata = async (address: string): Promise<void> => {
+export const addWeb3Metadata = async (address: string): Promise<void> => {
   const lastAttempted = web3LastAttemptMap[address];
 
   if (

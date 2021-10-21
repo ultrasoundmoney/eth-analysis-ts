@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: add-all-contract-metadata
+spec:
+  template:
+    spec:
+      containers:
+        - name: add-all-contract-metadata
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          command: ["node", "src/add_all_contract_metadata.js"]
+          envFrom:
+            - configMapRef:
+                name: gas-analysis-env
+            - secretRef:
+                name: pg-password-anton
+            - secretRef:
+                name: etherscan-token-alextes
+            - secretRef:
+                name: twitter-usm
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+      restartPolicy: Never
+  backoffLimit: 4
