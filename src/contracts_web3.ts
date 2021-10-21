@@ -1,4 +1,3 @@
-import * as Eth from "./eth_node.js";
 import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
 import { Contract } from "web3-eth-contract";
@@ -25,7 +24,9 @@ export const getWeb3Contract = (
     }),
   );
 
-export const getName = (contract: Contract): string | undefined => {
+export const getName = async (
+  contract: Contract,
+): Promise<string | undefined> => {
   const hasNameMethod = contract.methods["name"] !== undefined;
 
   if (!hasNameMethod) {

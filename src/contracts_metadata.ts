@@ -64,17 +64,14 @@ const addWeb3Metadata = async (address: string): Promise<void> => {
 
   web3LastAttemptMap[address] = new Date();
 
-  const [supportsErc721, supportsErc1155] = await Promise.all([
+  const [supportsErc721, supportsErc1155, name] = await Promise.all([
     ContractsWeb3.getSupportedInterface(contract, "ERC721"),
     ContractsWeb3.getSupportedInterface(contract, "ERC1155"),
+    ContractsWeb3.getName(contract),
   ]);
 
   await Promise.all([
-    Contracts.setSimpleTextColumn(
-      "web3_name",
-      address,
-      ContractsWeb3.getName(contract) ?? null,
-    )(),
+    Contracts.setSimpleTextColumn("web3_name", address, name ?? null)(),
     Contracts.setSimpleBooleanColumn(
       "supports_erc_721",
       address,
