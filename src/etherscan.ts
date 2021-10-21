@@ -107,14 +107,20 @@ export const getAbiWithCache = (
     ),
     TE.match(
       (e) => {
+        // This is acceptable, probably want to handle this with Option instead.
+        if (e._tag === "abi-not-found") {
+          return undefined;
+        }
+
         Log.error("get ABI failed", {
           address,
           message: "message" in e ? e.message : undefined,
           type: e._tag,
         });
+
         return undefined;
       },
-      (contract) => contract,
+      (abi) => abi,
     ),
   )();
 
