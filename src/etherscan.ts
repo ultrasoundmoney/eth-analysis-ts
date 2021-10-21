@@ -120,7 +120,10 @@ export const getAbiWithCache = (
 
         return undefined;
       },
-      (abi) => abi,
+      (abi) => {
+        abiCache.set(address, abi);
+        return abi;
+      },
     ),
   )();
 

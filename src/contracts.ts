@@ -1,5 +1,4 @@
 import * as ContractsMetadata from "./contracts_metadata.js";
-import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
