@@ -1,54 +1,11 @@
 import * as ContractsMetadata from "./contracts_metadata.js";
-import * as Etherscan from "./etherscan.js";
-import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Twitter from "./twitter.js";
 import A from "fp-ts/lib/Array.js";
-import { O, TE } from "./fp.js";
+import { O } from "./fp.js";
 import { constant, pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
-import { web3 } from "./eth_node.js";
-
-export const getOnChainName = async (
-  address: string,
-): Promise<string | undefined> => {
-  const abi = await pipe(
-    Etherscan.getAbi(address),
-    TE.matchW(
-      (e) => {
-        if (e._tag === "api-error") {
-          // Contract is not verified. Continue.
-        } else {
-          if (e._tag === "unknown") {
-            Log.error("failed to fetch ABI", {
-              address,
-              type: e._tag,
-              error: e.error,
-            });
-          } else {
-            Log.error("failed to fetch ABI", { address, type: e._tag });
-          }
-        }
-        return undefined;
-      },
-      (abi) => abi,
-    ),
-  )();
-
-  if (abi === undefined) {
-    return undefined;
-  }
-
-  const contract = new web3!.eth.Contract(abi, address);
-  const hasNameMethod = contract.methods["name"] !== undefined;
-
-  if (!hasNameMethod) {
-    return undefined;
-  }
-
-  return contract.methods.name().call();
-};
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
   if (addresses.length === 0) {
@@ -68,7 +25,7 @@ export const storeContracts = (addresses: string[]): T.Task<void> => {
   );
 };
 
-export type SimpleColumn =
+export type SimpleTextColumn =
   | "category"
   | "defi_llama_category"
   | "defi_llama_twitter_handle"
@@ -78,17 +35,17 @@ export type SimpleColumn =
   | "manual_name"
   | "manual_twitter_handle"
   | "name"
-  | "on_chain_name"
   | "opensea_image_url"
   | "opensea_name"
   | "opensea_schema_name"
   | "opensea_twitter_handle"
   | "twitter_description"
   | "twitter_image_url"
-  | "twitter_name";
+  | "twitter_name"
+  | "web3_name";
 
-export const setSimpleColumn = (
-  columnName: SimpleColumn,
+export const setSimpleTextColumn = (
+  columnName: SimpleTextColumn,
   address: string,
   value: string | null,
 ): T.Task<void> =>
@@ -103,19 +60,39 @@ export const setSimpleColumn = (
     T.map(() => undefined),
   );
 
+export type SimpleBooleanColumn = "supports_erc_721" | "supports_erc_1155";
+
+export const setSimpleBooleanColumn = (
+  columnName: SimpleBooleanColumn,
+  address: string,
+  value: boolean | null,
+): T.Task<void> =>
+  pipe(
+    () => sql`
+      UPDATE contracts
+      SET
+        ${sql({ [columnName]: value })}
+      WHERE
+        address = ${address}
+    `,
+    T.map(() => undefined),
+  );
+
 type MetadataComponents = {
-  onChainName: string | null;
+  defiLlamaCategory: string | null;
+  defiLlamaTwitterHandle: string | null;
   etherscanNameTag: string | null;
   etherscanNameToken: string | null;
-  openseaName: string | null;
-  openseaImageUrl: string | null;
-  openseaTwitterHandle: string | null;
-  openseaSchemaName: string | null;
-  defiLlamaTwitterHandle: string | null;
-  defiLlamaCategory: string | null;
+  manualCategory: string | null;
   manualName: string | null;
   manualTwitterHandle: string | null;
-  manualCategory: string | null;
+  web3Name: string | null;
+  openseaImageUrl: string | null;
+  openseaName: string | null;
+  openseaSchemaName: string | null;
+  openseaTwitterHandle: string | null;
+  supportsErc721: boolean | null;
+  supportsErc1155: boolean | null;
   twitterImageUrl: string | null;
 };
 
@@ -124,8 +101,8 @@ const getPreferredName = (metadata: MetadataComponents): string | null => {
     return metadata.manualName;
   }
 
-  if (metadata.onChainName) {
-    return metadata.onChainName;
+  if (metadata.web3Name) {
+    return metadata.web3Name;
   }
 
   const category = getPreferredCategory(metadata);
@@ -145,6 +122,8 @@ const getPreferredCategory = (metadata: MetadataComponents): string | null =>
   metadata.manualCategory ||
   (OpenSea.checkSchemaImpliesNft(metadata.openseaSchemaName) ? "nft" : null) ||
   (metadata.defiLlamaCategory !== null ? "defi" : null) ||
+  (metadata.supportsErc721 === true ? "nft" : null) ||
+  (metadata.supportsErc1155 === true ? "nft" : null) ||
   null;
 
 const getPreferredTwitterHandle = (
@@ -162,7 +141,6 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
   pipe(
     () => sql<MetadataComponents[]>`
       SELECT
-        on_chain_name,
         etherscan_name_tag,
         etherscan_name_token,
         opensea_name,
@@ -174,7 +152,10 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
         manual_name,
         manual_twitter_handle,
         manual_category,
-        twitter_image_url
+        twitter_image_url,
+        supports_erc_721,
+        supports_erc_1155,
+        web3_name
       FROM contracts
       WHERE address = ${address}
     `,
@@ -203,7 +184,7 @@ export const setTwitterHandle = (
   handle: string,
 ): T.Task<void> =>
   pipe(
-    setSimpleColumn("manual_twitter_handle", address, handle),
+    setSimpleTextColumn("manual_twitter_handle", address, handle),
     T.chain(() => () => Twitter.getProfileByHandle(handle)),
     T.chain(() => () => ContractsMetadata.addTwitterMetadata(address, handle)),
     T.chain(() => updatePreferredMetadata(address)),
@@ -211,13 +192,13 @@ export const setTwitterHandle = (
 
 export const setName = (address: string, name: string): T.Task<void> =>
   pipe(
-    setSimpleColumn("manual_name", address, name),
+    setSimpleTextColumn("manual_name", address, name),
     T.chain(() => updatePreferredMetadata(address)),
   );
 
 export const setCategory = (address: string, category: string): T.Task<void> =>
   pipe(
-    setSimpleColumn("manual_category", address, category),
+    setSimpleTextColumn("manual_category", address, category),
     T.chain(() => updatePreferredMetadata(address)),
   );
 

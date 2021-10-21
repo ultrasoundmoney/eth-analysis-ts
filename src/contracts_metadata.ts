@@ -1,4 +1,5 @@
 import * as Contracts from "./contracts.js";
+import * as ContractsWeb3 from "./contracts_web3.js";
 import * as DateFns from "date-fns";
 import * as DefiLlama from "./defi_llama.js";
 import * as Duration from "./duration.js";
@@ -36,15 +37,15 @@ export const addMetadataForLeaderboards = (addresses: string[]): T.Task<void> =>
     T.map(() => undefined),
   );
 
-export const onChainNameQueue = new PQueue({
+export const web3Queue = new PQueue({
   concurrency: 4,
   timeout: Duration.milisFromSeconds(60),
 });
 
-const onChainLastAttemptMap: Record<string, Date | undefined> = {};
+const web3LastAttemptMap: Record<string, Date | undefined> = {};
 
-const addOnChainName = async (address: string): Promise<void> => {
-  const lastAttempted = onChainLastAttemptMap[address];
+const addWeb3Metadata = async (address: string): Promise<void> => {
+  const lastAttempted = web3LastAttemptMap[address];
 
   if (
     lastAttempted !== undefined &&
@@ -53,17 +54,39 @@ const addOnChainName = async (address: string): Promise<void> => {
     return undefined;
   }
 
-  const value = await onChainNameQueue.add(() =>
-    Contracts.getOnChainName(address),
+  const contract = await web3Queue.add(() =>
+    ContractsWeb3.getWeb3Contract(address)(),
   );
 
-  onChainLastAttemptMap[address] = new Date();
-
-  if (value === undefined) {
+  if (contract === undefined) {
     return undefined;
   }
 
-  await Contracts.setSimpleColumn("on_chain_name", address, value)();
+  web3LastAttemptMap[address] = new Date();
+
+  const [supportsErc721, supportsErc1155] = await Promise.all([
+    ContractsWeb3.getSupportedInterface(contract, "ERC721"),
+    ContractsWeb3.getSupportedInterface(contract, "ERC1155"),
+  ]);
+
+  await Promise.all([
+    Contracts.setSimpleTextColumn(
+      "web3_name",
+      address,
+      ContractsWeb3.getName(contract) ?? null,
+    )(),
+    Contracts.setSimpleBooleanColumn(
+      "supports_erc_721",
+      address,
+      supportsErc721,
+    )(),
+    Contracts.setSimpleBooleanColumn(
+      "supports_erc_1155",
+      address,
+      supportsErc1155,
+    )(),
+  ]);
+
   await Contracts.updatePreferredMetadata(address)();
 };
 
@@ -103,7 +126,7 @@ const addMetadataFromSimilar = async (
   );
 
   if (typeof category === "string") {
-    await Contracts.setSimpleColumn("manual_category", address, category)();
+    await Contracts.setSimpleTextColumn("manual_category", address, category)();
   }
 
   const twitterHandle = pipe(
@@ -116,7 +139,11 @@ const addMetadataFromSimilar = async (
   );
 
   if (typeof twitterHandle === "string") {
-    Contracts.setSimpleColumn("manual_twitter_handle", address, twitterHandle);
+    Contracts.setSimpleTextColumn(
+      "manual_twitter_handle",
+      address,
+      twitterHandle,
+    );
     addTwitterMetadata(address, twitterHandle);
   }
 
@@ -148,7 +175,7 @@ const addEtherscanNameTag = async (address: string): Promise<void> => {
     addMetadataFromSimilar(address, name);
   }
 
-  await Contracts.setSimpleColumn("etherscan_name_tag", address, name)();
+  await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
   await Contracts.updatePreferredMetadata(address)();
 };
 
@@ -186,9 +213,9 @@ export const addTwitterMetadata = async (
 
   return pipe(
     seqTParT(
-      Contracts.setSimpleColumn("twitter_image_url", address, imageUrl),
-      Contracts.setSimpleColumn("twitter_name", address, profile.name),
-      Contracts.setSimpleColumn(
+      Contracts.setSimpleTextColumn("twitter_image_url", address, imageUrl),
+      Contracts.setSimpleTextColumn("twitter_name", address, profile.name),
+      Contracts.setSimpleTextColumn(
         "twitter_description",
         address,
         profile.description,
@@ -259,18 +286,22 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
   const schemaName = OpenSea.getSchemaName(openseaContract) ?? null;
 
   await seqTParT(
-    Contracts.setSimpleColumn(
+    Contracts.setSimpleTextColumn(
       "opensea_twitter_handle",
       address,
       twitterHandle ?? null,
     ),
-    Contracts.setSimpleColumn("opensea_schema_name", address, schemaName),
-    Contracts.setSimpleColumn(
+    Contracts.setSimpleTextColumn("opensea_schema_name", address, schemaName),
+    Contracts.setSimpleTextColumn(
       "opensea_image_url",
       address,
       openseaContract.image_url,
     ),
-    Contracts.setSimpleColumn("opensea_name", address, openseaContract.name),
+    Contracts.setSimpleTextColumn(
+      "opensea_name",
+      address,
+      openseaContract.name,
+    ),
   )();
   await Contracts.updatePreferredMetadata(address)();
 };
@@ -295,12 +326,12 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
   }
 
   await seqTParT(
-    Contracts.setSimpleColumn(
+    Contracts.setSimpleTextColumn(
       "defi_llama_category",
       address,
       protocol.category,
     ),
-    Contracts.setSimpleColumn(
+    Contracts.setSimpleTextColumn(
       "defi_llama_twitter_handle",
       address,
       protocol.twitter,
@@ -312,7 +343,7 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
 const addMetadata = (address: string): T.Task<void> =>
   pipe(
     T.sequenceArray([
-      () => addOnChainName(address),
+      () => addWeb3Metadata(address),
       () => addEtherscanNameTag(address),
       () => addOpenseaMetadata(address),
       () => addDefiLlamaMetadata(address),

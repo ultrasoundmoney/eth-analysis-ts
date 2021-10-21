@@ -3,14 +3,15 @@ import * as Log from "./log.js";
 import PQueue from "p-queue";
 import fetch from "node-fetch";
 import type { AbiItem } from "web3-utils";
-import { E, pipe, TE } from "./fp.js";
+import { E, O, pipe, TE } from "./fp.js";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { delay } from "./delay.js";
 import { getEtherscanToken } from "./config.js";
 import { parseHTML } from "linkedom";
 import { retrying } from "retry-ts/lib/Task.js";
+import QuickLRU from "quick-lru";
 
-type AbiRaw = { status: "0" | "1"; result: string; message: string };
+type AbiResponse = { status: "0" | "1"; result: string; message: string };
 
 type BadGateway = { _tag: "bad-gateway" };
 type ServiceUnavailable = { _tag: "service-unavailable" };
@@ -18,69 +19,104 @@ type UnknownError = { _tag: "unknown"; error: Error };
 type EtherscanBadResponse = { _tag: "bad-response"; statusCode: number };
 type EtherscanApiError = { _tag: "api-error"; message: string };
 type JsonDecodeError = { _tag: "json-decode" };
+type AbiNotFound = { _tag: "abi-not-found" };
 type GetAbiError =
+  | AbiNotFound
   | BadGateway
-  | ServiceUnavailable
   | EtherscanApiError
   | EtherscanBadResponse
   | JsonDecodeError
+  | ServiceUnavailable
   | UnknownError;
 
-export const getAbi = (
+export const fetchAbi = (
+  address: string,
+): TE.TaskEither<GetAbiError, AbiItem[]> =>
+  pipe(
+    TE.tryCatch(
+      () =>
+        fetch(
+          `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
+        ),
+      (e) => ({ _tag: "unknown" as const, error: e as Error }),
+    ),
+    TE.chain((res): TE.TaskEither<GetAbiError, AbiItem[]> => {
+      if (res.status === 502) {
+        return TE.left({
+          _tag: "bad-gateway",
+        });
+      }
+
+      if (res.status === 503) {
+        return TE.left({
+          _tag: "service-unavailable",
+        });
+      }
+
+      if (res.status !== 200) {
+        return TE.left({
+          _tag: "bad-response",
+          statusCode: res.status,
+        });
+      }
+
+      return pipe(
+        TE.tryCatch(
+          () => res.json() as Promise<AbiResponse>,
+          () => ({ _tag: "json-decode" as const }),
+        ),
+        TE.chain(
+          (abiRaw): TE.TaskEither<GetAbiError, AbiItem[]> =>
+            abiRaw.status === "1"
+              ? TE.right(JSON.parse(abiRaw.result))
+              : abiRaw.status === "0"
+              ? TE.left({
+                  _tag: "abi-not-found" as const,
+                  message: `${abiRaw.message} - ${abiRaw.result}`,
+                })
+              : TE.left({ _tag: "api-error", message: abiRaw.result }),
+        ),
+      );
+    }),
+  );
+
+const fetchAbiWithRetry = (
   address: string,
 ): TE.TaskEither<GetAbiError, AbiItem[]> =>
   retrying(
     Monoid.concat(constantDelay(1000), limitRetries(3)),
-    () =>
-      pipe(
-        TE.tryCatch(
-          () =>
-            fetch(
-              `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
-            ),
-          (e) => ({ _tag: "unknown" as const, error: e as Error }),
-        ),
-        TE.chain((res): TE.TaskEither<GetAbiError, AbiItem[]> => {
-          if (res.status === 502) {
-            return TE.left({
-              _tag: "bad-gateway",
-            });
-          }
-
-          if (res.status === 503) {
-            return TE.left({
-              _tag: "service-unavailable",
-            });
-          }
-
-          if (res.status !== 200) {
-            return TE.left({
-              _tag: "bad-response",
-              statusCode: res.status,
-            });
-          }
-
-          return pipe(
-            TE.tryCatch(
-              () => res.json() as Promise<AbiRaw>,
-              () => ({ _tag: "json-decode" as const }),
-            ),
-            TE.chain(
-              (abiRaw): TE.TaskEither<GetAbiError, AbiItem[]> =>
-                abiRaw.status === "1"
-                  ? TE.right(JSON.parse(abiRaw.result))
-                  : abiRaw.status === "0"
-                  ? TE.left({
-                      _tag: "api-error" as const,
-                      message: `${abiRaw.message} - ${abiRaw.result}`,
-                    })
-                  : TE.left({ _tag: "api-error", message: abiRaw.result }),
-            ),
-          );
-        }),
-      ),
+    () => fetchAbi(address),
     E.isLeft,
   );
+
+// We want to not be pulling ABIs constantly, at the same time they may get updated sometimes.
+const abiCache = new QuickLRU<string, AbiItem[]>({
+  maxSize: 300,
+  maxAge: Duration.milisFromHours(1),
+});
+
+export const getAbiWithCache = (
+  address: string,
+): Promise<AbiItem[] | undefined> =>
+  pipe(
+    abiCache.get(address),
+    O.fromNullable,
+    O.match(
+      () => fetchAbiWithRetry(address),
+      (abi) => TE.of(abi),
+    ),
+    TE.match(
+      (e) => {
+        Log.error("get ABI failed", {
+          address,
+          message: "message" in e ? e.message : undefined,
+          type: e._tag,
+        });
+        return undefined;
+      },
+      (contract) => contract,
+    ),
+  )();
 
 export const getNameTag = async (
   address: string,

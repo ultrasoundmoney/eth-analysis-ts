@@ -40,6 +40,7 @@ CREATE TABLE "contracts" (
   "opensea_contract_last_fetch" timestamptz,
   "opensea_name" text,
   "opensea_twitter_handle" text,
+  "opensea_category" text,
   "opensea_schema_name" text,
   "opensea_image_url" text,
   "defi_llama_twitter_handle" text,
@@ -47,6 +48,8 @@ CREATE TABLE "contracts" (
   "manual_name" text,
   "manual_twitter_handle" text,
   "manual_category" text,
+  "supports_eip_721" boolean,
+  "supports_eip_1155" boolean,
   "twitter_image_url" text,
   "twitter_name" text,
   "twitter_description" text

@@ -78,9 +78,7 @@ export const logQueueSizes = () => {
     Log.debug(
       `opensea metadata queue size: ${ContractsMetadata.openseaContractQueue.size}`,
     );
-    Log.debug(
-      `on chain name queue size: ${ContractsMetadata.onChainNameQueue.size}`,
-    );
+    Log.debug(`on chain name queue size: ${ContractsMetadata.web3Queue.size}`);
     Log.debug(
       `etherscan name tag queue size: ${ContractsMetadata.etherscanNameTagQueue.size}`,
     );
