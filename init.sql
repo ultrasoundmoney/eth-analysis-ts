@@ -34,7 +34,6 @@ CREATE TABLE "contracts" (
   "category" text,
   "twitter_handle" text,
   "image_url" text,
-  "on_chain_name" text,
   "etherscan_name_tag" text,
   "etherscan_name_token" text,
   "opensea_contract_last_fetch" timestamptz,
