@@ -92,7 +92,7 @@ const fetchAbiWithRetry = (
 // We want to not be pulling ABIs constantly, at the same time they may get updated sometimes.
 const abiCache = new QuickLRU<string, AbiItem[]>({
   maxSize: 300,
-  maxAge: Duration.milisFromHours(1),
+  maxAge: Duration.milisFromHours(3),
 });
 
 export const getAbiWithCache = (
