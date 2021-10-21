@@ -1,5 +1,4 @@
 import * as Etherscan from "./etherscan.js";
-import * as Log from "./log.js";
 import { Contract } from "web3-eth-contract";
 import { pipe, T } from "./fp.js";
 import { web3 } from "./eth_node.js";
@@ -43,7 +42,7 @@ const interfaceSignatureMap: Record<InterfaceId, string> = {
   ERC1155: "0xd9b67a26",
 };
 
-export const getSupportedInterface = (
+export const getSupportedInterface = async (
   contract: Contract,
   interfaceId: InterfaceId,
 ): Promise<boolean> => {
@@ -51,8 +50,7 @@ export const getSupportedInterface = (
     contract.methods["supportsInterface"] !== undefined;
 
   if (!hasSupportedInterfaceMethod) {
-    Log.debug("missing method");
-    return Promise.resolve(false);
+    return false;
   }
 
   const signature = interfaceSignatureMap[interfaceId];
