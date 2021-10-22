@@ -1,7 +1,6 @@
 import * as ContractsMetadata from "./contracts_metadata.js";
 import * as OpenSea from "./opensea.js";
 import * as T from "fp-ts/lib/Task.js";
-import * as Twitter from "./twitter.js";
 import A from "fp-ts/lib/Array.js";
 import { O } from "./fp.js";
 import { constant, pipe } from "fp-ts/lib/function.js";
@@ -185,7 +184,6 @@ export const setTwitterHandle = (
 ): T.Task<void> =>
   pipe(
     setSimpleTextColumn("manual_twitter_handle", address, handle),
-    T.chain(() => () => Twitter.getProfileByHandle(handle)),
     T.chain(() => () => ContractsMetadata.addTwitterMetadata(address, handle)),
     T.chain(() => updatePreferredMetadata(address)),
   );
