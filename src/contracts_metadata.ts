@@ -70,19 +70,25 @@ export const addWeb3Metadata = async (address: string): Promise<void> => {
     ContractsWeb3.getName(contract),
   ]);
 
-  await Promise.all([
-    Contracts.setSimpleTextColumn("web3_name", address, name ?? null)(),
-    Contracts.setSimpleBooleanColumn(
-      "supports_erc_721",
-      address,
-      supportsErc_721,
-    )(),
-    Contracts.setSimpleBooleanColumn(
-      "supports_erc_1155",
-      address,
-      supportsErc_1155,
-    )(),
-  ]);
+  await seqTParT(
+    name === undefined
+      ? T.of(undefined)
+      : Contracts.setSimpleTextColumn("web3_name", address, name),
+    supportsErc_721 === undefined
+      ? T.of(undefined)
+      : Contracts.setSimpleBooleanColumn(
+          "supports_erc_721",
+          address,
+          supportsErc_721,
+        ),
+    supportsErc_1155 === undefined
+      ? T.of(undefined)
+      : Contracts.setSimpleBooleanColumn(
+          "supports_erc_1155",
+          address,
+          supportsErc_1155,
+        ),
+  )();
 
   await Contracts.updatePreferredMetadata(address)();
 };
@@ -95,56 +101,80 @@ export const etherscanNameTagQueue = new PQueue({
 });
 
 type SimilarContract = {
+  address: string;
   category: string | null;
+  imageUrl: string | null;
+  name: string | null;
   twitterHandle: string | null;
 };
 
 const addMetadataFromSimilar = async (
   address: string,
-  name: string,
+  nameStartsWith: string,
 ): Promise<void> => {
-  Log.debug(`adding metadata from similar contract for ${name} - ${address}`);
+  Log.debug(
+    `adding metadata from similar contract for ${nameStartsWith} - ${address}`,
+  );
   const similarContracts = await sql<SimilarContract[]>`
-    SELECT category, twitter_handle FROM contracts
-    WHERE name ILIKE '${sql(name)}%'
+    SELECT address, category, image_url, name, twitter_handle FROM contracts
+    WHERE name ILIKE '${sql(nameStartsWith)}%'
   `;
 
-  if (similarContracts.length !== 0) {
-    Log.debug("found similar contracts", { contracts: similarContracts });
+  if (similarContracts.length === 0) {
+    return;
   }
 
-  const category = pipe(
-    similarContracts,
-    A.map((contract) => contract.category),
-    A.map(O.fromNullable),
-    A.compact,
-    A.head,
-    O.toUndefined,
-  );
+  Log.debug("found similar contracts", { contracts: similarContracts });
 
-  if (typeof category === "string") {
-    await Contracts.setSimpleTextColumn("manual_category", address, category)();
-  }
-
-  const twitterHandle = pipe(
-    similarContracts,
-    A.map((contract) => contract.twitterHandle),
-    A.map(O.fromNullable),
-    A.compact,
-    A.head,
-    O.toUndefined,
-  );
-
-  if (typeof twitterHandle === "string") {
-    Contracts.setSimpleTextColumn(
-      "manual_twitter_handle",
-      address,
-      twitterHandle,
+  const getFirstKey = (key: keyof SimilarContract): string | undefined =>
+    pipe(
+      similarContracts,
+      A.map((contract) => contract[key]),
+      A.map(O.fromNullable),
+      A.compact,
+      A.head,
+      O.toUndefined,
     );
-    addTwitterMetadata(address, twitterHandle);
-  }
 
-  return undefined;
+  const category = getFirstKey("category");
+  const name = getFirstKey("name");
+  const imageUrl = getFirstKey("imageUrl");
+  const twitterHandle = getFirstKey("twitterHandle");
+
+  const categoryTask =
+    category === undefined
+      ? T.of(undefined)
+      : Contracts.setSimpleTextColumn("category", address, category);
+
+  const nameTask =
+    name === undefined
+      ? T.of(undefined)
+      : Contracts.setSimpleTextColumn("name", address, name);
+
+  const imageUrlTask =
+    imageUrl === undefined
+      ? T.of(undefined)
+      : Contracts.setSimpleTextColumn("image_url", address, imageUrl);
+
+  const twitterHandleTask =
+    twitterHandle === undefined
+      ? T.of(undefined)
+      : pipe(
+          seqTParT(
+            Contracts.setSimpleTextColumn(
+              "twitter_handle",
+              address,
+              twitterHandle,
+            ),
+            () => addTwitterMetadata(address, twitterHandle),
+          ),
+          T.map(() => undefined),
+        );
+
+  return pipe(
+    seqTParT(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
+    T.map(() => undefined),
+  )();
 };
 
 const addEtherscanNameTag = async (address: string): Promise<void> => {
@@ -167,7 +197,7 @@ const addEtherscanNameTag = async (address: string): Promise<void> => {
     return undefined;
   }
 
-  // The name is something like Compound: cCOMP Token in which case we can try to grab the metadata from the name before the colon.
+  // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
   if (name.indexOf(":") !== -1) {
     addMetadataFromSimilar(address, name);
   }
