@@ -33,7 +33,13 @@ export const getName = async (
     return undefined;
   }
 
-  return contract.methods.name().call();
+  try {
+    const name = await contract.methods.name().call();
+    return name;
+  } catch (error) {
+    Log.error(String(error), error);
+    return undefined;
+  }
 };
 
 type InterfaceId = "ERC721" | "ERC1155";
@@ -62,7 +68,7 @@ export const getSupportedInterface = async (
       .call();
     return interfaceSupported;
   } catch (error) {
-    Log.error(String(error));
+    Log.error(String(error), error);
     return undefined;
   }
 };
