@@ -133,10 +133,19 @@ export const getNameTag = async (
 ): Promise<string | undefined> => {
   const res = await fetch(`https://blockscan.com/address/${address}`);
 
-  // CloudFlare timeout
+  // Cloudflare timeout
   if (res.status === 522 && attempt < 2) {
     Log.warn(
-      `fetch etherscan name for ${address}, cloudflare 522, attempt: ${attempt}, waiting 3s and retrying`,
+      `fetch etherscan name for ${address}, cloudflare 522, attempt: ${attempt}, waiting and retrying`,
+    );
+    await delay(Duration.milisFromSeconds(3));
+    return getNameTag(address, attempt + 1);
+  }
+
+  // Cloudflare unknown error
+  if (res.status === 520 && attempt < 2) {
+    Log.warn(
+      `fetch etherscan name for ${address}, cloudflare 520, attempt: ${attempt}, waiting and retrying`,
     );
     await delay(Duration.milisFromSeconds(3));
     return getNameTag(address, attempt + 1);
