@@ -2,6 +2,7 @@ import * as Eth from "./eth_node.js";
 import * as Log from "./log.js";
 import { sql } from "./db.js";
 import { addWeb3Metadata } from "./contracts_metadata.js";
+import { readFile, writeFile } from "fs/promises";
 
 await Eth.connect();
 
@@ -17,7 +18,37 @@ const addresses = rows.map((row) => row.contractAddress);
 
 Log.debug(`${addresses.length} addresses to go`);
 
+type Metadata = {
+  supportsErc_721: boolean | null;
+  supportsErc_1155: boolean | null;
+};
+
+const addAddressDone = async (address: string): Promise<void> => {
+  const doneAddresses: string[] = JSON.parse(
+    await readFile("./done_addresses.json", "utf8"),
+  );
+
+  await writeFile(
+    "./done_addresses.json",
+    JSON.stringify([...doneAddresses, address]),
+  );
+};
+
+const previouslyDoneAddresses = new Set(
+  await JSON.parse(await readFile("./done_addresses.json", "utf8")),
+);
+
 for (const address of addresses) {
+  if (previouslyDoneAddresses.has(address)) {
+    Log.debug(`skipping previously done ${address}`);
+    continue;
+  }
   await addWeb3Metadata(address);
-  Log.debug(`stored ${address}`);
+  const [metadata] = await sql<Metadata[]>`
+    SELECT supports_erc_721, supports_erc_1155 FROM contracts WHERE address = ${address}
+  `;
+  Log.debug(
+    `stored ${address}, ERC721=${metadata.supportsErc_721}, ERC1155=${metadata.supportsErc_1155}`,
+  );
+  await addAddressDone(address);
 }
