@@ -30,6 +30,7 @@ export type SimpleTextColumn =
   | "defi_llama_twitter_handle"
   | "etherscan_name_tag"
   | "etherscan_name_token"
+  | "image_url"
   | "manual_category"
   | "manual_name"
   | "manual_twitter_handle"
@@ -39,6 +40,7 @@ export type SimpleTextColumn =
   | "opensea_schema_name"
   | "opensea_twitter_handle"
   | "twitter_description"
+  | "twitter_handle"
   | "twitter_image_url"
   | "twitter_name"
   | "web3_name";
@@ -78,21 +80,25 @@ export const setSimpleBooleanColumn = (
   );
 
 type MetadataComponents = {
+  category: string | null;
   defiLlamaCategory: string | null;
   defiLlamaTwitterHandle: string | null;
   etherscanNameTag: string | null;
   etherscanNameToken: string | null;
+  imageUrl: string | null;
   manualCategory: string | null;
   manualName: string | null;
   manualTwitterHandle: string | null;
-  web3Name: string | null;
+  name: string | null;
   openseaImageUrl: string | null;
   openseaName: string | null;
   openseaSchemaName: string | null;
   openseaTwitterHandle: string | null;
-  supportsErc_721: boolean | null;
   supportsErc_1155: boolean | null;
+  supportsErc_721: boolean | null;
+  twitterHandle: string | null;
   twitterImageUrl: string | null;
+  web3Name: string | null;
 };
 
 const getPreferredName = (metadata: MetadataComponents): string | null => {
@@ -113,7 +119,7 @@ const getPreferredName = (metadata: MetadataComponents): string | null => {
     metadata.etherscanNameTag ||
     metadata.etherscanNameToken ||
     metadata.openseaName ||
-    null
+    metadata.name
   );
 };
 
@@ -123,7 +129,7 @@ const getPreferredCategory = (metadata: MetadataComponents): string | null =>
   (metadata.defiLlamaCategory !== null ? "defi" : null) ||
   (metadata.supportsErc_721 === true ? "nft" : null) ||
   (metadata.supportsErc_1155 === true ? "nft" : null) ||
-  null;
+  metadata.category;
 
 const getPreferredTwitterHandle = (
   metadata: MetadataComponents,
@@ -131,29 +137,33 @@ const getPreferredTwitterHandle = (
   metadata.manualTwitterHandle ||
   metadata.openseaTwitterHandle ||
   metadata.defiLlamaTwitterHandle ||
-  null;
+  metadata.twitterHandle;
 
 const getPreferredImageUrl = (metadata: MetadataComponents): string | null =>
-  metadata.twitterImageUrl || metadata.openseaImageUrl || null;
+  metadata.twitterImageUrl || metadata.openseaImageUrl || metadata.imageUrl;
 
 export const updatePreferredMetadata = (address: string): T.Task<void> =>
   pipe(
     () => sql<MetadataComponents[]>`
       SELECT
+        category,
+        defi_llama_category,
+        defi_llama_twitter_handle,
         etherscan_name_tag,
         etherscan_name_token,
-        opensea_name,
-        opensea_image_url,
-        opensea_twitter_handle,
-        opensea_schema_name,
-        defi_llama_twitter_handle,
-        defi_llama_category,
+        image_url,
+        manual_category,
         manual_name,
         manual_twitter_handle,
-        manual_category,
-        twitter_image_url,
-        supports_erc_721,
+        name,
+        opensea_image_url,
+        opensea_name,
+        opensea_schema_name,
+        opensea_twitter_handle,
         supports_erc_1155,
+        supports_erc_721,
+        twitter_handle,
+        twitter_image_url,
         web3_name
       FROM contracts
       WHERE address = ${address}
