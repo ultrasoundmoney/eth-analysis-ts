@@ -38,6 +38,8 @@ spec:
                 name: pg-password-anton
             - secretRef:
                 name: fees-admin-token
+            - secretRef:
+                name: twitter-usm
           env:
             - name: NAME
               valueFrom:
