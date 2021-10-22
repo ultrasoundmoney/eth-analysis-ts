@@ -1,4 +1,5 @@
 import * as Etherscan from "./etherscan.js";
+import * as Log from "./log.js";
 import { Contract } from "web3-eth-contract";
 import { pipe, T } from "./fp.js";
 import { web3 } from "./eth_node.js";
@@ -45,7 +46,7 @@ const interfaceSignatureMap: Record<InterfaceId, string> = {
 export const getSupportedInterface = async (
   contract: Contract,
   interfaceId: InterfaceId,
-): Promise<boolean> => {
+): Promise<boolean | undefined> => {
   const hasSupportedInterfaceMethod =
     contract.methods["supportsInterface"] !== undefined;
 
@@ -55,8 +56,13 @@ export const getSupportedInterface = async (
 
   const signature = interfaceSignatureMap[interfaceId];
 
-  return (
-    contract.methods.supportsInterface(signature).call() ||
-    contract.methods.supportsInterface(signature).call()
-  );
+  try {
+    const interfaceSupported = await contract.methods
+      .supportsInterface(signature)
+      .call();
+    return interfaceSupported;
+  } catch (error) {
+    Log.error(String(error));
+    return undefined;
+  }
 };
