@@ -1,12 +1,12 @@
-import WebSocket from "ws";
-import { hexToNumber, numberToHex } from "./hexadecimal.js";
-import { TxRWeb3London } from "./transactions.js";
-import type { Log as LogWeb3 } from "web3-core";
-import PQueue from "p-queue";
-import ProgressBar from "progress";
 import * as Blocks from "./blocks.js";
 import * as Log from "./log.js";
+import PQueue from "p-queue";
+import ProgressBar from "progress";
 import Web3 from "web3";
+import WebSocket from "ws";
+import type { Log as LogWeb3 } from "web3-core";
+import { TxRWeb3London } from "./transactions.js";
+import { hexToNumber, numberToHex } from "./hexadecimal.js";
 
 const mainnetNode = `ws://${process.env.NODE_IP}:8546/`;
 export let web3: Web3 | undefined = undefined;
