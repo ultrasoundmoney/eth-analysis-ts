@@ -34,7 +34,11 @@ export const connect = async () => {
   });
 
   return new Promise((resolve) => {
-    ws!.on("open", () => {
+    if (ws === undefined) {
+      throw new Error("trying to register ws listener but ws is undefined");
+    }
+
+    ws.on("open", () => {
       Log.debug("connected to eth node");
       resolve(undefined);
     });
