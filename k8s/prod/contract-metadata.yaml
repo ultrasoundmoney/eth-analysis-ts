@@ -29,6 +29,8 @@ spec:
                 name: etherscan-token-usm
             - secretRef:
                 name: twitter-usm
+            - secretRef:
+                name: node-urls
           env:
             - name: NAME
               valueFrom:
