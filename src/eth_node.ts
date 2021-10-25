@@ -308,7 +308,9 @@ export const getTransactionReceipt = async (
 };
 
 export const closeConnection = () => {
-  managedGethWs!.close();
+  if (managedGethWs !== undefined) {
+    managedGethWs.close();
+  }
 };
 
 const translateHead = (rawHead: RawHead): Head => ({
