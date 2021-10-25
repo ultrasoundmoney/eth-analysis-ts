@@ -442,13 +442,13 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
               const allBlocksProcessed =
                 storeBlockQueuePar.size === 0 &&
                 storeBlockQueuePar.pending === 0 &&
-                storeBlockQueueSeq.size === 0 &&
+                storeBlockQueueSeq.size < 8 &&
                 // This function is on this queue.
-                storeBlockQueueSeq.pending <= 1 &&
-                addLeaderboardAllQueue.size === 0 &&
-                addLeaderboardAllQueue.pending === 0 &&
-                addLeaderboardLimitedTimeframeQueue.size === 0 &&
-                addLeaderboardLimitedTimeframeQueue.pending === 0;
+                storeBlockQueueSeq.pending < 8 &&
+                addLeaderboardAllQueue.size < 8 &&
+                addLeaderboardAllQueue.pending < 8 &&
+                addLeaderboardLimitedTimeframeQueue.size < 8 &&
+                addLeaderboardLimitedTimeframeQueue.pending < 8;
               if (allBlocksProcessed) {
                 return pipe(
                   updateDerivedBlockStats(block),
