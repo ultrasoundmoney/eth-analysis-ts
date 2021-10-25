@@ -8,7 +8,7 @@ import type { Log as LogWeb3 } from "web3-core";
 import { TxRWeb3London } from "./transactions.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
 
-const mainnetNode = `ws://${process.env.NODE_IP}:8546/`;
+const mainnetNode = process.env.GETH_URL || "ws://64.227.73.122:8546/";
 export let web3: Web3 | undefined = undefined;
 
 let ws: WebSocket | undefined = undefined;
