@@ -47,11 +47,12 @@ CREATE TABLE "contracts" (
   "manual_name" text,
   "manual_twitter_handle" text,
   "manual_category" text,
-  "supports_eip_721" boolean,
-  "supports_eip_1155" boolean,
   "twitter_image_url" text,
   "twitter_name" text,
-  "twitter_description" text
+  "twitter_description" text,
+  "web3_name" text,
+  "web3_supports_eip_721" boolean,
+  "web3_supports_eip_1155" boolean
 );
 
 CREATE TABLE "dapps" (
