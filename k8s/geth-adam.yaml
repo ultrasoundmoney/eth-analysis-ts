@@ -4,8 +4,8 @@ metadata:
   name: geth-adam-ingress
   namespace: default
   annotations:
-    - nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    - nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
 
 spec:
   ingressClassName: nginx
@@ -18,7 +18,7 @@ spec:
               service:
                 name: geth-adam
                 port:
-                  number: 8546
+                  number: 80
 ---
 # apiVersion: v1
 # kind: Service
