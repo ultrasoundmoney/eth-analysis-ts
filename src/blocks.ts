@@ -3,6 +3,7 @@ import * as B from "fp-ts/lib/boolean.js";
 import * as BaseFees from "./base_fees.js";
 import * as BurnRates from "./burn_rates.js";
 import * as Contracts from "./contracts.js";
+import * as DateFns from "date-fns";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as DisplayProgress from "./display_progress.js";
 import * as Duration from "./duration.js";
@@ -18,19 +19,17 @@ import * as Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
 import * as Transactions from "./transactions.js";
 import { config } from "./config.js";
+import PQueue from "p-queue";
 import { BlockLondon } from "./eth_node.js";
 import { FeeBreakdown } from "./base_fees.js";
+import { LeaderboardEntries } from "./leaderboards.js";
+import { Num, pipe, seqSParT, seqTParT, seqTSeqT } from "./fp.js";
 import { TxRWeb3London } from "./transactions.js";
 import { delay } from "./delay.js";
-import { fromUnixTime } from "date-fns";
 import { hexToNumber } from "./hexadecimal.js";
-import { pipe } from "fp-ts/lib/function.js";
-import { sql } from "./db.js";
-import { LeaderboardEntries } from "./leaderboards.js";
-import PQueue from "p-queue";
-import { Num, seqSParT, seqTParT, seqTSeqT } from "./fp.js";
-import { performance } from "perf_hooks";
 import { logPerfT } from "./performance.js";
+import { performance } from "perf_hooks";
+import { sql } from "./db.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -105,7 +104,7 @@ const getBlockRow = (
 ): BlockRow => ({
   hash: block.hash,
   number: block.number,
-  mined_at: fromUnixTime(block.timestamp),
+  mined_at: DateFns.fromUnixTime(block.timestamp),
   tips: tips,
   base_fee_sum: BaseFees.calcBlockBaseFeeSum(block),
   contract_creation_sum: feeBreakdown.contract_creation_fees,
@@ -132,6 +131,16 @@ const getContractRows = (
       block_number: block.number,
       contract_address: address,
     })),
+  );
+
+const getNewContractsFromBlock = (txrs: TxRWeb3London[]): string[] =>
+  pipe(
+    txrs,
+    Transactions.segmentTxrs,
+    (segments) => segments.contractCreationTxrs,
+    A.map((txr) => txr.contractAddress),
+    A.map(O.fromNullable),
+    A.compact,
   );
 
 export const updateBlock = (
@@ -166,10 +175,20 @@ export const updateBlock = (
 
   const storeContractsTask = Contracts.storeContracts(addresses);
 
+  const updateContractsMinedAtTask = pipe(
+    getNewContractsFromBlock(txrs),
+    (addresses) =>
+      Contracts.setContractsMinedAt(
+        addresses,
+        block.number,
+        DateFns.fromUnixTime(block.timestamp),
+      ),
+  );
+
   return pipe(
     seqTSeqT(
       seqTParT(storeContractsTask, updateBlockTask),
-      updateContractBaseFeesTask,
+      seqTParT(updateContractBaseFeesTask, updateContractsMinedAtTask),
     ),
     T.map(() => undefined),
   );
@@ -197,10 +216,20 @@ export const storeBlock = (
       ? () => sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`
       : T.of(undefined);
 
+  const updateContractsMinedAtTask = pipe(
+    getNewContractsFromBlock(txrs),
+    (addresses) =>
+      Contracts.setContractsMinedAt(
+        addresses,
+        block.number,
+        DateFns.fromUnixTime(block.timestamp),
+      ),
+  );
+
   return pipe(
     seqTSeqT(
       seqTParT(storeContractsTask, storeBlockTask),
-      storeContractsBaseFeesTask,
+      seqTParT(storeContractsBaseFeesTask, updateContractsMinedAtTask),
     ),
     T.map(() => undefined),
   );

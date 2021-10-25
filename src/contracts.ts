@@ -223,3 +223,24 @@ export const setLastLeaderboardEntryToNow = async (
     WHERE address IN (${addresses})
   `;
 };
+
+export const setContractsMinedAt = (
+  addresses: string[],
+  blockNumber: number,
+  date: Date,
+): T.Task<void> => {
+  if (addresses.length === 0) {
+    return T.of(undefined);
+  }
+
+  return pipe(
+    () => sql`
+      UPDATE contracts
+      SET
+        mined_at = ${date},
+        mined_at_block = ${blockNumber}
+      WHERE address IN (${addresses})
+    `,
+    T.map(() => undefined),
+  );
+};
