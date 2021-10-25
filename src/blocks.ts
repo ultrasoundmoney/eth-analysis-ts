@@ -439,6 +439,13 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
               );
             }),
             T.chain(() => {
+              Log.debug(`store block seq queue ${storeBlockQueueSeq.size}`);
+              Log.debug(
+                `add leaderboard all queue ${addLeaderboardAllQueue.size}`,
+              );
+              Log.debug(
+                `add leaderboard limited timeframe queue: ${addLeaderboardLimitedTimeframeQueue.size}`,
+              );
               const allBlocksProcessed =
                 storeBlockQueuePar.size === 0 &&
                 storeBlockQueuePar.pending === 0 &&
