@@ -101,6 +101,14 @@ type MetadataComponents = {
   web3Name: string | null;
 };
 
+const getOpenseaName = (metadata: MetadataComponents): string | null => {
+  if (metadata.openseaName === "Unidentified contract") {
+    return null;
+  }
+
+  return metadata.openseaName;
+};
+
 const getPreferredName = (metadata: MetadataComponents): string | null => {
   if (metadata.manualName) {
     return metadata.manualName;
@@ -111,14 +119,15 @@ const getPreferredName = (metadata: MetadataComponents): string | null => {
   }
 
   const category = getPreferredCategory(metadata);
-  if (category === "nft" && typeof metadata.openseaName === "string") {
-    return metadata.openseaName;
+  const openseaName = getOpenseaName(metadata);
+  if (category === "nft" && typeof openseaName === "string") {
+    return openseaName;
   }
 
   return (
     metadata.etherscanNameTag ||
     metadata.etherscanNameToken ||
-    metadata.openseaName ||
+    openseaName ||
     metadata.name
   );
 };

@@ -306,7 +306,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
     return undefined;
   }
 
-  const twitterHandle = OpenSea.getTwitterHandle(openseaContract);
+  const twitterHandle = OpenSea.getTwitterHandle(openseaContract) ?? null;
 
   if (typeof twitterHandle === "string") {
     // If we have a new handle, we can queue the fetching of twitter metadata.
@@ -319,7 +319,7 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
     Contracts.setSimpleTextColumn(
       "opensea_twitter_handle",
       address,
-      twitterHandle ?? null,
+      twitterHandle,
     ),
     Contracts.setSimpleTextColumn("opensea_schema_name", address, schemaName),
     Contracts.setSimpleTextColumn(
