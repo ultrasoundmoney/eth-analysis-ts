@@ -98,6 +98,7 @@ type MetadataComponents = {
   supportsErc_721: boolean | null;
   twitterHandle: string | null;
   twitterImageUrl: string | null;
+  twitterName: string | null;
   web3Name: string | null;
 };
 
@@ -128,6 +129,7 @@ const getPreferredName = (metadata: MetadataComponents): string | null => {
     metadata.etherscanNameTag ||
     metadata.etherscanNameToken ||
     openseaName ||
+    metadata.twitterName ||
     metadata.name
   );
 };
@@ -173,6 +175,7 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
         supports_erc_721,
         twitter_handle,
         twitter_image_url,
+        twitter_name,
         web3_name
       FROM contracts
       WHERE address = ${address}
