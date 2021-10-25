@@ -1,8 +1,16 @@
 import * as Log from "./log.js";
 
-type Env = "dev" | "prod" | "staging";
+const parseSimpleEnvVar = (name: string): string => {
+  const rawVar = process.env[name];
+  if (typeof rawVar !== "string") {
+    throw new Error(`missing ${name} env var`);
+  }
+  return rawVar;
+};
 
-const parseEnv = (): Env => {
+export type Env = "dev" | "prod" | "staging";
+
+export const getEnv = (): Env => {
   const rawEnv = process.env.ENV;
 
   switch (rawEnv) {
@@ -18,59 +26,33 @@ const parseEnv = (): Env => {
   }
 };
 
-const env = parseEnv();
-
-const parseShowProgress = (): boolean =>
+export const getShowProgress = (): boolean =>
   !(
     process.env.SHOW_PROGRESS === undefined ||
     process.env.SHOW_PROGRESS === "false"
   );
 
-export type Config = {
-  env: Env;
-  famServiceUrl: string;
-  gethUrl: string;
-  name: string;
-  showProgress: boolean;
-};
+export const getName = () => process.env.NAME || "unknown";
 
-export const config: Config = {
-  env,
-  gethUrl: process.env.GETH_URL || "ws://64.227.73.122:8546/",
-  name: process.env.NAME || "unknown",
-  showProgress: parseShowProgress(),
-  famServiceUrl:
-    env === "prod" || env === "staging"
-      ? "http://serve-fam"
-      : "https://api.ultrasound.money",
-};
+export const getFamServiceUrl = (): string =>
+  getEnv() === "prod" || getEnv() === "staging"
+    ? "http://serve-fam"
+    : "https://api.ultrasound.money";
 
-export const getEtherscanToken = (): string => {
-  const rawToken = process.env.ETHERSCAN_TOKEN;
+export const getEtherscanToken = (): string =>
+  parseSimpleEnvVar("ETHERSCAN_TOKEN");
 
-  if (typeof rawToken !== "string") {
-    throw new Error("missing ETHERSCAN_TOKEN env var");
-  }
+export const getTwitterToken = (): string =>
+  parseSimpleEnvVar("TWITTER_BEARER_TOKEN_USM");
 
-  return rawToken;
-};
+export const getAdminToken = (): string => parseSimpleEnvVar("ADMIN_TOKEN");
 
-export const getTwitterToken = (): string => {
-  const rawToken = process.env.TWITTER_BEARER_TOKEN_USM;
+export const getGethUrl = (): string => parseSimpleEnvVar("GETH_URL");
 
-  if (typeof rawToken !== "string") {
-    throw new Error("missing TWITTER_BEARER_TOKEN_USM env var");
-  }
+export const getGethFallbackUrl = (): string =>
+  parseSimpleEnvVar("GETH_FALLBACK_URL");
 
-  return rawToken;
-};
-
-export const getAdminToken = (): string => {
-  const rawToken = process.env.ADMIN_TOKEN;
-
-  if (typeof rawToken !== "string") {
-    throw new Error("missing ADMIN_TOKEN env var");
-  }
-
-  return rawToken;
+export const ensureCriticalBlockAnalysisConfig = (): void => {
+  getGethUrl();
+  getGethFallbackUrl();
 };

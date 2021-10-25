@@ -2,6 +2,7 @@ import * as A from "fp-ts/lib/Array.js";
 import * as B from "fp-ts/lib/boolean.js";
 import * as BaseFees from "./base_fees.js";
 import * as BurnRates from "./burn_rates.js";
+import * as Config from "./config.js";
 import * as Contracts from "./contracts.js";
 import * as DateFns from "date-fns";
 import * as DerivedBlockStats from "./derived_block_stats.js";
@@ -18,7 +19,6 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 import * as Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
 import * as Transactions from "./transactions.js";
-import { config } from "./config.js";
 import PQueue from "p-queue";
 import { BlockLondon } from "./eth_node.js";
 import { FeeBreakdown } from "./base_fees.js";
@@ -394,7 +394,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
     ),
     T.chainFirstIOK(() => () => {
-      if (config.showProgress) {
+      if (Config.getShowProgress()) {
         DisplayProgress.onBlockAnalyzed();
       }
     }),

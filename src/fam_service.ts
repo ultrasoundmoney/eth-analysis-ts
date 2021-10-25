@@ -1,5 +1,5 @@
+import * as Config from "./config.js";
 import * as Log from "./log.js";
-import { config } from "./config.js";
 import fetch from "node-fetch";
 import { pipe, T } from "./fp.js";
 
@@ -18,7 +18,7 @@ export const getDetails = (handles: string[]): T.Task<FamDetails[]> => {
 
   return pipe(
     () =>
-      fetch(`${config.famServiceUrl}/fam/details`, {
+      fetch(`${Config.getFamServiceUrl()}/fam/details`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ handles }),

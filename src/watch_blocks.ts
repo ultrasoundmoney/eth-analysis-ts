@@ -6,17 +6,17 @@ import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
-import { config } from "./config.js";
+import * as Config from "./config.js";
 import Sentry from "@sentry/node";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { seqTParT } from "./fp.js";
 
-if (config.env !== "dev") {
+if (Config.getEnv() !== "dev") {
   Sentry.init({
     dsn: "https://f6393dc2e2984ec09299406e8f409647@o920717.ingest.sentry.io/5896630",
     tracesSampleRate: 0.1,
-    environment: config.env,
+    environment: Config.getEnv(),
   });
 }
 
@@ -60,6 +60,7 @@ const loadLeaderboardLimitedTimeframes = (
 
 const main = async () => {
   try {
+    Config.ensureCriticalBlockAnalysisConfig();
     await EthNode.connect();
     Log.debug("starting watch blocks");
     const latestBlockNumberOnStart = await EthNode.getLatestBlockNumber();

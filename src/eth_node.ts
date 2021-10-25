@@ -1,5 +1,5 @@
 import * as Blocks from "./blocks.js";
-import { config } from "./config.js";
+import * as Config from "./config.js";
 import * as Log from "./log.js";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
@@ -18,7 +18,7 @@ let managedGethWs: WebSocket | undefined = undefined;
 const messageListners = new Map();
 
 export const connect = async (): Promise<WebSocket> => {
-  const ws = new WebSocket(config.gethUrl);
+  const ws = new WebSocket(Config.getGethUrl());
 
   ws.on("message", (event) => {
     const message: {
@@ -91,7 +91,7 @@ export const getWeb3 = (): Web3 => {
     return managedWeb3Obj;
   }
 
-  const web3 = new Web3(config.gethUrl);
+  const web3 = new Web3(Config.getGethUrl());
   managedWeb3Obj = web3;
   return web3;
 };
@@ -316,14 +316,25 @@ const translateHead = (rawHead: RawHead): Head => ({
   number: hexToNumber(rawHead.number),
 });
 
+let subscribeHeadsCount = 0;
+
 export const subscribeNewHeads = (
   handleNewHead: (head: Head) => Promise<void>,
 ) => {
-  const headsWs = new WebSocket(config.gethUrl);
+  const headsWs =
+    subscribeHeadsCount < 3
+      ? new WebSocket(Config.getGethUrl())
+      : new WebSocket(Config.getGethFallbackUrl());
+
+  if (!(subscribeHeadsCount < 3)) {
+    Log.error("failed to reconnect heads ws three times, using fallback!");
+  }
+
   let gotSubscription = false;
 
   headsWs.on("close", () => {
     Log.warn("heads ws closed, reconnecting!");
+    subscribeHeadsCount = subscribeHeadsCount + 1;
     subscribeNewHeads(handleNewHead);
   });
 

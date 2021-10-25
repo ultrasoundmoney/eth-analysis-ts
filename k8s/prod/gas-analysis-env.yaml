@@ -10,4 +10,3 @@ data:
   PGPORT: "25060"
   PGUSER: "doadmin"
   PRETTY_LOG: "true"
-  NODE_IP: "64.227.73.122"

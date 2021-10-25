@@ -1,13 +1,13 @@
-import * as Sentry from "@sentry/node";
 import * as Blocks from "./blocks.js";
 import * as Canary from "./canary.js";
+import * as Coingecko from "./coingecko.js";
+import * as Config from "./config.js";
 import * as Contracts from "./contracts.js";
 import * as Duration from "./duration.js";
-import * as Coingecko from "./coingecko.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
+import * as Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
-import { config, getAdminToken } from "./config.js";
 import Koa, { Context, Middleware } from "koa";
 import Router from "@koa/router";
 import conditional from "koa-conditional-get";
@@ -24,10 +24,10 @@ import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
 import { seqSParT, TE } from "./fp.js";
 import { MarketDataError } from "./coingecko.js";
 
-if (config.env !== "dev") {
+if (Config.getEnv() !== "dev") {
   Sentry.init({
     dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
-    environment: config.env,
+    environment: Config.getEnv(),
   });
 }
 
@@ -161,7 +161,7 @@ const handleSetContractTwitterHandle: Middleware = async (ctx) => {
     return undefined;
   }
 
-  if (token !== getAdminToken()) {
+  if (token !== Config.getAdminToken()) {
     ctx.status = 403;
     ctx.body = { msg: "invalid token" };
     return undefined;
@@ -194,7 +194,7 @@ const handleSetContractName: Middleware = async (ctx) => {
     return undefined;
   }
 
-  if (token !== getAdminToken()) {
+  if (token !== Config.getAdminToken()) {
     ctx.status = 403;
     ctx.body = { msg: "invalid token" };
     return undefined;
@@ -227,7 +227,7 @@ const handleSetContractCategory: Middleware = async (ctx) => {
     return undefined;
   }
 
-  if (token !== getAdminToken()) {
+  if (token !== Config.getAdminToken()) {
     ctx.status = 403;
     ctx.body = { msg: "invalid token" };
     return undefined;

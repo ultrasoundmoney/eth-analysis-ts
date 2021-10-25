@@ -1,8 +1,8 @@
-import postgres from "postgres";
+import * as Config from "./config.js";
 import O from "fp-ts/lib/Option.js";
+import postgres from "postgres";
 import { camelCase } from "change-case";
 import { pipe } from "fp-ts/lib/function.js";
-import { config } from "./config.js";
 
 const port = pipe(
   process.env.PGPORT,
@@ -19,12 +19,12 @@ export const sql = postgres({
   port,
   ssl: "prefer",
   transform: { column: camelCase },
-  max: config.env === "staging" ? 2 : 4,
-  no_prepare: config.env === "staging",
+  max: Config.getEnv() === "staging" ? 2 : 4,
+  no_prepare: Config.getEnv() === "staging",
   types: {
     bigint: postgres.BigInt,
   },
   connection: {
-    application_name: config.name,
+    application_name: Config.getName(),
   },
 });
