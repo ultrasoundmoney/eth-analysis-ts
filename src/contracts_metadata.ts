@@ -70,10 +70,13 @@ export const addWeb3Metadata = async (address: string): Promise<void> => {
     ContractsWeb3.getName(contract),
   ]);
 
+  // Contracts may have a NUL byte in their name, which is not safe to store in postgres. We should find a way to store this safely.
+  const safeName = name?.replaceAll("\x00", "");
+
   await seqTParT(
-    name === undefined
+    safeName === undefined
       ? T.of(undefined)
-      : Contracts.setSimpleTextColumn("web3_name", address, name),
+      : Contracts.setSimpleTextColumn("web3_name", address, safeName),
     supportsErc_721 === undefined
       ? T.of(undefined)
       : Contracts.setSimpleBooleanColumn(
