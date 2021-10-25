@@ -1,4 +1,5 @@
 import * as Blocks from "./blocks.js";
+import { config } from "./config.js";
 import * as Log from "./log.js";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
@@ -8,14 +9,13 @@ import type { Log as LogWeb3 } from "web3-core";
 import { TxRWeb3London } from "./transactions.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
 
-const mainnetNode = process.env.GETH_URL || "ws://64.227.73.122:8546/";
 export let web3: Web3 | undefined = undefined;
 
 let ws: WebSocket | undefined = undefined;
 
 export const connect = async () => {
-  web3 = new Web3(mainnetNode);
-  ws = new WebSocket(mainnetNode);
+  web3 = new Web3(config.gethUrl);
+  ws = new WebSocket(config.gethUrl);
 
   ws.on("message", (event) => {
     const message: {
@@ -280,7 +280,7 @@ const translateHead = (rawHead: RawHead): Head => ({
 export const subscribeNewHeads = (
   handleNewHead: (head: Head) => Promise<void>,
 ) => {
-  const headsWs = new WebSocket(mainnetNode);
+  const headsWs = new WebSocket(config.gethUrl);
   let gotSubscription = false;
 
   headsWs.on("close", () => {

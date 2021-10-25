@@ -1,12 +1,7 @@
 import * as Log from "./log.js";
-import Config from "./config.js";
+import { config } from "./config.js";
 import fetch from "node-fetch";
 import { pipe, T } from "./fp.js";
-
-const apiUrl =
-  Config.env === "prod" || Config.env === "staging"
-    ? "http://serve-fam"
-    : "https://api.ultrasound.money";
 
 export type FamDetails = {
   bio: string | null;
@@ -23,7 +18,7 @@ export const getDetails = (handles: string[]): T.Task<FamDetails[]> => {
 
   return pipe(
     () =>
-      fetch(`${apiUrl}/fam/details`, {
+      fetch(`${config.famServiceUrl}/fam/details`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ handles }),

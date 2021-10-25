@@ -6,17 +6,17 @@ import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as T from "fp-ts/lib/Task.js";
-import Config from "./config.js";
+import { config } from "./config.js";
 import Sentry from "@sentry/node";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { seqTParT } from "./fp.js";
 
-if (Config.env !== "dev") {
+if (config.env !== "dev") {
   Sentry.init({
     dsn: "https://f6393dc2e2984ec09299406e8f409647@o920717.ingest.sentry.io/5896630",
     tracesSampleRate: 0.1,
-    environment: Config.env,
+    environment: config.env,
   });
 }
 

@@ -18,11 +18,7 @@ const parseEnv = (): Env => {
   }
 };
 
-const parseLocalNodeAvailable = (): boolean =>
-  !(
-    process.env.LOCAL_NODE_AVAILABLE === undefined ||
-    process.env.LOCAL_NODE_AVAILABLE === "false"
-  );
+const env = parseEnv();
 
 const parseShowProgress = (): boolean =>
   !(
@@ -30,21 +26,24 @@ const parseShowProgress = (): boolean =>
     process.env.SHOW_PROGRESS === "false"
   );
 
-type Config = {
+export type Config = {
   env: Env;
-  localNodeAvailable: boolean;
+  famServiceUrl: string;
+  gethUrl: string;
   name: string;
   showProgress: boolean;
 };
 
-const config: Config = {
-  env: parseEnv(),
-  localNodeAvailable: parseLocalNodeAvailable(),
+export const config: Config = {
+  env,
+  gethUrl: "ws://64.227.73.122:8546/",
   name: process.env.NAME || "unknown",
   showProgress: parseShowProgress(),
+  famServiceUrl:
+    env === "prod" || env === "staging"
+      ? "http://serve-fam"
+      : "https://api.ultrasound.money",
 };
-
-export default config;
 
 export const getEtherscanToken = (): string => {
   const rawToken = process.env.ETHERSCAN_TOKEN;

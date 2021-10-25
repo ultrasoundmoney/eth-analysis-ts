@@ -8,7 +8,7 @@ import * as Coingecko from "./coingecko.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
 import * as T from "fp-ts/lib/Task.js";
-import Config, { getAdminToken } from "./config.js";
+import { config, getAdminToken } from "./config.js";
 import Koa, { Context, Middleware } from "koa";
 import Router from "@koa/router";
 import conditional from "koa-conditional-get";
@@ -26,10 +26,10 @@ import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
 import { seqSParT, TE } from "./fp.js";
 import { MarketDataError } from "./coingecko.js";
 
-if (Config.env !== "dev") {
+if (config.env !== "dev") {
   Sentry.init({
     dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
-    environment: Config.env,
+    environment: config.env,
   });
 }
 

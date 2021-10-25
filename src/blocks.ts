@@ -17,7 +17,7 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 import * as Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
 import * as Transactions from "./transactions.js";
-import Config from "./config.js";
+import { config } from "./config.js";
 import { BlockLondon } from "./eth_node.js";
 import { FeeBreakdown } from "./base_fees.js";
 import { TxRWeb3London } from "./transactions.js";
@@ -365,7 +365,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
     ),
     T.chainFirstIOK(() => () => {
-      if (Config.showProgress) {
+      if (config.showProgress) {
         DisplayProgress.onBlockAnalyzed();
       }
     }),
