@@ -5,17 +5,20 @@ import PQueue from "p-queue";
 import ProgressBar from "progress";
 import Web3 from "web3";
 import WebSocket from "ws";
-import type { Log as LogWeb3 } from "web3-core";
+import { Log as LogWeb3 } from "web3-core";
 import { TxRWeb3London } from "./transactions.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
+import { AbiItem } from "web3-utils";
+import { Contract } from "web3-eth-contract";
 
-export let web3: Web3 | undefined = undefined;
+let managedWeb3Obj: Web3 | undefined = undefined;
 
-let ws: WebSocket | undefined = undefined;
+let managedGethWs: WebSocket | undefined = undefined;
 
-export const connect = async () => {
-  web3 = new Web3(config.gethUrl);
-  ws = new WebSocket(config.gethUrl);
+const messageListners = new Map();
+
+export const connect = async (): Promise<WebSocket> => {
+  const ws = new WebSocket(config.gethUrl);
 
   ws.on("message", (event) => {
     const message: {
@@ -33,14 +36,15 @@ export const connect = async () => {
     }
   });
 
-  return new Promise((resolve) => {
-    if (ws === undefined) {
-      throw new Error("trying to register ws listener but ws is undefined");
-    }
+  ws.on("close", () => {
+    Log.info("geth node websocket closed, immediately reconnecting");
+    getGethWs();
+  });
 
+  return new Promise((resolve) => {
     ws.on("open", () => {
       Log.debug("connected to eth node");
-      resolve(undefined);
+      resolve(ws);
     });
   });
 };
@@ -65,8 +69,6 @@ const getNewMessageId = (): number => {
   return candidate;
 };
 
-const messageListners = new Map();
-
 const registerMessageListener = <A>(): [number, Promise<A>] => {
   const id = getNewMessageId();
   const messageP: Promise<A> = new Promise((resolve, reject) => {
@@ -84,15 +86,52 @@ const registerMessageListener = <A>(): [number, Promise<A>] => {
   return [id, messageP];
 };
 
-const send = (message: Record<string, unknown>) => {
-  ws!.send(JSON.stringify(message));
+export const getWeb3 = (): Web3 => {
+  if (managedWeb3Obj !== undefined) {
+    return managedWeb3Obj;
+  }
+
+  const web3 = new Web3(config.gethUrl);
+  managedWeb3Obj = web3;
+  return web3;
+};
+
+const connectionQueue = new PQueue({ concurrency: 1 });
+
+export const getGethWs = async (): Promise<WebSocket> => {
+  if (
+    managedGethWs !== undefined &&
+    managedGethWs.readyState === WebSocket.OPEN
+  ) {
+    return managedGethWs;
+  }
+
+  if (managedGethWs === undefined) {
+    Log.debug("websocket undefined, initializing");
+  } else {
+    const isConnecting = managedGethWs.readyState === WebSocket.CONNECTING;
+    const isClosing = managedGethWs.readyState === WebSocket.CLOSING;
+    const isClosed = managedGethWs.readyState === WebSocket.CLOSED;
+    Log.warn(
+      `ws initialized but not open, not initial connect, closing=${isClosing}, closed=${isClosed}, connecting=${isConnecting}`,
+    );
+  }
+
+  const ws = await connectionQueue.add(() => connect());
+  managedGethWs = ws;
+  return ws;
+};
+
+const send = async (message: Record<string, unknown>) => {
+  const connection = await getGethWs();
+  connection.send(JSON.stringify(message));
 };
 
 export const benchmarkTxrFetch = async () => {
   const blockQueue = new PQueue({ concurrency: 4 });
   const txrsQueue = new PQueue({ concurrency: 200 });
   await connect();
-  console.log("connected!");
+  Log.info("connected!");
   const block = await getBlock("latest");
 
   const blockRange = Blocks.getBlockRange(block!.number - 1000, block!.number);
@@ -269,7 +308,7 @@ export const getTransactionReceipt = async (
 };
 
 export const closeConnection = () => {
-  ws!.close();
+  managedGethWs!.close();
 };
 
 const translateHead = (rawHead: RawHead): Head => ({
@@ -379,4 +418,9 @@ export const getLatestBlockNumber = async (): Promise<number> => {
   const rawBlockNumber = await messageP;
 
   return hexToNumber(rawBlockNumber);
+};
+
+export const makeContract = (address: string, abi: AbiItem[]): Contract => {
+  const Contract = getWeb3().eth.Contract;
+  return new Contract(abi, address);
 };
