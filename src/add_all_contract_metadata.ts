@@ -1,22 +1,22 @@
-import * as Eth from "./eth_node.js";
+import * as Contracts from "./contracts.js";
+import * as EthNode from "./eth_node.js";
 import * as Log from "./log.js";
-import { sql } from "./db.js";
 import { addWeb3Metadata } from "./contracts_metadata.js";
 import { readFile, writeFile } from "fs/promises";
+import { sql } from "./db.js";
 
-await Eth.connect();
+await EthNode.connect();
 
 const rows = await sql<{ contractAddress: string }[]>`
   SELECT * FROM contract_base_fee_sums
   JOIN contracts ON contract_address = address
-  WHERE base_fee_sum > 1e18
   AND supports_erc_721 IS NULL
   AND supports_erc_1155 IS NULL
 `;
 
 const addresses = rows.map((row) => row.contractAddress);
 
-Log.debug(`${addresses.length} addresses to go`);
+Log.info(`${addresses.length} addresses to go`);
 
 type Metadata = {
   supportsErc_721: boolean | null;
@@ -50,5 +50,11 @@ for (const address of addresses) {
   Log.debug(
     `stored ${address}, ERC721=${metadata.supportsErc_721}, ERC1155=${metadata.supportsErc_1155}`,
   );
+  await Contracts.updatePreferredMetadata(address)();
   await addAddressDone(address);
 }
+
+Log.info("done!");
+
+EthNode.closeConnection();
+sql.end();
