@@ -497,3 +497,15 @@ export const getLastNKnownBlocks = (count: number): T.Task<Set<number>> =>
       ),
     ),
   );
+
+export const getBaseFeesPerGas = (
+  blockNumber: number,
+): T.Task<number | undefined> => {
+  return pipe(
+    () => sql<{ baseFeePerGas: number }[]>`
+      SELECT base_fee_per_gas FROM blocks
+      WHERE number = ${blockNumber}
+    `,
+    T.map((rows) => rows[0]?.baseFeePerGas),
+  );
+};

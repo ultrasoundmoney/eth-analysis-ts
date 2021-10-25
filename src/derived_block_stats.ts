@@ -1,5 +1,4 @@
 import * as T from "fp-ts/lib/Task.js";
-import { BlockLondon } from "./eth_node.js";
 import { BurnRatesT } from "./burn_rates.js";
 import { FeesBurnedT } from "./fees_burned.js";
 import { LeaderboardEntries } from "./leaderboards.js";
@@ -20,13 +19,13 @@ export const getLatestDerivedBlockStats = (): T.Task<DerivedBlockStats> => () =>
 `.then((rows) => rows[0]);
 
 export const getDerivedBlockStats = (
-  block: BlockLondon,
+  blockNumber: number,
 ): T.Task<DerivedBlockStats | undefined> =>
   pipe(
     () =>
       sql<DerivedBlockStats[]>`
       SELECT * FROM derived_block_stats
-      WHERE block_number = ${block.number}
+      WHERE block_number = ${blockNumber}
     `,
     T.map((rows) => rows[0]),
   );

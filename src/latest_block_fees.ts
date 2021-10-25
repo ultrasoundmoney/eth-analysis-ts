@@ -1,6 +1,5 @@
 import { sql } from "./db.js";
 import * as T from "fp-ts/lib/Task.js";
-import { BlockLondon } from "./eth_node.js";
 
 export type LatestBlock = {
   fees: number;
@@ -10,7 +9,7 @@ export type LatestBlock = {
 export type LatestBlockFees = LatestBlock[];
 
 export const getLatestBlockFees = (
-  block: BlockLondon,
+  blockNumber: number,
 ): T.Task<LatestBlockFees> => {
   return () =>
     sql<
@@ -22,7 +21,7 @@ export const getLatestBlockFees = (
       }[]
     >`
     SELECT number, base_fee_sum, base_fee_per_gas, mined_at FROM blocks
-    WHERE number <= ${block.number}
+    WHERE number <= ${blockNumber}
     ORDER BY (number) DESC
     LIMIT 7
   `.then((rows) =>

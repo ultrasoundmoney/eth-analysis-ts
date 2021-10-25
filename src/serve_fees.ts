@@ -3,7 +3,6 @@ import * as Blocks from "./blocks.js";
 import * as Canary from "./canary.js";
 import * as Contracts from "./contracts.js";
 import * as Duration from "./duration.js";
-import * as EthNode from "./eth_node.js";
 import * as Coingecko from "./coingecko.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
@@ -14,7 +13,6 @@ import Router from "@koa/router";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
 import bodyParser from "koa-bodyparser";
-import { hexToNumber } from "./hexadecimal.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { FeesBurnedT } from "./fees_burned.js";
@@ -254,19 +252,21 @@ const handleSetContractCategory: Middleware = async (ctx) => {
   return undefined;
 };
 
-const updateCachesForBlockNumber = async (newBlock: number): Promise<void> => {
-  const block = await Blocks.getBlockWithRetry(newBlock);
-  const derivedBlockStats = DerivedBlockStats.getDerivedBlockStats(block);
-  const latestBlockFees = LatestBlockFees.getLatestBlockFees(block);
-  const baseFeePerGas = hexToNumber(block.baseFeePerGas);
-  const number = block.number;
+const updateCachesForBlockNumber = async (
+  blockNumber: number,
+): Promise<void> => {
+  const derivedBlockStats = DerivedBlockStats.getDerivedBlockStats(blockNumber);
+  const latestBlockFees = LatestBlockFees.getLatestBlockFees(blockNumber);
+  const baseFeePerGas = Blocks.getBaseFeesPerGas(blockNumber);
+  const number = blockNumber;
 
   return pipe(
     seqSParT({
       derivedBlockStats,
       latestBlockFees,
+      baseFeePerGas,
     }),
-    T.map(({ derivedBlockStats, latestBlockFees }) => {
+    T.map(({ derivedBlockStats, latestBlockFees, baseFeePerGas }) => {
       cache = {
         latestBlockFees,
         burnRates: derivedBlockStats?.burnRates,
@@ -341,8 +341,16 @@ app.use(router.allowedMethods());
 
 const serveFees = async () => {
   try {
-    await EthNode.connect();
-    const blockNumber = await EthNode.getLatestBlockNumber();
+    const blockNumber = await sql<{ blockNumber: number }[]>`
+      SELECT block_number FROM derived_block_stats
+      ORDER BY block_number DESC
+      LIMIT 1
+    `.then((rows) => rows[0]?.blockNumber);
+
+    if (blockNumber === undefined) {
+      throw new Error("missing derived block stats");
+    }
+
     await updateCachesForBlockNumber(blockNumber);
 
     await new Promise((resolve) => {
@@ -354,7 +362,6 @@ const serveFees = async () => {
     Canary.releaseCanary("block");
   } catch (error) {
     Log.error("serve fees top level error", { error });
-    EthNode.closeConnection();
     sql.end();
     throw error;
   }
