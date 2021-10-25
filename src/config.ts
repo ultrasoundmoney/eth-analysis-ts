@@ -36,7 +36,7 @@ export type Config = {
 
 export const config: Config = {
   env,
-  gethUrl: "ws://64.227.73.122:8546/",
+  gethUrl: process.env.GETH_URL || "ws://64.227.73.122:8546/",
   name: process.env.NAME || "unknown",
   showProgress: parseShowProgress(),
   famServiceUrl:
