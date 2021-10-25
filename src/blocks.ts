@@ -506,6 +506,10 @@ export const getBaseFeesPerGas = (
       SELECT base_fee_per_gas FROM blocks
       WHERE number = ${blockNumber}
     `,
-    T.map((rows) => rows[0]?.baseFeePerGas),
+    T.map((rows) =>
+      typeof rows[0]?.baseFeePerGas === "bigint"
+        ? Number(rows[0].baseFeePerGas)
+        : undefined,
+    ),
   );
 };
