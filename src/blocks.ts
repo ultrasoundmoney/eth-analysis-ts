@@ -316,8 +316,6 @@ export const addLeaderboardLimitedTimeframeQueue = new PQueue({
   concurrency: 1,
 });
 
-const knownBlocks = new Set<number>();
-
 export const addMissingBlocks = async (upToIncluding: number) => {
   Log.debug("checking for missing blocks");
   const wantedBlockRange = getBlockRange(
@@ -358,116 +356,137 @@ export const addMissingBlocks = async (upToIncluding: number) => {
 
 export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
-    () => getBlockWithRetry(blockNumber),
-    T.chainFirstIOK(() => () => {
-      Log.debug(`analyzing block ${blockNumber}`);
-    }),
-    // Rollback leadersboards if needed.
-    T.chainFirst((block) => {
-      if (!knownBlocks.has(block.number)) {
-        return T.of(undefined);
-      }
-      const t0 = performance.now();
-      const blocksToRollback = pipe(
-        knownBlocks.values(),
-        (blocksIter) => Array.from(blocksIter),
-        A.filter((knownBlockNumber) => knownBlockNumber >= block.number),
-        A.sort(Num.Ord),
-      );
-
+    getLastNKnownBlocks(20),
+    T.chain((knownBlocks2) => {
       return pipe(
-        Leaderboards.getRangeBaseFees(
-          blocksToRollback[0],
-          blocksToRollback[blocksToRollback.length - 1],
-        ),
-        T.chain((sumsToRollback) => {
-          LeaderboardsLimitedTimeframe.rollbackToBefore(
-            block.number,
-            sumsToRollback,
-          );
-          return LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback);
+        () => getBlockWithRetry(blockNumber),
+        T.chainFirstIOK(() => () => {
+          Log.debug(`analyzing block ${blockNumber}`);
         }),
-        T.chainFirstIOK(logPerfT("rollback", t0)),
-      );
-    }),
-    T.chain((block) =>
-      seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
-    ),
-    T.chainFirstIOK(() => () => {
-      if (config.showProgress) {
-        DisplayProgress.onBlockAnalyzed();
-      }
-    }),
-    T.chain(([block, txrs]) =>
-      pipe(
-        knownBlocks.has(block.number),
-        B.match(
-          () => storeBlock(block, txrs),
-          () => updateBlock(block, txrs),
-        ),
-        T.chain(() => {
-          knownBlocks.add(block.number);
-          const contractBaseFees = pipe(
-            BaseFees.calcBlockFeeBreakdown(block, txrs),
-            (feeBreakdown) => feeBreakdown.contract_use_fees,
-            (useFees) => Object.entries(useFees),
-            (entries) => new Map(entries),
-          );
-
-          const t0 = performance.now();
-
-          return pipe(
-            seqTParT(
-              () =>
-                addLeaderboardLimitedTimeframeQueue.add(() =>
-                  LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
-                    block,
-                    contractBaseFees,
-                  ),
-                ),
-              () =>
-                removeBlocksQueue.add(
-                  LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
-                ),
-              () =>
-                addLeaderboardAllQueue.add(
-                  LeaderboardsAll.addBlock(block.number, contractBaseFees),
-                ),
-            ),
-            T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
-            T.chainFirstIOK(() => () => PerformanceMetrics.logQueueSizes()),
-          );
-        }),
-        T.chain(() => {
-          const allBlocksProcessed =
-            storeBlockQueuePar.size === 0 &&
-            storeBlockQueuePar.pending === 0 &&
-            storeBlockQueueSeq.size === 0 &&
-            // This function is on this queue.
-            storeBlockQueueSeq.pending <= 1 &&
-            addLeaderboardAllQueue.size === 0 &&
-            addLeaderboardAllQueue.pending === 0 &&
-            addLeaderboardLimitedTimeframeQueue.size === 0 &&
-            addLeaderboardLimitedTimeframeQueue.pending === 0;
-          if (allBlocksProcessed) {
-            return pipe(
-              updateDerivedBlockStats(block),
-              T.chain(() => notifyNewDerivedStats(block)),
-            );
-          } else {
-            Log.debug(
-              "blocks left to process, skipping computation of derived stats",
-            );
+        // Rollback leadersboards if needed.
+        T.chainFirst((block) => {
+          if (!knownBlocks2.has(block.number)) {
             return T.of(undefined);
           }
+          const t0 = performance.now();
+          const blocksToRollback = pipe(
+            knownBlocks2.values(),
+            (blocksIter) => Array.from(blocksIter),
+            A.filter((knownBlockNumber) => knownBlockNumber >= block.number),
+            A.sort(Num.Ord),
+          );
+
+          return pipe(
+            Leaderboards.getRangeBaseFees(
+              blocksToRollback[0],
+              blocksToRollback[blocksToRollback.length - 1],
+            ),
+            T.chain((sumsToRollback) => {
+              LeaderboardsLimitedTimeframe.rollbackToBefore(
+                block.number,
+                sumsToRollback,
+              );
+              return LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback);
+            }),
+            T.chainFirstIOK(logPerfT("rollback", t0)),
+          );
         }),
-      ),
-    ),
+        T.chain((block) =>
+          seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
+        ),
+        T.chainFirstIOK(() => () => {
+          if (config.showProgress) {
+            DisplayProgress.onBlockAnalyzed();
+          }
+        }),
+        T.chain(([block, txrs]) =>
+          pipe(
+            knownBlocks2.has(block.number),
+            B.match(
+              () => storeBlock(block, txrs),
+              () => updateBlock(block, txrs),
+            ),
+            T.chain(() => {
+              const contractBaseFees = pipe(
+                BaseFees.calcBlockFeeBreakdown(block, txrs),
+                (feeBreakdown) => feeBreakdown.contract_use_fees,
+                (useFees) => Object.entries(useFees),
+                (entries) => new Map(entries),
+              );
+
+              const t0 = performance.now();
+
+              return pipe(
+                seqTParT(
+                  () =>
+                    addLeaderboardLimitedTimeframeQueue.add(() =>
+                      LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
+                        block,
+                        contractBaseFees,
+                      ),
+                    ),
+                  () =>
+                    removeBlocksQueue.add(
+                      LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+                    ),
+                  () =>
+                    addLeaderboardAllQueue.add(
+                      LeaderboardsAll.addBlock(block.number, contractBaseFees),
+                    ),
+                ),
+                T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
+                T.chainFirstIOK(() => () => PerformanceMetrics.logQueueSizes()),
+              );
+            }),
+            T.chain(() => {
+              const allBlocksProcessed =
+                storeBlockQueuePar.size === 0 &&
+                storeBlockQueuePar.pending === 0 &&
+                storeBlockQueueSeq.size === 0 &&
+                // This function is on this queue.
+                storeBlockQueueSeq.pending <= 1 &&
+                addLeaderboardAllQueue.size === 0 &&
+                addLeaderboardAllQueue.pending === 0 &&
+                addLeaderboardLimitedTimeframeQueue.size === 0 &&
+                addLeaderboardLimitedTimeframeQueue.pending === 0;
+              if (allBlocksProcessed) {
+                return pipe(
+                  updateDerivedBlockStats(block),
+                  T.chain(() => notifyNewDerivedStats(block)),
+                );
+              } else {
+                Log.debug(
+                  "blocks left to process, skipping computation of derived stats",
+                );
+                return T.of(undefined);
+              }
+            }),
+          ),
+        ),
+      );
+    }),
   );
 
 export const getKnownBlocks = (): T.Task<Set<number>> =>
   pipe(
     () => sql<{ number: number }[]>`SELECT number FROM blocks`,
+    T.map((rows) =>
+      pipe(
+        rows,
+        A.map((row) => row.number),
+        (numbers) => new Set(numbers),
+      ),
+    ),
+  );
+
+export const getLastNKnownBlocks = (count: number): T.Task<Set<number>> =>
+  pipe(
+    () => sql<{ number: number }[]>`
+      SELECT number
+      FROM blocks
+      ORDER BY number DESC
+      LIMIT ${count}
+    `,
     T.map((rows) =>
       pipe(
         rows,
