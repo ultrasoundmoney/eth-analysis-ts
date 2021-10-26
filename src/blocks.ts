@@ -382,6 +382,8 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         A.sort(Num.Ord),
       );
 
+      Log.info(`rollback, blocks to rollback: ${blocksToRollback.join(",")}`);
+
       return pipe(
         Leaderboards.getRangeBaseFees(
           blocksToRollback[0],
