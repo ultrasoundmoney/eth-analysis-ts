@@ -316,7 +316,9 @@ export const addLeaderboardLimitedTimeframeQueue = new PQueue({
   concurrency: 1,
 });
 
-export const addMissingBlocks = async (upToIncluding: number) => {
+export const addMissingBlocks = async (
+  upToIncluding: number,
+): Promise<void> => {
   Log.debug("checking for missing blocks");
   const wantedBlockRange = getBlockRange(
     londonHardForkBlockNumber,
@@ -328,29 +330,34 @@ export const addMissingBlocks = async (upToIncluding: number) => {
     (wantedBlockNumber) => !storedBlocks.has(wantedBlockNumber),
   );
 
-  if (missingBlocks.length !== 0) {
-    Log.info("blocks table out-of-sync");
-
-    Log.info(`adding ${missingBlocks.length} missing blocks`);
-
-    if (process.env.SHOW_PROGRESS !== undefined) {
-      DisplayProgress.start(missingBlocks.length);
-    }
-
-    await storeBlockQueuePar.addAll(
-      missingBlocks.map((blockNumber) =>
-        pipe(
-          () => getBlockWithRetry(blockNumber),
-          T.chain((block) =>
-            seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
-          ),
-          T.chain(([block, txrs]) => storeBlock(block, txrs)),
-        ),
-      ),
-    );
-    Log.info(`added ${missingBlocks.length} missing blocks`);
+  if (missingBlocks.length === 0) {
+    PerformanceMetrics.setShouldLogBlockFetchRate(false);
+    return undefined;
   }
 
+  Log.info("blocks table out-of-sync");
+
+  Log.info(`adding ${missingBlocks.length} missing blocks`);
+
+  if (process.env.SHOW_PROGRESS !== undefined) {
+    DisplayProgress.start(missingBlocks.length);
+  }
+
+  await storeBlockQueuePar.addAll(
+    missingBlocks.map((blockNumber) =>
+      pipe(
+        () => getBlockWithRetry(blockNumber),
+        T.chain((block) =>
+          seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
+        ),
+        T.chain(([block, txrs]) => storeBlock(block, txrs)),
+      ),
+    ),
+  );
+
+  missingBlocks.forEach((blockNumber) => knownBlocks.add(blockNumber));
+
+  Log.info(`added ${missingBlocks.length} missing blocks`);
   PerformanceMetrics.setShouldLogBlockFetchRate(false);
 };
 
@@ -406,6 +413,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
           () => updateBlock(block, txrs),
         ),
         T.chain(() => {
+          knownBlocks.add(blockNumber);
           const contractBaseFees = pipe(
             BaseFees.calcBlockFeeBreakdown(block, txrs),
             (feeBreakdown) => feeBreakdown.contract_use_fees,
@@ -438,11 +446,8 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
           );
         }),
         T.chain(() => {
+          Log.debug(`store block par queue ${storeBlockQueuePar.size}`);
           Log.debug(`store block seq queue ${storeBlockQueueSeq.size}`);
-          Log.debug(`add leaderboard all queue ${addLeaderboardAllQueue.size}`);
-          Log.debug(
-            `add leaderboard limited timeframe queue: ${addLeaderboardLimitedTimeframeQueue.size}`,
-          );
           const allBlocksProcessed =
             storeBlockQueuePar.size === 0 &&
             storeBlockQueuePar.pending === 0 &&
