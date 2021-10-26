@@ -1,15 +1,10 @@
 import * as Duration from "./duration.js";
+import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
 import { E, pipe, seqTParTE, TE } from "./fp.js";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
-
-const marketDataCache = new QuickLRU<string, MarketData>({
-  maxSize: 1,
-  maxAge: Duration.milisFromSeconds(10),
-});
-const marketDataKey = "prices";
 
 type CoinCG = {
   market_data: {
@@ -56,46 +51,65 @@ type MarketData = {
   };
 };
 
-const fetchCoinGecko = <A>(url: string): TE.TaskEither<MarketDataError, A> => {
-  return retrying(
+type BadResponse = { _tag: "bad-response"; status: number };
+type FetchError = { _tag: "fetch-error"; error: Error };
+type UnknownError = { _tag: "unknown-error"; error: Error };
+type CoinGeckoApiError = BadResponse | FetchError;
+
+export type MarketDataError = CoinGeckoApiError | UnknownError;
+
+// CoinGecko API has a 50 requests per minute rate-limit. We run many instances so only use up 1/4 of the capacity.
+export const coingeckoQueue = new PQueue({
+  concurrency: 4,
+  interval: Duration.milisFromSeconds(60),
+  intervalCap: 50 / 4,
+  throwOnTimeout: true,
+  timeout: 50,
+});
+
+const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
+  pipe(
+    TE.tryCatch(
+      () => coingeckoQueue.add(() => fetch(url)),
+      (error) =>
+        ({ _tag: "fetch-error", error: error as Error } as CoinGeckoApiError),
+    ),
+    TE.chain((res) => {
+      if (res.status !== 200) {
+        return TE.left({
+          _tag: "bad-response",
+          status: res.status,
+        } as CoinGeckoApiError);
+      }
+      return TE.fromTask(() => res.json() as Promise<A>);
+    }),
+  );
+
+const fetchWithRetry = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
+  retrying(
     Monoid.concat(exponentialBackoff(1000), limitRetries(3)),
-    () =>
-      pipe(
-        TE.tryCatch(
-          () => fetch(url),
-          (error) =>
-            ({ _type: "fetch-error", error: String(error) } as MarketDataError),
-        ),
-        TE.chain((res) => {
-          if (res.status !== 200) {
-            return TE.left({
-              _type: "bad-response",
-              status: res.status,
-            } as MarketDataError);
-          }
-          return TE.fromTask(() => res.json() as Promise<A>);
-        }),
-      ),
+    () => fetchCoinGecko(url),
     E.isLeft,
   );
-};
 
 const getCirculatingSupply = (
   id: string,
 ): TE.TaskEither<MarketDataError, number> =>
   pipe(
-    fetchCoinGecko<CoinCG>(`https://api.coingecko.com/api/v3/coins/${id}`),
+    fetchWithRetry<CoinCG>(`https://api.coingecko.com/api/v3/coins/${id}`),
     TE.map((body) => body.market_data.circulating_supply),
   );
 
 const getPrices = (): TE.TaskEither<MarketDataError, PriceCG> =>
-  fetchCoinGecko<PriceCG>(
+  fetchWithRetry<PriceCG>(
     "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin,tether-gold&vs_currencies=usd%2Cbtc&include_24hr_change=true",
   );
 
-type BadResponse = { _type: "bad-response"; status: number };
-type FetchError = { _type: "fetch-error"; error: string };
-export type MarketDataError = FetchError | BadResponse;
+const marketDataCache = new QuickLRU<string, MarketData>({
+  maxSize: 1,
+  maxAge: Duration.milisFromSeconds(10),
+});
+const marketDataKey = "prices";
 
 export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> => {
   const cPrices = marketDataCache.get(marketDataKey);

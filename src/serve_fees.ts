@@ -71,9 +71,9 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
 };
 
 const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
-  switch (error._type) {
+  switch (error._tag) {
     case "fetch-error": {
-      Log.error(error.error);
+      Log.error(String(error.error));
       ctx.status = 500;
       ctx.body = { msg: "coingecko fetch error" };
       return undefined;
