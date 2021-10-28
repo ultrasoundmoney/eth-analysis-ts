@@ -10,7 +10,7 @@ const DefiLlamaProtocol = pipe(
     id: D.string,
     name: D.string,
     address: D.nullable(D.string),
-    symbol: D.string,
+    symbol: D.nullable(D.string),
     url: D.string,
     description: D.nullable(D.string),
     chain: D.string,
