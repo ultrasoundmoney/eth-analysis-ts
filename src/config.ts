@@ -56,3 +56,6 @@ export const ensureCriticalBlockAnalysisConfig = (): void => {
   getGethUrl();
   getGethFallbackUrl();
 };
+
+export const getOpenseaApiKey = (): string =>
+  parseSimpleEnvVar("OPENSEA_API_KEY");
