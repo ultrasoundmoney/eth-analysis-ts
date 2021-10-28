@@ -77,10 +77,14 @@ export const getBlockWithRetry = async (
   }
 };
 
-export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> => () =>
-  sql`
-    SELECT MAX(number) AS number FROM blocks
-  `.then((result) => pipe(result[0]?.number, O.fromNullable));
+export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> =>
+  pipe(
+    () => sql<{ number: number }[]>`
+      SELECT MAX(number) AS number FROM blocks
+    `,
+    T.map((rows) => rows[0]?.number),
+    T.map(O.fromNullable),
+  );
 
 export const storeBlockQueuePar = new PQueue({ concurrency: 8 });
 export const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
