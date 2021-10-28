@@ -17,9 +17,9 @@ type OpenseaContract = {
 };
 
 export const fetchContractQueue = new PQueue({
-  concurrency: 1,
-  interval: Duration.milisFromSeconds(15),
-  intervalCap: 2,
+  concurrency: 3,
+  interval: Duration.milisFromSeconds(8),
+  intervalCap: 8,
 });
 
 export const getContract = async (
