@@ -31,6 +31,8 @@ spec:
                 name: twitter-usm
             - secretRef:
                 name: node-urls
+            - secretRef:
+                name: opensea-api-key
           env:
             - name: NAME
               valueFrom:
