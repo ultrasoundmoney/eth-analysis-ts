@@ -39,22 +39,6 @@ export const onBlockReceived = () => {
   blocksReceived = blocksReceived + 1;
 };
 
-let contractsIdentified = 0;
-let lastLogMetadataTimestamp = new Date();
-export const onContractIdentified = () => {
-  contractsIdentified = contractsIdentified + 1;
-  const secondsSinceStart = differenceInSeconds(new Date(), start);
-  const secondsSinceLastReport = differenceInSeconds(
-    new Date(),
-    lastLogMetadataTimestamp,
-  );
-  if (secondsSinceLastReport >= 30) {
-    lastLogMetadataTimestamp = new Date();
-    const identifyRate = (contractsIdentified / secondsSinceStart).toFixed(2);
-    Log.debug(`contract identify rate: ${identifyRate} c/s`);
-  }
-};
-
 let lastLogQueueSizeTimestamp = new Date();
 export const logQueueSizes = () => {
   const secondsSinceLastReport = differenceInSeconds(
