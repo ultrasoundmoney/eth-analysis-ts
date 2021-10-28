@@ -1,11 +1,9 @@
 import * as Duration from "./duration.js";
-import * as Log from "./log.js";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
 import urlcatM from "urlcat";
 import { E, O, pipe, seqTParTE, TE } from "./fp.js";
-import { JsTimestamp } from "./datetime.js";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 
@@ -182,4 +180,3 @@ export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
       };
     }),
   );
-};
