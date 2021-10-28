@@ -64,7 +64,7 @@ export const coingeckoQueue = new PQueue({
   interval: Duration.milisFromSeconds(60),
   intervalCap: 50 / 4,
   throwOnTimeout: true,
-  timeout: 50,
+  timeout: Duration.milisFromSeconds(16),
 });
 
 const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
