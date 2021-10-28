@@ -1,18 +1,24 @@
 import * as Duration from "./duration.js";
+import * as Log from "./log.js";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
-import { E, pipe, seqTParTE, TE } from "./fp.js";
+import urlcatM from "urlcat";
+import { E, O, pipe, seqTParTE, TE } from "./fp.js";
+import { JsTimestamp } from "./datetime.js";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 
-type CoinCG = {
+// NOTE: import is broken somehow, "urlcat is not a function" without.
+const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
+
+type CoinResponse = {
   market_data: {
     circulating_supply: number;
   };
 };
 
-type PriceCG = {
+type PriceResponse = {
   ethereum: {
     usd: number;
     usd_24h_change: number;
@@ -51,7 +57,7 @@ type MarketData = {
   };
 };
 
-type BadResponse = { _tag: "bad-response"; status: number };
+type BadResponse = { _tag: "bad-response"; error: Error; status: number };
 type FetchError = { _tag: "fetch-error"; error: Error };
 type UnknownError = { _tag: "unknown-error"; error: Error };
 type CoinGeckoApiError = BadResponse | FetchError;
@@ -59,7 +65,7 @@ type CoinGeckoApiError = BadResponse | FetchError;
 export type MarketDataError = CoinGeckoApiError | UnknownError;
 
 // CoinGecko API has a 50 requests per minute rate-limit. We run many instances so only use up 1/4 of the capacity.
-export const coingeckoQueue = new PQueue({
+export const apiQueue = new PQueue({
   concurrency: 4,
   interval: Duration.milisFromSeconds(60),
   intervalCap: 50 / 4,
@@ -70,7 +76,7 @@ export const coingeckoQueue = new PQueue({
 const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
   pipe(
     TE.tryCatch(
-      () => coingeckoQueue.add(() => fetch(url)),
+      () => apiQueue.add(() => fetch(url)),
       (error) =>
         ({ _tag: "fetch-error", error: error as Error } as CoinGeckoApiError),
     ),
@@ -78,7 +84,9 @@ const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
       if (res.status !== 200) {
         return TE.left({
           _tag: "bad-response",
-          status: res.status,
+          error: new Error(
+            `fetch coingecko bad response status: ${res.status}, url: ${url}`,
+          ),
         } as CoinGeckoApiError);
       }
       return TE.fromTask(() => res.json() as Promise<A>);
@@ -92,44 +100,69 @@ const fetchWithRetry = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
     E.isLeft,
   );
 
-const getCirculatingSupply = (
+const circulatingSupplyCache = new QuickLRU<string, CoinResponse>({
+  maxSize: 100,
+  maxAge: Duration.milisFromSeconds(60),
+});
+
+const priceCache = new QuickLRU<string, PriceResponse>({
+  maxSize: 100,
+  maxAge: Duration.milisFromSeconds(10),
+});
+
+const fetchWithCache = <A>(
+  cache: QuickLRU<string, A>,
+  url: string,
+): TE.TaskEither<CoinGeckoApiError, A> =>
+  pipe(
+    cache.get(url),
+    O.fromNullable,
+    O.match(
+      () =>
+        pipe(
+          fetchWithRetry<A>(url),
+          TE.chainFirstIOK((value) => () => {
+            cache.set(url, value);
+          }),
+        ),
+      (cValue) => TE.of(cValue),
+    ),
+  );
+
+const getCirculatingSupplyWithCache = (
   id: string,
 ): TE.TaskEither<MarketDataError, number> =>
   pipe(
-    fetchWithRetry<CoinCG>(`https://api.coingecko.com/api/v3/coins/${id}`),
+    fetchWithCache<CoinResponse>(
+      circulatingSupplyCache,
+      `https://api.coingecko.com/api/v3/coins/${id}`,
+    ),
     TE.map((body) => body.market_data.circulating_supply),
   );
 
-const getPrices = (): TE.TaskEither<MarketDataError, PriceCG> =>
-  fetchWithRetry<PriceCG>(
-    "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin,tether-gold&vs_currencies=usd%2Cbtc&include_24hr_change=true",
-  );
+const getPrices = (): TE.TaskEither<MarketDataError, PriceResponse> => {
+  const url = urlcat("https://api.coingecko.com/api/v3/simple/price", {
+    ids: ["ethereum", "bitcoin", "tether-gold"].join(","),
+    vs_currencies: ["usd", "btc"].join(","),
+    include_24hr_change: "true",
+  });
 
-const marketDataCache = new QuickLRU<string, MarketData>({
-  maxSize: 1,
-  maxAge: Duration.milisFromSeconds(10),
-});
-const marketDataKey = "prices";
+  return fetchWithCache<PriceResponse>(priceCache, url);
+};
 
-export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> => {
-  const cPrices = marketDataCache.get(marketDataKey);
-
-  if (cPrices !== undefined) {
-    return TE.right(cPrices);
-  }
-
-  return pipe(
+export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
+  pipe(
     seqTParTE(
       getPrices(),
-      getCirculatingSupply("ethereum"),
-      getCirculatingSupply("bitcoin"),
+      getCirculatingSupplyWithCache("ethereum"),
+      getCirculatingSupplyWithCache("bitcoin"),
     ),
     TE.map(([prices, circulatingSupplyEth, circulatingSupplyBtc]) => {
       const eth = prices.ethereum;
       const btc = prices.bitcoin;
       const gold = prices["tether-gold"];
 
-      const marketData = {
+      return {
         eth: {
           usd: eth.usd,
           usd24hChange: eth.usd_24h_change,
@@ -147,10 +180,6 @@ export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> => {
           usd24hChange: gold.usd_24h_change,
         },
       };
-
-      marketDataCache.set(marketDataKey, marketData);
-
-      return marketData;
     }),
   );
 };

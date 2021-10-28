@@ -1,3 +1,4 @@
+import * as Coingecko from "./coingecko.js";
 import * as ContractsMetadata from "./contracts_metadata.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Etherscan from "./etherscan.js";
@@ -88,5 +89,6 @@ export const logQueueSizes = () => {
     Log.debug(
       `twitter profile queue size: ${ContractsMetadata.twitterProfileQueue.size}`,
     );
+    Log.debug(`coingecko api queue size: ${Coingecko.apiQueue.size}`);
   }
 };
