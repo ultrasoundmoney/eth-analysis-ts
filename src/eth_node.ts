@@ -17,8 +17,21 @@ let managedGethWs: WebSocket | undefined = undefined;
 
 const messageListners = new Map();
 
+let wsAttempt = 0;
+
 export const connect = async (): Promise<WebSocket> => {
-  const ws = new WebSocket(Config.getGethUrl());
+  // Try our own node three times then try our third part fallback
+  const ws =
+    wsAttempt < 3
+      ? new WebSocket(Config.getGethUrl())
+      : new WebSocket(Config.getGethFallbackUrl());
+
+  if (wsAttempt < 3) {
+    wsAttempt = wsAttempt + 1;
+  } else {
+    Log.error("failed to connect to geth node, using fallback");
+    wsAttempt = 0;
+  }
 
   ws.on("message", (event) => {
     const message: {
@@ -86,12 +99,26 @@ const registerMessageListener = <A>(): [number, Promise<A>] => {
   return [id, messageP];
 };
 
+let web3Attempt = 0;
+
 export const getWeb3 = (): Web3 => {
   if (managedWeb3Obj !== undefined) {
     return managedWeb3Obj;
   }
 
-  const web3 = new Web3(Config.getGethUrl());
+  // Try our own node three times then try our third party fallback.
+  const web3 =
+    web3Attempt < 3
+      ? new Web3(Config.getGethUrl())
+      : new Web3(Config.getGethFallbackUrl());
+
+  if (web3Attempt < 3) {
+    web3Attempt = wsAttempt + 1;
+  } else {
+    Log.error("failed to connect to geth node, using fallback");
+    web3Attempt = 0;
+  }
+
   managedWeb3Obj = web3;
   return web3;
 };
@@ -318,25 +345,28 @@ const translateHead = (rawHead: RawHead): Head => ({
   number: hexToNumber(rawHead.number),
 });
 
-let subscribeHeadsCount = 0;
+let subscribeHeadsAttempt = 0;
 
 export const subscribeNewHeads = (
   handleNewHead: (head: Head) => Promise<void>,
 ) => {
   const headsWs =
-    subscribeHeadsCount < 3
+    subscribeHeadsAttempt < 3
       ? new WebSocket(Config.getGethUrl())
       : new WebSocket(Config.getGethFallbackUrl());
 
-  if (!(subscribeHeadsCount < 3)) {
-    Log.error("failed to reconnect heads ws three times, using fallback!");
+  if (!(subscribeHeadsAttempt < 3)) {
+    Log.error(
+      "failed to subscribe to geth node heads three times, using fallback",
+    );
+    subscribeHeadsAttempt = 0;
   }
 
   let gotSubscription = false;
 
   headsWs.on("close", () => {
     Log.warn("heads ws closed, reconnecting!");
-    subscribeHeadsCount = subscribeHeadsCount + 1;
+    subscribeHeadsAttempt = subscribeHeadsAttempt + 1;
     subscribeNewHeads(handleNewHead);
   });
 
