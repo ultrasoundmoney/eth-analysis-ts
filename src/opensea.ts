@@ -1,3 +1,4 @@
+import * as Config from "./config.js";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
 import fetch from "node-fetch";
@@ -26,7 +27,9 @@ export const getContract = async (
   attempt = 0,
 ): Promise<OpenseaContract | undefined> => {
   const res = await fetchContractQueue.add(() =>
-    fetch(`https://api.opensea.io/api/v1/asset_contract/${address}`),
+    fetch(`https://api.opensea.io/api/v1/asset_contract/${address}`, {
+      headers: { "X-API-KEY": Config.getOpenseaApiKey() },
+    }),
   );
 
   if (res === undefined) {
