@@ -117,7 +117,7 @@ export const getGethWs = async (): Promise<WebSocket> => {
     );
   }
 
-  const ws = await connectionQueue.add(() => connect());
+  const ws = await connectionQueue.add(connect);
   managedGethWs = ws;
   return ws;
 };
