@@ -6,6 +6,7 @@ import urlcatM from "urlcat";
 import { E, O, pipe, seqTParTE, TE } from "./fp.js";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
+import { JsTimestamp } from "./date_fns_alt.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -180,3 +181,28 @@ export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
       };
     }),
   );
+
+export type HistoricPrice = [JsTimestamp, number];
+type HistoricPricesResponse = {
+  prices: HistoricPrice[];
+};
+
+const pastDayEthPricesCache = new QuickLRU<string, HistoricPricesResponse>({
+  maxSize: 1,
+  maxAge: Duration.milisFromSeconds(60),
+});
+
+export const getPastDayEthPrices = (): TE.TaskEither<
+  CoinGeckoApiError,
+  HistoricPrice[]
+> => {
+  const url = urlcat(
+    "https://api.coingecko.com/api/v3/coins/ethereum/market_chart",
+    { vs_currency: "usd", days: 1 },
+  );
+
+  return pipe(
+    fetchWithCache<HistoricPricesResponse>(pastDayEthPricesCache, url),
+    TE.map((res) => res.prices),
+  );
+};

@@ -1,12 +1,13 @@
 import * as Coingecko from "./coingecko.js";
 import * as ContractsMetadata from "./contracts_metadata.js";
+import * as DateFns from "date-fns";
 import * as DefiLlama from "./defi_llama.js";
+import * as EthPrice from "./eth_price.js";
 import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
 import * as Transactions from "./transactions.js";
 import * as Twitter from "./twitter.js";
-import { differenceInSeconds } from "date-fns";
 
 const start = new Date();
 let lastReport = new Date();
@@ -26,8 +27,11 @@ export const onTxrReceived = () => {
 };
 
 export const onBlockReceived = () => {
-  const secondsSinceStart = differenceInSeconds(new Date(), start);
-  const secondsSinceLastReport = differenceInSeconds(new Date(), lastReport);
+  const secondsSinceStart = DateFns.differenceInSeconds(new Date(), start);
+  const secondsSinceLastReport = DateFns.differenceInSeconds(
+    new Date(),
+    lastReport,
+  );
   if (secondsSinceLastReport >= 30 && shouldLogBlockFetchRate) {
     lastReport = new Date();
     const blocksRate = (blocksReceived / secondsSinceStart).toFixed(2);
@@ -41,7 +45,7 @@ export const onBlockReceived = () => {
 
 let lastLogQueueSizeTimestamp = new Date();
 export const logQueueSizes = () => {
-  const secondsSinceLastReport = differenceInSeconds(
+  const secondsSinceLastReport = DateFns.differenceInSeconds(
     new Date(),
     lastLogQueueSizeTimestamp,
   );
@@ -67,12 +71,11 @@ export const logQueueSizes = () => {
     Log.debug(
       `etherscan name tag queue size: ${ContractsMetadata.etherscanNameTagQueue.size}`,
     );
-    // Log.debug(
-    //   `etherscan name token queue size: ${ContractsMetadata.etherscanNameTokenQueue.size}`,
-    // );
     Log.debug(
       `twitter profile queue size: ${ContractsMetadata.twitterProfileQueue.size}`,
     );
     Log.debug(`coingecko api queue size: ${Coingecko.apiQueue.size}`);
+    Log.debug(`etherscan api queue size: ${Etherscan.apiQueue.size}`);
+    Log.debug(`ftx api queue size: ${EthPrice.ftxApiQueue}`);
   }
 };

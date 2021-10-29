@@ -24,7 +24,7 @@ PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
 const syncBlocks = async (latestBlockNumberOnStart: number) => {
   EthNode.subscribeNewHeads((head) =>
-    Blocks.storeBlockQueueSeq.add(Blocks.storeNewBlock(head.number)),
+    Blocks.storeNewBlockQueue.add(Blocks.storeNewBlock(head.number)),
   );
   Log.info("listening for and adding new blocks");
   await Blocks.addMissingBlocks(latestBlockNumberOnStart);

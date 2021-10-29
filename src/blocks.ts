@@ -9,6 +9,7 @@ import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as DisplayProgress from "./display_progress.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
+import * as EthPrice from "./eth_price.js";
 import * as FeesBurned from "./fees_burned.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
@@ -86,8 +87,8 @@ export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> =>
     T.map(O.fromNullable),
   );
 
-export const storeBlockQueuePar = new PQueue({ concurrency: 8 });
-export const storeBlockQueueSeq = new PQueue({ concurrency: 1 });
+export const storeMissingBlockQueue = new PQueue({ concurrency: 1 });
+export const storeNewBlockQueue = new PQueue({ concurrency: 1 });
 
 type BlockRow = {
   hash: string;
@@ -99,12 +100,14 @@ type BlockRow = {
   eth_transfer_sum: number;
   base_fee_per_gas: number;
   gas_used: number;
+  eth_price?: number;
 };
 
 const getBlockRow = (
   block: BlockLondon,
   feeBreakdown: FeeBreakdown,
   tips: number,
+  ethPrice: number | undefined,
 ): BlockRow => ({
   hash: block.hash,
   number: block.number,
@@ -115,6 +118,7 @@ const getBlockRow = (
   eth_transfer_sum: feeBreakdown.transfers,
   base_fee_per_gas: hexToNumber(block.baseFeePerGas),
   gas_used: block.gasUsed,
+  ...(typeof ethPrice === "number" && { eth_price: ethPrice }),
 });
 
 type ContractBaseFeesRow = {
@@ -150,10 +154,11 @@ const getNewContractsFromBlock = (txrs: TxRWeb3London[]): string[] =>
 export const updateBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
+  ethPrice?: number,
 ): T.Task<void> => {
   const feeBreakdown = BaseFees.calcBlockFeeBreakdown(block, txrs);
   const tips = BaseFees.calcBlockTips(block, txrs);
-  const blockRow = getBlockRow(block, feeBreakdown, tips);
+  const blockRow = getBlockRow(block, feeBreakdown, tips, ethPrice);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
   const addresses = contractBaseFeesRows.map(
@@ -201,11 +206,12 @@ export const updateBlock = (
 export const storeBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
+  ethPrice: number | undefined,
 ): T.Task<void> => {
   const feeBreakdown = BaseFees.calcBlockFeeBreakdown(block, txrs);
   const tips = BaseFees.calcBlockTips(block, txrs);
-  const blockRow = getBlockRow(block, feeBreakdown, tips);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
+  const blockRow = getBlockRow(block, feeBreakdown, tips, ethPrice);
 
   const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
@@ -347,14 +353,20 @@ export const addMissingBlocks = async (
     DisplayProgress.start(missingBlocks.length);
   }
 
-  await storeBlockQueuePar.addAll(
+  await storeMissingBlockQueue.addAll(
     missingBlocks.map((blockNumber) =>
       pipe(
         () => getBlockWithRetry(blockNumber),
         T.chain((block) =>
-          seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
+          seqTParT(
+            T.of(block),
+            () => Transactions.getTxrsWithRetry(block),
+            EthPrice.getPriceForOldBlock(block),
+          ),
         ),
-        T.chain(([block, txrs]) => storeBlock(block, txrs)),
+        T.chain(([block, txrs, ethPrice]) =>
+          storeBlock(block, txrs, ethPrice?.ethusd),
+        ),
       ),
     ),
   );
@@ -404,18 +416,22 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       );
     }),
     T.chain((block) =>
-      seqTParT(T.of(block), () => Transactions.getTxrsWithRetry(block)),
+      seqTParT(
+        T.of(block),
+        () => Transactions.getTxrsWithRetry(block),
+        () => EthPrice.getPriceForBlock(block),
+      ),
     ),
     T.chainFirstIOK(() => () => {
       if (Config.getShowProgress()) {
         DisplayProgress.onBlockAnalyzed();
       }
     }),
-    T.chain(([block, txrs]) =>
+    T.chain(([block, txrs, ethPrice]) =>
       pipe(
         knownBlocks.has(block.number),
         B.match(
-          () => storeBlock(block, txrs),
+          () => storeBlock(block, txrs, ethPrice?.ethusd),
           () => updateBlock(block, txrs),
         ),
         T.chain(() => {
@@ -448,18 +464,17 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
                 ),
             ),
             T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
-            T.chainFirstIOK(() => () => PerformanceMetrics.logQueueSizes()),
           );
         }),
         T.chain(() => {
-          Log.debug(`store block par queue ${storeBlockQueuePar.size}`);
-          Log.debug(`store block seq queue ${storeBlockQueueSeq.size}`);
+          Log.debug(`store block par queue ${storeMissingBlockQueue.size}`);
+          Log.debug(`store block seq queue ${storeNewBlockQueue.size}`);
           const allBlocksProcessed =
-            storeBlockQueuePar.size === 0 &&
-            storeBlockQueuePar.pending === 0 &&
-            storeBlockQueueSeq.size === 0 &&
+            storeMissingBlockQueue.size === 0 &&
+            storeMissingBlockQueue.pending === 0 &&
+            storeNewBlockQueue.size === 0 &&
             // This function is on this queue.
-            storeBlockQueueSeq.pending <= 1 &&
+            storeNewBlockQueue.pending <= 1 &&
             addLeaderboardAllQueue.size === 0 &&
             addLeaderboardAllQueue.pending === 0 &&
             addLeaderboardLimitedTimeframeQueue.size === 0 &&

@@ -1,15 +1,21 @@
+import * as Config from "./config.js";
+import * as DateFns from "date-fns";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
 import PQueue from "p-queue";
+import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
 import type { AbiItem } from "web3-utils";
+import urlcatM from "urlcat";
 import { E, O, pipe, TE } from "./fp.js";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { delay } from "./delay.js";
 import { getEtherscanToken } from "./config.js";
 import { parseHTML } from "linkedom";
 import { retrying } from "retry-ts/lib/Task.js";
-import QuickLRU from "quick-lru";
+
+// NOTE: import is broken somehow, "urlcat is not a function" without.
+const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 type AbiResponse = { status: "0" | "1"; result: string; message: string };
 
@@ -253,4 +259,65 @@ export const getTokenTitle = async (
   const tokenTicker = matches[2];
 
   return tokenTicker === undefined ? tokenName : `${tokenName}: ${tokenTicker}`;
+};
+
+export const apiQueue = new PQueue({
+  concurrency: 5,
+  interval: Duration.milisFromSeconds(1),
+  intervalCap: 5,
+  throwOnTimeout: true,
+  timeout: Duration.milisFromSeconds(60),
+});
+
+type UnixTimestampStr = string;
+
+type EthPriceResponse =
+  | { status: "0"; message: string }
+  | {
+      status: "1";
+      message: string;
+      result: {
+        ethbtc: string;
+        ethbtc_timestamp: UnixTimestampStr;
+        ethusd: string;
+        ethusd_timestamp: UnixTimestampStr;
+      };
+    };
+
+export type EthPrice = {
+  timestamp: Date;
+  ethusd: number;
+};
+
+export const getEthPrice = (): TE.TaskEither<string, EthPrice> => {
+  const url = urlcat("https://api.etherscan.io/api", {
+    module: "stats",
+    action: "ethprice",
+    apiKey: Config.getEtherscanToken(),
+  });
+
+  return pipe(
+    TE.tryCatch(() => apiQueue.add(() => fetch(url)), String),
+    TE.chain((res) => {
+      if (res.status !== 200) {
+        return TE.left(`fetch etherscan eth price status: ${res.status}`);
+      }
+
+      return TE.fromTask(() => res.json() as Promise<EthPriceResponse>);
+    }),
+    TE.chain((ethPriceResponse: EthPriceResponse) => {
+      if (ethPriceResponse.status !== "1") {
+        return TE.left(
+          `fetch etherscan eth price, api error, status: ${ethPriceResponse.status}, message: ${ethPriceResponse.message}`,
+        );
+      }
+
+      return TE.right({
+        timestamp: DateFns.fromUnixTime(
+          Number(ethPriceResponse.result.ethusd_timestamp),
+        ),
+        ethusd: Number(ethPriceResponse.result.ethusd),
+      });
+    }),
+  );
 };
