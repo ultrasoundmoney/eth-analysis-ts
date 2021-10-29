@@ -120,7 +120,7 @@ const addMetadataFromSimilar = async (
   );
   const similarContracts = await sql<SimilarContract[]>`
     SELECT address, category, image_url, name, twitter_handle FROM contracts
-    WHERE name ILIKE '${sql(nameStartsWith)}%'
+    WHERE name ILIKE '${nameStartsWith}%'
   `;
 
   if (similarContracts.length === 0) {
