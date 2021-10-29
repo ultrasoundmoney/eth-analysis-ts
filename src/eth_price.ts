@@ -17,17 +17,20 @@ import { JsTimestamp } from "./date_fns_alt.js";
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
-let latestPrice = await pipe(
-  Etherscan.getEthPrice(),
-  TE.match(
-    (e) => {
-      throw e;
-    },
-    (v) => v,
-  ),
-)();
+let latestPrice: EthPrice | undefined = undefined;
 
-export const getLatestPrice = () => latestPrice;
+export const getLatestPrice = () =>
+  latestPrice === undefined
+    ? pipe(
+        Etherscan.getEthPrice(),
+        TE.match(
+          (e) => {
+            throw e;
+          },
+          (v) => v,
+        ),
+      )()
+    : Promise.resolve(latestPrice);
 
 const setLatestPrice = async () => {
   latestPrice = await pipe(
@@ -112,11 +115,11 @@ const getNearestCoingeckoPrice = async (
   };
 };
 
-const getNearestEtherscanPrice = (
+const getNearestEtherscanPrice = async (
   maxDistanceInSeconds: number,
   blockMinedAt: Date,
-): EthPrice | undefined => {
-  const latestPrice = getLatestPrice();
+): Promise<EthPrice | undefined> => {
+  const latestPrice = await getLatestPrice();
   const distance = DateFnsAlt.secondsBetween(
     blockMinedAt,
     latestPrice.timestamp,
