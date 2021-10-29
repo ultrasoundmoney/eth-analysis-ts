@@ -118,9 +118,10 @@ const addMetadataFromSimilar = async (
   Log.debug(
     `adding metadata from similar contract for ${nameStartsWith} - ${address}`,
   );
+  const nameStartsWithPlusWildcard = `${nameStartsWith}%`;
   const similarContracts = await sql<SimilarContract[]>`
     SELECT address, category, image_url, name, twitter_handle FROM contracts
-    WHERE name ILIKE '${nameStartsWith}%'
+    WHERE name ILIKE ${nameStartsWithPlusWildcard}
   `;
 
   if (similarContracts.length === 0) {
