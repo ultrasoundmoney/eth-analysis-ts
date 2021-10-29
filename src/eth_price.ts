@@ -18,11 +18,21 @@ import { JsTimestamp } from "./date_fns_alt.js";
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 let latestPrice: EthPrice | undefined = undefined;
+let updateLatestPriceInterval: NodeJS.Timer | undefined = undefined;
 
 export const getLatestPrice = () =>
   latestPrice === undefined
     ? pipe(
         Etherscan.getEthPrice(),
+        TE.chainFirstIOK(() => () => {
+          // On first request start updating periodically.
+          if (updateLatestPriceInterval === undefined) {
+            updateLatestPriceInterval = setInterval(
+              setLatestPrice,
+              Duration.milisFromSeconds(16),
+            );
+          }
+        }),
         TE.match(
           (e) => {
             throw e;
@@ -43,8 +53,6 @@ const setLatestPrice = async () => {
     ),
   )();
 };
-
-setInterval(setLatestPrice, Duration.milisFromSeconds(16));
 
 export const findNearestHistoricPrice = (
   orderedPrices: HistoricPrice[],
