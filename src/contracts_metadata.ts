@@ -202,7 +202,8 @@ const addEtherscanNameTag = async (address: string): Promise<void> => {
 
   // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
   if (name.indexOf(":") !== -1) {
-    addMetadataFromSimilar(address, name);
+    const nameStartsWith = name.split(":")[0];
+    addMetadataFromSimilar(address, nameStartsWith);
   }
 
   await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
