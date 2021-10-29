@@ -47,7 +47,7 @@ const logMap: Record<Severity, (message: string) => void> = {
 
 export const log = (
   severity = "DEFAULT" as Severity,
-  message: string,
+  message: unknown,
   meta?: unknown,
 ): void => {
   if (severityMap[severity] < severityMap[logLevel]) {
@@ -79,16 +79,16 @@ export const log = (
   );
 };
 
-export const debug = (message: string, meta?: unknown) =>
+export const debug = (message: unknown, meta?: unknown) =>
   log("DEBUG", message, meta);
 
-export const info = (message: string, meta?: unknown) =>
+export const info = (message: unknown, meta?: unknown) =>
   log("INFO", message, meta);
 
-export const warn = (message: string, meta?: unknown) =>
+export const warn = (message: unknown, meta?: unknown) =>
   log("WARNING", message, meta);
 
-export const error = (message: string, meta?: unknown) =>
+export const error = (message: unknown, meta?: unknown) =>
   log("ERROR", message, meta);
 
 /**
