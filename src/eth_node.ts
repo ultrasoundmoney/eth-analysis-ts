@@ -125,7 +125,9 @@ export const getWeb3 = (): Web3 => {
 
 const connectionQueue = new PQueue({ concurrency: 1 });
 
-export const getGethWs = async (): Promise<WebSocket> => {
+export const getGethWs = () => connectionQueue.add(getOpenSocketOrReconnect);
+
+const getOpenSocketOrReconnect = async (): Promise<WebSocket> => {
   if (
     managedGethWs !== undefined &&
     managedGethWs.readyState === WebSocket.OPEN
@@ -144,7 +146,7 @@ export const getGethWs = async (): Promise<WebSocket> => {
     );
   }
 
-  const ws = await connectionQueue.add(connect);
+  const ws = await connect();
   managedGethWs = ws;
   return ws;
 };
