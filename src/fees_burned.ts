@@ -93,15 +93,3 @@ export const calcBaseFeeSums = (block: BlockLondon): T.Task<FeesBurnedT> => {
     })),
   );
 };
-
-export const getBaseFeeSumsForBlock = (
-  blockNumber: number,
-): T.Task<FeesBurnedT> => {
-  return pipe(
-    () => sql<{ feesBurned: FeesBurnedT }[]>`
-      SELECT fees_burned FROM derived_block_stats
-      WHERE number = ${blockNumber}
-    `,
-    T.map((rows) => rows[0].feesBurned),
-  );
-};
