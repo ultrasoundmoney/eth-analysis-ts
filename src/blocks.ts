@@ -10,7 +10,7 @@ import * as DisplayProgress from "./display_progress.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import * as EthPrice from "./eth_price.js";
-import * as FeesBurned from "./fees_burned.js";
+import * as FeesBurned from "./base_fee_sums.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
@@ -273,8 +273,8 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   Log.debug("updating derived stats");
   const t0 = performance.now();
   const feesBurned = pipe(
-    FeesBurned.calcFeesBurned(block),
-    T.chainFirstIOK(logPerfT("calc fees burned", t0)),
+    FeesBurned.calcBaseFeeSums(block),
+    T.chainFirstIOK(logPerfT("calc base fee sums", t0)),
   );
   const burnRates = pipe(
     BurnRates.calcBurnRates(block),

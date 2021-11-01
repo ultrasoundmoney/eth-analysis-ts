@@ -15,7 +15,7 @@ import etag from "koa-etag";
 import bodyParser from "koa-bodyparser";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
-import { FeesBurnedT } from "./fees_burned.js";
+import { FeesBurnedT } from "./base_fee_sums.js";
 import { BurnRatesT } from "./burn_rates.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import { NewBlockPayload } from "./blocks.js";

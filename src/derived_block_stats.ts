@@ -1,6 +1,6 @@
 import * as T from "fp-ts/lib/Task.js";
 import { BurnRatesT } from "./burn_rates.js";
-import { FeesBurnedT } from "./fees_burned.js";
+import { FeesBurnedT } from "./base_fee_sums.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
