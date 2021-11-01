@@ -1,15 +1,16 @@
 import * as Blocks from "./blocks.js";
 import * as Config from "./config.js";
+import * as Duration from "./duration.js";
 import * as Log from "./log.js";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
 import Web3 from "web3";
 import WebSocket from "ws";
+import { AbiItem } from "web3-utils";
+import { Contract } from "web3-eth-contract";
 import { Log as LogWeb3 } from "web3-core";
 import { TxRWeb3London } from "./transactions.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
-import { AbiItem } from "web3-utils";
-import { Contract } from "web3-eth-contract";
 
 let managedWeb3Obj: Web3 | undefined = undefined;
 
@@ -106,11 +107,24 @@ export const getWeb3 = (): Web3 => {
     return managedWeb3Obj;
   }
 
+  const providerOptions = {
+    reconnect: {
+      auto: true,
+      delay: Duration.milisFromSeconds(5),
+      maxAttempts: 5,
+    },
+  };
   // Try our own node three times then try our third party fallback.
-  const web3 =
+  const provider =
     web3Attempt < 3
-      ? new Web3(Config.getGethUrl())
-      : new Web3(Config.getGethFallbackUrl());
+      ? new Web3.providers.WebsocketProvider(
+          Config.getGethUrl(),
+          providerOptions,
+        )
+      : new Web3.providers.WebsocketProvider(
+          Config.getGethFallbackUrl(),
+          providerOptions,
+        );
 
   if (web3Attempt < 3) {
     web3Attempt = wsAttempt + 1;
@@ -119,8 +133,8 @@ export const getWeb3 = (): Web3 => {
     web3Attempt = 0;
   }
 
-  managedWeb3Obj = web3;
-  return web3;
+  managedWeb3Obj = new Web3(provider);
+  return managedWeb3Obj;
 };
 
 const connectionQueue = new PQueue({ concurrency: 1 });
