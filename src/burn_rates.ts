@@ -27,12 +27,12 @@ const timeframeIntervalMap: Record<LimitedTimeframe, string> = {
   "30d": "30 days",
 };
 
-const timeframeMinutesMap: Record<LimitedTimeframe, string> = {
-  "5m": String(5),
-  "1h": String(60),
-  "24h": String(24 * 60),
-  "7d": String(7 * 24 * 60),
-  "30d": String(30 * 24 * 60),
+const timeframeMinutesMap: Record<LimitedTimeframe, number> = {
+  "5m": 5,
+  "1h": 60,
+  "24h": 24 * 60,
+  "7d": 7 * 24 * 60,
+  "30d": 30 * 24 * 60,
 };
 
 const getTimeframeBurnRate = (
@@ -42,10 +42,8 @@ const getTimeframeBurnRate = (
   pipe(
     () => sql<BurnRate[]>`
       SELECT
-        SUM(base_fee_sum) / ${sql(timeframeMinutesMap[timeframe])} AS eth,
-        SUM(base_fee_sum * eth_price) / ${sql(
-          timeframeMinutesMap[timeframe],
-        )} AS usd
+        SUM(base_fee_sum) / ${timeframeMinutesMap[timeframe]}::int AS eth,
+        SUM(base_fee_sum * eth_price) / ${timeframeMinutesMap[timeframe]}::int AS usd
       FROM blocks
       WHERE mined_at >= now() - interval '${timeframeIntervalMap[timeframe]}'
       AND number <= ${block.number}
