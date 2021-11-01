@@ -43,7 +43,7 @@ const getTimeframeBaseFeeSum = (
         SUM(base_fee_sum) AS eth,
         SUM(base_fee_sum * eth_price) AS usd
       FROM blocks
-      WHERE mined_at >= now() - interval '${sql(intervalSqlMap[timeframe])}'
+      WHERE mined_at >= now() - ${intervalSqlMap[timeframe]}::interval
       AND number <= ${block.number}
     `,
     T.map((rows) => ({
