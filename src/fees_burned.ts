@@ -20,7 +20,12 @@ export type FeesBurnedT = {
   feesBurnedAllUsd: number;
 };
 
-const timeframeIntervalMap: Record<LimitedTimeframe, string> = {
+type BaseFeeSum = {
+  eth: number;
+  usd: number;
+};
+
+const intervalSqlMap: Record<LimitedTimeframe, string> = {
   "5m": "5 minutes",
   "1h": "1 hours",
   "24h": "24 hours",
@@ -28,53 +33,49 @@ const timeframeIntervalMap: Record<LimitedTimeframe, string> = {
   "30d": "30 days",
 };
 
-const getTimeframeSum = (
-  limitedTimeframe: LimitedTimeframe,
-  upToAndIncluding: number,
-) => {
-  const intervalSql = timeframeIntervalMap[limitedTimeframe];
-
-  return pipe(
-    () => sql<{ baseFeeSum: number; baseFeeSumUsd: number }[]>`
-      SELECT
-        SUM(base_fee_sum) AS base_fee_sum,
-        SUM(base_fee_sum * eth_price) AS base_fee_sum_usd
-      FROM blocks
-      WHERE mined_at >= now() - interval '${sql(intervalSql)}'
-      AND number <= ${upToAndIncluding}
-    `,
-    T.map((rows) => ({
-      eth: rows[0]?.baseFeeSum ?? 0,
-      usd: rows[0]?.baseFeeSumUsd ?? 0,
-    })),
-  );
-};
-
-const getSum = (upToAndIncluding: number) =>
+const getTimeframeBaseFeeSum = (
+  block: BlockLondon,
+  timeframe: LimitedTimeframe,
+): T.Task<BaseFeeSum> =>
   pipe(
-    () =>
-      sql<{ baseFeeSum: number; baseFeeSumUsd: number }[]>`
-        SELECT
-          SUM(base_fee_sum) as base_fee_sum,
-          SUM(base_fee_sum * eth_price) AS base_fee_sum_usd
-        FROM blocks
-        WHERE number <= ${upToAndIncluding}
+    () => sql<BaseFeeSum[]>`
+      SELECT
+        SUM(base_fee_sum) AS eth,
+        SUM(base_fee_sum * eth_price) AS usd
+      FROM blocks
+      WHERE mined_at >= now() - interval '${sql(intervalSqlMap[timeframe])}'
+      AND number <= ${block.number}
     `,
     T.map((rows) => ({
-      eth: rows[0]?.baseFeeSum ?? 0,
-      usd: rows[0]?.baseFeeSumUsd ?? 0,
+      eth: rows[0]?.eth ?? 0,
+      usd: rows[0]?.usd ?? 0,
     })),
   );
 
-export const calcFeesBurned = (block: BlockLondon): T.Task<FeesBurnedT> => {
+const getBaseFeeSum = (block: BlockLondon): T.Task<BaseFeeSum> =>
+  pipe(
+    () => sql<BaseFeeSum[]>`
+      SELECT
+        SUM(base_fee_sum) AS eth,
+        SUM(base_fee_sum * eth_price) AS usd
+      FROM blocks
+      WHERE number <= ${block.number}
+    `,
+    T.map((rows) => ({
+      eth: rows[0]?.eth ?? 0,
+      usd: rows[0]?.usd ?? 0,
+    })),
+  );
+
+export const calcBaseFeeSums = (block: BlockLondon): T.Task<FeesBurnedT> => {
   return pipe(
     seqSParT({
-      feesBurned5m: getTimeframeSum("5m", block.number),
-      feesBurned1h: getTimeframeSum("1h", block.number),
-      feesBurned24h: getTimeframeSum("24h", block.number),
-      feesBurned7d: getTimeframeSum("7d", block.number),
-      feesBurned30d: getTimeframeSum("30d", block.number),
-      feesBurnedAll: getSum(block.number),
+      feesBurned5m: getTimeframeBaseFeeSum(block, "5m"),
+      feesBurned1h: getTimeframeBaseFeeSum(block, "1h"),
+      feesBurned24h: getTimeframeBaseFeeSum(block, "24h"),
+      feesBurned7d: getTimeframeBaseFeeSum(block, "7d"),
+      feesBurned30d: getTimeframeBaseFeeSum(block, "30d"),
+      feesBurnedAll: getBaseFeeSum(block),
     }),
     T.map((fees) => ({
       feesBurned5m: fees.feesBurned5m.eth,
@@ -93,7 +94,9 @@ export const calcFeesBurned = (block: BlockLondon): T.Task<FeesBurnedT> => {
   );
 };
 
-export const getFeesBurned = (blockNumber: number): T.Task<FeesBurnedT> => {
+export const getBaseFeeSumsForBlock = (
+  blockNumber: number,
+): T.Task<FeesBurnedT> => {
   return pipe(
     () => sql<{ feesBurned: FeesBurnedT }[]>`
       SELECT fees_burned FROM derived_block_stats
