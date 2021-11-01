@@ -3,6 +3,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { seqSParT } from "./fp.js";
+import { LimitedTimeframe } from "./leaderboards.js";
 
 export type BurnRatesT = {
   burnRate5m: number;
@@ -13,75 +14,84 @@ export type BurnRatesT = {
   burnRateAll: number;
 };
 
-export const calcBurnRates = (block: BlockLondon): T.Task<BurnRatesT> => {
-  const burnRate5m = () =>
-    sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / 5 AS burn_per_minute FROM blocks
-      WHERE mined_at >= now() - interval '5 minutes'
-      AND number <= ${block.number}
-  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+type BurnRate = {
+  eth: number;
+  usd: number;
+};
 
-  const burnRate1h = () =>
-    sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / 60 AS burn_per_minute FROM blocks
-      WHERE mined_at >= now() - interval '1 hours'
-      AND number <= ${block.number}
-  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+const timeframeIntervalMap: Record<LimitedTimeframe, string> = {
+  "5m": "5 minutes",
+  "1h": "1 hours",
+  "24h": "24 hours",
+  "7d": "7 days",
+  "30d": "30 days",
+};
 
-  const burnRate24h = () =>
-    sql<{ burnPerMinute: number }[]>`
-      SELECT SUM(base_fee_sum) / (24 * 60) AS burn_per_minute FROM blocks
-      WHERE mined_at >= now() - interval '24 hours'
-      AND number <= ${block.number}
-  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+const timeframeMinutesMap: Record<LimitedTimeframe, string> = {
+  "5m": String(5),
+  "1h": String(60),
+  "24h": String(24 * 60),
+  "7d": String(7 * 24 * 60),
+  "30d": String(30 * 24 * 60),
+};
 
-  // The more complex queries account for the fact we don't have all blocks in the queried period yet and can't assume the amount of minutes is the length of the period in days times the number of minutes in a day. Once we do we can simplify to the above.
-  const burnRate7d = () =>
-    sql<{ burnPerMinute: number }[]>`
+const getTimeframeBurnRate = (
+  block: BlockLondon,
+  timeframe: LimitedTimeframe,
+) =>
+  pipe(
+    () => sql<BurnRate[]>`
       SELECT
-        SUM(base_fee_sum) / (7 * 24 * 60) AS burn_per_minute
+        SUM(base_fee_sum) / ${sql(timeframeMinutesMap[timeframe])} AS eth,
+        SUM(base_fee_sum * eth_price) / ${sql(
+          timeframeMinutesMap[timeframe],
+        )} AS usd
       FROM blocks
-      WHERE mined_at >= now() - interval '7 days'
+      WHERE mined_at >= now() - interval '${timeframeIntervalMap[timeframe]}'
       AND number <= ${block.number}
-  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+    `,
+    T.map((rows) => ({ eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 })),
+  );
 
-  const burnRate30d = () =>
-    sql<{ burnPerMinute: number }[]>`
-      SELECT
-        SUM(base_fee_sum) / (
-          EXTRACT(epoch FROM now() - min(mined_at)) / 60
-        ) AS burn_per_minute
-      FROM blocks
-      WHERE mined_at >= now() - interval '30 days'
-      AND number <= ${block.number}
-  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
-
-  const burnRateAll = () =>
-    sql<{ burnPerMinute: number }[]>`
+const getBurnRate = (block: BlockLondon) =>
+  pipe(
+    () => sql`
       SELECT
         SUM(base_fee_sum) / (
           EXTRACT(epoch FROM now() - '2021-08-05 12:33:42+00') / 60
-        ) AS burn_per_minute
+        ) AS eth,
+        SUM(base_fee_sum * eth_price) / (
+          EXTRACT(epoch FROM now() - '2021-08-05 12:33:42+00') / 60
+        ) AS usd
       FROM blocks
       WHERE number <= ${block.number}
-  `.then((rows) => rows[0]?.burnPerMinute ?? 0);
+`,
+    T.map((rows) => ({ eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 })),
+  );
 
-  return seqSParT({
-    burnRate5m,
-    burnRate1h,
-    burnRate24h,
-    burnRate7d,
-    burnRate30d,
-    burnRateAll,
-  });
-};
-
-export const getBurnRates = (blockNumber: number): T.Task<BurnRatesT> => {
+export const calcBurnRates = (block: BlockLondon): T.Task<BurnRatesT> => {
   return pipe(
-    () => sql<{ burnRates: BurnRatesT }[]>`
-      SELECT burn_rates FROM derived_block_stats
-      WHERE number = ${blockNumber}
-    `,
-    T.map((rows) => rows[0].burnRates),
+    seqSParT({
+      burnRate5m: getTimeframeBurnRate(block, "5m"),
+      burnRate1h: getTimeframeBurnRate(block, "1h"),
+      burnRate24h: getTimeframeBurnRate(block, "24h"),
+      burnRate7d: getTimeframeBurnRate(block, "7d"),
+      burnRate30d: getTimeframeBurnRate(block, "30d"),
+      burnRateAll: getBurnRate(block),
+    }),
+    T.map((burnRates) => ({
+      burnRate5m: burnRates.burnRate5m.eth,
+      burnRate5mUsd: burnRates.burnRate5m.usd,
+      burnRate1h: burnRates.burnRate1h.eth,
+      burnRate1hUsd: burnRates.burnRate1h.usd,
+      burnRate24h: burnRates.burnRate24h.eth,
+      burnRate24hUsd: burnRates.burnRate24h.usd,
+      burnRate7d: burnRates.burnRate7d.eth,
+      burnRate7dUsd: burnRates.burnRate7d.usd,
+      burnRate30d: burnRates.burnRate30d.eth,
+      burnRate30dUsd: burnRates.burnRate30d.usd,
+      burnRateAll: burnRates.burnRateAll.eth,
+      burnRateAllUsd: burnRates.burnRateAll.usd,
+    })),
   );
 };
