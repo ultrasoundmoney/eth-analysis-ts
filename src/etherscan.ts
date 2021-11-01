@@ -289,15 +289,15 @@ export type EthPrice = {
   ethusd: number;
 };
 
-const ethPriceUrl = urlcat("https://api.etherscan.io/api", {
-  module: "stats",
-  action: "ethprice",
-  apiKey: Config.getEtherscanToken(),
-});
+const fetchEthPrice = (): TE.TaskEither<string, EthPrice> => {
+  const url = urlcat("https://api.etherscan.io/api", {
+    module: "stats",
+    action: "ethprice",
+    apiKey: Config.getEtherscanToken(),
+  });
 
-const fetchEthPrice = (): TE.TaskEither<string, EthPrice> =>
-  pipe(
-    TE.tryCatch(() => apiQueue.add(() => fetch(ethPriceUrl)), String),
+  return pipe(
+    TE.tryCatch(() => apiQueue.add(() => fetch(url)), String),
     TE.chain((res) => {
       if (res.status !== 200) {
         return TE.left(`fetch etherscan eth price status: ${res.status}`);
@@ -320,6 +320,7 @@ const fetchEthPrice = (): TE.TaskEither<string, EthPrice> =>
       });
     }),
   );
+};
 
 export const getEthPrice = () =>
   retrying(
