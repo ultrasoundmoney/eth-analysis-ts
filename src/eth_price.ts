@@ -188,20 +188,24 @@ const getFtxPrices = async (
     throw new Error("cannot fetch more than 1500 minutes at a time");
   }
 
+  const startTime = pipe(
+    timestamp,
+    DateFns.roundToNearestMinutes,
+    // FTX returns up to 1500 results per page. We do not support pagination and so cannot return prices for more than 1500 minutes at a time.
+    (dt) => DateFns.subMinutes(dt, earlierMinutesToFetch),
+    DateFns.getUnixTime,
+  );
+  const endTime = pipe(
+    timestamp,
+    // When rounding up, we may ask for a minute that hasn't passed yet.
+    DateFns.roundToNearestMinutes,
+    DateFns.getUnixTime,
+  );
+
   const url = urlcat("https://ftx.com/api/indexes/ETH/candles", {
     resolution: 60,
-    start_time: pipe(
-      timestamp,
-      DateFns.roundToNearestMinutes,
-      // FTX returns up to 1500 results per page. We do not support pagination and so cannot return prices for more than 1500 minutes at a time.
-      (dt) => DateFns.subMinutes(dt, earlierMinutesToFetch),
-      DateFns.getUnixTime,
-    ),
-    end_time: pipe(
-      timestamp,
-      DateFns.roundToNearestMinutes,
-      DateFns.getUnixTime,
-    ),
+    start_time: startTime,
+    end_time: endTime,
   });
 
   const res = await ftxApiQueue.add(() => fetch(url));
@@ -212,6 +216,14 @@ const getFtxPrices = async (
 
   const pricesResponse = (await res.json()) as IndexPriceResponse;
   const prices = pricesResponse.result;
+
+  Log.debug("get ftx prices", {
+    startTime: DateFns.fromUnixTime(startTime),
+    endTime: DateFns.fromUnixTime(endTime),
+    pricesCount: prices.length,
+    first: prices[0],
+    last: prices[prices.length - 1],
+  });
 
   return pipe(
     prices,
@@ -304,6 +316,12 @@ export const getPriceForOldBlockWithCache = async (
   });
 
   const price = priceByMinute.get(roundedTimestamp.getTime());
+
+  Log.debug("old block eth price", {
+    blockMinedAt: DateFns.fromUnixTime(block.timestamp),
+    lookingFor: roundedTimestamp,
+    price,
+  });
 
   if (price === undefined) {
     throw new Error(
