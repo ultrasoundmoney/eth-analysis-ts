@@ -26,7 +26,7 @@ spec:
             - secretRef:
                 name: pg-password-lilly
             - secretRef:
-                name: etherscan-token-usm
+                name: etherscan-token-alextes
             - secretRef:
                 name: twitter-usm
             - secretRef:
