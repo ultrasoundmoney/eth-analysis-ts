@@ -311,7 +311,26 @@ export const getPriceForOldBlockWithCache = async (
     priceByMinute.set(timestamp, price);
   });
 
-  const price = priceByMinute.get(roundedTimestamp.getTime());
+  const exactPrice = priceByMinute.get(roundedTimestamp.getTime());
+  const earlierPrice = [1, 2, 3, 4, 5].reduce(
+    (price: undefined | number, offset) => {
+      return (
+        price || priceByMinute.get(roundedTimestamp.getTime() - offset * 60000)
+      );
+    },
+    undefined,
+  );
+  const laterPrice = [1, 2, 3, 4, 5].reduce(
+    (price: undefined | number, offset) => {
+      return (
+        price || priceByMinute.get(roundedTimestamp.getTime() + offset * 60000)
+      );
+    },
+    undefined,
+  );
+
+  // Allow a slightly earlier or later price match too. Ftx doesn't return every minute but they return most.
+  const price = exactPrice || earlierPrice || laterPrice;
 
   Log.debug("old block eth price", {
     blockMinedAt: DateFns.fromUnixTime(block.timestamp),
