@@ -65,9 +65,9 @@ export type MarketDataError = CoinGeckoApiError | UnknownError;
 
 // CoinGecko API has a 50 requests per minute rate-limit. We run many instances so only use up 1/4 of the capacity.
 export const apiQueue = new PQueue({
-  concurrency: 4,
-  interval: Duration.milisFromSeconds(60),
-  intervalCap: 50 / 4,
+  concurrency: 2,
+  interval: Duration.milisFromSeconds(8),
+  intervalCap: Math.floor(50 / (60 / 8)),
   throwOnTimeout: true,
   timeout: Duration.milisFromSeconds(16),
 });
