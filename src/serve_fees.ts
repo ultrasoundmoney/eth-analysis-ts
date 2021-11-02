@@ -115,7 +115,7 @@ const handleGetEthPrice: Middleware = async (ctx) =>
     TE.match(
       (error) => handleMarketDataError(ctx, error),
       (marketData) => {
-        ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
+        ctx.set("Cache-Control", "max-age=8, stale-while-revalidate=600");
         ctx.set("Content-Type", "application/json");
         ctx.body = marketData.eth;
       },
