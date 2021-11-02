@@ -388,10 +388,14 @@ export const getEthStats = (): T.Task<EthStats | undefined> => {
         return undefined;
       }
 
-      return {
+      const ethStats = {
         usd: latestPrice.ethusd,
         usd24hChange: price24Change,
       };
+
+      ethStatsCache.set("eth-stats", ethStats);
+
+      return ethStats;
     }),
   );
 };
