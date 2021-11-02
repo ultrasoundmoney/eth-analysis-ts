@@ -163,17 +163,7 @@ const addMetadataFromSimilar = async (
   const twitterHandleTask =
     twitterHandle === undefined
       ? T.of(undefined)
-      : pipe(
-          seqTParT(
-            Contracts.setSimpleTextColumn(
-              "twitter_handle",
-              address,
-              twitterHandle,
-            ),
-            () => addTwitterMetadata(address, twitterHandle),
-          ),
-          T.map(() => undefined),
-        );
+      : Contracts.setSimpleTextColumn("twitter_handle", address, twitterHandle);
 
   return pipe(
     seqTParT(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
@@ -204,7 +194,7 @@ const addEtherscanNameTag = async (address: string): Promise<void> => {
   // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
   if (name.indexOf(":") !== -1) {
     const nameStartsWith = name.split(":")[0];
-    addMetadataFromSimilar(address, nameStartsWith);
+    await addMetadataFromSimilar(address, nameStartsWith);
   }
 
   await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
@@ -218,16 +208,19 @@ export const twitterProfileQueue = new PQueue({
   timeout: Duration.milisFromSeconds(60),
 });
 
-export const addTwitterMetadata = async (
-  address: string,
-  handle: string,
-): Promise<void> => {
+export const addTwitterMetadata = async (address: string): Promise<void> => {
   const lastAttempted = twitterProfileLastAttemptMap[address];
 
   if (
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
+    return undefined;
+  }
+
+  const handle = await Contracts.getTwitterHandle(address)();
+
+  if (handle === undefined) {
     return undefined;
   }
 
@@ -310,11 +303,6 @@ const addOpenseaMetadata = async (address: string): Promise<void> => {
 
   const twitterHandle = OpenSea.getTwitterHandle(openseaContract) ?? null;
 
-  if (typeof twitterHandle === "string") {
-    // If we have a new handle, we can queue the fetching of twitter metadata.
-    addTwitterMetadata(address, twitterHandle);
-  }
-
   const schemaName = OpenSea.getSchemaName(openseaContract) ?? null;
 
   await seqTParT(
@@ -352,11 +340,6 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
     return undefined;
   }
 
-  if (typeof protocol.twitter === "string") {
-    // If we have a new handle, we can queue the fetching of twitter metadata.
-    addTwitterMetadata(address, protocol.twitter);
-  }
-
   await seqTParT(
     Contracts.setSimpleTextColumn(
       "defi_llama_category",
@@ -382,12 +365,14 @@ type Metadata = {
 };
 const addMetadata = (address: string): T.Task<void> =>
   pipe(
-    T.sequenceArray([
+    seqTParT(
       () => addWeb3Metadata(address),
       () => addEtherscanNameTag(address),
       () => addOpenseaMetadata(address),
       () => addDefiLlamaMetadata(address),
-    ]),
+    ),
+    // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
+    T.chain(() => () => addTwitterMetadata(address)),
     T.chainFirst(() => {
       return async () => {
         const [metadata] = await sql<Metadata[]>`

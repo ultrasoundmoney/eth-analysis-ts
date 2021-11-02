@@ -206,7 +206,7 @@ export const setTwitterHandle = (
 ): T.Task<void> =>
   pipe(
     setSimpleTextColumn("manual_twitter_handle", address, handle),
-    T.chain(() => () => ContractsMetadata.addTwitterMetadata(address, handle)),
+    T.chain(() => () => ContractsMetadata.addTwitterMetadata(address)),
     T.chain(() => updatePreferredMetadata(address)),
   );
 
@@ -256,3 +256,12 @@ export const setContractsMinedAt = (
     T.map(() => undefined),
   );
 };
+
+export const getTwitterHandle = (address: string): T.Task<string | undefined> =>
+  pipe(
+    () => sql<{ twitterHandle: string | null }[]>`
+      SELECT twitter_handle FROM contracts
+      WHERE address = ${address}
+    `,
+    T.map((rows) => rows[0]?.twitterHandle ?? undefined),
+  );
