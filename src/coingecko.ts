@@ -59,7 +59,8 @@ type MarketData = {
 type BadResponse = { _tag: "bad-response"; error: Error; status: number };
 type FetchError = { _tag: "fetch-error"; error: Error };
 type UnknownError = { _tag: "unknown-error"; error: Error };
-type CoinGeckoApiError = BadResponse | FetchError;
+type Timeout = { _tag: "timeout"; error: Error };
+type CoinGeckoApiError = BadResponse | FetchError | Timeout;
 
 export type MarketDataError = CoinGeckoApiError | UnknownError;
 
@@ -80,6 +81,13 @@ const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
         ({ _tag: "fetch-error", error: error as Error } as CoinGeckoApiError),
     ),
     TE.chain((res) => {
+      if (res === undefined) {
+        return TE.left({
+          _tag: "timeout",
+          error: new Error("hit coingecko api request timeout"),
+        });
+      }
+
       if (res.status !== 200) {
         return TE.left({
           _tag: "bad-response",
