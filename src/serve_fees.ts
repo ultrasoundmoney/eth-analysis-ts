@@ -3,26 +3,27 @@ import * as Canary from "./canary.js";
 import * as Coingecko from "./coingecko.js";
 import * as Config from "./config.js";
 import * as Contracts from "./contracts.js";
+import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as Duration from "./duration.js";
+import * as EthPrice from "./eth_price.js";
+import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
 import * as Sentry from "@sentry/node";
 import * as T from "fp-ts/lib/Task.js";
 import Koa, { Context, Middleware } from "koa";
 import Router from "@koa/router";
+import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
-import bodyParser from "koa-bodyparser";
-import { pipe } from "fp-ts/lib/function.js";
-import { sql } from "./db.js";
-import { FeesBurnedT } from "./base_fee_sums.js";
 import { BurnRatesT } from "./burn_rates.js";
-import * as DerivedBlockStats from "./derived_block_stats.js";
-import { NewBlockPayload } from "./blocks.js";
+import { FeesBurnedT } from "./base_fee_sums.js";
 import { LeaderboardEntries } from "./leaderboards.js";
-import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
-import { seqSParT, TE } from "./fp.js";
 import { MarketDataError } from "./coingecko.js";
+import { NewBlockPayload } from "./blocks.js";
+import { pipe } from "fp-ts/lib/function.js";
+import { seqSParT, TE } from "./fp.js";
+import { sql } from "./db.js";
 
 if (Config.getEnv() !== "dev") {
   Sentry.init({
@@ -109,17 +110,20 @@ const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
   }
 };
 
-const handleGetEthPrice: Middleware = async (ctx) =>
+const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
-    Coingecko.getMarketData(),
-    TE.match(
-      (error) => handleMarketDataError(ctx, error),
-      (marketData) => {
-        ctx.set("Cache-Control", "max-age=8, stale-while-revalidate=600");
-        ctx.set("Content-Type", "application/json");
-        ctx.body = marketData.eth;
-      },
-    ),
+    EthPrice.getEthStats(),
+    T.map((ethStats) => {
+      if (ethStats === undefined) {
+        ctx.status = 500;
+        return undefined;
+      }
+
+      ctx.set("Cache-Control", "max-age=8, stale-while-revalidate=600");
+      ctx.set("Content-Type", "application/json");
+      ctx.body = ethStats;
+      return undefined;
+    }),
   )();
 
 const handleGetMarketData: Middleware = async (ctx) =>

@@ -8,11 +8,12 @@ import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
 import urlcatM from "urlcat";
-import { A, pipe, T, TE } from "./fp.js";
+import { A, pipe, seqTParT, T, TE } from "./fp.js";
 import { BlockLondon } from "./eth_node.js";
 import { EthPrice } from "./etherscan.js";
 import { HistoricPrice } from "./coingecko.js";
 import { JsTimestamp } from "./date_fns_alt.js";
+import { sql } from "./db.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -336,3 +337,61 @@ export const getPriceForOldBlock =
   (block: BlockLondon): T.Task<EthPrice> =>
   () =>
     getOldPriceSeqQueue.add(() => getPriceForOldBlockWithCache(block));
+
+const get24hAgoPrice = (): T.Task<number | undefined> => {
+  return pipe(
+    () => sql<{ ethPrice: number }[]>`
+      SELECT eth_price FROM blocks
+      WHERE mined_at > NOW() - interval '1440 minutes'
+      AND mined_at < NOW() - interval '1435 minutes'
+      ORDER BY number DESC
+      LIMIT 1
+    `,
+    T.map((rows) => rows[0]?.ethPrice ?? undefined),
+  );
+};
+
+const get24hChange = (): T.Task<number | undefined> =>
+  pipe(
+    seqTParT(() => getLatestPrice(), get24hAgoPrice()),
+    T.map(([latestPrice, price24hAgo]) => {
+      if (price24hAgo === undefined) {
+        Log.error("failed to find 24h old price in db");
+        return undefined;
+      }
+
+      return (latestPrice.ethusd - price24hAgo) / price24hAgo;
+    }),
+  );
+
+type EthStats = {
+  usd: number;
+  usd24hChange: number;
+};
+
+const ethStatsCache = new QuickLRU<string, EthStats>({
+  maxSize: 1,
+  maxAge: Duration.milisFromSeconds(16),
+});
+
+export const getEthStats = (): T.Task<EthStats | undefined> => {
+  const cStats = ethStatsCache.get("eth-stats");
+  if (cStats !== undefined) {
+    return T.of(cStats);
+  }
+
+  return pipe(
+    seqTParT(getLatestPrice, get24hChange()),
+    T.map(([latestPrice, price24Change]) => {
+      if (price24Change === undefined) {
+        Log.error("missing 24h change");
+        return undefined;
+      }
+
+      return {
+        usd: latestPrice.ethusd,
+        usd24hChange: price24Change,
+      };
+    }),
+  );
+};
