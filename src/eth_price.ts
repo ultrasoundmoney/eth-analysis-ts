@@ -190,17 +190,12 @@ const getFtxPrices = async (
 
   const startTime = pipe(
     timestamp,
-    DateFns.roundToNearestMinutes,
+    DateFns.startOfMinute,
     // FTX returns up to 1500 results per page. We do not support pagination and so cannot return prices for more than 1500 minutes at a time.
     (dt) => DateFns.subMinutes(dt, earlierMinutesToFetch),
     DateFns.getUnixTime,
   );
-  const endTime = pipe(
-    timestamp,
-    // When rounding up, we may ask for a minute that hasn't passed yet.
-    DateFns.roundToNearestMinutes,
-    DateFns.getUnixTime,
-  );
+  const endTime = pipe(timestamp, DateFns.startOfMinute, DateFns.getUnixTime);
 
   const url = urlcat("https://ftx.com/api/indexes/ETH/candles", {
     resolution: 60,
@@ -295,7 +290,7 @@ export const getPriceForOldBlockWithCache = async (
   block: BlockLondon,
 ): Promise<EthPrice> => {
   const blockMinedAt = DateFns.fromUnixTime(block.timestamp);
-  const roundedTimestamp = DateFns.roundToNearestMinutes(blockMinedAt);
+  const roundedTimestamp = DateFns.startOfMinute(blockMinedAt);
   const cPrice = priceByMinute.get(roundedTimestamp.getTime());
 
   if (cPrice !== undefined) {
