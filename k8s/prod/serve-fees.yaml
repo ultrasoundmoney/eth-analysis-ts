@@ -40,6 +40,8 @@ spec:
                 name: pg-password-lilly
             - secretRef:
                 name: fees-admin-token
+            - secretRef:
+                name: twitter-usm
           env:
             - name: NAME
               valueFrom:
