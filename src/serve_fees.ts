@@ -72,6 +72,18 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
 
 const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
   switch (error._tag) {
+    case "timeout": {
+      Log.error(String(error.error));
+      ctx.status = 500;
+      ctx.body = { msg: "request to coingecko timed out" };
+      return undefined;
+    }
+    case "rate-limit": {
+      Log.error(String(error.error));
+      ctx.status = 429;
+      ctx.body = { msg: "hit coingecko api rate limit" };
+      return;
+    }
     case "fetch-error": {
       Log.error(String(error.error));
       ctx.status = 500;

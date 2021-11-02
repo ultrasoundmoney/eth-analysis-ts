@@ -60,16 +60,16 @@ type BadResponse = { _tag: "bad-response"; error: Error; status: number };
 type FetchError = { _tag: "fetch-error"; error: Error };
 type UnknownError = { _tag: "unknown-error"; error: Error };
 type Timeout = { _tag: "timeout"; error: Error };
-type CoinGeckoApiError = BadResponse | FetchError | Timeout;
+type RateLimit = { _tag: "rate-limit"; error: Error };
+type CoinGeckoApiError = BadResponse | FetchError | Timeout | RateLimit;
 
 export type MarketDataError = CoinGeckoApiError | UnknownError;
 
-// CoinGecko API has a 50 requests per minute rate-limit. We run many instances so only use up 1/4 of the capacity.
+// CoinGecko API has a 50 requests per minute rate-limit. Use up half the capacity as instances may run on the same machine and rates are limited by IP.
 export const apiQueue = new PQueue({
   concurrency: 2,
   interval: Duration.milisFromSeconds(8),
-  intervalCap: Math.floor(50 / (60 / 8)),
-  throwOnTimeout: true,
+  intervalCap: 3,
   timeout: Duration.milisFromSeconds(16),
 });
 
@@ -85,6 +85,13 @@ const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
         return TE.left({
           _tag: "timeout",
           error: new Error("hit coingecko api request timeout"),
+        });
+      }
+
+      if (res.status === 429) {
+        return TE.left({
+          _tag: "rate-limit",
+          error: new Error("hit coingecko api rate-limit, slow down"),
         });
       }
 
@@ -136,16 +143,27 @@ const fetchWithCache = <A>(
     ),
   );
 
+const circulatingSupplyQueue = new PQueue({
+  concurrency: 1,
+});
+
 const getCirculatingSupplyWithCache = (
   id: string,
 ): TE.TaskEither<MarketDataError, number> =>
   pipe(
-    fetchWithCache<CoinResponse>(
-      circulatingSupplyCache,
-      `https://api.coingecko.com/api/v3/coins/${id}`,
-    ),
+    () =>
+      circulatingSupplyQueue.add(
+        fetchWithCache<CoinResponse>(
+          circulatingSupplyCache,
+          `https://api.coingecko.com/api/v3/coins/${id}`,
+        ),
+      ),
     TE.map((body) => body.market_data.circulating_supply),
   );
+
+const pricesQueue = new PQueue({
+  concurrency: 1,
+});
 
 const getPrices = (): TE.TaskEither<MarketDataError, PriceResponse> => {
   const url = urlcat("https://api.coingecko.com/api/v3/simple/price", {
@@ -154,7 +172,7 @@ const getPrices = (): TE.TaskEither<MarketDataError, PriceResponse> => {
     include_24hr_change: "true",
   });
 
-  return fetchWithCache<PriceResponse>(priceCache, url);
+  return () => pricesQueue.add(fetchWithCache<PriceResponse>(priceCache, url));
 };
 
 export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
