@@ -360,7 +360,7 @@ const get24hChange = (): T.Task<number | undefined> =>
         return undefined;
       }
 
-      return (latestPrice.ethusd - price24hAgo) / price24hAgo;
+      return ((latestPrice.ethusd - price24hAgo) / price24hAgo) * 100;
     }),
   );
 
