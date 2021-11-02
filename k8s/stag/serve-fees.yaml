@@ -40,6 +40,8 @@ spec:
                 name: fees-admin-token
             - secretRef:
                 name: twitter-usm
+            - secretRef:
+                name: etherscan-token-alextes
           env:
             - name: NAME
               valueFrom:
