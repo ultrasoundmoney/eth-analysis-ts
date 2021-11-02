@@ -114,7 +114,7 @@ const circulatingSupplyCache = new QuickLRU<string, CoinResponse>({
 
 const priceCache = new QuickLRU<string, PriceResponse>({
   maxSize: 100,
-  maxAge: Duration.milisFromSeconds(10),
+  maxAge: Duration.milisFromSeconds(16),
 });
 
 const fetchWithCache = <A>(
