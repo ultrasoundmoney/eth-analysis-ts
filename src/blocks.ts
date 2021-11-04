@@ -310,6 +310,9 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
         leaderboards,
       }),
     ),
+    T.chainFirstIOK(() => () => {
+      DerivedBlockStats.deleteOldDerivedStats()();
+    }),
   );
 };
 

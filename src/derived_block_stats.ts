@@ -58,3 +58,16 @@ export const storeDerivedBlockStats = ({
     T.map(() => undefined),
   );
 };
+
+export const deleteOldDerivedStats = (): T.Task<void> =>
+  pipe(
+    () => sql`
+      DELETE FROM derived_block_stats
+      WHERE block_number IN (
+        SELECT block_number FROM derived_block_stats
+        ORDER BY block_number DESC
+        OFFSET 100
+      )
+    `,
+    T.map(() => undefined),
+  );
