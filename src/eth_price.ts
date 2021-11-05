@@ -21,39 +21,51 @@ const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 let latestPrice: EthPrice | undefined = undefined;
 let updateLatestPriceInterval: NodeJS.Timer | undefined = undefined;
 
-export const getLatestPrice = () =>
+export const getLatestPrice = (): T.Task<EthPrice> =>
   latestPrice === undefined
     ? pipe(
-        Etherscan.getEthPrice(),
-        TE.chainFirstIOK(() => () => {
+        setLatestPrice(),
+        T.chainFirstIOK(() => () => {
           // On first request start updating periodically.
           if (updateLatestPriceInterval === undefined) {
             updateLatestPriceInterval = setInterval(
-              setLatestPrice,
+              () => setLatestPrice()(),
               Duration.milisFromSeconds(16),
             );
           }
         }),
-        TE.match(
-          (e) => {
-            throw e;
-          },
-          (v) => v,
-        ),
-      )()
-    : Promise.resolve(latestPrice);
+      )
+    : T.of(latestPrice);
 
-const setLatestPrice = async () => {
-  latestPrice = await pipe(
+const setLatestPrice = (): T.Task<EthPrice> =>
+  pipe(
     Etherscan.getEthPrice(),
     TE.match(
-      (e) => {
-        throw e;
+      (error) => {
+        Log.warn("failed to update eth price from etherscan", { error });
+
+        if (latestPrice === undefined) {
+          throw new Error(
+            "failed to fetch etherscan eth price, can't initialize eth price",
+          );
+        }
+
+        if (
+          DateFns.differenceInSeconds(new Date(), latestPrice.timestamp) > 300
+        ) {
+          Log.error(
+            "failed to update eth price from etherscan for more than five minutes! calculating with stale price.",
+          );
+        }
+
+        return latestPrice;
       },
-      (v) => v,
+      (ethPrice) => {
+        latestPrice = ethPrice;
+        return ethPrice;
+      },
     ),
-  )();
-};
+  );
 
 export const findNearestHistoricPrice = (
   orderedPrices: HistoricPrice[],
@@ -128,7 +140,7 @@ const getNearestEtherscanPrice = async (
   maxDistanceInSeconds: number,
   blockMinedAt: Date,
 ): Promise<EthPrice | undefined> => {
-  const latestPrice = await getLatestPrice();
+  const latestPrice = await getLatestPrice()();
   const distance = DateFnsAlt.secondsBetween(
     blockMinedAt,
     latestPrice.timestamp,
@@ -372,7 +384,7 @@ const get24hAgoPrice = (): T.Task<number | undefined> => {
 
 const get24hChange = (): T.Task<number | undefined> =>
   pipe(
-    seqTParT(() => getLatestPrice(), get24hAgoPrice()),
+    seqTParT(getLatestPrice(), get24hAgoPrice()),
     T.map(([latestPrice, price24hAgo]) => {
       if (price24hAgo === undefined) {
         Log.error("failed to find 24h old price in db");
@@ -400,7 +412,7 @@ export const getEthStats = (): T.Task<EthStats | undefined> => {
   }
 
   return pipe(
-    seqTParT(getLatestPrice, get24hChange()),
+    seqTParT(getLatestPrice(), get24hChange()),
     T.map(([latestPrice, price24Change]) => {
       if (price24Change === undefined) {
         Log.error("missing 24h change");
