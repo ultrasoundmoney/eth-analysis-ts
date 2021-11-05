@@ -1,12 +1,13 @@
 import * as Duration from "./duration.js";
+import * as Log from "./log.js";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import fetch from "node-fetch";
 import urlcatM from "urlcat";
 import { E, O, pipe, seqTParTE, TE } from "./fp.js";
+import { JsTimestamp } from "./date_fns_alt.js";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
-import { JsTimestamp } from "./date_fns_alt.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -103,6 +104,7 @@ const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
           ),
         } as CoinGeckoApiError);
       }
+
       return TE.fromTask(() => res.json() as Promise<A>);
     }),
   );
@@ -136,10 +138,17 @@ const fetchWithCache = <A>(
         pipe(
           fetchWithRetry<A>(url),
           TE.chainFirstIOK((value) => () => {
+            Log.debug("coingecko fetch cache miss", { url });
             cache.set(url, value);
           }),
         ),
-      (cValue) => TE.of(cValue),
+      (cValue) =>
+        pipe(
+          TE.of(cValue),
+          TE.chainFirstIOK(() => () => {
+            Log.debug("coingecko fetch cache hit", url);
+          }),
+        ),
     ),
   );
 
