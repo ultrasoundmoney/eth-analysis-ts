@@ -225,14 +225,6 @@ const getFtxPrices = async (
   const pricesResponse = (await res.json()) as IndexPriceResponse;
   const prices = pricesResponse.result;
 
-  Log.debug("get ftx prices", {
-    startTime: DateFns.fromUnixTime(startTime),
-    endTime: DateFns.fromUnixTime(endTime),
-    pricesCount: prices.length,
-    first: prices[0],
-    last: prices[prices.length - 1],
-  });
-
   return pipe(
     prices,
     A.map((indexPrice) => [indexPrice.time, indexPrice.open]),
