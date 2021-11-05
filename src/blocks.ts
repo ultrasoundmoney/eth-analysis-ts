@@ -90,7 +90,7 @@ export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> =>
 export const storeMissingBlockQueue = new PQueue({ concurrency: 1 });
 export const storeNewBlockQueue = new PQueue({ concurrency: 1 });
 
-type BlockRow = {
+export type BlockRow = {
   hash: string;
   number: number;
   mined_at: Date;
@@ -434,7 +434,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       pipe(
         knownBlocks.has(block.number),
         B.match(
-          () => storeBlock(block, txrs, ethPrice?.ethusd),
+          () => storeBlock(block, txrs, ethPrice.ethusd),
           () => updateBlock(block, txrs),
         ),
         T.chain(() => {
@@ -443,6 +443,13 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
             BaseFees.calcBlockFeeBreakdown(block, txrs),
             (feeBreakdown) => feeBreakdown.contract_use_fees,
             (useFees) => Object.entries(useFees),
+            A.map(
+              ([address, fees]) =>
+                [address, { eth: fees, usd: fees * ethPrice.ethusd }] as [
+                  string,
+                  { eth: number; usd: number },
+                ],
+            ),
             (entries) => new Map(entries),
           );
 

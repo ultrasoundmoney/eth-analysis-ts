@@ -255,13 +255,16 @@ const getNearestFtxPrice = async (
 
 export const getPriceForBlock = async (
   block: BlockLondon,
-): Promise<EthPrice | undefined> => {
+): Promise<EthPrice> => {
   const blockMinedAt = DateFns.fromUnixTime(block.timestamp);
 
   // We only consider a price true for a block if the price was measured at most five minutes from the block being mined in either direction of time.
   const maxPriceAge = 300;
 
-  const priceEtherscan = getNearestEtherscanPrice(maxPriceAge, blockMinedAt);
+  const priceEtherscan = await getNearestEtherscanPrice(
+    maxPriceAge,
+    blockMinedAt,
+  );
 
   if (priceEtherscan !== undefined) {
     return priceEtherscan;
@@ -286,8 +289,10 @@ export const getPriceForBlock = async (
     return priceCoingecko;
   }
 
-  Log.error("no price found for block, returning undefined");
-  return undefined;
+  Log.error(
+    "no price found for block, returning latest price regardless of age",
+  );
+  return getLatestPrice()();
 };
 
 /* ETH price in usd */
