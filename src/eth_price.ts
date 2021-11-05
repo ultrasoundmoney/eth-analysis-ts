@@ -300,7 +300,7 @@ type EthUsd = number;
 
 const priceByMinute = new QuickLRU<JsTimestamp, EthUsd>({ maxSize: 5760 });
 
-export const getPriceForOldBlockWithCache = async (
+export const getPriceForOlderBlockWithCache = async (
   block: BlockLondon,
 ): Promise<EthPrice> => {
   const blockMinedAt = DateFns.fromUnixTime(block.timestamp);
@@ -345,7 +345,7 @@ export const getPriceForOldBlockWithCache = async (
   // Allow a slightly earlier or later price match too. Ftx doesn't return every minute but they return most.
   const price = exactPrice || earlierPrice || laterPrice;
 
-  Log.debug("old block eth price", {
+  Log.debug("found eth price for block", {
     blockMinedAt: DateFns.fromUnixTime(block.timestamp),
     lookingFor: roundedTimestamp,
     price,
@@ -368,7 +368,7 @@ export const getOldPriceSeqQueue = new PQueue({ concurrency: 1 });
 export const getPriceForOldBlock =
   (block: BlockLondon): T.Task<EthPrice> =>
   () =>
-    getOldPriceSeqQueue.add(() => getPriceForOldBlockWithCache(block));
+    getOldPriceSeqQueue.add(() => getPriceForOlderBlockWithCache(block));
 
 const get24hAgoPrice = (): T.Task<number | undefined> => {
   return pipe(
