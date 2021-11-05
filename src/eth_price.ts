@@ -275,11 +275,15 @@ export const getPriceForBlock = async (
     return priceEtherscan;
   }
 
+  Log.warn("etherscan price too old, falling back to ftx");
+
   const priceFtx = await getNearestFtxPrice(maxPriceAge, blockMinedAt);
 
   if (priceFtx !== undefined) {
     return priceFtx;
   }
+
+  Log.warn("ftx price not found or too old, falling back to coingecko");
 
   const priceCoingecko = await getNearestCoingeckoPrice(
     maxPriceAge,
