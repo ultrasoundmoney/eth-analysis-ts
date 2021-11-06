@@ -2,7 +2,7 @@ import * as Coingecko from "./coingecko.js";
 import * as ContractsMetadata from "./contracts_metadata.js";
 import * as DateFns from "date-fns";
 import * as DefiLlama from "./defi_llama.js";
-import * as EthPrice from "./eth_price.js";
+import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
@@ -76,6 +76,6 @@ export const logQueueSizes = () => {
     );
     Log.debug(`coingecko api queue size: ${Coingecko.apiQueue.size}`);
     Log.debug(`etherscan api queue size: ${Etherscan.apiQueue.size}`);
-    Log.debug(`ftx api queue size: ${EthPrice.ftxApiQueue}`);
+    Log.debug(`ftx api queue size: ${EthPricesFtx.ftxApiQueue}`);
   }
 };

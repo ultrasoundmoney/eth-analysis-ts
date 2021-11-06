@@ -5,7 +5,7 @@ import * as Config from "./config.js";
 import * as Contracts from "./contracts.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as Duration from "./duration.js";
-import * as EthPrice from "./eth_price.js";
+import * as EthPrices from "./eth_prices.js";
 import * as FeesBurnedPerInterval from "./fees_burned_per_interval.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Log from "./log.js";
@@ -112,7 +112,7 @@ const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
-    EthPrice.getEthStats(),
+    EthPrices.getEthStats(),
     T.map((ethStats) => {
       if (ethStats === undefined) {
         ctx.status = 500;

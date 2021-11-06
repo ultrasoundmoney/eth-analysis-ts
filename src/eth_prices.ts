@@ -2,70 +2,22 @@ import * as Coingecko from "./coingecko.js";
 import * as DateFns from "date-fns";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import * as Duration from "./duration.js";
-import * as Etherscan from "./etherscan.js";
+import * as EthPricesEtherscan from "./eth_prices_etherscan.js";
+import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as Log from "./log.js";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
-import fetch from "node-fetch";
-import urlcatM from "urlcat";
-import { A, pipe, seqTParT, T, TE } from "./fp.js";
+import { pipe, seqTParT, T, TE } from "./fp.js";
 import { BlockLondon } from "./eth_node.js";
 import { EthPrice } from "./etherscan.js";
 import { HistoricPrice } from "./coingecko.js";
 import { JsTimestamp } from "./date_fns_alt.js";
 import { sql } from "./db.js";
 
-// NOTE: import is broken somehow, "urlcat is not a function" without.
-const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
-
-let latestPrice: EthPrice | undefined = undefined;
-let updateLatestPriceInterval: NodeJS.Timer | undefined = undefined;
-
-export const getLatestPrice = (): T.Task<EthPrice> =>
-  latestPrice === undefined
-    ? pipe(
-        setLatestPrice(),
-        T.chainFirstIOK(() => () => {
-          // On first request start updating periodically.
-          if (updateLatestPriceInterval === undefined) {
-            updateLatestPriceInterval = setInterval(
-              () => setLatestPrice()(),
-              Duration.milisFromSeconds(16),
-            );
-          }
-        }),
-      )
-    : T.of(latestPrice);
-
-const setLatestPrice = (): T.Task<EthPrice> =>
-  pipe(
-    Etherscan.getEthPrice(),
-    TE.match(
-      (error) => {
-        Log.warn("failed to update eth price from etherscan", { error });
-
-        if (latestPrice === undefined) {
-          throw new Error(
-            "failed to fetch etherscan eth price, can't initialize eth price",
-          );
-        }
-
-        if (
-          DateFns.differenceInSeconds(new Date(), latestPrice.timestamp) > 300
-        ) {
-          Log.error(
-            "failed to update eth price from etherscan for more than five minutes! calculating with stale price.",
-          );
-        }
-
-        return latestPrice;
-      },
-      (ethPrice) => {
-        latestPrice = ethPrice;
-        return ethPrice;
-      },
-    ),
-  );
+export type BlockForPrice = {
+  timestamp: number;
+  number: number;
+};
 
 export const findNearestHistoricPrice = (
   orderedPrices: HistoricPrice[],
@@ -136,123 +88,6 @@ const getNearestCoingeckoPrice = async (
   };
 };
 
-const getNearestEtherscanPrice = async (
-  maxDistanceInSeconds: number,
-  blockMinedAt: Date,
-): Promise<EthPrice | undefined> => {
-  const latestPrice = await getLatestPrice()();
-  const distance = DateFnsAlt.secondsBetween(
-    blockMinedAt,
-    latestPrice.timestamp,
-  );
-  const isBlockYounger = distance < 0;
-  const isWithinDistanceLimit = Math.abs(distance) <= maxDistanceInSeconds;
-
-  if (isBlockYounger) {
-    if (!isWithinDistanceLimit) {
-      Log.error(
-        `block is younger than latest price, diff: ${distance}s, exceeding limit`,
-      );
-      return undefined;
-    }
-
-    Log.debug(
-      `block is younger than latest price, diff: ${distance}s, within limit`,
-    );
-    return latestPrice;
-  } else {
-    // Block is older than price.
-    if (!isWithinDistanceLimit) {
-      Log.warn(
-        `block is older than latest price, diff: ${distance}s, exceeding limit`,
-      );
-      return undefined;
-    }
-
-    Log.debug(
-      `block is older than latest price, diff: ${distance}s, within limit`,
-    );
-    return latestPrice;
-  }
-};
-
-// FTX says they allow 6 requests per second. We're not sure yet.
-export const ftxApiQueue = new PQueue({
-  concurrency: 2,
-  interval: Duration.milisFromSeconds(1),
-  intervalCap: 3,
-});
-
-type IndexPrice = {
-  open: number;
-  time: JsTimestamp;
-};
-
-type IndexPriceResponse = {
-  result: IndexPrice[];
-  success: boolean;
-};
-
-const getFtxPrices = async (
-  earlierMinutesToFetch: number,
-  timestamp: Date,
-): Promise<HistoricPrice[]> => {
-  if (earlierMinutesToFetch > 1500) {
-    throw new Error("cannot fetch more than 1500 minutes at a time");
-  }
-
-  const startTime = pipe(
-    timestamp,
-    DateFns.startOfMinute,
-    // FTX returns up to 1500 results per page. We do not support pagination and so cannot return prices for more than 1500 minutes at a time.
-    (dt) => DateFns.subMinutes(dt, earlierMinutesToFetch),
-    DateFns.getUnixTime,
-  );
-  const endTime = pipe(timestamp, DateFns.startOfMinute, DateFns.getUnixTime);
-
-  const url = urlcat("https://ftx.com/api/indexes/ETH/candles", {
-    resolution: 60,
-    start_time: startTime,
-    end_time: endTime,
-  });
-
-  const res = await ftxApiQueue.add(() => fetch(url));
-
-  if (res.status !== 200) {
-    throw new Error(`failed to fetch ftx prices, status: ${res.status}`);
-  }
-
-  const pricesResponse = (await res.json()) as IndexPriceResponse;
-  const prices = pricesResponse.result;
-
-  return pipe(
-    prices,
-    A.map((indexPrice) => [indexPrice.time, indexPrice.open]),
-  );
-};
-
-const getNearestFtxPrice = async (
-  maxDistanceInSeconds: number,
-  blockMinedAt: Date,
-): Promise<EthPrice | undefined> => {
-  const prices = await getFtxPrices(2, blockMinedAt);
-  const nearestPrice = findNearestHistoricPrice(prices, blockMinedAt);
-  Log.debug("ftx nearest", { prices, blockMinedAt, nearestPrice });
-  const distance = DateFnsAlt.secondsBetweenAbs(nearestPrice[0], blockMinedAt);
-
-  if (distance > maxDistanceInSeconds) {
-    Log.warn(`nearest ftx price not close enough, diff: ${distance}s`);
-    return undefined;
-  }
-
-  Log.debug(`found a close enough ftx price, diff: ${distance}`);
-
-  return {
-    timestamp: new Date(nearestPrice[0]),
-    ethusd: nearestPrice[1],
-  };
-};
-
 export const getPriceForBlock = async (
   block: BlockLondon,
 ): Promise<EthPrice> => {
@@ -261,7 +96,7 @@ export const getPriceForBlock = async (
   // We only consider a price true for a block if the price was measured at most five minutes from the block being mined in either direction of time.
   const maxPriceAge = 300;
 
-  const priceEtherscan = await getNearestEtherscanPrice(
+  const priceEtherscan = await EthPricesEtherscan.getNearestEtherscanPrice(
     maxPriceAge,
     blockMinedAt,
   );
@@ -272,7 +107,10 @@ export const getPriceForBlock = async (
 
   Log.warn("etherscan price too old, falling back to ftx");
 
-  const priceFtx = await getNearestFtxPrice(maxPriceAge, blockMinedAt);
+  const priceFtx = await EthPricesFtx.getNearestFtxPrice(
+    maxPriceAge,
+    blockMinedAt,
+  );
 
   if (priceFtx !== undefined) {
     return priceFtx;
@@ -292,7 +130,7 @@ export const getPriceForBlock = async (
   Log.error(
     "no price found for block, returning latest price regardless of age",
   );
-  return getLatestPrice()();
+  return EthPricesEtherscan.getLatestPrice()();
 };
 
 /* ETH price in usd */
@@ -301,7 +139,7 @@ type EthUsd = number;
 const priceByMinute = new QuickLRU<JsTimestamp, EthUsd>({ maxSize: 5760 });
 
 export const getPriceForOlderBlockWithCache = async (
-  block: BlockLondon,
+  block: BlockForPrice,
 ): Promise<EthPrice> => {
   const blockMinedAt = DateFns.fromUnixTime(block.timestamp);
   const roundedTimestamp = DateFns.startOfMinute(blockMinedAt);
@@ -315,7 +153,7 @@ export const getPriceForOlderBlockWithCache = async (
   }
 
   Log.debug("ftx price cache miss, fetching 1500 more");
-  const prices = await getFtxPrices(
+  const prices = await EthPricesFtx.getFtxPrices(
     1500,
     DateFns.addMinutes(blockMinedAt, 1499),
   );
@@ -345,11 +183,9 @@ export const getPriceForOlderBlockWithCache = async (
   // Allow a slightly earlier or later price match too. Ftx doesn't return every minute but they return most.
   const price = exactPrice || earlierPrice || laterPrice;
 
-  Log.debug("found eth price for block", {
-    blockMinedAt: DateFns.fromUnixTime(block.timestamp),
-    lookingFor: roundedTimestamp,
-    price,
-  });
+  Log.debug(
+    `found eth price for block: ${block.number}, target timestamp: ${roundedTimestamp}, price: ${price}`,
+  );
 
   if (price === undefined) {
     throw new Error(
@@ -366,7 +202,7 @@ export const getPriceForOlderBlockWithCache = async (
 export const getOldPriceSeqQueue = new PQueue({ concurrency: 1 });
 
 export const getPriceForOldBlock =
-  (block: BlockLondon): T.Task<EthPrice> =>
+  (block: BlockForPrice): T.Task<EthPrice> =>
   () =>
     getOldPriceSeqQueue.add(() => getPriceForOlderBlockWithCache(block));
 
@@ -385,7 +221,7 @@ const get24hAgoPrice = (): T.Task<number | undefined> => {
 
 const get24hChange = (): T.Task<number | undefined> =>
   pipe(
-    seqTParT(getLatestPrice(), get24hAgoPrice()),
+    seqTParT(EthPricesEtherscan.getLatestPrice(), get24hAgoPrice()),
     T.map(([latestPrice, price24hAgo]) => {
       if (price24hAgo === undefined) {
         Log.error("failed to find 24h old price in db");
@@ -413,7 +249,7 @@ export const getEthStats = (): T.Task<EthStats | undefined> => {
   }
 
   return pipe(
-    seqTParT(getLatestPrice(), get24hChange()),
+    seqTParT(EthPricesEtherscan.getLatestPrice(), get24hChange()),
     T.map(([latestPrice, price24Change]) => {
       if (price24Change === undefined) {
         Log.error("missing 24h change");
