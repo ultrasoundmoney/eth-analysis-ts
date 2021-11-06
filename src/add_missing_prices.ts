@@ -6,7 +6,7 @@ import * as Log from "./log.js";
 import { sql } from "./db.js";
 
 const blocks = await sql<{ number: number; minedAt: Date }[]>`
-  SELECT * FROM blocks
+  SELECT mined_at, number FROM blocks
   WHERE eth_price IS NULL
 `;
 
