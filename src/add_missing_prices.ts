@@ -5,6 +5,8 @@ import * as DateFnsAlt from "./date_fns_alt.js";
 import * as Log from "./log.js";
 import { sql } from "./db.js";
 
+Log.debug("fetching all blocks where eth_price is null");
+
 const blocks = await sql<{ number: number; minedAt: Date }[]>`
   SELECT mined_at, number FROM blocks
   WHERE eth_price IS NULL
