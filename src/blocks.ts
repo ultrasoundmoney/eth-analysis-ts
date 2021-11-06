@@ -9,7 +9,7 @@ import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as DisplayProgress from "./display_progress.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import * as EthPrice from "./eth_price.js";
+import * as EthPrices from "./eth_prices.js";
 import * as FeesBurned from "./base_fee_sums.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
@@ -364,7 +364,7 @@ export const addMissingBlocks = async (
           seqTParT(
             T.of(block),
             () => Transactions.getTxrsWithRetry(block),
-            EthPrice.getPriceForOldBlock(block),
+            EthPrices.getPriceForOldBlock(block),
           ),
         ),
         T.chain(([block, txrs, ethPrice]) =>
@@ -422,7 +422,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       seqTParT(
         T.of(block),
         () => Transactions.getTxrsWithRetry(block),
-        () => EthPrice.getPriceForBlock(block),
+        () => EthPrices.getPriceForBlock(block),
       ),
     ),
     T.chainFirstIOK(() => () => {
@@ -549,3 +549,16 @@ export const getBaseFeesPerGas = (
     ),
   );
 };
+
+export const setEthPrice = (
+  blockNumber: number,
+  ethPrice: number,
+): T.Task<void> =>
+  pipe(
+    () => sql`
+      UPDATE blocks
+      SET eth_price = ${ethPrice}
+      WHERE number = ${blockNumber}
+    `,
+    T.map(() => undefined),
+  );
