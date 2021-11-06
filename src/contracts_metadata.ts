@@ -372,6 +372,7 @@ const addMetadata = (address: string): T.Task<void> =>
       () => addDefiLlamaMetadata(address),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
+    // Subtly, the updatePreferredMetadata call may uncover a manually set twitter handle.
     T.chain(() => () => addTwitterMetadata(address)),
     T.chainFirst(() => {
       return async () => {
