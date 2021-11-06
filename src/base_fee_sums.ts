@@ -41,7 +41,7 @@ const getTimeframeBaseFeeSum = (
     () => sql<BaseFeeSum[]>`
       SELECT
         SUM(base_fee_sum) AS eth,
-        SUM(base_fee_sum * eth_price) AS usd
+        SUM(base_fee_sum * eth_price / POWER(10, 18)) AS usd
       FROM blocks
       WHERE mined_at >= now() - ${intervalSqlMap[timeframe]}::interval
       AND number <= ${block.number}
@@ -57,7 +57,7 @@ const getBaseFeeSum = (block: BlockLondon): T.Task<BaseFeeSum> =>
     () => sql<BaseFeeSum[]>`
       SELECT
         SUM(base_fee_sum) AS eth,
-        SUM(base_fee_sum * eth_price) AS usd
+        SUM(base_fee_sum * eth_price / POWER(10, 18)) AS usd
       FROM blocks
       WHERE number <= ${block.number}
     `,
