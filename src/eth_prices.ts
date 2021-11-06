@@ -184,7 +184,11 @@ export const getPriceForOlderBlockWithCache = async (
   const price = exactPrice || earlierPrice || laterPrice;
 
   Log.debug(
-    `found eth price for block: ${block.number}, target timestamp: ${roundedTimestamp}, price: ${price}`,
+    `found eth price for block: ${
+      block.number
+    }, target timestamp: ${DateFns.formatISO(
+      roundedTimestamp,
+    )}, price: ${price}`,
   );
 
   if (price === undefined) {
