@@ -71,7 +71,7 @@ export const apiQueue = new PQueue({
   concurrency: 2,
   interval: Duration.milisFromSeconds(8),
   intervalCap: 3,
-  timeout: Duration.milisFromSeconds(16),
+  timeout: Duration.milisFromSeconds(8),
 });
 
 const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
