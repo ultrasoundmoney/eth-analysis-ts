@@ -45,3 +45,5 @@ for (const block of blocks) {
 
   await Blocks.setEthPrice(block.number, ethPrice.ethusd)();
 }
+
+sql.end();
