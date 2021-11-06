@@ -3,7 +3,7 @@ import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
 import { A, B, O, seqTParT, T } from "./fp.js";
 import {
-  ContractBaseFees,
+  ContractBaseFeesNext,
   LeaderboardEntry,
   LeaderboardRow,
 } from "./leaderboards.js";
@@ -34,14 +34,24 @@ const setNewestIncludedBlockNumber =
   (blockNumber: number): T.Task<Row[]> =>
   () =>
     sql`
-      INSERT INTO base_fee_sum_included_blocks (oldest_included_block, newest_included_block, timeframe)
-      VALUES (${Blocks.londonHardForkBlockNumber}, ${blockNumber}, 'all')
+      INSERT INTO base_fee_sum_included_blocks (
+        oldest_included_block,
+        newest_included_block,
+        timeframe
+      )
+      VALUES (
+        ${Blocks.londonHardForkBlockNumber},
+        ${blockNumber},
+        'all'
+      )
       ON CONFLICT (timeframe) DO UPDATE SET
-      oldest_included_block = ${Blocks.londonHardForkBlockNumber},
-      newest_included_block = ${blockNumber}
+        oldest_included_block = ${Blocks.londonHardForkBlockNumber},
+        newest_included_block = ${blockNumber}
     `;
 
-const addContractBaseFeeSums = (baseFeeSums: ContractBaseFees): T.Task<void> =>
+const addContractBaseFeeSums = (
+  baseFeeSums: ContractBaseFeesNext,
+): T.Task<void> =>
   pipe(
     baseFeeSums.size === 0,
     B.match(
@@ -49,17 +59,22 @@ const addContractBaseFeeSums = (baseFeeSums: ContractBaseFees): T.Task<void> =>
         pipe(
           Array.from(baseFeeSums.entries()),
           A.chunksOf(20000),
-          A.map(A.unzip),
+          A.map((entriesChunk) => ({
+            addresses: entriesChunk.map((entry) => entry[0]),
+            eths: entriesChunk.map((entry) => entry[1].eth),
+            usds: entriesChunk.map((entry) => entry[1].usd),
+          })),
           T.traverseArray(
-            ([addresses, baseFees]) =>
-              () =>
-                sql`
-                  INSERT INTO contract_base_fee_sums (contract_address, base_fee_sum)
+            (toInsert) => () =>
+              sql`
+                  INSERT INTO contract_base_fee_sums (contract_address, base_fee_sum, base_fee_sum_usd)
                   SELECT
-                    UNNEST(${sql.array(addresses)}::text[]),
-                    UNNEST(${sql.array(baseFees)}::float[])
+                    UNNEST(${sql.array(toInsert.addresses)}::text[]),
+                    UNNEST(${sql.array(toInsert.eths)}::float[]),
+                    UNNEST(${sql.array(toInsert.usds)}::float[])
                   ON CONFLICT (contract_address) DO UPDATE SET
-                  base_fee_sum = contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::float
+                    base_fee_sum = contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::float,
+                    base_fee_sum_usd = contract_base_fee_sums.base_fee_sum_usd + excluded.base_fee_sum_usd::float
                 `,
           ),
           T.map(() => undefined),
@@ -70,24 +85,35 @@ const addContractBaseFeeSums = (baseFeeSums: ContractBaseFees): T.Task<void> =>
   );
 
 export const removeContractBaseFeeSums = (
-  baseFeeSums: ContractBaseFees,
+  baseFeeSums: ContractBaseFeesNext,
 ): T.Task<void> => {
   return pipe(
     baseFeeSums.size === 0,
     B.match(
       () => {
         const addresses = Array.from(baseFeeSums.keys());
-        const baseFees = Array.from(baseFeeSums.values());
+        const baseFeesEth = pipe(
+          Array.from(baseFeeSums.values()),
+          A.map((baseFeeSum) => baseFeeSum.eth),
+        );
+        const baseFeesUsd = pipe(
+          Array.from(baseFeeSums.values()),
+          A.map((baseFeeSum) => baseFeeSum.usd),
+        );
         return pipe(
           () => sql`
-                  UPDATE contract_base_fee_sums
-                    SET base_fee_sum = base_fee_sum - data_table.base_fees
+                  UPDATE contract_base_fee_sums SET
+                    base_fee_sum = base_fee_sum - data_table.base_fees,
+                    base_fee_sum_usd = base_fee_sum_usd - data_table.base_fees_usd
                   FROM
                     (SELECT
                       UNNEST(${sql.array(
                         addresses,
                       )}::text[]) as contract_address,
-                      UNNEST(${sql.array(baseFees)}::float[]) as base_fees
+                      UNNEST(${sql.array(baseFeesEth)}::float[]) as base_fees,
+                      UNNEST(${sql.array(
+                        baseFeesUsd,
+                      )}::float[]) as base_fees_usd
                     ) as data_table
                   WHERE contract_base_fee_sums.contract_address = data_table.contract_address;
                 `,
@@ -102,7 +128,7 @@ export const removeContractBaseFeeSums = (
 
 export const addBlock = (
   blockNumber: number,
-  baseFeeSums: ContractBaseFees,
+  baseFeeSums: ContractBaseFeesNext,
 ): T.Task<void> =>
   pipe(
     seqTParT(
@@ -142,11 +168,24 @@ export const addMissingBlocks = (upToIncluding: number): T.Task<void> =>
 const getTopBaseFeeContracts = (): T.Task<LeaderboardRow[]> => {
   return () => sql<LeaderboardRow[]>`
     WITH top_base_fee_contracts AS (
-      SELECT contract_address, base_fee_sum FROM contract_base_fee_sums
-      ORDER BY (base_fee_sum) DESC
+      SELECT
+        contract_address,
+        base_fee_sum,
+        base_fee_sum_usd
+      FROM contract_base_fee_sums
+      ORDER BY base_fee_sum DESC
       LIMIT 100
     )
-    SELECT contract_address, base_fee_sum AS base_fees, name, is_bot, image_url, twitter_handle, category FROM top_base_fee_contracts
+    SELECT
+      base_fee_sum AS base_fees,
+      base_fee_sum_usd AS base_fees_usd,
+      category,
+      contract_address,
+      image_url,
+      is_bot,
+      name,
+      twitter_handle
+    FROM top_base_fee_contracts
     JOIN contracts ON address = contract_address
   `;
 };
