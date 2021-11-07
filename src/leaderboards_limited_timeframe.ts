@@ -1,17 +1,18 @@
+import * as DateFns from "date-fns";
 import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
+import * as Timeframe from "./timeframe.js";
 import { A, O, Ord, pipe, RA, seqSParT, seqTParT, T } from "./fp.js";
-import * as DateFns from "date-fns";
-import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
+import { LimitedTimeframe } from "./timeframe.js";
 import { performance } from "perf_hooks";
+import { sql } from "./db.js";
 import {
   ContractBaseFeesNext,
   ContractBaseFeesRow,
   ContractSums,
   LeaderboardEntry,
   LeaderboardRow,
-  LimitedTimeframe,
 } from "./leaderboards.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
@@ -71,48 +72,49 @@ const getBlocksForTimeframe = (
 const getBaseFeesForRange = (
   from: number,
   upToIncluding: number,
-): T.Task<ContractBaseFeesNext> => {
-  return pipe(
+): T.Task<ContractBaseFeesNext> =>
+  pipe(
     () =>
       sql<ContractBaseFeesRow[]>`
         SELECT
           contract_address,
           SUM(base_fees) AS base_fees,
-          SUM(base_fees * eth_price) AS base_fees_usd
+          SUM(base_fees * eth_price / POWER(10, 18)) AS base_fees_usd
         FROM contract_base_fees
         JOIN blocks ON blocks.number = block_number
         WHERE block_number >= ${from}
         AND block_number <= ${upToIncluding}
         GROUP BY contract_address
-      `,
+    `,
     T.map(Leaderboards.collectInMap),
   );
-};
 
 const addToSums = (
   contractSums: ContractSums,
   baseFeesToAdd: ContractSums,
-): ContractSums => {
-  baseFeesToAdd.forEach((baseFees, contractAddress) => {
-    const currentBaseFeeSum = contractSums.get(contractAddress) || 0;
-    contractSums.set(contractAddress, currentBaseFeeSum + baseFees);
-  });
-  return contractSums;
-};
+): ContractSums =>
+  pipe(
+    Array.from(baseFeesToAdd.entries()),
+    A.reduce(contractSums, (sums, [address, feesToAdd]) => {
+      const currentFees = sums.get(address) || 0;
+      return sums.set(address, currentFees + feesToAdd);
+    }),
+  );
 
 const subtractFromSums = (
   contractSums: ContractSums,
   baseFeesToRemove: ContractSums,
-): ContractSums => {
-  for (const [contractAddress, baseFees] of baseFeesToRemove.entries()) {
-    const currentBaseFeeSum = contractSums.get(contractAddress);
-    if (currentBaseFeeSum === undefined) {
-      throw new Error("tried to remove base fees from a non-existing sum");
-    }
-    contractSums.set(contractAddress, currentBaseFeeSum - baseFees);
-  }
-  return contractSums;
-};
+): ContractSums =>
+  pipe(
+    Array.from(baseFeesToRemove.entries()),
+    A.reduce(contractSums, (sums, [address, feesToRemove]) => {
+      const currentFees = sums.get(address);
+      if (currentFees === undefined) {
+        throw new Error("tried to remove base fees from a non-existing sum");
+      }
+      return sums.set(address, currentFees - feesToRemove);
+    }),
+  );
 
 const blockForTotalOrd: Ord<BlockForTotal> = {
   equals: (x, y) => x.number === y.number,
@@ -123,7 +125,7 @@ export const addAllBlocksForAllTimeframes = (
   upToIncluding: number,
 ): T.Task<void> =>
   pipe(
-    Leaderboards.limitedTimeframes,
+    Timeframe.limitedTimeframes,
     RA.map((timeframe) => {
       const t0 = performance.now();
       Log.debug(`loading sums for ${timeframe}`);
@@ -184,7 +186,7 @@ export const addBlockForAllTimeframes = (
   const baseFeesToAddEth = Leaderboards.pickDenomination(baseFeesToAdd, "eth");
   const baseFeesToAddUsd = Leaderboards.pickDenomination(baseFeesToAdd, "usd");
 
-  Leaderboards.limitedTimeframes.forEach((timeframe) => {
+  Timeframe.limitedTimeframes.forEach((timeframe) => {
     blocksInTimeframe[timeframe] = pipe(
       blocksInTimeframe[timeframe],
       A.append({
@@ -214,7 +216,7 @@ export const rollbackToBefore = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeesNext,
 ): void => {
-  Leaderboards.limitedTimeframes.forEach((timeframe) => {
+  Timeframe.limitedTimeframes.forEach((timeframe) => {
     const includedBlocks = blocksInTimeframe[timeframe];
     const indexOfBlockToRollbackToBefore = includedBlocks.findIndex(
       (block) => block.number === blockNumber,
@@ -245,7 +247,7 @@ export const rollbackToBefore = (
 
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
   pipe(
-    Leaderboards.limitedTimeframes,
+    Timeframe.limitedTimeframes,
     RA.map((timeframe) => {
       const ageLimit = DateFns.subMinutes(
         new Date(),

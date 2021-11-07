@@ -5,10 +5,7 @@ import { FamDetails } from "./fam_service.js";
 import { O } from "./fp.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
-
-export type Timeframe = LimitedTimeframe | "all";
-export const limitedTimeframes = ["5m", "1h", "24h", "7d", "30d"] as const;
-export type LimitedTimeframe = typeof limitedTimeframes[number];
+import { LimitedTimeframe, Timeframe } from "./timeframe.js";
 
 export type LeaderboardRow = {
   contractAddress: string;

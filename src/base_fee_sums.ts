@@ -1,8 +1,9 @@
+import * as Timeframe from "./timeframe.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { seqSParT, T } from "./fp.js";
-import { LimitedTimeframe } from "./leaderboards.js";
+import { LimitedTimeframe } from "./timeframe.js";
 
 export type FeesBurnedT = {
   feesBurned5m: number;
@@ -24,14 +25,6 @@ type BaseFeeSum = {
   usd: number;
 };
 
-const intervalSqlMap: Record<LimitedTimeframe, string> = {
-  "5m": "5 minutes",
-  "1h": "1 hours",
-  "24h": "24 hours",
-  "7d": "7 days",
-  "30d": "30 days",
-};
-
 const getTimeframeBaseFeeSum = (
   block: BlockLondon,
   timeframe: LimitedTimeframe,
@@ -42,7 +35,7 @@ const getTimeframeBaseFeeSum = (
         SUM(base_fee_sum) AS eth,
         SUM(base_fee_sum * eth_price / POWER(10, 18)) AS usd
       FROM blocks
-      WHERE mined_at >= now() - ${intervalSqlMap[timeframe]}::interval
+      WHERE mined_at >= now() - ${Timeframe.intervalSqlMap[timeframe]}::interval
       AND number <= ${block.number}
     `,
     T.map((rows) => ({
@@ -66,8 +59,8 @@ const getBaseFeeSum = (block: BlockLondon): T.Task<BaseFeeSum> =>
     })),
   );
 
-export const calcBaseFeeSums = (block: BlockLondon): T.Task<FeesBurnedT> => {
-  return pipe(
+export const calcBaseFeeSums = (block: BlockLondon): T.Task<FeesBurnedT> =>
+  pipe(
     seqSParT({
       feesBurned5m: getTimeframeBaseFeeSum(block, "5m"),
       feesBurned1h: getTimeframeBaseFeeSum(block, "1h"),
@@ -91,4 +84,3 @@ export const calcBaseFeeSums = (block: BlockLondon): T.Task<FeesBurnedT> => {
       feesBurnedAllUsd: fees.feesBurnedAll.usd,
     })),
   );
-};

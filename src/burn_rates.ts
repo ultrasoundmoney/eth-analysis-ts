@@ -3,7 +3,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { seqSParT } from "./fp.js";
-import { LimitedTimeframe } from "./leaderboards.js";
+import { LimitedTimeframe } from "./timeframe.js";
 
 export type BurnRatesT = {
   burnRate5m: number;
