@@ -71,15 +71,9 @@ export const getTxrsWithRetry = async (
       );
     }
 
+    const delaySeconds = delayMilis / 1000;
     Log.warn(
-      `block cointained null txrs, waiting ${
-        delayMilis / 1000
-      }s and trying again`,
-      {
-        number: tryBlock.number,
-        hash: tryBlock.hash,
-        missingHashes: missingHashes,
-      },
+      `block ${tryBlock.number} cointained null txrs, hash: ${tryBlock.hash}, waiting ${delaySeconds}s and trying again`,
     );
     await delay(delayMilis);
 
