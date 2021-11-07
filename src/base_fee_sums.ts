@@ -1,8 +1,7 @@
-import * as T from "fp-ts/lib/Task.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
-import { seqSParT } from "./fp.js";
+import { seqSParT, T } from "./fp.js";
 import { LimitedTimeframe } from "./leaderboards.js";
 
 export type FeesBurnedT = {
