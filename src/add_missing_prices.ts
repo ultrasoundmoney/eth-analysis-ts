@@ -13,6 +13,8 @@ const blocks = await sql<{ number: number; minedAt: Date }[]>`
   ORDER BY number ASC
 `;
 
+let count = 0;
+
 for (const block of blocks) {
   Log.debug(
     `looking for price for block: ${
@@ -45,6 +47,11 @@ for (const block of blocks) {
   }
 
   await Blocks.setEthPrice(block.number, ethPrice.ethusd)();
+
+  count = count + 1;
+  if (count !== 0 && count % 10000 === 0) {
+    Log.info("finished adding 10000 prices");
+  }
 }
 
 sql.end();
