@@ -272,9 +272,12 @@ export const getEthStats = (): T.Task<EthStats | undefined> => {
   );
 };
 
-export const getAveragePrice = (): T.Task<number | undefined> => {
-  return pipe(
-    () => sql`SELECT AVG(eth_price) FROM blocks`,
+export const getAveragePrice = (): T.Task<number | undefined> =>
+  pipe(
+    () => sql<{ avg: number }[]>`
+      SELECT AVG(eth_price) FROM blocks
+      WHERE number >= 12965000
+    `,
     T.map((rows) => rows[0]?.avg ?? undefined),
   );
 };
