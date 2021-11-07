@@ -1,35 +1,45 @@
 import { sql } from "./db.js";
-import * as T from "fp-ts/lib/Task.js";
+import { A, pipe, T } from "./fp.js";
 
 export type LatestBlock = {
-  fees: number;
-  number: number;
   baseFeePerGas: number;
+  fees: number;
+  feesUsd: number;
+  number: number;
 };
 export type LatestBlockFees = LatestBlock[];
 
+type LatestBlockFeesRow = {
+  number: number;
+  baseFeeSum: number;
+  baseFeeSumUsd: number;
+  baseFeePerGas: number;
+  minedAt: Date;
+};
+
 export const getLatestBlockFees = (
   blockNumber: number,
-): T.Task<LatestBlockFees> => {
-  return () =>
-    sql<
-      {
-        number: number;
-        baseFeeSum: number;
-        baseFeePerGas: number;
-        minedAt: Date;
-      }[]
-    >`
-    SELECT number, base_fee_sum, base_fee_per_gas, mined_at FROM blocks
-    WHERE number <= ${blockNumber}
-    ORDER BY (number) DESC
-    LIMIT 7
-  `.then((rows) =>
-      rows.map((row) => ({
+): T.Task<LatestBlockFees> =>
+  pipe(
+    () => sql<LatestBlockFeesRow[]>`
+      SELECT
+      number,
+      base_fee_sum,
+      (base_fee_sum * eth_price / POWER(10, 18)) AS base_fee_sum_usd,
+      base_fee_per_gas,
+      mined_at
+      FROM blocks
+      WHERE number <= ${blockNumber}
+      ORDER BY (number) DESC
+      LIMIT 7
+    `,
+    T.map(
+      A.map((row) => ({
         number: row.number,
         fees: row.baseFeeSum,
+        feesUsd: row.baseFeeSumUsd,
         baseFeePerGas: Number(row.baseFeePerGas),
         minedAt: row.minedAt,
       })),
-    );
-};
+    ),
+  );
