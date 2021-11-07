@@ -119,7 +119,7 @@ const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
         return undefined;
       }
 
-      ctx.set("Cache-Control", "max-age=8, stale-while-revalidate=600");
+      ctx.set("Cache-Control", "max-age=15, stale-while-revalidate=600");
       ctx.set("Content-Type", "application/json");
       ctx.body = ethStats;
       return undefined;
@@ -140,31 +140,31 @@ const handleGetMarketData: Middleware = async (ctx) =>
   )();
 
 const handleGetBurnRate: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
   ctx.body = { burnRates: cache.burnRates, number: cache.number };
 };
 
 const handleGetLatestBlocks: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
   ctx.body = cache.latestBlockFees;
 };
 
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
   ctx.body = { baseFeePerGas: cache.baseFeePerGas };
 };
 
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
   ctx.body = cache.leaderboards;
 };
 
 const handleGetAll: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=6, stale-while-revalidate=16");
+  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
   ctx.body = cache;
 };
