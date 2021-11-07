@@ -22,6 +22,6 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: LOG_LEVEL
-              value: DEBUG
+              value: INFO
       restartPolicy: Never
   backoffLimit: 4
