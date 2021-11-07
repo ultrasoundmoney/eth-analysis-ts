@@ -316,6 +316,11 @@ const getTopBaseFeeContracts = (
     A.map(([address]) => address),
   );
 
+  if (topAddresses.length === 0) {
+    Log.warn(`no top addresses found for timeframe: ${timeframe}`);
+    return T.of([]);
+  }
+
   return pipe(
     () =>
       sql<ContractRow[]>`
