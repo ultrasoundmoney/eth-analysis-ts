@@ -270,17 +270,8 @@ const handleSetContractCategory: Middleware = async (ctx) => {
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
   const averageEthPrice = await EthPrices.getAveragePrice()();
-  if (averageEthPrice === undefined) {
-    Log.error(
-      "no average eth price, does the blocks table have blocks with prices?",
-    );
-    ctx.status = 500;
-    ctx.body = { msg: "missing blocks with prices" };
-    return undefined;
-  }
-
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=6");
-  ctx.body = { usd: averageEthPrice };
+  ctx.body = averageEthPrice;
   return undefined;
 };
 

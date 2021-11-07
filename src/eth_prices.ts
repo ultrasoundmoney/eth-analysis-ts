@@ -7,12 +7,13 @@ import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as Log from "./log.js";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
-import { pipe, seqTParT, T, TE } from "./fp.js";
+import { pipe, seqSParT, seqTParT, T, TE } from "./fp.js";
 import { BlockLondon } from "./eth_node.js";
 import { EthPrice } from "./etherscan.js";
 import { HistoricPrice } from "./coingecko.js";
 import { JsTimestamp } from "./date_fns_alt.js";
 import { sql } from "./db.js";
+import { intervalSqlMap, LimitedTimeframe } from "./timeframe.js";
 
 export type BlockForPrice = {
   timestamp: number;
@@ -272,12 +273,44 @@ export const getEthStats = (): T.Task<EthStats | undefined> => {
   );
 };
 
-export const getAveragePrice = (): T.Task<number | undefined> =>
+type AverageEthPrice = {
+  m5: number;
+  h1: number;
+  h24: number;
+  d7: number;
+  d30: number;
+  all: number;
+};
+
+type AveragePrice = { ethPriceAverage: number };
+
+const getAllAveragePriceTask = (): T.Task<number> =>
   pipe(
-    () => sql<{ avg: number }[]>`
-      SELECT AVG(eth_price) FROM blocks
+    () => sql<AveragePrice[]>`
+      SELECT AVG(eth_price) AS eth_price_average FROM blocks
       WHERE number >= 12965000
     `,
-    T.map((rows) => rows[0]?.avg ?? undefined),
+    T.map((rows) => rows[0]?.ethPriceAverage ?? 0),
   );
-};
+
+const getTimeframeAverageTask = (timeframe: LimitedTimeframe): T.Task<number> =>
+  pipe(
+    () => sql<AveragePrice[]>`
+        SELECT
+          AVG(eth_price) AS eth_price_average
+        FROM blocks
+        WHERE mined_at >= now() - ${intervalSqlMap[timeframe]}::interval
+        AND number >= 12965000
+      `,
+    T.map((rows) => rows[0]?.ethPriceAverage ?? 0),
+  );
+
+export const getAveragePrice = (): T.Task<AverageEthPrice> =>
+  seqSParT({
+    m5: getTimeframeAverageTask("5m"),
+    h1: getTimeframeAverageTask("1h"),
+    h24: getTimeframeAverageTask("24h"),
+    d7: getTimeframeAverageTask("7d"),
+    d30: getTimeframeAverageTask("30d"),
+    all: getAllAveragePriceTask(),
+  });
