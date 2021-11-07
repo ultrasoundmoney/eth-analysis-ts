@@ -10,6 +10,7 @@ Log.debug("fetching all blocks where eth_price is null");
 const blocks = await sql<{ number: number; minedAt: Date }[]>`
   SELECT mined_at, number FROM blocks
   WHERE eth_price IS NULL
+  ORDER BY number ASC
 `;
 
 for (const block of blocks) {
