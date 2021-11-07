@@ -268,6 +268,22 @@ const handleSetContractCategory: Middleware = async (ctx) => {
   return undefined;
 };
 
+const handleAverageEthPrice: Middleware = async (ctx) => {
+  const averageEthPrice = await EthPrices.getAveragePrice()();
+  if (averageEthPrice === undefined) {
+    Log.error(
+      "no average eth price, does the blocks table have blocks with prices?",
+    );
+    ctx.status = 500;
+    ctx.body = { msg: "missing blocks with prices" };
+    return undefined;
+  }
+
+  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=6");
+  ctx.body = { usd: averageEthPrice };
+  return undefined;
+};
+
 const updateCachesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
@@ -350,6 +366,7 @@ router.get("/fees/all", handleGetAll);
 router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
 router.get("/fees/set-contract-name", handleSetContractName);
 router.get("/fees/set-contract-category", handleSetContractCategory);
+router.get("/fees/average-eth-price", handleAverageEthPrice);
 
 app.use(bodyParser());
 app.use(router.routes());
