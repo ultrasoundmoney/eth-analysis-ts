@@ -562,3 +562,13 @@ export const setEthPrice = (
     `,
     T.map(() => undefined),
   );
+
+export const getLatestBaseFeePerGas = (): T.Task<number> =>
+  pipe(
+    () => sql<{ baseFeePerGas: number }[]>`
+      SELECT base_fee_per_gas FROM blocks
+      ORDER BY number DESC
+      LIMIT 1
+    `,
+    T.map((rows) => rows[0]?.baseFeePerGas ?? 0),
+  );

@@ -152,9 +152,10 @@ const handleGetLatestBlocks: Middleware = async (ctx) => {
 };
 
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
+  const baseFeePerGas = await Blocks.getLatestBaseFeePerGas()();
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = { baseFeePerGas: cache.baseFeePerGas };
+  ctx.body = { baseFeePerGas };
 };
 
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
