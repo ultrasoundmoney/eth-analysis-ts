@@ -445,10 +445,10 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
             (useFees) => Object.entries(useFees),
             A.map(
               ([address, fees]) =>
-                [address, { eth: fees, usd: fees * ethPrice.ethusd }] as [
-                  string,
-                  { eth: number; usd: number },
-                ],
+                [
+                  address,
+                  { eth: fees, usd: (fees * ethPrice.ethusd) / 10 ** 18 },
+                ] as [string, { eth: number; usd: number }],
             ),
             (entries) => new Map(entries),
           );
