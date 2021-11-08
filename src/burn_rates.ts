@@ -41,7 +41,7 @@ const getTimeframeBurnRate = (
     () => sql<BurnRate[]>`
       SELECT
         SUM(base_fee_sum) / ${timeframeMinutesMap[timeframe]} AS eth,
-        SUM(base_fee_sum * eth_price) / ${timeframeMinutesMap[timeframe]} AS usd
+        SUM(base_fee_sum * eth_price / POWER(10, 18)) / ${timeframeMinutesMap[timeframe]} AS usd
       FROM blocks
       WHERE mined_at >= now() - ${timeframeIntervalMap[timeframe]}::interval
       AND number <= ${block.number}
@@ -56,7 +56,7 @@ const getBurnRate = (block: BlockLondon) =>
         SUM(base_fee_sum) / (
           EXTRACT(epoch FROM now() - '2021-08-05 12:33:42+00') / 60
         ) AS eth,
-        SUM(base_fee_sum * eth_price) / (
+        SUM(base_fee_sum * eth_price / POWER(10, 18)) / (
           EXTRACT(epoch FROM now() - '2021-08-05 12:33:42+00') / 60
         ) AS usd
       FROM blocks
