@@ -570,5 +570,9 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
       ORDER BY number DESC
       LIMIT 1
     `,
-    T.map((rows) => rows[0]?.baseFeePerGas ?? 0),
+    T.map((rows) =>
+      typeof rows[0]?.baseFeePerGas === "bigint"
+        ? Number(rows[0].baseFeePerGas)
+        : 0,
+    ),
   );
