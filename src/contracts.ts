@@ -1,5 +1,4 @@
 import A from "fp-ts/lib/Array.js";
-import { constant } from "fp-ts/lib/function";
 import * as ContractsMetadata from "./contracts_metadata.js";
 import { sql } from "./db.js";
 import { O, pipe, T } from "./fp.js";
@@ -182,9 +181,11 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
     T.map((rows) => rows[0]),
     T.map(O.fromNullable),
     T.chain(
-      O.match(constant(T.of(undefined)), (metadataComponents) =>
-        pipe(
-          () => sql`
+      O.match(
+        () => T.of(undefined),
+        (metadataComponents) =>
+          pipe(
+            () => sql`
             UPDATE contracts
             SET
               name = ${getPreferredName(metadataComponents)},
@@ -193,8 +194,8 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
               image_url = ${getPreferredImageUrl(metadataComponents)}
             WHERE address = ${address}
           `,
-          T.map(() => undefined),
-        ),
+            T.map(() => undefined),
+          ),
       ),
     ),
   );
