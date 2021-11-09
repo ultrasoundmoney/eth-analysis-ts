@@ -1,16 +1,16 @@
-import * as Blocks from "./blocks.js";
-import * as Config from "./config.js";
-import * as Duration from "./duration.js";
-import * as Log from "./log.js";
 import PQueue from "p-queue";
 import ProgressBar from "progress";
 import Web3 from "web3";
-import WebSocket from "ws";
-import { AbiItem } from "web3-utils";
-import { Contract } from "web3-eth-contract";
 import { Log as LogWeb3 } from "web3-core";
-import { TxRWeb3London } from "./transactions.js";
+import { Contract } from "web3-eth-contract";
+import { AbiItem } from "web3-utils";
+import WebSocket from "ws";
+import * as Blocks from "./blocks.js";
+import * as Config from "./config.js";
+import * as Duration from "./duration.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
+import * as Log from "./log.js";
+import { TxRWeb3London } from "./transactions.js";
 
 let managedWeb3Obj: Web3 | undefined = undefined;
 

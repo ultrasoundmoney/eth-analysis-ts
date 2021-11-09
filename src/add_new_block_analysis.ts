@@ -1,14 +1,14 @@
-import * as Log from "./log.js";
-import { sql } from "./db.js";
-import * as BaseFees from "./base_fees.js";
-import * as Transactions from "./transactions.js";
-import * as EthNode from "./eth_node.js";
-import ProgressBar from "progress";
-import { hexToNumber } from "./hexadecimal.js";
-import PQueue from "p-queue";
-import * as Contracts from "./contracts.js";
 import A from "fp-ts/lib/Array.js";
+import PQueue from "p-queue";
+import ProgressBar from "progress";
+import * as BaseFees from "./base_fees.js";
 import * as Blocks from "./blocks.js";
+import * as Contracts from "./contracts.js";
+import { sql } from "./db.js";
+import * as EthNode from "./eth_node.js";
+import { hexToNumber } from "./hexadecimal.js";
+import * as Log from "./log.js";
+import * as Transactions from "./transactions.js";
 
 const buildSqlQueue = new PQueue({ concurrency: 8 });
 

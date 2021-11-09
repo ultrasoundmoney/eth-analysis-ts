@@ -1,17 +1,17 @@
+import * as DateFns from "date-fns";
+import PQueue from "p-queue";
 import * as Contracts from "./contracts.js";
 import * as ContractsWeb3 from "./contracts_web3.js";
-import * as DateFns from "date-fns";
+import { sql } from "./db.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
+import { A, O, pipe, seqTParT, T } from "./fp.js";
+import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
 import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as Twitter from "./twitter.js";
-import PQueue from "p-queue";
-import { A, O, pipe, seqTParT, T } from "./fp.js";
-import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
-import { sql } from "./db.js";
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;

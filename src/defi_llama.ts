@@ -1,9 +1,9 @@
 import * as DateFns from "date-fns";
-import * as Duration from "./duration.js";
-import * as Log from "./log.js";
-import PQueue from "p-queue";
 import fetch from "node-fetch";
+import PQueue from "p-queue";
+import * as Duration from "./duration.js";
 import { A, D, E, pipe } from "./fp.js";
+import * as Log from "./log.js";
 
 const DefiLlamaProtocol = pipe(
   D.struct({

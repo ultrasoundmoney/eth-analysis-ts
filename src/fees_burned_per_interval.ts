@@ -1,7 +1,7 @@
 import * as A from "fp-ts/lib/Array.js";
-import * as Log from "./log.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
+import * as Log from "./log.js";
 
 export type FeesBurnedPerInterval = Record<string, number>;
 

@@ -1,7 +1,7 @@
-import * as Config from "./config.js";
-import * as Log from "./log.js";
 import fetch from "node-fetch";
+import * as Config from "./config.js";
 import { pipe, T } from "./fp.js";
+import * as Log from "./log.js";
 
 export type FamDetails = {
   bio: string | null;

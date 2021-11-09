@@ -1,16 +1,16 @@
+import Sentry from "@sentry/node";
 import "@sentry/tracing";
+import { pipe } from "fp-ts/lib/function.js";
+import * as T from "fp-ts/lib/Task.js";
 import * as Blocks from "./blocks.js";
+import * as Config from "./config.js";
+import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
+import { seqTParT } from "./fp.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
-import * as T from "fp-ts/lib/Task.js";
-import * as Config from "./config.js";
-import Sentry from "@sentry/node";
-import { pipe } from "fp-ts/lib/function.js";
-import { sql } from "./db.js";
-import { seqTParT } from "./fp.js";
 
 if (Config.getEnv() !== "dev") {
   Sentry.init({

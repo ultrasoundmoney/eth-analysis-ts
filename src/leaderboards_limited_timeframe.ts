@@ -1,12 +1,9 @@
 import * as DateFns from "date-fns";
-import * as Leaderboards from "./leaderboards.js";
-import * as Log from "./log.js";
-import * as Timeframe from "./timeframe.js";
-import { A, O, Ord, pipe, RA, seqSParT, seqTParT, T } from "./fp.js";
-import { BlockLondon } from "./eth_node.js";
-import { LimitedTimeframe } from "./timeframe.js";
 import { performance } from "perf_hooks";
 import { sql } from "./db.js";
+import { BlockLondon } from "./eth_node.js";
+import { A, O, Ord, pipe, RA, seqSParT, seqTParT, T } from "./fp.js";
+import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeesNext,
   ContractBaseFeesRow,
@@ -14,6 +11,9 @@ import {
   LeaderboardEntry,
   LeaderboardRow,
 } from "./leaderboards.js";
+import * as Log from "./log.js";
+import * as Timeframe from "./timeframe.js";
+import { LimitedTimeframe } from "./timeframe.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
 

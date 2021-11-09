@@ -1,8 +1,8 @@
-import * as EthNode from "./eth_node.js";
-import * as Etherscan from "./etherscan.js";
-import * as Log from "./log.js";
 import { Contract } from "web3-eth-contract";
+import * as Etherscan from "./etherscan.js";
+import * as EthNode from "./eth_node.js";
 import { pipe, T } from "./fp.js";
+import * as Log from "./log.js";
 
 export const getWeb3Contract = (
   address: string,

@@ -1,10 +1,10 @@
+import PQueue from "p-queue";
 import * as Blocks from "./blocks.js";
+import { sql } from "./db.js";
 import * as DisplayProgress from "./display_progress.js";
 import * as EthNode from "./eth_node.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
-import { sql } from "./db.js";
-import PQueue from "p-queue";
 
 const storeBlockQueuePar = new PQueue({ concurrency: 8 });
 

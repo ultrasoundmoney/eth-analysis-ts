@@ -1,36 +1,32 @@
-import * as A from "fp-ts/lib/Array.js";
-import * as B from "fp-ts/lib/boolean.js";
+import * as Sentry from "@sentry/node";
+import * as DateFns from "date-fns";
+import PQueue from "p-queue";
+import { performance } from "perf_hooks";
 import * as BaseFees from "./base_fees.js";
+import { FeeBreakdown } from "./base_fees.js";
+import * as BaseFeeSums from "./base_fee_sums.js";
 import * as BurnRates from "./burn_rates.js";
 import * as Config from "./config.js";
 import * as Contracts from "./contracts.js";
-import * as DateFns from "date-fns";
+import { sql } from "./db.js";
+import { delay } from "./delay.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as DisplayProgress from "./display_progress.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
+import { BlockLondon } from "./eth_node.js";
 import * as EthPrices from "./eth_prices.js";
-import * as FeesBurned from "./base_fee_sums.js";
+import { A, B, Num, O, pipe, seqSParT, seqTParT, seqTSeqT, T } from "./fp.js";
+import { hexToNumber } from "./hexadecimal.js";
 import * as Leaderboards from "./leaderboards.js";
+import { LeaderboardEntries } from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
-import * as O from "fp-ts/lib/Option.js";
-import * as PerformanceMetrics from "./performance_metrics.js";
-import * as Sentry from "@sentry/node";
-import * as T from "fp-ts/lib/Task.js";
-import * as Transactions from "./transactions.js";
-import PQueue from "p-queue";
-import { BlockLondon } from "./eth_node.js";
-import { FeeBreakdown } from "./base_fees.js";
-import { LeaderboardEntries } from "./leaderboards.js";
-import { Num, pipe, seqSParT, seqTParT, seqTSeqT } from "./fp.js";
-import { TxRWeb3London } from "./transactions.js";
-import { delay } from "./delay.js";
-import { hexToNumber } from "./hexadecimal.js";
 import { logPerfT } from "./performance.js";
-import { performance } from "perf_hooks";
-import { sql } from "./db.js";
+import * as PerformanceMetrics from "./performance_metrics.js";
+import * as Transactions from "./transactions.js";
+import { TxRWeb3London } from "./transactions.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -273,7 +269,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   Log.debug("updating derived stats");
   const t0 = performance.now();
   const feesBurned = pipe(
-    FeesBurned.calcBaseFeeSums(block),
+    BaseFeeSums.calcBaseFeeSums(block),
     T.chainFirstIOK(logPerfT("calc base fee sums", t0)),
   );
   const burnRates = pipe(

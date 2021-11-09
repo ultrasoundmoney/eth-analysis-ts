@@ -1,8 +1,8 @@
-import * as Config from "./config.js";
-import O from "fp-ts/lib/Option.js";
-import postgres from "postgres";
 import { camelCase } from "change-case";
 import { pipe } from "fp-ts/lib/function.js";
+import O from "fp-ts/lib/Option.js";
+import postgres from "postgres";
+import * as Config from "./config.js";
 
 const port = pipe(
   process.env.PGPORT,

@@ -1,7 +1,7 @@
-import { BlockLondon } from "./eth_node.js";
-import { LimitedTimeframe } from "./timeframe.js";
-import { pipe, seqSParT, T } from "./fp.js";
 import { sql } from "./db.js";
+import { BlockLondon } from "./eth_node.js";
+import { pipe, seqSParT, T } from "./fp.js";
+import { LimitedTimeframe } from "./timeframe.js";
 
 export type BurnRatesT = {
   burnRate5m: number;

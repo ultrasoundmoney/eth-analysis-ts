@@ -1,18 +1,18 @@
-import * as Config from "./config.js";
 import * as DateFns from "date-fns";
-import * as Duration from "./duration.js";
-import * as Log from "./log.js";
+import { parseHTML } from "linkedom";
+import fetch from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
-import fetch from "node-fetch";
-import type { AbiItem } from "web3-utils";
-import urlcatM from "urlcat";
-import { E, O, pipe, TE } from "./fp.js";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
-import { delay } from "./delay.js";
-import { getEtherscanToken } from "./config.js";
-import { parseHTML } from "linkedom";
 import { retrying } from "retry-ts/lib/Task.js";
+import urlcatM from "urlcat";
+import type { AbiItem } from "web3-utils";
+import * as Config from "./config.js";
+import { getEtherscanToken } from "./config.js";
+import { delay } from "./delay.js";
+import * as Duration from "./duration.js";
+import { E, O, pipe, TE } from "./fp.js";
+import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;

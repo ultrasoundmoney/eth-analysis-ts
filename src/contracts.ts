@@ -1,10 +1,9 @@
-import * as ContractsMetadata from "./contracts_metadata.js";
-import * as OpenSea from "./opensea.js";
-import * as T from "fp-ts/lib/Task.js";
 import A from "fp-ts/lib/Array.js";
-import { O } from "./fp.js";
-import { constant, pipe } from "fp-ts/lib/function.js";
+import { constant } from "fp-ts/lib/function";
+import * as ContractsMetadata from "./contracts_metadata.js";
 import { sql } from "./db.js";
+import { O, pipe, T } from "./fp.js";
+import * as OpenSea from "./opensea.js";
 
 export const storeContracts = (addresses: string[]): T.Task<void> => {
   if (addresses.length === 0) {

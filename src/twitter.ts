@@ -1,9 +1,9 @@
-import * as Duration from "./duration.js";
-import * as Log from "./log.js";
-import PQueue from "p-queue";
 import fetch from "node-fetch";
+import PQueue from "p-queue";
 import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
+import * as Duration from "./duration.js";
+import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;

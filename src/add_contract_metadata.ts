@@ -1,12 +1,12 @@
-import * as EthNode from "./eth_node.js";
-import * as Duration from "./duration.js";
-import * as DerivedBlockStats from "./derived_block_stats.js";
-import * as Log from "./log.js";
-import * as ContractsMetadata from "./contracts_metadata.js";
 import * as Contracts from "./contracts.js";
+import * as ContractsMetadata from "./contracts_metadata.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
+import * as DerivedBlockStats from "./derived_block_stats.js";
+import * as Duration from "./duration.js";
+import * as EthNode from "./eth_node.js";
 import { pipe } from "./fp.js";
+import * as Log from "./log.js";
 
 const main = async () => {
   Log.info("starting add-contract-metadata");

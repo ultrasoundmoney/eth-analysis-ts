@@ -1,9 +1,9 @@
-import * as Blocks from "./blocks.js";
-import * as EthPrices from "./eth_prices.js";
 import * as DateFns from "date-fns";
+import * as Blocks from "./blocks.js";
 import * as DateFnsAlt from "./date_fns_alt.js";
-import * as Log from "./log.js";
 import { sql } from "./db.js";
+import * as EthPrices from "./eth_prices.js";
+import * as Log from "./log.js";
 
 Log.debug("fetching all blocks where eth_price is null");
 

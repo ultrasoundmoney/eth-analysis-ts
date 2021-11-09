@@ -2,10 +2,10 @@ import * as DateFns from "date-fns";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
-import * as EthPriceEtherscan from "./eth_prices_etherscan.js";
-import * as Log from "./log.js";
 import { EthPrice } from "./etherscan.js";
+import * as EthPriceEtherscan from "./eth_prices_etherscan.js";
 import { pipe, T, TE } from "./fp.js";
+import * as Log from "./log.js";
 
 let latestPrice: EthPrice | undefined = undefined;
 let updateLatestPriceInterval: NodeJS.Timer | undefined = undefined;

@@ -1,10 +1,10 @@
+import fetch from "node-fetch";
+import PQueue from "p-queue";
 import * as Config from "./config.js";
+import { sql } from "./db.js";
+import { delay } from "./delay.js";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
-import fetch from "node-fetch";
-import { delay } from "./delay.js";
-import PQueue from "p-queue";
-import { sql } from "./db.js";
 
 type OpenseaContract = {
   address: string;

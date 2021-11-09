@@ -1,15 +1,15 @@
+import { pipe } from "fp-ts/lib/function.js";
+import { Row } from "postgres";
 import * as Blocks from "./blocks.js";
-import * as Leaderboards from "./leaderboards.js";
-import * as Log from "./log.js";
+import { sql } from "./db.js";
 import { A, B, O, seqTParT, T } from "./fp.js";
+import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeesNext,
   LeaderboardEntry,
   LeaderboardRow,
 } from "./leaderboards.js";
-import { Row } from "postgres";
-import { pipe } from "fp-ts/lib/function.js";
-import { sql } from "./db.js";
+import * as Log from "./log.js";
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
 let syncStatus: SyncStatus = "unknown";

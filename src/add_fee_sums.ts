@@ -1,8 +1,8 @@
-import * as Log from "./log.js";
-import { sql } from "./db.js";
-import * as EthNode from "./eth_node.js";
 import ProgressBar from "progress";
 import * as Blocks from "./blocks.js";
+import { sql } from "./db.js";
+import * as EthNode from "./eth_node.js";
+import * as Log from "./log.js";
 
 const addTipsToAnalyzedBlocks = async (): Promise<void> => {
   const blocksMissingBaseFeeSum = await sql<{ number: number }[]>`
