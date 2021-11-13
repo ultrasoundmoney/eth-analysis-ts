@@ -28,9 +28,15 @@ const main = async () => {
         continue;
       }
 
+      const addressesToRefetch = await Contracts.getAddressesToRefetch()();
       const addresses = pipe(
         latestStats.leaderboards,
         ContractsMetadata.getAddressesForMetadata,
+        // Make sure contracts we want to refetch are fetched.
+        (leaderboardAddresses) => [
+          ...leaderboardAddresses,
+          ...addressesToRefetch,
+        ],
         (set) => Array.from(set),
       );
 
@@ -38,7 +44,6 @@ const main = async () => {
         `adding metadata for ${addresses.length} addresses in leaderboard for block ${latestStats.blockNumber}`,
       );
 
-      const addressesToRefetch = await Contracts.getAddressesToRefetch()();
       await ContractsMetadata.addMetadataForLeaderboards(
         addresses,
         addressesToRefetch,
