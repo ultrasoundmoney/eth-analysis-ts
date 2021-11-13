@@ -38,7 +38,11 @@ const main = async () => {
         `adding metadata for ${addresses.length} addresses in leaderboard for block ${latestStats.blockNumber}`,
       );
 
-      await ContractsMetadata.addMetadataForLeaderboards(addresses)();
+      const addressesToRefetch = await Contracts.getAddressesToRefetch()();
+      await ContractsMetadata.addMetadataForLeaderboards(
+        addresses,
+        addressesToRefetch,
+      )();
       await Contracts.setLastLeaderboardEntryToNow(addresses);
 
       lastSeenStats = latestStats;

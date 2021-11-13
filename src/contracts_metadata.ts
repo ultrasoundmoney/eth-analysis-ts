@@ -30,10 +30,15 @@ export const getAddressesForMetadata = (
     (addresses) => new Set(addresses),
   );
 
-export const addMetadataForLeaderboards = (addresses: string[]): T.Task<void> =>
+export const addMetadataForLeaderboards = (
+  addresses: string[],
+  addressesToRefetch: Set<string>,
+): T.Task<void> =>
   pipe(
     addresses,
-    T.traverseArray(addMetadata),
+    T.traverseArray((address) =>
+      addMetadata(address, addressesToRefetch.has(address)),
+    ),
     T.map(() => undefined),
   );
 
@@ -44,10 +49,14 @@ export const web3Queue = new PQueue({
 
 const web3LastAttemptMap: Record<string, Date | undefined> = {};
 
-export const addWeb3Metadata = async (address: string): Promise<void> => {
+export const addWeb3Metadata = async (
+  address: string,
+  forceRefetch = false,
+): Promise<void> => {
   const lastAttempted = web3LastAttemptMap[address];
 
   if (
+    forceRefetch === false &&
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
@@ -171,10 +180,14 @@ const addMetadataFromSimilar = async (
   )();
 };
 
-const addEtherscanNameTag = async (address: string): Promise<void> => {
+const addEtherscanNameTag = async (
+  address: string,
+  forceRefetch = false,
+): Promise<void> => {
   const lastAttempted = etherscanNameTagLastAttemptMap[address];
 
   if (
+    forceRefetch === false &&
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
@@ -208,10 +221,14 @@ export const twitterProfileQueue = new PQueue({
   timeout: Duration.milisFromSeconds(60),
 });
 
-export const addTwitterMetadata = async (address: string): Promise<void> => {
+export const addTwitterMetadata = async (
+  address: string,
+  forceRefetch = false,
+): Promise<void> => {
   const lastAttempted = twitterProfileLastAttemptMap[address];
 
   if (
+    forceRefetch === false &&
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
@@ -255,10 +272,14 @@ export const openseaContractQueue = new PQueue({
   timeout: Duration.milisFromSeconds(120),
 });
 
-const addOpenseaMetadata = async (address: string): Promise<void> => {
+const addOpenseaMetadata = async (
+  address: string,
+  forceRefetch = false,
+): Promise<void> => {
   // Because the OpenSea API is slow, we store the last fetched in the DB instead of memory to make sure we don't repeat ourselves on restarts.
   const lastAttempted = await OpenSea.getContractLastFetch(address);
   if (
+    forceRefetch === false &&
     lastAttempted !== undefined &&
     DateFns.differenceInHours(new Date(), lastAttempted) < 6
   ) {
@@ -363,17 +384,26 @@ type Metadata = {
   supportsErc_721: boolean | null;
   supportsErc_1155: boolean | null;
 };
-const addMetadata = (address: string): T.Task<void> =>
+const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     seqTParT(
-      () => addWeb3Metadata(address),
-      () => addEtherscanNameTag(address),
-      () => addOpenseaMetadata(address),
+      () => addWeb3Metadata(address, forceRefetch),
+      () => addEtherscanNameTag(address, forceRefetch),
+      () => addOpenseaMetadata(address, forceRefetch),
       () => addDefiLlamaMetadata(address),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
     // Subtly, the updatePreferredMetadata call may uncover a manually set twitter handle.
-    T.chain(() => () => addTwitterMetadata(address)),
+    T.chain(() => () => addTwitterMetadata(address, forceRefetch)),
+    T.chainFirst(() =>
+      forceRefetch
+        ? Contracts.setSimpleBooleanColumn(
+            "force_metadata_fetch",
+            address,
+            false,
+          )
+        : T.of(undefined),
+    ),
     T.chainFirst(() => {
       return async () => {
         const [metadata] = await sql<Metadata[]>`

@@ -59,7 +59,10 @@ export const setSimpleTextColumn = (
     T.map(() => undefined),
   );
 
-export type SimpleBooleanColumn = "supports_erc_721" | "supports_erc_1155";
+export type SimpleBooleanColumn =
+  | "supports_erc_721"
+  | "supports_erc_1155"
+  | "force_metadata_fetch";
 
 export const setSimpleBooleanColumn = (
   columnName: SimpleBooleanColumn,
@@ -264,4 +267,13 @@ export const getTwitterHandle = (address: string): T.Task<string | undefined> =>
       WHERE address = ${address}
     `,
     T.map((rows) => rows[0]?.twitterHandle ?? undefined),
+  );
+
+export const getAddressesToRefetch = (): T.Task<Set<string>> =>
+  pipe(
+    () => sql<{ address: string }[]>`
+      SELECT address FROM contracts
+      WHERE force_metadata_fetch = TRUE
+    `,
+    T.map(A.reduce(new Set(), (set, row) => set.add(row.address))),
   );
