@@ -8,9 +8,10 @@ const main = async () => {
     Log.info("starting add-contract-metadata");
     await EthNode.connect();
 
-    await ContractsMetadata.addMetadataForLeaderboards([
-      "0x4fabb145d64652a948d72533023f6e7a623c7c53",
-    ])();
+    await ContractsMetadata.addMetadataForLeaderboards(
+      ["0x4fabb145d64652a948d72533023f6e7a623c7c53"],
+      new Set(),
+    )();
   } catch (error) {
     Log.error("error adding metadata", { error });
   }
