@@ -289,6 +289,27 @@ export const getBlock = async (
   return translateBlock(rawBlock);
 };
 
+export const getBlockByHash = async (
+  hash: string,
+): Promise<BlockLondon | undefined> => {
+  const [id, messageP] = registerMessageListener<RawBlock>();
+
+  send({
+    method: "eth_getBlockByHash",
+    params: [hash, false],
+    id,
+    jsonrpc: "2.0",
+  });
+
+  const rawBlock = await messageP;
+
+  if (rawBlock === null) {
+    return undefined;
+  }
+
+  return translateBlock(rawBlock);
+};
+
 type RawTxr = {
   blockHash: string;
   blockNumber: string;
