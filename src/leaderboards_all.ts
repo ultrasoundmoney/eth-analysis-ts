@@ -5,7 +5,7 @@ import { sql } from "./db.js";
 import { A, B, O, seqTParT, T } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
-  ContractBaseFeesNext,
+  ContractSums,
   LeaderboardEntry,
   LeaderboardRow,
 } from "./leaderboards.js";
@@ -50,31 +50,31 @@ const setNewestIncludedBlockNumber =
     `;
 
 const addContractBaseFeeSums = (
-  baseFeeSums: ContractBaseFeesNext,
-): T.Task<void> =>
-  pipe(
-    baseFeeSums.size === 0,
+  currency: Currency,
+  contractSums: ContractSums,
+): T.Task<void> => {
+  const column = sql(currencyColumnMap[currency]);
+  return pipe(
+    contractSums.size === 0,
     B.match(
       () =>
         pipe(
-          Array.from(baseFeeSums.entries()),
+          Array.from(contractSums.entries()),
+          A.unzip,
           A.chunksOf(20000),
-          A.map((entriesChunk) => ({
-            addresses: entriesChunk.map((entry) => entry[0]),
-            eths: entriesChunk.map((entry) => entry[1].eth),
-            usds: entriesChunk.map((entry) => entry[1].usd),
-          })),
           T.traverseArray(
-            (toInsert) => () =>
-              sql`
-                  INSERT INTO contract_base_fee_sums (contract_address, base_fee_sum, base_fee_sum_usd)
+            ([addresses, fees]) =>
+              () =>
+                sql`
+                  INSERT INTO contract_base_fee_sums (
+                    contract_address,
+                    ${column}
+                  )
                   SELECT
-                    UNNEST(${sql.array(toInsert.addresses)}::text[]),
-                    UNNEST(${sql.array(toInsert.eths)}::float[]),
-                    UNNEST(${sql.array(toInsert.usds)}::float[])
+                    UNNEST(${sql.array(addresses)}::text[]),
+                    UNNEST(${sql.array(fees)}::float[])
                   ON CONFLICT (contract_address) DO UPDATE SET
-                    base_fee_sum = contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::float,
-                    base_fee_sum_usd = contract_base_fee_sums.base_fee_sum_usd + excluded.base_fee_sum_usd::float
+                    ${column} = contract_base_fee_sums.${column} + excluded.${column}::float
                 `,
           ),
           T.map(() => undefined),
@@ -83,40 +83,40 @@ const addContractBaseFeeSums = (
       () => T.of(undefined),
     ),
   );
+};
+
+export type Currency = "eth" | "usd";
+
+const currencyColumnMap: Record<Currency, string> = {
+  eth: "base_fee_sum",
+  usd: "base_fee_sum_usd",
+};
 
 export const removeContractBaseFeeSums = (
-  baseFeeSums: ContractBaseFeesNext,
+  currency: Currency,
+  contractSums: ContractSums,
 ): T.Task<void> => {
   return pipe(
-    baseFeeSums.size === 0,
+    contractSums.size === 0,
     B.match(
       () => {
-        const addresses = Array.from(baseFeeSums.keys());
-        const baseFeesEth = pipe(
-          Array.from(baseFeeSums.values()),
-          A.map((baseFeeSum) => baseFeeSum.eth),
-        );
-        const baseFeesUsd = pipe(
-          Array.from(baseFeeSums.values()),
-          A.map((baseFeeSum) => baseFeeSum.usd),
-        );
+        const addresses = Array.from(contractSums.keys());
+        const baseFeeSums = Array.from(contractSums.values());
+        const column = currencyColumnMap[currency];
         return pipe(
           () => sql`
-                  UPDATE contract_base_fee_sums SET
-                    base_fee_sum = base_fee_sum - data_table.base_fees,
-                    base_fee_sum_usd = base_fee_sum_usd - data_table.base_fees_usd
-                  FROM
-                    (SELECT
-                      UNNEST(${sql.array(
-                        addresses,
-                      )}::text[]) as contract_address,
-                      UNNEST(${sql.array(baseFeesEth)}::float[]) as base_fees,
-                      UNNEST(${sql.array(
-                        baseFeesUsd,
-                      )}::float[]) as base_fees_usd
-                    ) as data_table
-                  WHERE contract_base_fee_sums.contract_address = data_table.contract_address;
-                `,
+            UPDATE contract_base_fee_sums SET
+              ${sql(column)} = contract_base_fee_sums.${sql(
+            column,
+          )} - data_table.${sql(column)}
+            FROM
+              (
+                SELECT
+                  UNNEST(${sql.array(addresses)}::text[]) as contract_address,
+                  UNNEST(${sql.array(baseFeeSums)}::float[]) as ${sql(column)}
+              ) as data_table
+            WHERE contract_base_fee_sums.contract_address = data_table.contract_address
+          `,
           T.map(() => undefined),
         );
       },
@@ -128,11 +128,13 @@ export const removeContractBaseFeeSums = (
 
 export const addBlock = (
   blockNumber: number,
-  baseFeeSums: ContractBaseFeesNext,
+  baseFeeSumsEth: ContractSums,
+  baseFeeSumsUsd: ContractSums,
 ): T.Task<void> =>
   pipe(
     seqTParT(
-      addContractBaseFeeSums(baseFeeSums),
+      addContractBaseFeeSums("eth", baseFeeSumsEth),
+      addContractBaseFeeSums("usd", baseFeeSumsUsd),
       setNewestIncludedBlockNumber(blockNumber),
     ),
     T.map(() => undefined),
@@ -160,7 +162,13 @@ export const addMissingBlocks = (upToIncluding: number): T.Task<void> =>
 
       return pipe(
         Leaderboards.getRangeBaseFees(newestIncludedBlock + 1, upToIncluding),
-        T.chain(addContractBaseFeeSums),
+        T.chain((baseFeeSums) =>
+          seqTParT(
+            addContractBaseFeeSums("eth", baseFeeSums.eth),
+            addContractBaseFeeSums("usd", baseFeeSums.usd),
+          ),
+        ),
+        T.map(() => undefined),
       );
     }),
   );

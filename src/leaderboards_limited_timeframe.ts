@@ -7,6 +7,7 @@ import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeesNext,
   ContractBaseFeesRow,
+  ContractBaseFeeSums,
   ContractSums,
   LeaderboardEntry,
   LeaderboardRow,
@@ -181,11 +182,9 @@ export const addAllBlocksForAllTimeframes = (
 
 export const addBlockForAllTimeframes = (
   block: BlockLondon,
-  baseFeesToAdd: ContractBaseFeesNext,
+  baseFeesToAddEth: ContractSums,
+  baseFeesToAddUsd: ContractSums,
 ): void => {
-  const baseFeesToAddEth = Leaderboards.pickDenomination(baseFeesToAdd, "eth");
-  const baseFeesToAddUsd = Leaderboards.pickDenomination(baseFeesToAdd, "usd");
-
   Timeframe.limitedTimeframes.forEach((timeframe) => {
     blocksInTimeframe[timeframe] = pipe(
       blocksInTimeframe[timeframe],
@@ -214,7 +213,7 @@ const findExpiredBlocks = (
 
 export const rollbackToBefore = (
   blockNumber: number,
-  baseFeesToRemove: ContractBaseFeesNext,
+  baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
   Timeframe.limitedTimeframes.forEach((timeframe) => {
     const includedBlocks = blocksInTimeframe[timeframe];
@@ -234,11 +233,11 @@ export const rollbackToBefore = (
 
     contractSumsPerTimeframe[timeframe] = subtractFromSums(
       contractSumsPerTimeframe[timeframe],
-      Leaderboards.pickDenomination(baseFeesToRemove, "eth"),
+      baseFeesToRemove.eth,
     );
     contractSumsPerTimeframeUsd[timeframe] = subtractFromSums(
       contractSumsPerTimeframeUsd[timeframe],
-      Leaderboards.pickDenomination(baseFeesToRemove, "usd"),
+      baseFeesToRemove.usd,
     );
 
     return undefined;
@@ -281,11 +280,11 @@ export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
         T.chainIOK((baseFees) => () => {
           contractSumsPerTimeframe[timeframe] = subtractFromSums(
             contractSumsPerTimeframe[timeframe],
-            Leaderboards.pickDenomination(baseFees, "eth"),
+            baseFees.eth,
           );
           contractSumsPerTimeframeUsd[timeframe] = subtractFromSums(
             contractSumsPerTimeframeUsd[timeframe],
-            Leaderboards.pickDenomination(baseFees, "usd"),
+            baseFees.usd,
           );
         }),
       );

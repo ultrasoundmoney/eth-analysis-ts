@@ -128,8 +128,7 @@ const getContractRows = (
   feeBreakdown: FeeBreakdown,
 ): ContractBaseFeesRow[] =>
   pipe(
-    feeBreakdown.contract_use_fees,
-    Object.entries,
+    Array.from(feeBreakdown.contract_use_fees.entries()),
     A.map(([address, baseFees]) => ({
       base_fees: baseFees,
       block_number: block.number,
@@ -161,14 +160,16 @@ export const updateBlock = (
     (contractBurnRow) => contractBurnRow.contract_address,
   );
 
-  const updateBlockTask = () =>
-    sql`
+  const updateBlockTask = pipe(
+    () => sql`
       UPDATE blocks
       SET
         ${sql(blockRow)}
       WHERE
         number = ${block.number}
-    `.then(() => undefined);
+    `,
+    T.map(() => undefined),
+  );
 
   const updateContractBaseFeesTask = seqTSeqT(
     () =>
@@ -378,6 +379,39 @@ export const addMissingBlocks = async (
 
 const knownBlocks: Set<number> = new Set();
 
+const rollback = (block: BlockLondon): T.Task<void> => {
+  const t0 = performance.now();
+  const blocksToRollback = pipe(
+    knownBlocks.values(),
+    (blocksIter) => Array.from(blocksIter),
+    A.filter((knownBlockNumber) => knownBlockNumber >= block.number),
+    A.sort(Num.Ord),
+  );
+
+  Log.info(`rollback, blocks to rollback: ${blocksToRollback.join(",")}`);
+
+  return pipe(
+    Leaderboards.getRangeBaseFees(
+      blocksToRollback[0],
+      blocksToRollback[blocksToRollback.length - 1],
+    ),
+    T.chain((sumsToRollback) => {
+      LeaderboardsLimitedTimeframe.rollbackToBefore(
+        block.number,
+        sumsToRollback,
+      );
+      return pipe(
+        seqTParT(
+          LeaderboardsAll.removeContractBaseFeeSums("eth", sumsToRollback.eth),
+          LeaderboardsAll.removeContractBaseFeeSums("usd", sumsToRollback.usd),
+        ),
+        T.map(() => undefined),
+      );
+    }),
+    T.chainFirstIOK(logPerfT("rollback", t0)),
+  );
+};
+
 export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
     () => getBlockWithRetry(blockNumber),
@@ -389,30 +423,8 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       if (!knownBlocks.has(block.number)) {
         return T.of(undefined);
       }
-      const t0 = performance.now();
-      const blocksToRollback = pipe(
-        knownBlocks.values(),
-        (blocksIter) => Array.from(blocksIter),
-        A.filter((knownBlockNumber) => knownBlockNumber >= block.number),
-        A.sort(Num.Ord),
-      );
 
-      Log.info(`rollback, blocks to rollback: ${blocksToRollback.join(",")}`);
-
-      return pipe(
-        Leaderboards.getRangeBaseFees(
-          blocksToRollback[0],
-          blocksToRollback[blocksToRollback.length - 1],
-        ),
-        T.chain((sumsToRollback) => {
-          LeaderboardsLimitedTimeframe.rollbackToBefore(
-            block.number,
-            sumsToRollback,
-          );
-          return LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback);
-        }),
-        T.chainFirstIOK(logPerfT("rollback", t0)),
-      );
+      return rollback(block);
     }),
     T.chain((block) =>
       seqTParT(
@@ -435,18 +447,11 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         ),
         T.chain(() => {
           knownBlocks.add(blockNumber);
-          const contractBaseFees = pipe(
-            BaseFees.calcBlockFeeBreakdown(block, txrs),
-            (feeBreakdown) => feeBreakdown.contract_use_fees,
-            (useFees) => Object.entries(useFees),
-            A.map(
-              ([address, fees]) =>
-                [
-                  address,
-                  { eth: fees, usd: (fees * ethPrice.ethusd) / 10 ** 18 },
-                ] as [string, { eth: number; usd: number }],
-            ),
-            (entries) => new Map(entries),
+
+          const feeBreakdown = BaseFees.calcBlockFeeBreakdown(
+            block,
+            txrs,
+            ethPrice.ethusd,
           );
 
           const t0 = performance.now();
@@ -457,7 +462,8 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
                 addLeaderboardLimitedTimeframeQueue.add(() =>
                   LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
                     block,
-                    contractBaseFees,
+                    feeBreakdown.contract_use_fees,
+                    feeBreakdown.contract_use_fees_usd,
                   ),
                 ),
               () =>
@@ -466,7 +472,11 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
                 ),
               () =>
                 addLeaderboardAllQueue.add(
-                  LeaderboardsAll.addBlock(block.number, contractBaseFees),
+                  LeaderboardsAll.addBlock(
+                    block.number,
+                    feeBreakdown.contract_use_fees,
+                    feeBreakdown.contract_use_fees_usd,
+                  ),
                 ),
             ),
             T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),

@@ -11,7 +11,9 @@ export type FeeBreakdown = {
   /** fees burned for simple transfers. */
   transfers: number;
   /** fees burned for use of contracts. */
-  contract_use_fees: Record<string, number>;
+  contract_use_fees: Map<string, number>;
+  /** fees burned for use of contracts in USD. */
+  contract_use_fees_usd: Map<string, number>;
   /** fees burned for the creation of contracts. */
   contract_creation_fees: number;
 };
@@ -24,25 +26,22 @@ export const calcTxrBaseFee = (
 /**
  * Map of base fees grouped by contract address
  */
-type ContractBaseFeeMap = Record<string, number>;
+type ContractBaseFeeMap = Map<string, number>;
 
 const calcBaseFeePerContract = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
+  ethPrice?: number,
 ): ContractBaseFeeMap =>
   pipe(
     txrs,
-    A.reduce({} as ContractBaseFeeMap, (feeSumMap, txr: TxRWeb3London) => {
-      // Contract creation
-      if (txr.to === null) {
-        return feeSumMap;
-      }
-
-      const baseFeeSum = feeSumMap[txr.to] || 0;
-      feeSumMap[txr.to] = baseFeeSum + calcTxrBaseFee(block, txr);
-
-      return feeSumMap;
-    }),
+    A.reduce(new Map(), (sumMap, txr: TxRWeb3London) =>
+      sumMap.set(
+        txr.to,
+        (sumMap.get(txr.to) || 0) +
+          calcTxrBaseFee(block, txr) * (ethPrice ?? 1),
+      ),
+    ),
   );
 
 export const sumFeeMaps = (
@@ -62,6 +61,7 @@ export const calcBlockBaseFeeSum = (block: BlockLondon): number =>
 export const calcBlockFeeBreakdown = (
   block: BlockLondon,
   txrs: readonly TxRWeb3London[],
+  ethPrice?: number,
 ): FeeBreakdown => {
   const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
     Transactions.segmentTxrs(txrs);
@@ -79,10 +79,16 @@ export const calcBlockFeeBreakdown = (
   );
 
   const feePerContract = calcBaseFeePerContract(block, contractUseTxrs);
+  const feePerContractUsd = calcBaseFeePerContract(
+    block,
+    contractUseTxrs,
+    ethPrice,
+  );
 
   return {
     transfers: ethTransferFees,
     contract_use_fees: feePerContract,
+    contract_use_fees_usd: feePerContractUsd,
     contract_creation_fees: contractCreationFees,
   };
 };

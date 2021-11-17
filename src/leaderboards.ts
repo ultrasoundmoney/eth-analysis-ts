@@ -88,6 +88,8 @@ export type ContractBaseFeesRow = {
 
 export type ContractBaseFeesNext = Map<string, { eth: number; usd: number }>;
 
+export type ContractBaseFeeSums = { eth: ContractSums; usd: ContractSums };
+
 export const collectInMap = (rows: ContractBaseFeesRow[]) =>
   pipe(
     rows,
@@ -102,8 +104,8 @@ export const collectInMap = (rows: ContractBaseFeesRow[]) =>
 export const getRangeBaseFees = (
   from: number,
   upToIncluding: number,
-): T.Task<ContractBaseFeesNext> => {
-  return pipe(
+): T.Task<ContractBaseFeeSums> =>
+  pipe(
     () => sql<ContractBaseFeesRow[]>`
       SELECT
         contract_address,
@@ -114,10 +116,14 @@ export const getRangeBaseFees = (
       WHERE block_number >= ${from}
       AND block_number <= ${upToIncluding}
       GROUP BY (contract_address)
-    `,
-    T.map(collectInMap),
+  `,
+    T.map(
+      A.reduce({ eth: new Map(), usd: new Map() }, (sums, row) => ({
+        eth: sums.eth.set(row.contractAddress, row.baseFees),
+        usd: sums.usd.set(row.contractAddress, row.baseFeesUsd),
+      })),
+    ),
   );
-};
 
 export type LeaderboardsT = {
   leaderboard5m: LeaderboardRow[];
