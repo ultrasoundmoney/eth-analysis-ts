@@ -69,9 +69,9 @@ export type MarketDataError = CoinGeckoApiError | UnknownError;
 // CoinGecko API has a 50 requests per minute rate-limit. Use up half the capacity as instances may run on the same machine and rates are limited by IP.
 export const apiQueue = new PQueue({
   concurrency: 2,
-  interval: Duration.milisFromSeconds(8),
+  interval: Duration.millisFromSeconds(8),
   intervalCap: 3,
-  timeout: Duration.milisFromSeconds(8),
+  timeout: Duration.millisFromSeconds(8),
 });
 
 const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
@@ -118,12 +118,12 @@ const fetchWithRetry = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
 
 const circulatingSupplyCache = new QuickLRU<string, CoinResponse>({
   maxSize: 100,
-  maxAge: Duration.milisFromSeconds(60),
+  maxAge: Duration.millisFromSeconds(60),
 });
 
 const priceCache = new QuickLRU<string, PriceResponse>({
   maxSize: 100,
-  maxAge: Duration.milisFromSeconds(16),
+  maxAge: Duration.millisFromSeconds(16),
 });
 
 const fetchWithCache = <A>(
@@ -224,7 +224,7 @@ type HistoricPricesResponse = {
 
 const pastDayEthPricesCache = new QuickLRU<string, HistoricPricesResponse>({
   maxSize: 1,
-  maxAge: Duration.milisFromSeconds(60),
+  maxAge: Duration.millisFromSeconds(60),
 });
 
 export const getPastDayEthPrices = (): TE.TaskEither<

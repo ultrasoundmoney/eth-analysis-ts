@@ -39,7 +39,7 @@ export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
 export const getBlockWithRetry = async (
   blockNumber: number | "latest" | string,
 ): Promise<BlockLondon> => {
-  const delayMilis = Duration.milisFromSeconds(3);
+  const delayMilis = Duration.millisFromSeconds(3);
   const delaySeconds = delayMilis * 1000;
   let tries = 0;
 

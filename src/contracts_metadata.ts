@@ -44,7 +44,7 @@ export const addMetadataForLeaderboards = (
 
 export const web3Queue = new PQueue({
   concurrency: 4,
-  timeout: Duration.milisFromSeconds(60),
+  timeout: Duration.millisFromSeconds(60),
 });
 
 const web3LastAttemptMap: Record<string, Date | undefined> = {};
@@ -109,7 +109,7 @@ const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
 
 export const etherscanNameTagQueue = new PQueue({
   concurrency: 4,
-  timeout: Duration.milisFromSeconds(60),
+  timeout: Duration.millisFromSeconds(60),
 });
 
 type SimilarContract = {
@@ -218,7 +218,7 @@ const twitterProfileLastAttemptMap: Record<string, Date | undefined> = {};
 
 export const twitterProfileQueue = new PQueue({
   concurrency: 2,
-  timeout: Duration.milisFromSeconds(60),
+  timeout: Duration.millisFromSeconds(60),
 });
 
 export const addTwitterMetadata = async (
@@ -269,7 +269,7 @@ export const addTwitterMetadata = async (
 
 export const openseaContractQueue = new PQueue({
   concurrency: 2,
-  timeout: Duration.milisFromSeconds(120),
+  timeout: Duration.millisFromSeconds(120),
 });
 
 const addOpenseaMetadata = async (

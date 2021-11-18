@@ -110,7 +110,7 @@ export const getWeb3 = (): Web3 => {
   const providerOptions = {
     reconnect: {
       auto: true,
-      delay: Duration.milisFromSeconds(5),
+      delay: Duration.millisFromSeconds(5),
       maxAttempts: 5,
     },
   };

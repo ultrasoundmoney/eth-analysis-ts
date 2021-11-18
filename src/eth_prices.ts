@@ -244,7 +244,7 @@ type EthStats = {
 
 const ethStatsCache = new QuickLRU<string, EthStats>({
   maxSize: 1,
-  maxAge: Duration.milisFromSeconds(16),
+  maxAge: Duration.millisFromSeconds(16),
 });
 
 export const getEthStats = (): T.Task<EthStats | undefined> => {
@@ -309,27 +309,27 @@ const getTimeframeAverageTask = (timeframe: LimitedTimeframe): T.Task<number> =>
 const averagePriceCacheMap: Record<Timeframe, QuickLRU<string, number>> = {
   "5m": new QuickLRU<string, number>({
     maxSize: 1,
-    maxAge: Duration.milisFromSeconds(3),
+    maxAge: Duration.millisFromSeconds(3),
   }),
   "1h": new QuickLRU<string, number>({
     maxSize: 1,
-    maxAge: Duration.milisFromMinutes(2),
+    maxAge: Duration.millisFromMinutes(2),
   }),
   "24h": new QuickLRU<string, number>({
     maxSize: 1,
-    maxAge: Duration.milisFromMinutes(30),
+    maxAge: Duration.millisFromMinutes(30),
   }),
   "7d": new QuickLRU<string, number>({
     maxSize: 1,
-    maxAge: Duration.milisFromMinutes(30),
+    maxAge: Duration.millisFromMinutes(30),
   }),
   "30d": new QuickLRU<string, number>({
     maxSize: 1,
-    maxAge: Duration.milisFromMinutes(30),
+    maxAge: Duration.millisFromMinutes(30),
   }),
   all: new QuickLRU<string, number>({
     maxSize: 1,
-    maxAge: Duration.milisFromMinutes(30),
+    maxAge: Duration.millisFromMinutes(30),
   }),
 };
 

@@ -19,7 +19,7 @@ export const getLatestPrice = (): T.Task<EthPrice> =>
           if (updateLatestPriceInterval === undefined) {
             updateLatestPriceInterval = setInterval(
               () => setLatestPrice()(),
-              Duration.milisFromSeconds(16),
+              Duration.millisFromSeconds(16),
             );
           }
         }),

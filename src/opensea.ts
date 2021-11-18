@@ -18,7 +18,7 @@ type OpenseaContract = {
 
 export const fetchContractQueue = new PQueue({
   concurrency: 2,
-  interval: Duration.milisFromSeconds(8),
+  interval: Duration.millisFromSeconds(8),
   intervalCap: 6,
 });
 
@@ -39,7 +39,7 @@ export const getContract = async (
     return undefined;
   }
 
-  const retryDelay = Duration.milisFromSeconds(16);
+  const retryDelay = Duration.millisFromSeconds(16);
 
   if (res.status === 504 && attempt < 3) {
     Log.warn(

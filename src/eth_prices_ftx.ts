@@ -27,7 +27,7 @@ type IndexPriceResponse = {
 // FTX says they allow 6 requests per second. We're not sure yet.
 export const ftxApiQueue = new PQueue({
   concurrency: 2,
-  interval: Duration.milisFromSeconds(1),
+  interval: Duration.millisFromSeconds(1),
   intervalCap: 3,
 });
 

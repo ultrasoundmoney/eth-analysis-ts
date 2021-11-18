@@ -98,7 +98,7 @@ const fetchAbiWithRetry = (
 // We want to not be pulling ABIs constantly, at the same time they may get updated sometimes.
 const abiCache = new QuickLRU<string, AbiItem[]>({
   maxSize: 300,
-  maxAge: Duration.milisFromHours(3),
+  maxAge: Duration.millisFromHours(3),
 });
 
 export const getAbiWithCache = (
@@ -144,7 +144,7 @@ export const getNameTag = async (
     Log.warn(
       `fetch etherscan name for ${address}, cloudflare 522, attempt: ${attempt}, waiting and retrying`,
     );
-    await delay(Duration.milisFromSeconds(3));
+    await delay(Duration.millisFromSeconds(3));
     return getNameTag(address, attempt + 1);
   }
 
@@ -153,7 +153,7 @@ export const getNameTag = async (
     Log.warn(
       `fetch etherscan name for ${address}, cloudflare 520, attempt: ${attempt}, waiting and retrying`,
     );
-    await delay(Duration.milisFromSeconds(3));
+    await delay(Duration.millisFromSeconds(3));
     return getNameTag(address, attempt + 1);
   }
 
@@ -175,7 +175,7 @@ export const getNameTag = async (
 };
 
 export const fetchTokenTitleQueue = new PQueue({
-  interval: Duration.milisFromSeconds(8),
+  interval: Duration.millisFromSeconds(8),
   intervalCap: 2,
 });
 
@@ -263,10 +263,10 @@ export const getTokenTitle = async (
 
 export const apiQueue = new PQueue({
   concurrency: 5,
-  interval: Duration.milisFromSeconds(1),
+  interval: Duration.millisFromSeconds(1),
   intervalCap: 5,
   throwOnTimeout: true,
-  timeout: Duration.milisFromSeconds(60),
+  timeout: Duration.millisFromSeconds(60),
 });
 
 type UnixTimestampStr = string;

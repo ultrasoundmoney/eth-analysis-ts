@@ -1,4 +1,4 @@
-import { milisFromSeconds } from "./duration.js";
+import { millisFromSeconds } from "./duration.js";
 
 type CanaryType = "block" | "leaderboard";
 const cage: Record<CanaryType, NodeJS.Timeout | undefined> = {
@@ -6,7 +6,7 @@ const cage: Record<CanaryType, NodeJS.Timeout | undefined> = {
   leaderboard: undefined,
 };
 
-const durationMilis = milisFromSeconds(120);
+const durationMilis = millisFromSeconds(120);
 
 export const releaseCanary = (type: CanaryType): void => {
   cage[type] = setTimeout(() => {

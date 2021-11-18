@@ -53,7 +53,7 @@ export const getTxrsWithRetry = async (
       break;
     }
 
-    const delayMilis = Duration.milisFromSeconds(3);
+    const delayMilis = Duration.millisFromSeconds(3);
 
     if (tries === 10) {
       Sentry.captureException(

@@ -24,7 +24,7 @@ const main = async () => {
         Log.debug(
           `already added metadata for block ${latestStats.blockNumber}, waiting and checking for new leaderboard`,
         );
-        await delay(Duration.milisFromSeconds(1));
+        await delay(Duration.millisFromSeconds(1));
         continue;
       }
 

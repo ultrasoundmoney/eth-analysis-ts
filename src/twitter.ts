@@ -37,7 +37,7 @@ type ApiError = {
 export const fetchProfileQueue = new PQueue({
   concurrency: 2,
   intervalCap: 10,
-  interval: Duration.milisFromSeconds(10),
+  interval: Duration.millisFromSeconds(10),
 });
 
 export const getProfileByHandle = async (
