@@ -20,3 +20,10 @@ export const secondsBetween = (
 ): number => secondsBetweenInverse(to, from);
 
 export const secondsBetweenAbs = flow(secondsBetween, Math.abs);
+
+export const millisecondsBetween = (
+  from: Date | number,
+  to: Date | number,
+): number => DateFns.differenceInMilliseconds(to, from);
+
+export const millisecondsBetweenAbs = flow(millisecondsBetween, Math.abs);

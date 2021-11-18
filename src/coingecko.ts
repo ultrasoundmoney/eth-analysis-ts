@@ -4,8 +4,8 @@ import QuickLRU from "quick-lru";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 import urlcatM from "urlcat";
-import { JsTimestamp } from "./date_fns_alt.js";
 import * as Duration from "./duration.js";
+import { HistoricPrice } from "./eth_prices.js";
 import { E, O, pipe, seqTParTE, TE } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -217,7 +217,6 @@ export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
     }),
   );
 
-export type HistoricPrice = [JsTimestamp, number];
 type HistoricPricesResponse = {
   prices: HistoricPrice[];
 };

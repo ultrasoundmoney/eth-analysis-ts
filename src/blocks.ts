@@ -361,7 +361,7 @@ export const addMissingBlocks = async (
           seqTParT(
             T.of(block),
             () => Transactions.getTxrsWithRetry(block),
-            EthPrices.getPriceForOldBlock(block),
+            EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
           ),
         ),
         T.chain(([block, txrs, ethPrice]) =>
@@ -430,7 +430,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       seqTParT(
         T.of(block),
         () => Transactions.getTxrsWithRetry(block),
-        () => EthPrices.getPriceForBlock(block),
+        EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
       ),
     ),
     T.chainFirstIOK(() => () => {

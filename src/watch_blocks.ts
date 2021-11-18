@@ -11,7 +11,7 @@ import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
-import * as EthPricesNext from "./eth_prices_next.js";
+import * as EthPrices from "./eth_prices.js";
 
 if (Config.getEnv() !== "dev") {
   Sentry.init({
@@ -73,7 +73,7 @@ const main = async () => {
       syncLeaderboardAll(latestBlockNumberOnStart),
     )();
 
-    EthPricesNext.continuouslyStorePrice();
+    EthPrices.continuouslyStorePrice();
   } catch (error) {
     Log.error("error adding new blocks", { error });
     EthNode.closeConnection();

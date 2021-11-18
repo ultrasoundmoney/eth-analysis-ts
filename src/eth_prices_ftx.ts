@@ -2,12 +2,12 @@ import * as DateFns from "date-fns";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
 import urlcatM from "urlcat";
-import { HistoricPrice } from "./coingecko.js";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import { JsTimestamp } from "./date_fns_alt.js";
 import * as Duration from "./duration.js";
 import { EthPrice } from "./etherscan.js";
 import * as EthPrices from "./eth_prices.js";
+import { HistoricPrice } from "./eth_prices.js";
 import { A, pipe } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -71,19 +71,19 @@ export const getFtxPrices = async (
 
 export const getNearestFtxPrice = async (
   maxDistanceInSeconds: number,
-  blockMinedAt: Date,
+  timestamp: Date,
 ): Promise<EthPrice | undefined> => {
-  const prices = await getFtxPrices(2, blockMinedAt);
-  const nearestPrice = EthPrices.findNearestHistoricPrice(prices, blockMinedAt);
-  Log.debug("ftx nearest", { prices, blockMinedAt, nearestPrice });
-  const distance = DateFnsAlt.secondsBetweenAbs(nearestPrice[0], blockMinedAt);
+  const prices = await getFtxPrices(2, timestamp);
+  const nearestPrice = EthPrices.findNearestHistoricPrice(prices, timestamp);
+  Log.debug("ftx nearest", { prices, blockMinedAt: timestamp, nearestPrice });
+  const distance = DateFnsAlt.secondsBetweenAbs(nearestPrice[0], timestamp);
 
   if (distance > maxDistanceInSeconds) {
     Log.warn(`nearest ftx price not close enough, diff: ${distance}s`);
     return undefined;
   }
 
-  Log.debug(`found a close enough ftx price, diff: ${distance}`);
+  Log.debug(`found a close enough ftx price, diff: ${distance}s`);
 
   return {
     timestamp: new Date(nearestPrice[0]),
