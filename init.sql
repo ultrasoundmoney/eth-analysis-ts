@@ -11,19 +11,19 @@ CREATE TABLE "blocks" (
   "hash" text PRIMARY KEY,
   "number" int UNIQUE NOT NULL,
   "mined_at" timestamptz NOT NULL,
-  "tips" double,
-  "base_fee_sum" double,
-  "contract_creation_sum" double,
-  "eth_transfer_sum" double,
+  "tips" double precision,
+  "base_fee_sum" double precision,
+  "contract_creation_sum" double precision,
+  "eth_transfer_sum" double precision,
   "base_fee_per_gas" bigint,
   "gas_used" bigint,
-  "eth_price" double
+  "eth_price" double precision
 );
 
 CREATE TABLE "contract_base_fees" (
   "block_number" int,
   "contract_address" text,
-  "base_fees" double,
+  "base_fees" double precision,
   PRIMARY KEY ("block_number", "contract_address")
 );
 
@@ -67,8 +67,8 @@ CREATE TABLE "derived_block_stats" (
 
 CREATE TABLE "contract_base_fee_sums" (
   "contract_address" text PRIMARY KEY,
-  "base_fee_sum" double,
-  "base_fee_sum_usd" double
+  "base_fee_sum" double precision,
+  "base_fee_sum_usd" double precision
 );
 
 CREATE TABLE "base_fee_sum_included_blocks" (
@@ -84,7 +84,9 @@ CREATE TABLE "contract_creations" (
 
 CREATE TABLE "eth_prices" (
   "timestamp" timestamptz PRIMARY KEY,
-  "ethusd" double
+  "ethusd" double precision,
+  "ethusd_24h_change" double precision
+);
 );
 
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
