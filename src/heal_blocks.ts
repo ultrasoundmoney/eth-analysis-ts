@@ -91,7 +91,7 @@ const healBlock = async (hashBlock: HashBlock) => {
   await LeaderboardsAll.addBlock(
     block.number,
     contractBaseFees.contract_use_fees,
-    contractBaseFees.contract_use_fees_usd,
+    contractBaseFees.contract_use_fees_usd!,
   )();
   return undefined;
 };
