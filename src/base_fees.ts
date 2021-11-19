@@ -13,7 +13,7 @@ export type FeeBreakdown = {
   /** fees burned for use of contracts. */
   contract_use_fees: Map<string, number>;
   /** fees burned for use of contracts in USD. */
-  contract_use_fees_usd: Map<string, number>;
+  contract_use_fees_usd: Map<string, number> | undefined;
   /** fees burned for the creation of contracts. */
   contract_creation_fees: number;
 };
@@ -31,7 +31,21 @@ type ContractBaseFeeMap = Map<string, number>;
 const calcBaseFeePerContract = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
-  ethPrice?: number,
+): ContractBaseFeeMap =>
+  pipe(
+    txrs,
+    A.reduce(new Map(), (sumMap, txr: TxRWeb3London) =>
+      sumMap.set(
+        txr.to,
+        (sumMap.get(txr.to) || 0) + calcTxrBaseFee(block, txr),
+      ),
+    ),
+  );
+
+const calcBaseFeePerContractUsd = (
+  block: BlockLondon,
+  txrs: TxRWeb3London[],
+  ethPrice: number,
 ): ContractBaseFeeMap =>
   pipe(
     txrs,
@@ -39,7 +53,7 @@ const calcBaseFeePerContract = (
       sumMap.set(
         txr.to,
         (sumMap.get(txr.to) || 0) +
-          calcTxrBaseFee(block, txr) * (ethPrice ?? 1),
+          (calcTxrBaseFee(block, txr) / 10 ** 18) * ethPrice,
       ),
     ),
   );
@@ -79,11 +93,10 @@ export const calcBlockFeeBreakdown = (
   );
 
   const feePerContract = calcBaseFeePerContract(block, contractUseTxrs);
-  const feePerContractUsd = calcBaseFeePerContract(
-    block,
-    contractUseTxrs,
-    ethPrice,
-  );
+  const feePerContractUsd =
+    ethPrice === undefined
+      ? undefined
+      : calcBaseFeePerContractUsd(block, contractUseTxrs, ethPrice);
 
   return {
     transfers: ethTransferFees,

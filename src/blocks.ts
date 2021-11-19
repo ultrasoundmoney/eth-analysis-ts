@@ -463,7 +463,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
                   LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
                     block,
                     feeBreakdown.contract_use_fees,
-                    feeBreakdown.contract_use_fees_usd,
+                    feeBreakdown.contract_use_fees_usd!,
                   ),
                 ),
               () =>
@@ -475,7 +475,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
                   LeaderboardsAll.addBlock(
                     block.number,
                     feeBreakdown.contract_use_fees,
-                    feeBreakdown.contract_use_fees_usd,
+                    feeBreakdown.contract_use_fees_usd!,
                   ),
                 ),
             ),
