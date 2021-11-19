@@ -1,4 +1,5 @@
 import * as DateFns from "date-fns";
+import * as EthPrices from "./eth_prices.js";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
@@ -9,7 +10,7 @@ import urlcatM from "urlcat";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
-import { E, O, pipe, seqTParTE, TE } from "./fp.js";
+import { E, O, pipe, seqTParT, seqTParTE, TE } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -248,14 +249,20 @@ export const getPastDayEthPrices = (): TE.TaskEither<
 };
 
 const storeMarketCaps = async () => {
-  const coins = await getPrices()();
+  const [coins, ethPrice] = await seqTParT(
+    getPrices(),
+    EthPrices.getEthPrice(new Date()),
+  )();
 
   if (E.isLeft(coins)) {
     throw new Error(String(coins.left));
   }
 
   const btcMarketCap = coins.right.bitcoin.usd_market_cap;
-  const ethMarketCap = coins.right.ethereum.usd_market_cap;
+  const coingeckoMarketCap = coins.right.ethereum.usd_market_cap;
+  const coingeckoEthPrice = coins.right.ethereum.usd;
+  const ethCirculatingSupply = coingeckoMarketCap / coingeckoEthPrice;
+  const ethMarketCap = ethCirculatingSupply * ethPrice.ethusd;
   // See: https://www.gold.org/goldhub/data/above-ground-stocks which many appear to use.
   // In tonnes.
   const goldCirculatingSupply = 201296.1;
@@ -264,14 +271,14 @@ const storeMarketCaps = async () => {
   const goldPricePerTroyOz = coins.right["tether-gold"].usd;
   const goldMarketCap =
     goldCirculatingSupply * kgPerTonne * troyOzPerKg * goldPricePerTroyOz;
-  // See: https://ycharts.com/indicators/us_m2_money_supply
-  const usdM2MarketCap = 20.98 * 10 ** 12;
+  // See: https://ycharts.com/indicators/us_m3_money_supply
+  const usdM3MarketCap = 20_982_900_000_000;
 
   const marketCaps = {
     btc_market_cap: btcMarketCap,
     eth_market_cap: ethMarketCap,
     gold_market_cap: goldMarketCap,
-    usd_m2_market_cap: usdM2MarketCap,
+    usd_m3_market_cap: usdM3MarketCap,
     timestamp: new Date(),
   };
 
@@ -288,7 +295,7 @@ const storeMarketCaps = async () => {
     WHERE timestamp IN (
       SELECT timestamp FROM market_caps
       ORDER BY timestamp DESC
-      OFFSET 128
+      OFFSET 1
     )
   `;
 };
@@ -297,7 +304,7 @@ type MarketCaps = {
   btcMarketCap: number;
   ethMarketCap: number;
   goldMarketCap: number;
-  usdM2MarketCap: number;
+  usdM3MarketCap: number;
   timestamp: Date;
 };
 
@@ -307,7 +314,7 @@ export const getMarketCaps = async (): Promise<MarketCaps> =>
       btc_market_cap,
       eth_market_cap,
       gold_market_cap,
-      usd_m2_market_cap,
+      usd_m3_market_cap,
       timestamp
     FROM market_caps
     ORDER BY timestamp DESC
