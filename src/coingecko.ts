@@ -1,9 +1,12 @@
+import * as DateFns from "date-fns";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
+import { setInterval } from "timers/promises";
 import urlcatM from "urlcat";
+import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
 import { E, O, pipe, seqTParTE, TE } from "./fp.js";
@@ -178,6 +181,7 @@ const getPrices = (): TE.TaskEither<MarketDataError, PriceResponse> => {
   const url = urlcat("https://api.coingecko.com/api/v3/simple/price", {
     ids: ["ethereum", "bitcoin", "tether-gold"].join(","),
     vs_currencies: ["usd", "btc"].join(","),
+    include_market_cap: "true",
     include_24hr_change: "true",
   });
 
@@ -212,6 +216,8 @@ export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
         gold: {
           usd: gold.usd,
           usd24hChange: gold.usd_24h_change,
+          // In tonnes.
+          circulatingSupply: 201296.1,
         },
       };
     }),
@@ -239,4 +245,107 @@ export const getPastDayEthPrices = (): TE.TaskEither<
     fetchWithCache<HistoricPricesResponse>(pastDayEthPricesCache, url),
     TE.map((res) => res.prices),
   );
+};
+
+const storeMarketCaps = async () => {
+  const coins = await getPrices()();
+
+  if (E.isLeft(coins)) {
+    throw new Error(String(coins.left));
+  }
+
+  const btcMarketCap = coins.right.bitcoin.usd_market_cap;
+  const ethMarketCap = coins.right.ethereum.usd_market_cap;
+  // Estimate from https://www.gold.org/goldhub/data/above-ground-stocks which many appear to use.
+  // In tonnes.
+  const goldCirculatingSupply = 201296.1;
+  const kgPerTonne = 1000;
+  const troyOzPerKg = 1000 / 31.1034768;
+  const goldPricePerTroyOz = coins.right["tether-gold"].usd;
+  const goldMarketCap =
+    goldCirculatingSupply * kgPerTonne * troyOzPerKg * goldPricePerTroyOz;
+  const usdM2MarketCap = 20.98 * 10 ** 12;
+
+  const marketCaps = {
+    btc_market_cap: btcMarketCap,
+    eth_market_cap: ethMarketCap,
+    gold_market_cap: goldMarketCap,
+    usd_m2_market_cap: usdM2MarketCap,
+    timestamp: new Date(),
+  };
+
+  Log.debug("storing market caps", marketCaps);
+
+  await sql`
+    INSERT INTO market_caps
+      ${sql(marketCaps)}
+  `;
+
+  // Don't let the table grow too much.
+  await sql`
+    DELETE FROM market_caps
+    WHERE timestamp IN (
+      SELECT timestamp FROM market_caps
+      ORDER BY timestamp DESC
+      OFFSET 128
+    )
+  `;
+};
+
+type MarketCaps = {
+  btcMarketCap: number;
+  ethMarketCap: number;
+  goldMarketCap: number;
+  usdM2MarketCap: number;
+};
+
+export const getMarketCaps = async (): Promise<MarketCaps> =>
+  sql<MarketCaps[]>`
+    SELECT
+      btc_market_cap,
+      eth_market_cap,
+      gold_market_cap,
+      usd_m2_market_cap,
+      timestamp
+    FROM market_caps
+    ORDER BY timestamp DESC
+    LIMIT 1
+  `.then((rows) => rows[0]);
+
+const warnWatermark = 180;
+const criticalWatermark = 360;
+
+export const storeMarketCapsAbortController = new AbortController();
+export const contiuouslyStoreMarketCaps = async () => {
+  const intervalIterator = setInterval(
+    Duration.millisFromMinutes(1),
+    Date.now(),
+    { signal: storeMarketCapsAbortController.signal },
+  );
+
+  let lastRun = new Date();
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for await (const _ of intervalIterator) {
+    const secondsSinceLastRun = DateFns.differenceInSeconds(
+      new Date(),
+      lastRun,
+    );
+
+    if (secondsSinceLastRun >= warnWatermark) {
+      Log.warn(
+        `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
+      );
+    }
+
+    if (secondsSinceLastRun >= criticalWatermark) {
+      Log.error(
+        `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
+      );
+    }
+
+    lastRun = new Date();
+
+    await storeMarketCaps();
+  }
 };

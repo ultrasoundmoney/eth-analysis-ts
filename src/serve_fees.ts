@@ -274,6 +274,16 @@ const handleAverageEthPrice: Middleware = async (ctx) => {
   return undefined;
 };
 
+const handleGetMarketCaps: Middleware = async (ctx) =>
+  pipe(
+    () => Coingecko.getMarketCaps(),
+    T.map((marketCaps) => {
+      ctx.set("Cache-Control", "max-age=30, stale-while-revalidate=600");
+      ctx.set("Content-Type", "application/json");
+      ctx.body = marketCaps;
+    }),
+  )();
+
 const updateCachesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
@@ -357,6 +367,7 @@ router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
 router.get("/fees/set-contract-name", handleSetContractName);
 router.get("/fees/set-contract-category", handleSetContractCategory);
 router.get("/fees/average-eth-price", handleAverageEthPrice);
+router.get("/fees/market-caps", handleGetMarketCaps);
 
 app.use(bodyParser());
 app.use(router.routes());
