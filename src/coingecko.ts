@@ -256,7 +256,7 @@ const storeMarketCaps = async () => {
 
   const btcMarketCap = coins.right.bitcoin.usd_market_cap;
   const ethMarketCap = coins.right.ethereum.usd_market_cap;
-  // Estimate from https://www.gold.org/goldhub/data/above-ground-stocks which many appear to use.
+  // See: https://www.gold.org/goldhub/data/above-ground-stocks which many appear to use.
   // In tonnes.
   const goldCirculatingSupply = 201296.1;
   const kgPerTonne = 1000;
@@ -264,6 +264,7 @@ const storeMarketCaps = async () => {
   const goldPricePerTroyOz = coins.right["tether-gold"].usd;
   const goldMarketCap =
     goldCirculatingSupply * kgPerTonne * troyOzPerKg * goldPricePerTroyOz;
+  // See: https://ycharts.com/indicators/us_m2_money_supply
   const usdM2MarketCap = 20.98 * 10 ** 12;
 
   const marketCaps = {
