@@ -282,7 +282,7 @@ const storeMarketCaps = async () => {
     timestamp: new Date(),
   };
 
-  Log.debug("storing market caps", marketCaps);
+  Log.debug(`storing market caps at: ${new Date().toISOString()}`);
 
   await sql`
     INSERT INTO market_caps
