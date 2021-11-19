@@ -298,6 +298,7 @@ type MarketCaps = {
   ethMarketCap: number;
   goldMarketCap: number;
   usdM2MarketCap: number;
+  timestamp: Date;
 };
 
 export const getMarketCaps = async (): Promise<MarketCaps> =>
