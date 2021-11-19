@@ -5,6 +5,7 @@ import { sql } from "./db.js";
 import { A, B, O, seqTParT, T } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
+  ContractBaseFeeSums,
   ContractSums,
   LeaderboardEntry,
   LeaderboardRow,
@@ -50,33 +51,38 @@ const setNewestIncludedBlockNumber =
     `;
 
 const addContractBaseFeeSums = (
-  currency: Currency,
-  contractSums: ContractSums,
+  contractSums: ContractBaseFeeSums,
 ): T.Task<void> => {
-  const column = sql(currencyColumnMap[currency]);
+  const keys = pipe(Array.from(contractSums.eth.keys()), A.chunksOf(10000));
   return pipe(
-    contractSums.size === 0,
+    keys.length === 0,
     B.match(
       () =>
         pipe(
-          Array.from(contractSums.entries()),
-          A.unzip,
-          A.chunksOf(20000),
-          T.traverseArray(
-            ([addresses, fees]) =>
-              () =>
-                sql`
-                  INSERT INTO contract_base_fee_sums (
-                    contract_address,
-                    ${column}
-                  )
-                  SELECT
-                    UNNEST(${sql.array(addresses)}::text[]),
-                    UNNEST(${sql.array(fees)}::float[])
-                  ON CONFLICT (contract_address) DO UPDATE SET
-                    ${column} = contract_base_fee_sums.${column} + excluded.${column}::float
-                `,
-          ),
+          keys,
+          T.traverseArray((addresses) => {
+            const fees = addresses.map(
+              (address) => contractSums.eth.get(address) ?? null,
+            );
+            const feesUsd = addresses.map(
+              (address) => contractSums.usd.get(address) ?? null,
+            );
+            return () =>
+              sql`
+                INSERT INTO contract_base_fee_sums (
+                  contract_address,
+                  base_fee_sum,
+                  base_fee_sum_usd
+                )
+                SELECT
+                  UNNEST(${sql.array(addresses)}::text[]),
+                  UNNEST(${sql.array(fees)}::double precision[]),
+                  UNNEST(${sql.array(feesUsd)}::double precision[])
+                ON CONFLICT (contract_address) DO UPDATE SET
+                  base_fee_sum = contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::double precision,
+                  base_fee_sum_usd = contract_base_fee_sums.base_fee_sum_usd + excluded.base_fee_sum_usd::double precision
+                `;
+          }),
           T.map(() => undefined),
         ),
       // Nothing to add.
@@ -103,6 +109,7 @@ export const removeContractBaseFeeSums = (
         const addresses = Array.from(contractSums.keys());
         const baseFeeSums = Array.from(contractSums.values());
         const column = currencyColumnMap[currency];
+
         return pipe(
           () => sql`
             UPDATE contract_base_fee_sums SET
@@ -133,8 +140,7 @@ export const addBlock = (
 ): T.Task<void> =>
   pipe(
     seqTParT(
-      addContractBaseFeeSums("eth", baseFeeSumsEth),
-      addContractBaseFeeSums("usd", baseFeeSumsUsd),
+      addContractBaseFeeSums({ eth: baseFeeSumsEth, usd: baseFeeSumsUsd }),
       setNewestIncludedBlockNumber(blockNumber),
     ),
     T.map(() => undefined),
@@ -162,12 +168,7 @@ export const addMissingBlocks = (upToIncluding: number): T.Task<void> =>
 
       return pipe(
         Leaderboards.getRangeBaseFees(newestIncludedBlock + 1, upToIncluding),
-        T.chain((baseFeeSums) =>
-          seqTParT(
-            addContractBaseFeeSums("eth", baseFeeSums.eth),
-            addContractBaseFeeSums("usd", baseFeeSums.usd),
-          ),
-        ),
+        T.chain(addContractBaseFeeSums),
         T.map(() => undefined),
       );
     }),
