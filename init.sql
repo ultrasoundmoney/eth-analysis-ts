@@ -87,6 +87,13 @@ CREATE TABLE "eth_prices" (
   "ethusd" double precision,
   "ethusd_24h_change" double precision
 );
+
+CREATE TABLE "market_caps" (
+  "timestamp" timestamptz PRIMARY KEY,
+  "btc_market_cap" double precision,
+  "eth_market_cap" double precision,
+  "gold_market_cap" double precision,
+  "usd_m2_market_cap" double precision
 );
 
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
