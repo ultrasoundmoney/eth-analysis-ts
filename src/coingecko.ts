@@ -316,7 +316,7 @@ const warnWatermark = 180;
 const criticalWatermark = 360;
 
 export const storeMarketCapsAbortController = new AbortController();
-export const contiuouslyStoreMarketCaps = async () => {
+export const continuouslyStoreMarketCaps = async () => {
   const intervalIterator = setInterval(
     Duration.millisFromMinutes(1),
     Date.now(),
