@@ -1,7 +1,3 @@
 node_modules/
 build/
 contract_image_guesses
-set-env-prod.sh
-set-env-staging.sh
-sync-staging-to-dev.sh
-sync-prod-db-to-staging.sh
