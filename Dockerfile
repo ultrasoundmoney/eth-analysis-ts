@@ -18,4 +18,4 @@ RUN ["yarn", "install", "--production"]
 
 COPY --from=build /app/ .
 
-CMD ["node", "src/serve_fees.js"]
+CMD ["node", "src/serve/serve_fees.js"]
