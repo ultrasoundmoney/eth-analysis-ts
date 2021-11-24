@@ -1,16 +1,13 @@
-import PQueue from "p-queue";
-import * as Config from "./config.js";
-import fs from "fs/promises";
-import * as DateFns from "date-fns";
 import * as Blocks from "./blocks.js";
-import * as BaseFees from "./base_fees.js";
-import { sql } from "./db.js";
+import * as Config from "./config.js";
+import * as DateFns from "date-fns";
+import * as EthNode from "./eth_node.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
-import * as Leaderboards from "./leaderboards.js";
-import * as EthPrices from "./eth_prices.js";
-import * as LeaderboardsAll from "./leaderboards_all.js";
-import { A, pipe, T, TE } from "./fp.js";
+import PQueue from "p-queue";
+import fs from "fs/promises";
+import { pipe, TE } from "./fp.js";
+import { sql } from "./db.js";
 
 type HashBlock = {
   number: number;
@@ -20,7 +17,7 @@ type HashBlock = {
   gasUsed: BigInt;
 };
 
-const concurrency = 1;
+const concurrency = 8;
 
 const healBlockQueue = new PQueue({ concurrency });
 
@@ -63,65 +60,81 @@ const healBlock = async (hashBlock: HashBlock) => {
     `block: ${block.number}, mined at: ${minedAtIso} ago, hash mismatch, gas used old:  ${hashBlock.gasUsed}, new: ${block.gasUsed} healing block`,
   );
   const txrs = await Transactions.getTxrsWithRetry(block);
-  const sumsToRollback = await Leaderboards.getRangeBaseFees(
-    block.number,
-    block.number,
-  )();
-  await LeaderboardsAll.removeContractBaseFeeSums("eth", sumsToRollback.eth)();
-  await LeaderboardsAll.removeContractBaseFeeSums("usd", sumsToRollback.usd)();
+  // const sumsToRollback = await Leaderboards.getRangeBaseFees(
+  //   block.number,
+  //   block.number,
+  // )();
+  // await LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)();
 
-  const ethPrice =
-    hashBlock.ethPrice !== null
-      ? hashBlock.ethPrice
-      : await pipe(
-          EthPrices.getPriceForOldBlock(block),
-          T.map((ethPrice) => ethPrice.ethusd),
-        )();
+  // const ethPrice =
+  //   hashBlock.ethPrice !== null
+  //     ? hashBlock.ethPrice
+  //     : await pipe(
+  //         EthPrices.getPriceForOldBlock(block),
+  //         T.map((ethPrice) => ethPrice.ethusd),
+  //       )();
 
   Log.debug(`updating block: ${block.number}`);
   await Blocks.updateBlock(block, txrs)();
   Log.debug(`done updating block: ${block.number}`);
 
-  const contractBaseFees = BaseFees.calcBlockFeeBreakdown(
-    block,
-    txrs,
-    ethPrice,
-  );
+  // const contractBaseFees = BaseFees.calcBlockFeeBreakdown(
+  //   block,
+  //   txrs,
+  //   ethPrice,
+  // );
 
-  await LeaderboardsAll.addBlock(
-    block.number,
-    contractBaseFees.contract_use_fees,
-    contractBaseFees.contract_use_fees_usd!,
-  )();
+  // await LeaderboardsAll.addBlock(
+  //   block.number,
+  //   contractBaseFees.contract_use_fees,
+  //   contractBaseFees.contract_use_fees_usd!,
+  // )();
   return undefined;
 };
 
 try {
-  const hashBlocks = await (lastHealedBlock === undefined
-    ? sql<HashBlock[]>`
-        SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
-        ORDER BY number DESC
-      `
-    : sql<HashBlock[]>`
-        SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
-        WHERE number < ${lastHealedBlock}
-        ORDER BY number DESC
-      `);
-
-  for (const hashBlockChunk of A.chunksOf(8)(hashBlocks)) {
+  const processChunk = async (blockChunk: HashBlock[]): Promise<void> => {
     Log.info(
-      `checking block: ${
-        hashBlockChunk[hashBlockChunk.length - 1].number
-      }, to block: ${hashBlockChunk[0].number}`,
+      `checking block: ${blockChunk[blockChunk.length - 1].number}, to block: ${
+        blockChunk[0].number
+      }`,
     );
+
     await healBlockQueue.addAll(
-      hashBlockChunk.map((hashBlock) => () => healBlock(hashBlock)),
+      blockChunk.map((hashBlock) => () => healBlock(hashBlock)),
     );
+
     await fs.writeFile(
-      `./last_healed_block_${Config.getEnv()}`,
-      JSON.stringify(hashBlockChunk[hashBlockChunk.length - 1].number),
+      `./last_healed_block_${Config.getEnv()}.json`,
+      JSON.stringify(blockChunk[blockChunk.length - 1].number),
     );
-  }
+
+    return undefined;
+  };
+
+  const getBlocksWithoutLimit = () =>
+    sql<HashBlock[]>`
+      SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
+      ORDER BY number DESC
+    `.cursor(6000, processChunk);
+
+  const getBlocksWithLimit = (lastHealedBlock: number) =>
+    sql<HashBlock[]>`
+      SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
+      WHERE number < ${lastHealedBlock}
+      ORDER BY number DESC
+    `.cursor(6000, processChunk);
+
+  await (lastHealedBlock === undefined
+    ? getBlocksWithoutLimit()
+    : getBlocksWithLimit(lastHealedBlock));
+
+  Log.info(`done healing blocks, queue length: ${healBlockQueue.size}`);
+  await healBlockQueue.onIdle();
+  Log.info(`done healing blocks, queue length: ${healBlockQueue.size}`);
+
+  EthNode.closeConnection();
+  await sql.end();
 } catch (error) {
   Log.error(error);
   throw error;
