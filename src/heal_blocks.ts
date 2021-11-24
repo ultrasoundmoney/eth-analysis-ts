@@ -125,6 +125,8 @@ try {
       ORDER BY number DESC
     `.cursor(1000, processChunk);
 
+  Log.info("healing blocks");
+
   await (lastHealedBlock === undefined
     ? getBlocksWithoutLimit()
     : getBlocksWithLimit(lastHealedBlock));
