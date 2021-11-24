@@ -25,7 +25,7 @@ export const getLatestBlockFees = (
       SELECT
       number,
       base_fee_sum,
-      (base_fee_sum * eth_price / POWER(10, 18)) AS base_fee_sum_usd,
+      (base_fee_sum * eth_price / 1e18) AS base_fee_sum_usd,
       base_fee_per_gas,
       mined_at
       FROM blocks

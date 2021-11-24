@@ -110,7 +110,7 @@ export const getRangeBaseFees = (
       SELECT
         contract_address,
         SUM(base_fees) AS base_fees,
-        SUM(base_fees * eth_price / POWER(10, 18)) AS base_fees_usd
+        SUM(base_fees * eth_price / 1e18) AS base_fees_usd
       FROM contract_base_fees
       JOIN blocks ON blocks.number = block_number
       WHERE block_number >= ${from}
@@ -161,7 +161,7 @@ export const getEthTransferFeesForTimeframe = async (
     const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(eth_transfer_sum) AS eth,
-        SUM(eth_transfer_sum * eth_price / POWER(10, 18)) AS usd
+        SUM(eth_transfer_sum * eth_price / 1e18) AS usd
       FROM blocks
     `;
     return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
@@ -171,7 +171,7 @@ export const getEthTransferFeesForTimeframe = async (
   const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(eth_transfer_sum) AS eth,
-        SUM(eth_transfer_sum * eth_price / POWER(10, 18)) AS usd
+        SUM(eth_transfer_sum * eth_price / 1e18) AS usd
       FROM blocks
       WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
   `;
@@ -185,7 +185,7 @@ export const getContractCreationBaseFeesForTimeframe = async (
     const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(contract_creation_sum) AS eth,
-        SUM(contract_creation_sum * eth_price / POWER(10, 18)) AS usd
+        SUM(contract_creation_sum * eth_price / 1e18) AS usd
       FROM blocks
     `;
     return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
@@ -195,7 +195,7 @@ export const getContractCreationBaseFeesForTimeframe = async (
   const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(contract_creation_sum) AS eth,
-        SUM(contract_creation_sum * eth_price / POWER(10, 18)) AS usd
+        SUM(contract_creation_sum * eth_price / 1e18) AS usd
       FROM blocks
       WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
   `;

@@ -80,7 +80,7 @@ const getBaseFeesForRange = (
         SELECT
           contract_address,
           SUM(base_fees) AS base_fees,
-          SUM(base_fees * eth_price / POWER(10, 18)) AS base_fees_usd
+          SUM(base_fees * eth_price / 1e18) AS base_fees_usd
         FROM contract_base_fees
         JOIN blocks ON blocks.number = block_number
         WHERE block_number >= ${from}
