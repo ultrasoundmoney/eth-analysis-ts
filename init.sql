@@ -84,8 +84,8 @@ CREATE TABLE "contract_creations" (
 
 CREATE TABLE "eth_prices" (
   "ethusd" double precision,
-  "ethusd_24h_change" double precision
-  "timestamp" timestamptz PRIMARY KEY,
+  "ethusd_24h_change" double precision,
+  "timestamp" timestamptz PRIMARY KEY
 );
 
 CREATE TABLE "market_caps" (
