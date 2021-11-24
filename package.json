@@ -65,8 +65,8 @@
     "check-types": "tsc --noEmit",
     "lint": "gts lint",
     "clean": "gts clean",
-    "start": "node build/serve_fees.js",
-    "start:prod": "node src/serve_fees.js",
-    "test": "node --experimental-loader ts-node/esm node_modules/uvu/bin.js src '.*.test.ts'"
+    "start": "node build/serve/serve_fees.js",
+    "start:prod": "node src/serve/serve_fees.js",
+    "test": "node --loader ts-node/esm node_modules/uvu/bin.js src '.*.test.ts'"
   }
 }
