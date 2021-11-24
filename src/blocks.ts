@@ -99,6 +99,19 @@ export type BlockRow = {
   eth_price?: number;
 };
 
+export type BlockDb = {
+  baseFeePerGas: number;
+  baseFeeSum: number;
+  contractCreationSum: number;
+  ethPrice: number;
+  ethTransferSum: number;
+  gasUsed: number;
+  hash: string;
+  minedAt: Date;
+  number: number;
+  tips: number;
+};
+
 const getBlockRow = (
   block: BlockLondon,
   feeBreakdown: FeeBreakdown,
