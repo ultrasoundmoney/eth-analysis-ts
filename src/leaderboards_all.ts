@@ -93,40 +93,41 @@ const addContractBaseFeeSums = (
 
 export type Currency = "eth" | "usd";
 
-const currencyColumnMap: Record<Currency, string> = {
-  eth: "base_fee_sum",
-  usd: "base_fee_sum_usd",
-};
-
 export const removeContractBaseFeeSums = (
-  currency: Currency,
-  contractSums: ContractSums,
+  contractSums: ContractBaseFeeSums,
 ): T.Task<void> => {
+  const keys = pipe(Array.from(contractSums.eth.keys()), A.chunksOf(10000));
   return pipe(
-    contractSums.size === 0,
+    keys.length === 0,
     B.match(
-      () => {
-        const addresses = Array.from(contractSums.keys());
-        const baseFeeSums = Array.from(contractSums.values());
-        const column = currencyColumnMap[currency];
+      () =>
+        pipe(
+          keys,
+          T.traverseArray((addresses) => {
+            const fees = addresses.map(
+              (address) => contractSums.eth.get(address) ?? null,
+            );
+            const feesUsd = addresses.map(
+              (address) => contractSums.usd.get(address) ?? null,
+            );
 
-        return pipe(
-          () => sql`
-            UPDATE contract_base_fee_sums SET
-              ${sql(column)} = contract_base_fee_sums.${sql(
-            column,
-          )} - data_table.${sql(column)}
-            FROM
-              (
+            return () => sql`
+              UPDATE contract_base_fee_sums SET
+              base_fee_sum = contract_base_fee_sums.base_fee_sum - data_table.base_fee_sum,
+              base_fee_sum_usd = contract_base_fee_sums.base_fee_sum_usd - data_table.base_fee_sum_usd
+              FROM (
                 SELECT
-                  UNNEST(${sql.array(addresses)}::text[]) as contract_address,
-                  UNNEST(${sql.array(baseFeeSums)}::float[]) as ${sql(column)}
+                UNNEST(${sql.array(addresses)}::text[]) as contract_address,
+                UNNEST(${sql.array(fees)}::double precision[]) as base_fee_sum,
+                UNNEST(${sql.array(
+                  feesUsd,
+                )}::double precision[]) as base_fee_sum_usd
               ) as data_table
-            WHERE contract_base_fee_sums.contract_address = data_table.contract_address
-          `,
+              WHERE contract_base_fee_sums.contract_address = data_table.contract_address
+              `;
+          }),
           T.map(() => undefined),
-        );
-      },
+        ),
       // Nothing to remove.
       () => T.of(undefined),
     ),

@@ -414,10 +414,7 @@ const rollback = (block: BlockLondon): T.Task<void> => {
         sumsToRollback,
       );
       return pipe(
-        seqTParT(
-          LeaderboardsAll.removeContractBaseFeeSums("eth", sumsToRollback.eth),
-          LeaderboardsAll.removeContractBaseFeeSums("usd", sumsToRollback.usd),
-        ),
+        LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
         T.map(() => undefined),
       );
     }),
