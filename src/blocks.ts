@@ -161,6 +161,14 @@ const getNewContractsFromBlock = (txrs: TxRWeb3London[]): string[] =>
     A.compact,
   );
 
+const getBlockHashIsKnown = (hash: string): T.Task<boolean> =>
+  pipe(
+    () => sql<{ isKnown: boolean }[]>`
+      SELECT EXISTS(SELECT hash FROM blocks WHERE hash = ${hash}) AS is_known
+    `,
+    T.map((rows) => rows[0]?.isKnown === true ?? false),
+  );
+
 export const updateBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
