@@ -179,6 +179,10 @@ export const updateBlock = (
   const blockRow = getBlockRow(block, feeBreakdown, tips, ethPrice);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
+  Log.debug(
+    `update number: ${block.number}, hash: ${block.hash}, parentHash: ${block.parentHash}`,
+  );
+
   const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
   );
@@ -215,9 +219,20 @@ export const updateBlock = (
   );
 
   return pipe(
-    seqTSeqT(
-      seqTParT(storeContractsTask, updateBlockTask),
-      seqTParT(updateContractBaseFeesTask, updateContractsMinedAtTask),
+    getBlockHashIsKnown(block.parentHash),
+    T.chainIOK((isParentHashKnown) => () => {
+      if (!isParentHashKnown) {
+        Log.alert("update block, missed a block, stopping");
+        throw new Error("missing block");
+      }
+
+      return undefined;
+    }),
+    T.chain(() =>
+      seqTSeqT(
+        seqTParT(storeContractsTask, updateBlockTask),
+        seqTParT(updateContractBaseFeesTask, updateContractsMinedAtTask),
+      ),
     ),
     T.map(() => undefined),
   );
@@ -232,6 +247,10 @@ export const storeBlock = (
   const tips = BaseFees.calcBlockTips(block, txrs);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
   const blockRow = getBlockRow(block, feeBreakdown, tips, ethPrice);
+
+  Log.debug(
+    `store  number: ${block.number}, hash: ${block.hash}, parentHash: ${block.parentHash}`,
+  );
 
   const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
@@ -257,9 +276,20 @@ export const storeBlock = (
   );
 
   return pipe(
-    seqTSeqT(
-      seqTParT(storeContractsTask, storeBlockTask),
-      seqTParT(storeContractsBaseFeesTask, updateContractsMinedAtTask),
+    getBlockHashIsKnown(block.parentHash),
+    T.chainIOK((isParentHashKnown) => () => {
+      if (!isParentHashKnown) {
+        Log.alert("store block, missed a block, stopping");
+        throw new Error("missing block");
+      }
+
+      return undefined;
+    }),
+    T.chain(() =>
+      seqTSeqT(
+        seqTParT(storeContractsTask, storeBlockTask),
+        seqTParT(storeContractsBaseFeesTask, updateContractsMinedAtTask),
+      ),
     ),
     T.map(() => undefined),
   );
