@@ -116,14 +116,14 @@ try {
     sql<HashBlock[]>`
       SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
       ORDER BY number DESC
-    `.cursor(1000, processChunk);
+    `.cursor(10000, processChunk);
 
   const getBlocksWithLimit = (lastHealedBlock: number) =>
     sql<HashBlock[]>`
       SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
       WHERE number < ${lastHealedBlock}
       ORDER BY number DESC
-    `.cursor(1000, processChunk);
+    `.cursor(10000, processChunk);
 
   Log.info("healing blocks");
 
