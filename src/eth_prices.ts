@@ -1,7 +1,6 @@
 import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
-import { setInterval } from "timers/promises";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import { JsTimestamp } from "./date_fns_alt.js";
 import { sql } from "./db.js";
@@ -97,9 +96,6 @@ export const getPriceForOldBlock =
   () =>
     getOldPriceSeqQueue.add(() => getPriceForOlderBlockWithCache(block));
 
-const warnWatermark = 30;
-const criticalWatermark = 60;
-
 // Odds are the price we're looking for was recently stored. Because of this we keep a cache.
 const priceCache = new QuickLRU<number, EthPrice>({
   maxSize: 256,
@@ -118,7 +114,7 @@ const toPriceRow = (ethPrice: EthPrice): PriceRow => ({
   ethusd: ethPrice.ethusd,
 });
 
-const storePrice = (): T.Task<void> =>
+export const storePrice = (): T.Task<void> =>
   pipe(
     EthPricesUniswap.getMedianEthPrice(),
     T.chainFirstIOK((ethPrice) => () => {
@@ -178,42 +174,6 @@ const storePrice = (): T.Task<void> =>
     ),
     T.map(() => undefined),
   );
-
-export const storePriceAbortController = new AbortController();
-
-export const continuouslyStorePrice = async () => {
-  const intervalIterator = setInterval(
-    Duration.millisFromSeconds(10),
-    Date.now(),
-    { signal: storePriceAbortController.signal },
-  );
-
-  let lastRun = new Date();
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for await (const _ of intervalIterator) {
-    const secondsSinceLastRun = DateFns.differenceInSeconds(
-      new Date(),
-      lastRun,
-    );
-
-    if (secondsSinceLastRun >= warnWatermark) {
-      Log.warn(
-        `store price not keeping up, ${secondsSinceLastRun}s since last price fetch`,
-      );
-    }
-
-    if (secondsSinceLastRun >= criticalWatermark) {
-      Log.error(
-        `store price not keeping up, ${secondsSinceLastRun}s since last price fetch`,
-      );
-    }
-
-    lastRun = new Date();
-
-    await storePrice()();
-  }
-};
 
 export type HistoricPrice = [JsTimestamp, number];
 

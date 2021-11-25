@@ -1,11 +1,9 @@
-import * as DateFns from "date-fns";
 import * as EthPrices from "./eth_prices.js";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
-import { setInterval } from "timers/promises";
 import urlcatM from "urlcat";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
@@ -248,7 +246,7 @@ export const getPastDayEthPrices = (): TE.TaskEither<
   );
 };
 
-const storeMarketCaps = async () => {
+export const storeMarketCaps = async () => {
   const [coins, ethPrice] = await seqTParT(
     getPrices(),
     EthPrices.getEthPrice(new Date()),
@@ -320,41 +318,3 @@ export const getMarketCaps = async (): Promise<MarketCaps> =>
     ORDER BY timestamp DESC
     LIMIT 1
   `.then((rows) => rows[0]);
-
-const warnWatermark = 180;
-const criticalWatermark = 360;
-
-export const storeMarketCapsAbortController = new AbortController();
-export const continuouslyStoreMarketCaps = async () => {
-  const intervalIterator = setInterval(
-    Duration.millisFromMinutes(1),
-    Date.now(),
-    { signal: storeMarketCapsAbortController.signal },
-  );
-
-  let lastRun = new Date();
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for await (const _ of intervalIterator) {
-    const secondsSinceLastRun = DateFns.differenceInSeconds(
-      new Date(),
-      lastRun,
-    );
-
-    if (secondsSinceLastRun >= warnWatermark) {
-      Log.warn(
-        `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
-      );
-    }
-
-    if (secondsSinceLastRun >= criticalWatermark) {
-      Log.error(
-        `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
-      );
-    }
-
-    lastRun = new Date();
-
-    await storeMarketCaps();
-  }
-};
