@@ -226,10 +226,12 @@ type RawBlock = {
 
 export type BlockLondon = {
   baseFeePerGas: string;
+  baseFeePerGasBI: bigint;
   difficulty: string;
   extraData: string;
   gasLimit: number;
   gasUsed: number;
+  gasUsedBI: bigint;
   hash: string;
   logsBloom: string;
   miner: string;
@@ -253,7 +255,9 @@ export type BlockLondon = {
 const translateBlock = (rawBlock: RawBlock): BlockLondon => ({
   ...rawBlock,
   baseFeePerGas: rawBlock.baseFeePerGas,
+  baseFeePerGasBI: BigInt(rawBlock.baseFeePerGas),
   gasUsed: hexToNumber(rawBlock.gasUsed),
+  gasUsedBI: BigInt(rawBlock.gasUsed),
   gasLimit: hexToNumber(rawBlock.gasLimit),
   number: hexToNumber(rawBlock.number),
   size: hexToNumber(rawBlock.number),

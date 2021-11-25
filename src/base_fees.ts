@@ -69,8 +69,8 @@ export const sumFeeMaps = (
     return sumMap;
   }, {} as Record<string, number>);
 
-export const calcBlockBaseFeeSum = (block: BlockLondon): number =>
-  block.gasUsed * hexToNumber(block.baseFeePerGas);
+export const calcBlockBaseFeeSum = (block: BlockLondon): bigint =>
+  block.gasUsedBI * block.baseFeePerGasBI;
 
 export const calcBlockFeeBreakdown = (
   block: BlockLondon,

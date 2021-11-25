@@ -91,7 +91,7 @@ export type BlockRow = {
   number: number;
   mined_at: Date;
   tips: number;
-  base_fee_sum: number;
+  base_fee_sum: bigint;
   contract_creation_sum: number;
   eth_transfer_sum: number;
   base_fee_per_gas: number;
@@ -101,7 +101,7 @@ export type BlockRow = {
 
 export type BlockDb = {
   baseFeePerGas: number;
-  baseFeeSum: number;
+  baseFeeSum: bigint;
   contractCreationSum: number;
   ethPrice: number;
   ethTransferSum: number;
