@@ -423,6 +423,7 @@ export const subscribeNewHeads = (
 
     const rawHead: RawHead = JSON.parse(data.toString()).params.result;
     const head = translateHead(rawHead);
+    Log.debug(`new head: ${head.number}, hash: ${head.hash}`);
 
     handleNewHead(head);
     return undefined;
