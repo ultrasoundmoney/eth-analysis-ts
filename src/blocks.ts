@@ -127,7 +127,7 @@ const getBlockRow = (
   eth_transfer_sum: feeBreakdown.transfers,
   base_fee_per_gas: hexToNumber(block.baseFeePerGas),
   gas_used: block.gasUsed,
-  ...(typeof ethPrice === "number" && { eth_price: ethPrice }),
+  ...(typeof ethPrice === "number" ? { eth_price: ethPrice } : undefined),
 });
 
 type ContractBaseFeesRow = {
