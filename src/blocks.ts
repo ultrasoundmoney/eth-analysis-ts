@@ -255,12 +255,12 @@ export const storeBlock = (
   );
 };
 
-export const getIsKnownBlock = (block: BlockLondon): T.Task<boolean> =>
+const getIsKnownBlock = (blockNumber: number): T.Task<boolean> =>
   pipe(
     () =>
       sql<
         { isKnown: boolean }[]
-      >`SELECT EXISTS(SELECT number FROM blocks WHERE number = ${block.number}) AS is_known`,
+      >`SELECT EXISTS(SELECT number FROM blocks WHERE number = ${blockNumber}) AS is_known`,
     T.map((rows) => rows[0]?.isKnown ?? false),
   );
 
@@ -394,20 +394,11 @@ const knownBlocks: Set<number> = new Set();
 
 const rollback = (block: BlockLondon): T.Task<void> => {
   const t0 = performance.now();
-  const blocksToRollback = pipe(
-    knownBlocks.values(),
-    (blocksIter) => Array.from(blocksIter),
-    A.filter((knownBlockNumber) => knownBlockNumber >= block.number),
-    A.sort(Num.Ord),
-  );
 
-  Log.info(`rollback, blocks to rollback: ${blocksToRollback.join(",")}`);
+  Log.info(`rolling back block: ${block.number}`);
 
   return pipe(
-    Leaderboards.getRangeBaseFees(
-      blocksToRollback[0],
-      blocksToRollback[blocksToRollback.length - 1],
-    ),
+    Leaderboards.getRangeBaseFees(block.number, block.number),
     T.chain((sumsToRollback) => {
       LeaderboardsLimitedTimeframe.rollbackToBefore(
         block.number,
@@ -424,23 +415,32 @@ const rollback = (block: BlockLondon): T.Task<void> => {
 
 export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
-    () => getBlockWithRetry(blockNumber),
-    T.chainFirstIOK(() => () => {
-      Log.debug(`analyzing block ${blockNumber}`);
-    }),
-    // Rollback leadersboards if needed.
-    T.chainFirst((block) => {
-      if (!knownBlocks.has(block.number)) {
-        return T.of(undefined);
-      }
-
-      return rollback(block);
-    }),
-    T.chain((block) =>
-      seqTParT(
-        T.of(block),
-        () => Transactions.getTxrsWithRetry(block),
-        EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
+    Log.debug(`analyzing block ${blockNumber}`),
+    () =>
+      seqSParT({
+        block: () => getBlockWithRetry(blockNumber),
+        isKnownBlock: getIsKnownBlock(blockNumber),
+      }),
+    T.chain(({ block, isKnownBlock }) =>
+      seqSParT({
+        block: T.of(block),
+        isKnownBlock: T.of(isKnownBlock),
+        txrs: () => Transactions.getTxrsWithRetry(block),
+        ethPrice: EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
+      }),
+    ),
+    T.chainFirst(({ block, isKnownBlock, txrs, ethPrice }) =>
+      pipe(
+        isKnownBlock,
+        B.match(
+          () => storeBlock(block, txrs, ethPrice.ethusd),
+          // Rollback
+          () =>
+            pipe(
+              rollback(block),
+              T.chain(() => updateBlock(block, txrs)),
+            ),
+        ),
       ),
     ),
     T.chainFirstIOK(() => () => {
@@ -448,77 +448,70 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         DisplayProgress.onBlockAnalyzed();
       }
     }),
-    T.chain(([block, txrs, ethPrice]) =>
-      pipe(
-        knownBlocks.has(block.number),
-        B.match(
-          () => storeBlock(block, txrs, ethPrice.ethusd),
-          () => updateBlock(block, txrs),
-        ),
-        T.chain(() => {
-          knownBlocks.add(blockNumber);
+    T.chainFirst(({ block, txrs, ethPrice }) => {
+      const feeBreakdown = BaseFees.calcBlockFeeBreakdown(
+        block,
+        txrs,
+        ethPrice.ethusd,
+      );
 
-          const feeBreakdown = BaseFees.calcBlockFeeBreakdown(
+      const t0 = performance.now();
+
+      const addToLimitedTimeFrameTask = () =>
+        addLeaderboardLimitedTimeframeQueue.add(() =>
+          LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
             block,
-            txrs,
-            ethPrice.ethusd,
-          );
+            feeBreakdown.contract_use_fees,
+            feeBreakdown.contract_use_fees_usd!,
+          ),
+        );
 
-          const t0 = performance.now();
+      const removeExpiredBlocksTask = () =>
+        removeBlocksQueue.add(
+          LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+        );
 
-          return pipe(
-            seqTParT(
-              () =>
-                addLeaderboardLimitedTimeframeQueue.add(() =>
-                  LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
-                    block,
-                    feeBreakdown.contract_use_fees,
-                    feeBreakdown.contract_use_fees_usd!,
-                  ),
-                ),
-              () =>
-                removeBlocksQueue.add(
-                  LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
-                ),
-              () =>
-                addLeaderboardAllQueue.add(
-                  LeaderboardsAll.addBlock(
-                    block.number,
-                    feeBreakdown.contract_use_fees,
-                    feeBreakdown.contract_use_fees_usd!,
-                  ),
-                ),
-            ),
-            T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
-          );
-        }),
-        T.chain(() => {
-          Log.debug(`store block par queue ${storeMissingBlockQueue.size}`);
-          Log.debug(`store block seq queue ${storeNewBlockQueue.size}`);
-          const allBlocksProcessed =
-            storeMissingBlockQueue.size === 0 &&
-            storeMissingBlockQueue.pending === 0 &&
-            storeNewBlockQueue.size === 0 &&
-            // This function is on this queue.
-            storeNewBlockQueue.pending <= 1 &&
-            addLeaderboardAllQueue.size === 0 &&
-            addLeaderboardAllQueue.pending === 0 &&
-            addLeaderboardLimitedTimeframeQueue.size === 0 &&
-            addLeaderboardLimitedTimeframeQueue.pending === 0;
-          if (allBlocksProcessed) {
-            return pipe(
-              updateDerivedBlockStats(block),
-              T.chain(() => notifyNewDerivedStats(block)),
-            );
-          } else {
-            Log.debug(
-              "blocks left to process, skipping computation of derived stats",
-            );
-            return T.of(undefined);
-          }
-        }),
-      ),
-    ),
+      const addToLeaderboardAllTask = () =>
+        addLeaderboardAllQueue.add(
+          LeaderboardsAll.addBlock(
+            block.number,
+            feeBreakdown.contract_use_fees,
+            feeBreakdown.contract_use_fees_usd!,
+          ),
+        );
+
+      return pipe(
+        seqTParT(
+          addToLimitedTimeFrameTask,
+          removeExpiredBlocksTask,
+          addToLeaderboardAllTask,
+        ),
+        T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
+      );
+    }),
+    T.chain(({ block }) => {
+      Log.debug(`store block seq queue ${storeNewBlockQueue.size}`);
+      const allBlocksProcessed =
+        storeNewBlockQueue.size === 0 &&
+        // This function is on this queue.
+        storeNewBlockQueue.pending <= 1 &&
+        addLeaderboardAllQueue.size === 0 &&
+        addLeaderboardAllQueue.pending === 0 &&
+        addLeaderboardLimitedTimeframeQueue.size === 0 &&
+        addLeaderboardLimitedTimeframeQueue.pending === 0;
+
+      if (!allBlocksProcessed) {
+        Log.debug(
+          "blocks left to process, skipping computation of derived stats",
+        );
+        return T.of(undefined);
+      }
+
+      return pipe(
+        updateDerivedBlockStats(block),
+        T.chain(() => notifyNewDerivedStats(block)),
+      );
+    }),
   );
 
 export const getKnownBlocks = (): T.Task<Set<number>> =>
