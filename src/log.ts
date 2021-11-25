@@ -21,6 +21,7 @@ const severityMap = {
   INFO: 200,
   WARNING: 400,
   ERROR: 500,
+  ALERT: 700,
 } as const;
 
 const prettySeverityMap: Record<Severity, string> = {
@@ -29,6 +30,7 @@ const prettySeverityMap: Record<Severity, string> = {
   DEBUG: `${kleur.gray("debug")} - `,
   INFO: `${kleur.blue("info")}  - `,
   ERROR: `${kleur.red("error")} - `,
+  ALERT: `${kleur.bgRed().white("alert")} - `,
 };
 
 const logLevel = pipe(
@@ -43,6 +45,7 @@ const logMap: Record<Severity, (message: string) => void> = {
   INFO: console.info,
   WARNING: console.warn,
   ERROR: console.error,
+  ALERT: console.error,
 };
 
 export const log = (
@@ -90,6 +93,9 @@ export const warn = (message: unknown, meta?: unknown) =>
 
 export const error = (message: unknown, meta?: unknown) =>
   log("ERROR", message, meta);
+
+export const alert = (message: unknown, meta?: unknown) =>
+  log("ALERT", message, meta);
 
 /**
  * reduce hash to six unique chars easier human reading.
