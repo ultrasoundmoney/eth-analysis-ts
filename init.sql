@@ -10,6 +10,7 @@ CREATE TYPE "timeframe" AS ENUM (
 CREATE TABLE "blocks" (
   "base_fee_per_gas" bigint,
   "base_fee_sum" double precision,
+  "base_fee_sum_256" numeric(78),
   "contract_creation_sum" double precision,
   "eth_price" double precision,
   "eth_transfer_sum" double precision,
