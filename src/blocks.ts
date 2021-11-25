@@ -91,7 +91,8 @@ export type BlockRow = {
   number: number;
   mined_at: Date;
   tips: number;
-  base_fee_sum: bigint;
+  base_fee_sum: number;
+  base_fee_sum_256: bigint;
   contract_creation_sum: number;
   eth_transfer_sum: number;
   base_fee_per_gas: number;
@@ -122,7 +123,8 @@ const getBlockRow = (
   number: block.number,
   mined_at: DateFns.fromUnixTime(block.timestamp),
   tips: tips,
-  base_fee_sum: BaseFees.calcBlockBaseFeeSum(block),
+  base_fee_sum: Number(BaseFees.calcBlockBaseFeeSum(block)),
+  base_fee_sum_256: BaseFees.calcBlockBaseFeeSum(block),
   contract_creation_sum: feeBreakdown.contract_creation_fees,
   eth_transfer_sum: feeBreakdown.transfers,
   base_fee_per_gas: hexToNumber(block.baseFeePerGas),
