@@ -1,15 +1,14 @@
-import BigNumber from "bignumber.js";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import { A, O, Ord, pipe } from "./fp.js";
 
 export type Granularity = "block" | "m5" | "h1" | "d1" | "d7";
 
-export type FeeRecord = { number: number; feeSum: BigNumber };
+export type FeeRecord = { number: number; feeSum: bigint };
 
 export type FeeBlock = {
   number: number;
   minedAt: Date;
-  fees: BigNumber;
+  fees: bigint;
 };
 
 export type Sorting = "min" | "max";
@@ -17,10 +16,10 @@ export type Sorting = "min" | "max";
 export type FeeRecordMap = Record<Granularity, FeeRecord[]>;
 export type BlockMap = Record<Granularity, FeeBlock[]>;
 
-const sumFeeBlocks = (blocks: FeeBlock[]): BigNumber =>
+const sumFeeBlocks = (blocks: FeeBlock[]): bigint =>
   pipe(
     blocks,
-    A.reduce(new BigNumber(0), (bn, block) => bn.plus(block.fees)),
+    A.reduce(0n, (sum, block) => sum + block.fees),
   );
 
 export const getIsBlockWithinReferenceMaxAge =
@@ -61,20 +60,20 @@ export const mergeCandidate = (
 
 export const sortingOrdMap: Record<Sorting, Ord<FeeRecord>> = {
   min: {
-    equals: (x, y) => x.feeSum.eq(y.feeSum),
+    equals: (x, y) => x.feeSum === y.feeSum,
     compare: (first, second) =>
-      first.feeSum.lt(second.feeSum)
+      first.feeSum < second.feeSum
         ? -1
-        : first.feeSum.eq(second.feeSum)
+        : first.feeSum === second.feeSum
         ? 0
         : 1,
   },
   max: {
-    equals: (x, y) => x.feeSum.eq(y.feeSum),
+    equals: (x, y) => x.feeSum === y.feeSum,
     compare: (first, second) =>
-      first.feeSum.gt(second.feeSum)
+      first.feeSum > second.feeSum
         ? -1
-        : first.feeSum.eq(second.feeSum)
+        : first.feeSum === second.feeSum
         ? 0
         : 1,
   },
