@@ -19,7 +19,7 @@ type RawBlock = {
 
 const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
   baseFeePerGas: Number(rawBlock.base_fee_per_gas),
-  baseFeeSum: Number(rawBlock.base_fee_sum),
+  baseFeeSum: BigInt(rawBlock.base_fee_sum),
   contractCreationSum: Number(rawBlock.contract_creation_sum),
   ethPrice: Number(rawBlock.eth_price),
   ethTransferSum: Number(rawBlock.eth_transfer_sum),
