@@ -74,9 +74,7 @@ const healBlock = async (hashBlock: HashBlock) => {
   //         T.map((ethPrice) => ethPrice.ethusd),
   //       )();
 
-  Log.debug(`updating block: ${block.number}`);
   await Blocks.updateBlock(block, txrs)();
-  Log.debug(`done updating block: ${block.number}`);
 
   // const contractBaseFees = BaseFees.calcBlockFeeBreakdown(
   //   block,
@@ -112,24 +110,29 @@ try {
     return undefined;
   };
 
-  const getBlocksWithoutLimit = () =>
-    sql<HashBlock[]>`
-      SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
-      ORDER BY number DESC
-    `.cursor(10000, processChunk);
-
-  const getBlocksWithLimit = (lastHealedBlock: number) =>
-    sql<HashBlock[]>`
-      SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
-      WHERE number < ${lastHealedBlock}
-      ORDER BY number DESC
-    `.cursor(10000, processChunk);
-
   Log.info("healing blocks");
 
-  await (lastHealedBlock === undefined
-    ? getBlocksWithoutLimit()
-    : getBlocksWithLimit(lastHealedBlock));
+  const latestBlockNumber = await sql<{ number: number }[]>`
+      SELECT number FROM blocks ORDER BY number DESC LIMIT 1
+    `.then((rows) => rows[0]?.number);
+
+  let offset =
+    lastHealedBlock !== undefined ? latestBlockNumber - lastHealedBlock : 0;
+
+  const getBlocksWithLimit = () =>
+    sql<HashBlock[]>`
+      SELECT number, hash, eth_price, mined_at, gas_used FROM blocks
+      ORDER BY number DESC
+      OFFSET ${offset}
+      LIMIT 10000
+    `;
+
+  let blocks = await getBlocksWithLimit();
+  while (blocks.length !== 0) {
+    await processChunk(blocks);
+    offset = offset + 10000;
+    blocks = await getBlocksWithLimit();
+  }
 
   Log.info(`done healing blocks, queue length: ${healBlockQueue.size}`);
   await healBlockQueue.onIdle();
