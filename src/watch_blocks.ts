@@ -14,6 +14,10 @@ import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 
+process.on("unhandledRejection", (error) => {
+  throw error;
+});
+
 if (Config.getEnv() !== "dev") {
   Sentry.init({
     dsn: "https://f6393dc2e2984ec09299406e8f409647@o920717.ingest.sentry.io/5896630",
@@ -24,68 +28,44 @@ if (Config.getEnv() !== "dev") {
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
-const syncBlocks = async (latestBlockNumberOnStart: number) => {
+const syncLeaderboardAll = (): T.Task<void> => {
+  Log.info("adding missing blocks to leaderboard all");
+  return pipe(
+    LeaderboardsAll.addMissingBlocks(),
+    T.chainIOK(() => () => {
+      Log.info("done adding missing blocks to leaderboard all");
+    }),
+  );
+};
+
+const loadLeaderboardLimitedTimeframes = (): T.Task<void> => {
+  return pipe(
+    Log.info("loading leaderboards for limited timeframes"),
+    () => LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes(),
+    T.chainIOK(
+      () => () => Log.info("done loading leaderboards for limited timeframes"),
+    ),
+  );
+};
+
+try {
+  Config.ensureCriticalBlockAnalysisConfig();
+  await EthNode.connect();
+  Log.debug("started processing new blocks");
+
   EthNode.subscribeNewHeads((head) =>
     Blocks.storeNewBlockQueue.add(Blocks.storeNewBlock(head.number)),
   );
-  Log.info("listening for and adding new blocks");
-  await Blocks.addMissingBlocks(latestBlockNumberOnStart);
+  Log.info("listening for and queueing new blocks to add");
+  await Blocks.addMissingBlocks()();
   Log.info("done adding missing blocks");
-};
 
-const syncLeaderboardAll = (latestBlockNumberOnStart: number): T.Task<void> => {
-  Log.info("adding missing blocks to leaderboard all");
-  return pipe(
-    LeaderboardsAll.addMissingBlocks(latestBlockNumberOnStart),
-    T.chainIOK(() => () => {
-      Log.info("done adding missing blocks to leaderboard all");
-      Blocks.addLeaderboardAllQueue.start();
-    }),
-  );
-};
+  await seqTParT(loadLeaderboardLimitedTimeframes(), syncLeaderboardAll())();
 
-const loadLeaderboardLimitedTimeframes = (
-  latestBlockNumberOnStart: number,
-): T.Task<void> => {
-  return pipe(
-    Log.info("loading leaderboards for limited timeframes"),
-    () =>
-      LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes(
-        latestBlockNumberOnStart,
-      ),
-    T.chainIOK(() => () => {
-      Blocks.addLeaderboardLimitedTimeframeQueue.start();
-      Log.info("done loading leaderboards for limited timeframes");
-    }),
-  );
-};
-
-const main = async () => {
-  try {
-    Config.ensureCriticalBlockAnalysisConfig();
-    await EthNode.connect();
-    Log.debug("starting watch blocks");
-    const latestBlockNumberOnStart = await EthNode.getLatestBlockNumber();
-    Log.debug(`latest block on start: ${latestBlockNumberOnStart}`);
-
-    await syncBlocks(latestBlockNumberOnStart);
-    await seqTParT(
-      loadLeaderboardLimitedTimeframes(latestBlockNumberOnStart),
-      syncLeaderboardAll(latestBlockNumberOnStart),
-    )();
-
-    EthPrices.continuouslyStorePrice();
-    Coingecko.continuouslyStoreMarketCaps();
-  } catch (error) {
-    Log.error("error adding new blocks", { error });
-    EthNode.closeConnection();
-    sql.end();
-    throw error;
-  }
-};
-
-main();
-
-process.on("unhandledRejection", (error) => {
+  Blocks.storeNewBlockQueue.start();
+} catch (error) {
+  Log.error("error adding new blocks", { error });
+  EthNode.closeConnection();
+  sql.end();
   throw error;
-});
+}

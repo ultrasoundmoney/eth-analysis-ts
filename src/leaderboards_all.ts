@@ -147,28 +147,33 @@ export const addBlock = (
     T.map(() => undefined),
   );
 
-export const addMissingBlocks = (upToIncluding: number): T.Task<void> =>
+export const addMissingBlocks = (): T.Task<void> =>
   pipe(
-    seqTParT(getNewestIncludedBlockNumber()),
-    T.map(([newestIncludedBlockO]) => {
-      return pipe(
-        newestIncludedBlockO,
-        O.getOrElse(() => {
-          Log.info(
-            "no newest included block for leaderboard 'all', assuming fresh start",
-          );
-          return Blocks.londonHardForkBlockNumber - 1;
-        }),
-      );
-    }),
-    T.chain((newestIncludedBlock) => {
-      if (upToIncluding === newestIncludedBlock) {
+    seqTParT(
+      pipe(
+        getNewestIncludedBlockNumber(),
+        T.map(
+          O.getOrElse(() => {
+            Log.info(
+              "no newest included block for leaderboard 'all', assuming fresh start",
+            );
+            return Blocks.londonHardForkBlockNumber - 1;
+          }),
+        ),
+      ),
+      Blocks.getLatestKnownBlockNumberUnsafe(),
+    ),
+    T.chain(([newestIncludedBlock, latestKnownBlockNumber]) => {
+      if (latestKnownBlockNumber === newestIncludedBlock) {
         // All blocks already stored. Nothing to do.
         return T.of(undefined);
       }
 
       return pipe(
-        Leaderboards.getRangeBaseFees(newestIncludedBlock + 1, upToIncluding),
+        Leaderboards.getRangeBaseFees(
+          newestIncludedBlock + 1,
+          latestKnownBlockNumber,
+        ),
         T.chain(addContractBaseFeeSums),
         T.map(() => undefined),
       );

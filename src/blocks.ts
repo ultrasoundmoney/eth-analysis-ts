@@ -11,12 +11,11 @@ import * as Contracts from "./contracts.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
-import * as DisplayProgress from "./display_progress.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPrices from "./eth_prices.js";
-import { A, B, Num, O, pipe, seqSParT, seqTParT, seqTSeqT, T } from "./fp.js";
+import { A, B, O, pipe, seqSParT, seqTParT, seqTSeqT, T } from "./fp.js";
 import { hexToNumber } from "./hexadecimal.js";
 import * as Leaderboards from "./leaderboards.js";
 import { LeaderboardEntries } from "./leaderboards.js";
@@ -74,7 +73,7 @@ export const getBlockWithRetry = async (
   }
 };
 
-export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> =>
+export const getLatestKnownBlockNumber = (): T.Task<O.Option<number>> =>
   pipe(
     () => sql<{ number: number }[]>`
       SELECT MAX(number) AS number FROM blocks
@@ -83,8 +82,23 @@ export const getLatestStoredBlockNumber = (): T.Task<O.Option<number>> =>
     T.map(O.fromNullable),
   );
 
+export const getLatestKnownBlockNumberUnsafe = (): T.Task<number> =>
+  pipe(
+    getLatestKnownBlockNumber(),
+    T.map(
+      O.getOrElseW(() => {
+        throw new Error(
+          "tried to get latest known block but block table is empty",
+        );
+      }),
+    ),
+  );
+
 export const storeMissingBlockQueue = new PQueue({ concurrency: 1 });
-export const storeNewBlockQueue = new PQueue({ concurrency: 1 });
+export const storeNewBlockQueue = new PQueue({
+  concurrency: 1,
+  autoStart: false,
+});
 
 export type BlockRow = {
   hash: string;
@@ -366,71 +380,53 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   );
 };
 
-// Removing blocks in parallel is problematic. Make sure to do so one by one.
-const removeBlocksQueue = new PQueue({ concurrency: 1 });
-
-// Adding blocks in parallel is problematic. Make sure to do so one by one.
-export const addLeaderboardAllQueue = new PQueue({
-  autoStart: false,
-  concurrency: 1,
-});
-export const addLeaderboardLimitedTimeframeQueue = new PQueue({
-  autoStart: false,
-  concurrency: 1,
-});
-
-export const addMissingBlocks = async (
-  upToIncluding: number,
-): Promise<void> => {
-  Log.debug("checking for missing blocks");
-  const wantedBlockRange = getBlockRange(
-    londonHardForkBlockNumber,
-    upToIncluding,
-  );
-
-  const storedBlocks = await getKnownBlocks()();
-  const missingBlocks = wantedBlockRange.filter(
-    (wantedBlockNumber) => !storedBlocks.has(wantedBlockNumber),
-  );
-
-  if (missingBlocks.length === 0) {
-    PerformanceMetrics.setShouldLogBlockFetchRate(false);
-    return undefined;
-  }
-
-  Log.info("blocks table out-of-sync");
-
-  Log.info(`adding ${missingBlocks.length} missing blocks`);
-
-  if (process.env.SHOW_PROGRESS !== undefined) {
-    DisplayProgress.start(missingBlocks.length);
-  }
-
-  await storeMissingBlockQueue.addAll(
-    missingBlocks.map((blockNumber) =>
-      pipe(
-        () => getBlockWithRetry(blockNumber),
-        T.chain((block) =>
-          seqTParT(
-            T.of(block),
-            () => Transactions.getTxrsWithRetry(block),
-            EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
-          ),
-        ),
-        T.chain(([block, txrs, ethPrice]) =>
-          storeBlock(block, txrs, ethPrice?.ethusd),
-        ),
+const addMissingBlock = (blockNumber: number): T.Task<void> => {
+  return pipe(
+    () => getBlockWithRetry(blockNumber),
+    T.chain((block) =>
+      seqTParT(
+        T.of(block),
+        () => Transactions.getTxrsWithRetry(block),
+        EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
       ),
     ),
+    T.chain(([block, txrs, ethPrice]) =>
+      storeBlock(block, txrs, ethPrice?.ethusd),
+    ),
   );
-
-  missingBlocks.forEach((blockNumber) => knownBlocks.add(blockNumber));
-
-  Log.info(`added ${missingBlocks.length} missing blocks`);
-  PerformanceMetrics.setShouldLogBlockFetchRate(false);
 };
 
-const knownBlocks: Set<number> = new Set();
+export const addMissingBlocks = (
+  upToNumber: number | undefined = undefined,
+): T.Task<void> =>
+  pipe(
+    seqTParT(() => EthNode.getLatestBlockNumber(), getKnownBlocks()),
+    T.map(([latestBlockNumber, knownBlocks]) =>
+      pipe(
+        getBlockRange(
+          londonHardForkBlockNumber,
+          upToNumber || latestBlockNumber,
+        ),
+        A.filter((number) => !knownBlocks.has(number)),
+      ),
+    ),
+    T.chain((missingBlocks) => {
+      if (missingBlocks.length === 0) {
+        return T.of(undefined);
+      }
+
+      Log.info(
+        `blocks table out-of-sync, adding ${missingBlocks.length} missing blocks`,
+      );
+
+      return () =>
+        storeMissingBlockQueue.addAll(missingBlocks.map(addMissingBlock));
+    }),
+    T.chainFirstIOK(() => () => {
+      PerformanceMetrics.setShouldLogBlockFetchRate(false);
+    }),
+    T.map(() => undefined),
+  );
 
 const rollback = (block: BlockLondon): T.Task<void> => {
   const t0 = performance.now();
@@ -461,6 +457,24 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         block: () => getBlockWithRetry(blockNumber),
         isKnownBlock: getIsKnownBlock(blockNumber),
       }),
+    T.chainFirst(({ block }) =>
+      pipe(
+        getBlockHashIsKnown(block.parentHash),
+        T.chain(
+          B.match(
+            // We're missing the parent hash, update the previous block.
+            () =>
+              pipe(
+                Log.warn(
+                  "storeNewBlock, parent hash not found, storing parent again",
+                ),
+                () => storeNewBlock(blockNumber - 1),
+              ),
+            () => T.of(undefined),
+          ),
+        ),
+      ),
+    ),
     T.chain(({ block, isKnownBlock }) =>
       seqSParT({
         block: T.of(block),
@@ -483,11 +497,6 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         ),
       ),
     ),
-    T.chainFirstIOK(() => () => {
-      if (Config.getShowProgress()) {
-        DisplayProgress.onBlockAnalyzed();
-      }
-    }),
     T.chainFirst(({ block, txrs, ethPrice }) => {
       const feeBreakdown = BaseFees.calcBlockFeeBreakdown(
         block,
@@ -497,35 +506,23 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
 
       const t0 = performance.now();
 
-      const addToLimitedTimeFrameTask = () =>
-        addLeaderboardLimitedTimeframeQueue.add(() =>
-          LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
-            block,
-            feeBreakdown.contract_use_fees,
-            feeBreakdown.contract_use_fees_usd!,
-          ),
-        );
+      LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
+        block,
+        feeBreakdown.contract_use_fees,
+        feeBreakdown.contract_use_fees_usd!,
+      );
 
-      const removeExpiredBlocksTask = () =>
-        removeBlocksQueue.add(
-          LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
-        );
+      const removeExpiredBlocksTask =
+        LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes();
 
-      const addToLeaderboardAllTask = () =>
-        addLeaderboardAllQueue.add(
-          LeaderboardsAll.addBlock(
-            block.number,
-            feeBreakdown.contract_use_fees,
-            feeBreakdown.contract_use_fees_usd!,
-          ),
-        );
+      const addToLeaderboardAllTask = LeaderboardsAll.addBlock(
+        block.number,
+        feeBreakdown.contract_use_fees,
+        feeBreakdown.contract_use_fees_usd!,
+      );
 
       return pipe(
-        seqTParT(
-          addToLimitedTimeFrameTask,
-          removeExpiredBlocksTask,
-          addToLeaderboardAllTask,
-        ),
+        seqTParT(removeExpiredBlocksTask, addToLeaderboardAllTask),
         T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
       );
     }),
@@ -534,11 +531,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       const allBlocksProcessed =
         storeNewBlockQueue.size === 0 &&
         // This function is on this queue.
-        storeNewBlockQueue.pending <= 1 &&
-        addLeaderboardAllQueue.size === 0 &&
-        addLeaderboardAllQueue.pending === 0 &&
-        addLeaderboardLimitedTimeframeQueue.size === 0 &&
-        addLeaderboardLimitedTimeframeQueue.pending === 0;
+        storeNewBlockQueue.pending <= 1;
 
       if (!allBlocksProcessed) {
         Log.debug(

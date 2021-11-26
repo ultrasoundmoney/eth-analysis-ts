@@ -58,14 +58,12 @@ export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
 
 const getBlocksForTimeframe = (
   timeframe: LimitedTimeframe,
-  upToIncluding: number,
 ): T.Task<BlockForTotal[]> => {
   const minutes = Leaderboards.timeframeMinutesMap[timeframe];
   return () =>
     sql<BlockForTotal[]>`
       SELECT number, mined_at FROM blocks
       WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
-      AND number <= ${upToIncluding}
       ORDER BY number ASC
     `;
 };
@@ -119,65 +117,71 @@ const subtractFromSums = (
 
 const blockForTotalOrd: Ord<BlockForTotal> = {
   equals: (x, y) => x.number === y.number,
-  compare: (x, y) => (x.number < y.number ? -1 : 1),
+  compare: (x, y) => (x.number < y.number ? -1 : x.number === y.number ? 0 : 1),
 };
 
-export const addAllBlocksForAllTimeframes = (
-  upToIncluding: number,
-): T.Task<void> =>
+export const addAllBlocksForAllTimeframes = (): T.Task<void> =>
   pipe(
-    Timeframe.limitedTimeframes,
-    RA.map((timeframe) => {
-      const t0 = performance.now();
-      Log.debug(`loading sums for ${timeframe}`);
-      return pipe(
-        getBlocksForTimeframe(timeframe, upToIncluding),
-        T.chain((blocksToAdd) =>
-          pipe(
-            O.sequenceArray([A.head(blocksToAdd), A.last(blocksToAdd)]),
-            O.match(
-              () => {
-                Log.warn(
-                  `zero blocks in blocks table for interval now - ${timeframe}, skipping ${timeframe} fast leaderboard init`,
-                );
-                return T.of(undefined);
-              },
-              ([head, last]) =>
-                pipe(
-                  getBaseFeesForRange(head.number, last.number),
-                  T.map((sums) => {
-                    blocksInTimeframe[timeframe] = pipe(
-                      blocksInTimeframe[timeframe],
-                      A.concat(blocksToAdd),
-                      A.sort(blockForTotalOrd),
-                    );
+    pipe(
+      Timeframe.limitedTimeframes,
+      RA.map((timeframe) => {
+        Log.debug(`init leaderboard limited time frame ${timeframe}`);
 
-                    const sumsEth = Leaderboards.pickDenomination(sums, "eth");
-                    const sumsUsd = Leaderboards.pickDenomination(sums, "usd");
+        const t0 = performance.now();
 
-                    contractSumsPerTimeframe[timeframe] = addToSums(
-                      sumsEth,
-                      contractSumsPerTimeframe[timeframe],
-                    );
-                    contractSumsPerTimeframeUsd[timeframe] = addToSums(
-                      sumsUsd,
-                      contractSumsPerTimeframeUsd[timeframe],
-                    );
+        return pipe(
+          getBlocksForTimeframe(timeframe),
+          T.chain((blocksToAdd) =>
+            pipe(
+              O.sequenceArray([A.head(blocksToAdd), A.last(blocksToAdd)]),
+              O.match(
+                () => {
+                  Log.warn(
+                    `init leaderboard limited time frame, zero blocks found in blocks table within now - ${timeframe}, skipping init`,
+                  );
+                  return T.of(undefined);
+                },
+                ([head, last]) =>
+                  pipe(
+                    getBaseFeesForRange(head.number, last.number),
+                    T.map((sums) => {
+                      blocksInTimeframe[timeframe] = blocksToAdd;
 
-                    const t1 = performance.now();
-                    const took = Number((t1 - t0) / 1000).toFixed(2);
-                    Log.debug(`loading leaderboard ${timeframe} took ${took}s`);
+                      const sumsEth = Leaderboards.pickDenomination(
+                        sums,
+                        "eth",
+                      );
+                      const sumsUsd = Leaderboards.pickDenomination(
+                        sums,
+                        "usd",
+                      );
 
-                    return undefined;
-                  }),
-                ),
+                      contractSumsPerTimeframe[timeframe] = addToSums(
+                        sumsEth,
+                        contractSumsPerTimeframe[timeframe],
+                      );
+                      contractSumsPerTimeframeUsd[timeframe] = addToSums(
+                        sumsUsd,
+                        contractSumsPerTimeframeUsd[timeframe],
+                      );
+
+                      const t1 = performance.now();
+                      const took = Number((t1 - t0) / 1000).toFixed(2);
+                      Log.debug(
+                        `loading leaderboard ${timeframe} took ${took}s`,
+                      );
+
+                      return undefined;
+                    }),
+                  ),
+              ),
             ),
           ),
-        ),
-      );
-    }),
-    T.sequenceArray,
-    T.map(() => undefined),
+        );
+      }),
+      T.sequenceArray,
+      T.map(() => undefined),
+    ),
   );
 
 export const addBlockForAllTimeframes = (
