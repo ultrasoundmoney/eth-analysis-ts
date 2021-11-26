@@ -417,14 +417,23 @@ export const subscribeNewHeads = (
 
   headsWs.on("message", (data) => {
     if (!gotSubscription) {
+      Log.debug("got acknowledgement of new heads subscription");
       gotSubscription = true;
       return undefined;
     }
 
     const rawHead: RawHead = JSON.parse(data.toString()).params.result;
     const head = translateHead(rawHead);
-    Log.debug(`new head: ${head.number}, hash: ${head.hash}`);
 
+    const receivedAt = new Date().toISOString();
+    const minedAt = new Date(Number(head.timestamp) * 1000).toISOString();
+    Log.debug("new head", {
+      number: head.number,
+      hash: head.hash,
+      parentHash: head.parentHash,
+      receivedAt,
+      minedAt,
+    });
     handleNewHead(head);
     return undefined;
   });
