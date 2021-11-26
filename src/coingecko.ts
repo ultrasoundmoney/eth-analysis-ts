@@ -8,7 +8,7 @@ import urlcatM from "urlcat";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
-import { E, O, pipe, seqTParT, seqTParTE, TE } from "./fp.js";
+import { E, O, pipe, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -189,7 +189,7 @@ const getPrices = (): TE.TaskEither<MarketDataError, PriceResponse> => {
 
 export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
   pipe(
-    seqTParTE(
+    TEAlt.seqTParTE(
       getPrices(),
       getCirculatingSupplyWithCache("ethereum"),
       getCirculatingSupplyWithCache("bitcoin"),

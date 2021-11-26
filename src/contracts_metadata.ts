@@ -6,7 +6,7 @@ import { sql } from "./db.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
-import { A, O, pipe, seqTParT, T } from "./fp.js";
+import { A, O, pipe, T, TAlt } from "./fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
 import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
@@ -82,7 +82,7 @@ export const addWeb3Metadata = async (
   // Contracts may have a NUL byte in their name, which is not safe to store in postgres. We should find a way to store this safely.
   const safeName = name?.replaceAll("\x00", "");
 
-  await seqTParT(
+  await TAlt.seqTParT(
     safeName === undefined
       ? T.of(undefined)
       : Contracts.setSimpleTextColumn("web3_name", address, safeName),
@@ -175,7 +175,7 @@ const addMetadataFromSimilar = async (
       : Contracts.setSimpleTextColumn("twitter_handle", address, twitterHandle);
 
   return pipe(
-    seqTParT(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
+    TAlt.seqTParT(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
     T.map(() => undefined),
   )();
 };
@@ -254,7 +254,7 @@ export const addTwitterMetadata = async (
   const imageUrl = Twitter.getProfileImage(profile) ?? null;
 
   return pipe(
-    seqTParT(
+    TAlt.seqTParT(
       Contracts.setSimpleTextColumn("twitter_image_url", address, imageUrl),
       Contracts.setSimpleTextColumn("twitter_name", address, profile.name),
       Contracts.setSimpleTextColumn(
@@ -326,7 +326,7 @@ const addOpenseaMetadata = async (
 
   const schemaName = OpenSea.getSchemaName(openseaContract) ?? null;
 
-  await seqTParT(
+  await TAlt.seqTParT(
     Contracts.setSimpleTextColumn(
       "opensea_twitter_handle",
       address,
@@ -361,7 +361,7 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
     return undefined;
   }
 
-  await seqTParT(
+  await TAlt.seqTParT(
     Contracts.setSimpleTextColumn(
       "defi_llama_category",
       address,
@@ -386,7 +386,7 @@ type Metadata = {
 };
 const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
-    seqTParT(
+    TAlt.seqTParT(
       () => addWeb3Metadata(address, forceRefetch),
       () => addEtherscanNameTag(address, forceRefetch),
       () => addOpenseaMetadata(address, forceRefetch),

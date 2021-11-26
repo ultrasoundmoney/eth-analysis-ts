@@ -18,7 +18,7 @@ import * as DerivedBlockStats from "../derived_block_stats.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeesBurnedPerInterval from "../fees_burned_per_interval.js";
-import { pipe, seqSParT, T, TE } from "../fp.js";
+import { pipe, T, TAlt, TE } from "../fp.js";
 import * as LatestBlockFees from "../latest_block_fees.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
@@ -293,7 +293,7 @@ const updateCachesForBlockNumber = async (
   const number = blockNumber;
 
   return pipe(
-    seqSParT({
+    TAlt.seqSParT({
       derivedBlockStats,
       latestBlockFees,
       baseFeePerGas,

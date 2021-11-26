@@ -8,7 +8,7 @@ import * as Duration from "./duration.js";
 import { EthPrice } from "./etherscan.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
-import { O, pipe, seqSParT, seqTParT, T } from "./fp.js";
+import { E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 import { intervalSqlMap, LimitedTimeframe, Timeframe } from "./timeframe.js";
 
@@ -422,7 +422,7 @@ const getTimeFrameAverageWithCache = (timeFrame: Timeframe): T.Task<number> =>
   );
 
 export const getAveragePrice = (): T.Task<AverageEthPrice> =>
-  seqSParT({
+  TAlt.seqSParT({
     m5: getTimeFrameAverageWithCache("5m"),
     h1: getTimeFrameAverageWithCache("1h"),
     h24: getTimeFrameAverageWithCache("24h"),

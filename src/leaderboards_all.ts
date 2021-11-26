@@ -2,7 +2,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { Row } from "postgres";
 import * as Blocks from "./blocks.js";
 import { sql } from "./db.js";
-import { A, B, O, seqTParT, T } from "./fp.js";
+import { A, B, O, T, TAlt, TEAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeeSums,
@@ -140,7 +140,7 @@ export const addBlock = (
   baseFeeSumsUsd: ContractSums,
 ): T.Task<void> =>
   pipe(
-    seqTParT(
+    TAlt.seqTParT(
       addContractBaseFeeSums({ eth: baseFeeSumsEth, usd: baseFeeSumsUsd }),
       setNewestIncludedBlockNumber(blockNumber),
     ),
@@ -149,7 +149,7 @@ export const addBlock = (
 
 export const addMissingBlocks = (): T.Task<void> =>
   pipe(
-    seqTParT(
+    TAlt.seqTParT(
       pipe(
         getNewestIncludedBlockNumber(),
         T.map(
@@ -207,7 +207,7 @@ const getTopBaseFeeContracts = (): T.Task<LeaderboardRow[]> => {
 
 export const calcLeaderboardAll = (): T.Task<LeaderboardEntry[]> => {
   return pipe(
-    seqTParT(
+    TAlt.seqTParT(
       () => Leaderboards.getEthTransferFeesForTimeframe("all"),
       () => Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
       pipe(

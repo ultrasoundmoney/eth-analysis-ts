@@ -1,4 +1,5 @@
 import { sequenceS, sequenceT } from "fp-ts/lib/Apply.js";
+import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 
@@ -16,12 +17,25 @@ export * as T from "fp-ts/lib/Task.js";
 export * as TE from "fp-ts/lib/TaskEither.js";
 export * as D from "io-ts/lib/Decoder.js";
 
-export const seqTParT = sequenceT(T.ApplyPar);
-export const seqTSeqT = sequenceT(T.ApplySeq);
-export const seqSParT = sequenceS(T.ApplyPar);
-export const seqSSeqT = sequenceS(T.ApplySeq);
+const getOrThrow = <A>(te: TE.TaskEither<string | undefined, A>): T.Task<A> =>
+  pipe(
+    te,
+    TE.getOrElse((e) => {
+      throw new Error(e);
+    }),
+  );
 
-export const seqTParTE = sequenceT(TE.ApplyPar);
-export const seqTSeqTE = sequenceT(TE.ApplySeq);
-export const seqSParTE = sequenceS(TE.ApplyPar);
-export const seqSSeqTE = sequenceS(TE.ApplySeq);
+export const TAlt = {
+  seqTParT: sequenceT(T.ApplyPar),
+  seqTSeqT: sequenceT(T.ApplySeq),
+  seqSParT: sequenceS(T.ApplyPar),
+  seqSSeqT: sequenceS(T.ApplySeq),
+};
+
+export const TEAlt = {
+  seqTParTE: sequenceT(TE.ApplyPar),
+  seqTSeqTE: sequenceT(TE.ApplySeq),
+  seqSParTE: sequenceS(TE.ApplyPar),
+  seqSSeqTE: sequenceS(TE.ApplySeq),
+  getOrThrow,
+};

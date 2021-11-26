@@ -2,7 +2,7 @@ import * as DateFns from "date-fns";
 import { performance } from "perf_hooks";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
-import { A, O, Ord, pipe, RA, seqSParT, seqTParT, T } from "./fp.js";
+import { A, O, Ord, pipe, RA, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeesNext,
@@ -358,7 +358,7 @@ const calcLeaderboardForLimitedTimeframe = (
   timeframe: LimitedTimeframe,
 ): T.Task<LeaderboardEntry[]> => {
   return pipe(
-    seqTParT(
+    TAlt.seqTParT(
       pipe(
         getTopBaseFeeContracts(timeframe),
         T.chain(Leaderboards.extendRowsWithFamDetails),
@@ -375,7 +375,7 @@ const calcLeaderboardForLimitedTimeframe = (
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
   Record<LimitedTimeframe, LeaderboardEntry[]>
 > =>
-  seqSParT({
+  TAlt.seqSParT({
     "5m": calcLeaderboardForLimitedTimeframe("5m"),
     "1h": calcLeaderboardForLimitedTimeframe("1h"),
     "24h": calcLeaderboardForLimitedTimeframe("24h"),

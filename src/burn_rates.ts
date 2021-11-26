@@ -1,6 +1,6 @@
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
-import { pipe, seqSParT, T } from "./fp.js";
+import { pipe, T, TAlt } from "./fp.js";
 import { LimitedTimeframe } from "./timeframe.js";
 
 export type BurnRatesT = {
@@ -67,7 +67,7 @@ const getBurnRate = (block: BlockLondon) =>
 
 export const calcBurnRates = (block: BlockLondon): T.Task<BurnRatesT> => {
   return pipe(
-    seqSParT({
+    TAlt.seqSParT({
       burnRate5m: getTimeframeBurnRate(block, "5m"),
       burnRate1h: getTimeframeBurnRate(block, "1h"),
       burnRate24h: getTimeframeBurnRate(block, "24h"),

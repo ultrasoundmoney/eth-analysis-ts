@@ -4,7 +4,7 @@ import * as Blocks from "./blocks.js";
 import * as Etherscan from "./etherscan.js";
 import { EthPrice } from "./etherscan.js";
 import * as EthNode from "./eth_node.js";
-import { O, pipe, seqTParT, T } from "./fp.js";
+import { O, pipe, T, TAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 const usdcEthUniPool = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8";

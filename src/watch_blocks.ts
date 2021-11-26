@@ -3,12 +3,10 @@ import "@sentry/tracing";
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as Blocks from "./blocks.js";
-import * as Coingecko from "./coingecko.js";
 import * as Config from "./config.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
-import * as EthPrices from "./eth_prices.js";
-import { seqTParT } from "./fp.js";
+import { TAlt } from "./fp.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
@@ -60,7 +58,10 @@ try {
   await Blocks.addMissingBlocks()();
   Log.info("done adding missing blocks");
 
-  await seqTParT(loadLeaderboardLimitedTimeframes(), syncLeaderboardAll())();
+  await TAlt.seqTParT(
+    loadLeaderboardLimitedTimeframes(),
+    syncLeaderboardAll(),
+  )();
 
   Blocks.storeNewBlockQueue.start();
 } catch (error) {

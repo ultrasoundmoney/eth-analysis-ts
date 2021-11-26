@@ -15,7 +15,7 @@ import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPrices from "./eth_prices.js";
-import { A, B, O, pipe, seqSParT, seqTParT, seqTSeqT, T } from "./fp.js";
+import { A, B, E, O, pipe, T, TAlt, TE } from "./fp.js";
 import { hexToNumber } from "./hexadecimal.js";
 import * as Leaderboards from "./leaderboards.js";
 import { LeaderboardEntries } from "./leaderboards.js";
@@ -212,7 +212,7 @@ export const updateBlock = (
     T.map(() => undefined),
   );
 
-  const updateContractBaseFeesTask = seqTSeqT(
+  const updateContractBaseFeesTask = TAlt.seqTSeqT(
     () =>
       sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`,
     contractBaseFeesRows.length !== 0
@@ -243,9 +243,9 @@ export const updateBlock = (
       return undefined;
     }),
     T.chain(() =>
-      seqTSeqT(
-        seqTParT(storeContractsTask, updateBlockTask),
-        seqTParT(updateContractBaseFeesTask, updateContractsMinedAtTask),
+      TAlt.seqTSeqT(
+        TAlt.seqTParT(storeContractsTask, updateBlockTask),
+        TAlt.seqTParT(updateContractBaseFeesTask, updateContractsMinedAtTask),
       ),
     ),
     T.map(() => undefined),
@@ -300,9 +300,9 @@ export const storeBlock = (
       return undefined;
     }),
     T.chain(() =>
-      seqTSeqT(
-        seqTParT(storeContractsTask, storeBlockTask),
-        seqTParT(storeContractsBaseFeesTask, updateContractsMinedAtTask),
+      TAlt.seqTSeqT(
+        TAlt.seqTParT(storeContractsTask, storeBlockTask),
+        TAlt.seqTParT(storeContractsBaseFeesTask, updateContractsMinedAtTask),
       ),
     ),
     T.map(() => undefined),
@@ -353,7 +353,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chainFirstIOK(logPerfT("calc leaderboard limited timeframes", t0)),
   );
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
-    seqTParT(leaderboardLimitedTimeframes, leaderboardAll),
+    TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAll),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
       leaderboard5m: leaderboardLimitedTimeframes["5m"],
       leaderboard1h: leaderboardLimitedTimeframes["1h"],
@@ -365,7 +365,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   );
 
   return pipe(
-    seqSParT({ burnRates, feesBurned, leaderboards }),
+    TAlt.seqSParT({ burnRates, feesBurned, leaderboards }),
     T.chain(({ burnRates, feesBurned, leaderboards }) =>
       DerivedBlockStats.storeDerivedBlockStats({
         blockNumber: block.number,
@@ -384,10 +384,10 @@ const addMissingBlock = (blockNumber: number): T.Task<void> => {
   return pipe(
     () => getBlockWithRetry(blockNumber),
     T.chain((block) =>
-      seqTParT(
+      TAlt.seqTParT(
         T.of(block),
         () => Transactions.getTxrsWithRetry(block),
-        EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
+        EthPrices.getPriceForOldBlock(block),
       ),
     ),
     T.chain(([block, txrs, ethPrice]) =>
@@ -400,7 +400,7 @@ export const addMissingBlocks = (
   upToNumber: number | undefined = undefined,
 ): T.Task<void> =>
   pipe(
-    seqTParT(() => EthNode.getLatestBlockNumber(), getKnownBlocks()),
+    TAlt.seqTParT(() => EthNode.getLatestBlockNumber(), getKnownBlocks()),
     T.map(([latestBlockNumber, knownBlocks]) =>
       pipe(
         getBlockRange(
@@ -453,7 +453,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
     Log.debug(`analyzing block ${blockNumber}`),
     () =>
-      seqSParT({
+      TAlt.seqSParT({
         block: () => getBlockWithRetry(blockNumber),
         isKnownBlock: getIsKnownBlock(blockNumber),
       }),
@@ -476,7 +476,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       ),
     ),
     T.chain(({ block, isKnownBlock }) =>
-      seqSParT({
+      TAlt.seqSParT({
         block: T.of(block),
         isKnownBlock: T.of(isKnownBlock),
         txrs: () => Transactions.getTxrsWithRetry(block),
@@ -522,7 +522,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       );
 
       return pipe(
-        seqTParT(removeExpiredBlocksTask, addToLeaderboardAllTask),
+        TAlt.seqTParT(removeExpiredBlocksTask, addToLeaderboardAllTask),
         T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
       );
     }),
