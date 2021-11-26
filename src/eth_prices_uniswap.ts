@@ -53,7 +53,11 @@ type Slot0 = {
 // };
 
 // See: https://docs.uniswap.org/sdk/guides/fetching-prices
-const getUniPoolSqrtPriceX96 = (uniPoolAddress: string): T.Task<BigNumber> =>
+// NOTE: setting blockHeight does not work.
+const getUniPoolSqrtPriceX96 = (
+  uniPoolAddress: string,
+  blockHeight?: number,
+): T.Task<BigNumber> =>
   pipe(
     () => Etherscan.getAbiWithCache(uniPoolAddress),
     T.chain((abi) => {
@@ -67,7 +71,9 @@ const getUniPoolSqrtPriceX96 = (uniPoolAddress: string): T.Task<BigNumber> =>
             return pipe(
               EthNode.makeContract(uniPoolAddress, abi),
               (contract) => () =>
-                contract.methods.slot0().call() as Promise<Slot0>,
+                contract.methods.slot0().call({
+                  defaultBlock: blockHeight ?? "latest",
+                }) as Promise<Slot0>,
               T.map((slot0) => new BigNumber(slot0.sqrtPriceX96)),
             );
           },
@@ -94,11 +100,11 @@ const calcMedian = (values: number[]) => {
 
 // TODO: figure out why these pools are calculated differently.
 // The inversion probably depends on which is token0.
-export const getMedianEthPrice = (): T.Task<EthPrice> =>
+export const getMedianEthPrice = (blockHeight?: number): T.Task<EthPrice> =>
   pipe(
-    seqTParT(
+    TAlt.seqTParT(
       pipe(
-        () => Blocks.getBlockWithRetry("latest"),
+        () => Blocks.getBlockWithRetry(blockHeight ?? "latest"),
         T.map((block) => {
           if (block === undefined) {
             Log.error(
@@ -111,7 +117,7 @@ export const getMedianEthPrice = (): T.Task<EthPrice> =>
         }),
       ),
       pipe(
-        getUniPoolSqrtPriceX96(usdcEthUniPool),
+        getUniPoolSqrtPriceX96(usdcEthUniPool, blockHeight),
         T.map((sqrtPriceX96) => {
           const ethUsdc = Q192.div(sqrtPriceX96.pow(2))
             // Not clear why the number is 10**12 lower than expected.
@@ -122,7 +128,7 @@ export const getMedianEthPrice = (): T.Task<EthPrice> =>
         }),
       ),
       pipe(
-        getUniPoolSqrtPriceX96(usdtEthUniPool),
+        getUniPoolSqrtPriceX96(usdtEthUniPool, blockHeight),
         T.map((sqrtPriceX96) => {
           const ethUsdt = sqrtPriceX96
             .pow(2)
@@ -135,7 +141,7 @@ export const getMedianEthPrice = (): T.Task<EthPrice> =>
         }),
       ),
       pipe(
-        getUniPoolSqrtPriceX96(daiEthUniPool),
+        getUniPoolSqrtPriceX96(daiEthUniPool, blockHeight),
         T.map((sqrtPriceX96) => {
           // Not clear why inverted.
           const ethDai = Q192.div(sqrtPriceX96.pow(2)).toNumber();
