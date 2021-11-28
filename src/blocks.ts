@@ -6,7 +6,6 @@ import * as BaseFees from "./base_fees.js";
 import { FeeBreakdown } from "./base_fees.js";
 import * as BaseFeeSums from "./base_fee_sums.js";
 import * as BurnRates from "./burn_rates.js";
-import * as Config from "./config.js";
 import * as Contracts from "./contracts.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
@@ -15,7 +14,7 @@ import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPrices from "./eth_prices.js";
-import { A, B, E, O, pipe, T, TAlt, TE } from "./fp.js";
+import { A, B, E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import { hexToNumber } from "./hexadecimal.js";
 import * as Leaderboards from "./leaderboards.js";
 import { LeaderboardEntries } from "./leaderboards.js";
@@ -73,24 +72,18 @@ export const getBlockWithRetry = async (
   }
 };
 
-export const getLatestKnownBlockNumber = (): T.Task<O.Option<number>> =>
+export const getLatestKnownBlockNumber = (): TE.TaskEither<string, number> =>
   pipe(
-    () => sql<{ number: number }[]>`
-      SELECT MAX(number) AS number FROM blocks
-    `,
-    T.map((rows) => rows[0]?.number),
-    T.map(O.fromNullable),
-  );
-
-export const getLatestKnownBlockNumberUnsafe = (): T.Task<number> =>
-  pipe(
-    getLatestKnownBlockNumber(),
-    T.map(
-      O.getOrElseW(() => {
-        throw new Error(
-          "tried to get latest known block but block table is empty",
-        );
-      }),
+    TE.tryCatch(
+      () => sql<{ number: number }[]>`
+        SELECT MAX(number) AS number FROM blocks
+      `,
+      String,
+    ),
+    TE.chainEitherK((rows) =>
+      rows[0] === undefined
+        ? E.left("getLatestKnownBlockNumber, blocks table empty")
+        : E.right(rows[0].number),
     ),
   );
 
@@ -480,7 +473,10 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         block: T.of(block),
         isKnownBlock: T.of(isKnownBlock),
         txrs: () => Transactions.getTxrsWithRetry(block),
-        ethPrice: EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
+        ethPrice: pipe(
+          EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
+          TEAlt.getOrThrow,
+        ),
       }),
     ),
     T.chainFirst(({ block, isKnownBlock, txrs, ethPrice }) =>

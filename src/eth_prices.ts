@@ -23,7 +23,7 @@ type EthUsd = number;
 const priceByMinute = new QuickLRU<JsTimestamp, EthUsd>({ maxSize: 5760 });
 
 // Can be simplified if we add historic prices to the eth_prices table.
-export const getPriceForOlderBlockWithCache = async (
+const getPriceForOlderBlockWithCache = async (
   block: BlockForPrice,
 ): Promise<EthPrice> => {
   const blockMinedAt = DateFns.fromUnixTime(block.timestamp);
@@ -203,7 +203,7 @@ export const findNearestHistoricPrice = (
   return nearestPrice;
 };
 
-const getDbEthPrice = (timestamp: Date): T.Task<EthPrice> =>
+const getDbEthPrice = (timestamp: Date): TE.TaskEither<string, EthPrice> =>
   pipe(
     () => sql<{ timestamp: Date; ethusd: number }[]>`
       SELECT
@@ -214,70 +214,75 @@ const getDbEthPrice = (timestamp: Date): T.Task<EthPrice> =>
       LIMIT 1
     `,
     T.map((rows) => rows[0]),
+    T.map(O.fromNullable),
+    TE.fromTaskOption(() => "eth price table empty"),
   );
 
-export const getEthPrice = (timestamp: Date): T.Task<EthPrice> =>
-  pipe(
-    timestamp,
-    DateFns.startOfMinute,
+export const getEthPrice = (
+  timestamp: Date,
+  maxAgeMillis: number | undefined = undefined,
+): TE.TaskEither<string, EthPrice> => {
+  const roundedTimestamp = pipe(timestamp, DateFns.startOfMinute);
+
+  const priceCachedO = pipe(
+    roundedTimestamp,
     (dt) => dt.getTime(),
     (jsTimestamp) => priceCache.get(jsTimestamp),
     O.fromNullable,
-    O.match(
-      () =>
-        pipe(
-          timestamp,
-          DateFns.startOfMinute,
-          getDbEthPrice,
-          T.chainFirstIOK((ethPrice) => () => {
-            const formattedTimestamp = pipe(
-              timestamp,
-              DateFns.startOfMinute,
-              DateFns.formatISO,
-            );
-            Log.debug(
-              `get eth price, cache miss, timestamp: ${formattedTimestamp}`,
-            );
-            priceCache.set(ethPrice.timestamp.getTime(), ethPrice);
-          }),
-        ),
-      (ethPrice) =>
-        pipe(
-          T.of(ethPrice),
-          T.chainFirstIOK(() => () => {
-            const formattedTimestamp = pipe(
-              timestamp,
-              DateFns.startOfMinute,
-              DateFns.formatISO,
-            );
-            Log.debug(
-              `get eth price, cache hit, timestamp: ${formattedTimestamp}`,
-            );
-          }),
-        ),
-    ),
+    TE.fromOption(() => "no eth price in cache"),
   );
 
-export const get24hAgoPrice = (): T.Task<number | undefined> =>
+  return pipe(
+    priceCachedO,
+    TE.alt(() => getDbEthPrice(roundedTimestamp)),
+    TE.chainEitherK((ethPrice) => {
+      if (maxAgeMillis === undefined) {
+        return E.right(ethPrice);
+      }
+
+      const priceAge = DateFnsAlt.millisecondsBetweenAbs(
+        new Date(),
+        ethPrice.timestamp,
+      );
+
+      if (priceAge > maxAgeMillis) {
+        return E.left(
+          `timestamp: ${timestamp.toISOString()} and closest eth price are more than ${maxAgeMillis} millis apart`,
+        );
+      }
+
+      return E.right(ethPrice);
+    }),
+  );
+};
+
+export const get24hAgoPrice = (): TE.TaskEither<string, number> =>
   pipe(
-    () => sql<{ ethPrice: number }[]>`
-      SELECT eth_price FROM blocks
+    TE.tryCatch(
+      () => sql<{ ethPrice: number }[]>`
+      SELECT timestamp, ethusd FROM eth_prices
       ORDER BY ABS(EXTRACT(epoch FROM (mined_at - (NOW() - '1 days'::interval))))
       LIMIT 1
     `,
-    T.map((rows) => rows[0]?.ethPrice ?? undefined),
+      String,
+    ),
+    TE.chain((rows) =>
+      pipe(
+        rows[0],
+        O.fromNullable,
+        O.map((row) => row.ethPrice),
+        TE.fromOption(() => "get24hAgoPrice, no price in the last 24h"),
+      ),
+    ),
   );
-const get24hChange = (currentPrice: EthPrice): T.Task<number | undefined> =>
+
+const get24hChange = (currentPrice: EthPrice): TE.TaskEither<string, number> =>
   pipe(
     get24hAgoPrice(),
-    T.map((price24hAgo) => {
-      if (price24hAgo === undefined) {
-        Log.error("failed to find 24h old price in db");
-        return undefined;
-      }
-
-      return ((currentPrice.ethusd - price24hAgo) / price24hAgo) * 100;
-    }),
+    TE.map(
+      (price24hAgo) =>
+        ((currentPrice.ethusd - price24hAgo) / price24hAgo) * 100,
+    ),
   );
 
 type EthStats = {
@@ -290,23 +295,22 @@ const ethStatsCache = new QuickLRU<string, EthStats>({
   maxAge: Duration.millisFromSeconds(16),
 });
 
-export const getEthStats = (): T.Task<EthStats | undefined> => {
-  const cStats = ethStatsCache.get("eth-stats");
-  if (cStats !== undefined) {
-    return T.of(cStats);
-  }
+export const getEthStats = (): TE.TaskEither<string, EthStats> => {
+  const getCachedPrice = pipe(
+    ethStatsCache.get("eth-stats"),
+    O.fromNullable,
+    TE.fromOption(() => "no eth stats in cache"),
+  );
 
-  return pipe(
+  const makeEthStats = pipe(
     getEthPrice(new Date()),
-    T.chain((latestEthPrice) =>
-      seqTParT(T.of(latestEthPrice), get24hChange(latestEthPrice)),
+    TE.chain((latestEthPrice) =>
+      TEAlt.seqTParTE(
+        TE.of<string, EthPrice>(latestEthPrice),
+        get24hChange(latestEthPrice),
+      ),
     ),
-    T.map(([latestPrice, price24Change]) => {
-      if (price24Change === undefined) {
-        Log.error("missing 24h change");
-        return undefined;
-      }
-
+    TE.map(([latestPrice, price24Change]) => {
       const ethStats = {
         usd: latestPrice.ethusd,
         usd24hChange: price24Change,
@@ -316,6 +320,11 @@ export const getEthStats = (): T.Task<EthStats | undefined> => {
 
       return ethStats;
     }),
+  );
+
+  return pipe(
+    getCachedPrice,
+    TE.alt(() => makeEthStats),
   );
 };
 
