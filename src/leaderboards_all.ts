@@ -161,7 +161,7 @@ export const addMissingBlocks = (): T.Task<void> =>
           }),
         ),
       ),
-      Blocks.getLatestKnownBlockNumberUnsafe(),
+      pipe(Blocks.getLatestKnownBlockNumber(), TEAlt.getOrThrow),
     ),
     T.chain(([newestIncludedBlock, latestKnownBlockNumber]) => {
       if (latestKnownBlockNumber === newestIncludedBlock) {
