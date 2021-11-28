@@ -124,19 +124,6 @@ const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
     }),
   )();
 
-const handleGetMarketData: Middleware = async (ctx) =>
-  pipe(
-    Coingecko.getMarketData(),
-    TE.match(
-      (error) => handleMarketDataError(ctx, error),
-      (marketData) => {
-        ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
-        ctx.set("Content-Type", "application/json");
-        ctx.body = marketData;
-      },
-    ),
-  )();
-
 const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
@@ -357,7 +344,6 @@ const router = new Router();
 router.get("/fees/total-burned", handleGetFeesBurned);
 router.get("/fees/burned-per-interval", handleGetFeesBurnedPerInterval);
 router.get("/fees/eth-price", handleGetEthPrice);
-router.get("/fees/market-data", handleGetMarketData);
 router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
