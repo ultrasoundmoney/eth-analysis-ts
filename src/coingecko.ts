@@ -1,14 +1,12 @@
-import * as EthPrices from "./eth_prices.js";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 import urlcatM from "urlcat";
-import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
-import { E, O, pipe, TAlt, TE, TEAlt } from "./fp.js";
+import { E, flow, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -20,7 +18,7 @@ type CoinResponse = {
   };
 };
 
-type PriceResponse = {
+export type PriceResponse = {
   ethereum: {
     usd: number;
     usd_24h_change: number;
@@ -176,7 +174,10 @@ const pricesQueue = new PQueue({
   concurrency: 1,
 });
 
-const getPrices = (): TE.TaskEither<MarketDataError, PriceResponse> => {
+export const getSimpleCoins = (): TE.TaskEither<
+  MarketDataError,
+  PriceResponse
+> => {
   const url = urlcat("https://api.coingecko.com/api/v3/simple/price", {
     ids: ["ethereum", "bitcoin", "tether-gold"].join(","),
     vs_currencies: ["usd", "btc"].join(","),
@@ -186,41 +187,6 @@ const getPrices = (): TE.TaskEither<MarketDataError, PriceResponse> => {
 
   return () => pricesQueue.add(fetchWithCache<PriceResponse>(priceCache, url));
 };
-
-export const getMarketData = (): TE.TaskEither<MarketDataError, MarketData> =>
-  pipe(
-    TEAlt.seqTParTE(
-      getPrices(),
-      getCirculatingSupplyWithCache("ethereum"),
-      getCirculatingSupplyWithCache("bitcoin"),
-    ),
-    TE.map(([prices, circulatingSupplyEth, circulatingSupplyBtc]) => {
-      const eth = prices.ethereum;
-      const btc = prices.bitcoin;
-      const gold = prices["tether-gold"];
-
-      return {
-        eth: {
-          usd: eth.usd,
-          usd24hChange: eth.usd_24h_change,
-          btc: eth.btc,
-          btc24hChange: eth.btc_24h_change,
-          circulatingSupply: circulatingSupplyEth,
-        },
-        btc: {
-          usd: btc.usd,
-          usd24hChange: btc.usd_24h_change,
-          circulatingSupply: circulatingSupplyBtc,
-        },
-        gold: {
-          usd: gold.usd,
-          usd24hChange: gold.usd_24h_change,
-          // In tonnes.
-          circulatingSupply: 201296.1,
-        },
-      };
-    }),
-  );
 
 type HistoricPricesResponse = {
   prices: HistoricPrice[];
@@ -245,76 +211,3 @@ export const getPastDayEthPrices = (): TE.TaskEither<
     TE.map((res) => res.prices),
   );
 };
-
-export const storeMarketCaps = async () => {
-  const [coins, ethPrice] = await seqTParT(
-    getPrices(),
-    EthPrices.getEthPrice(new Date()),
-  )();
-
-  if (E.isLeft(coins)) {
-    throw new Error(String(coins.left));
-  }
-
-  const btcMarketCap = coins.right.bitcoin.usd_market_cap;
-  const coingeckoMarketCap = coins.right.ethereum.usd_market_cap;
-  const coingeckoEthPrice = coins.right.ethereum.usd;
-  const ethCirculatingSupply = coingeckoMarketCap / coingeckoEthPrice;
-  const ethMarketCap = ethCirculatingSupply * ethPrice.ethusd;
-  // See: https://www.gold.org/goldhub/data/above-ground-stocks which many appear to use.
-  // In tonnes.
-  const goldCirculatingSupply = 201296.1;
-  const kgPerTonne = 1000;
-  const troyOzPerKg = 1000 / 31.1034768;
-  const goldPricePerTroyOz = coins.right["tether-gold"].usd;
-  const goldMarketCap =
-    goldCirculatingSupply * kgPerTonne * troyOzPerKg * goldPricePerTroyOz;
-  // See: https://ycharts.com/indicators/us_m3_money_supply
-  const usdM3MarketCap = 20_982_900_000_000;
-
-  const marketCaps = {
-    btc_market_cap: btcMarketCap,
-    eth_market_cap: ethMarketCap,
-    gold_market_cap: goldMarketCap,
-    usd_m3_market_cap: usdM3MarketCap,
-    timestamp: new Date(),
-  };
-
-  Log.debug(`storing market caps at: ${new Date().toISOString()}`);
-
-  await sql`
-    INSERT INTO market_caps
-      ${sql(marketCaps)}
-  `;
-
-  // Don't let the table grow too much.
-  await sql`
-    DELETE FROM market_caps
-    WHERE timestamp IN (
-      SELECT timestamp FROM market_caps
-      ORDER BY timestamp DESC
-      OFFSET 1
-    )
-  `;
-};
-
-type MarketCaps = {
-  btcMarketCap: number;
-  ethMarketCap: number;
-  goldMarketCap: number;
-  usdM3MarketCap: number;
-  timestamp: Date;
-};
-
-export const getMarketCaps = async (): Promise<MarketCaps> =>
-  sql<MarketCaps[]>`
-    SELECT
-      btc_market_cap,
-      eth_market_cap,
-      gold_market_cap,
-      usd_m3_market_cap,
-      timestamp
-    FROM market_caps
-    ORDER BY timestamp DESC
-    LIMIT 1
-  `.then((rows) => rows[0]);

@@ -1,8 +1,9 @@
 import * as DateFns from "date-fns";
 import { setInterval } from "timers/promises";
-import * as Coingecko from "./coingecko.js";
+import * as MarketCaps from "./market_caps.js";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
+import { pipe, TE } from "./fp.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -42,6 +43,23 @@ export const continuouslyStoreMarketCaps = async () => {
 
     lastRun = new Date();
 
-    await Coingecko.storeMarketCaps();
+    await pipe(
+      MarketCaps.storeCurrentMarketCaps(),
+      TE.match(
+        (e) => {
+          if (typeof e === "string") {
+            throw new Error(e);
+          }
+
+          if (e._tag === "timeout" || e._tag === "rate-limit") {
+            Log.warn(e.error);
+            return;
+          }
+
+          throw e.error;
+        },
+        () => undefined,
+      ),
+    )();
   }
 };
