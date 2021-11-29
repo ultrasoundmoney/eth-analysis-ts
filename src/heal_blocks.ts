@@ -1,13 +1,14 @@
+import * as DateFns from "date-fns";
+import fs from "fs/promises";
+import PQueue from "p-queue";
 import * as Blocks from "./blocks.js";
 import * as Config from "./config.js";
-import * as DateFns from "date-fns";
+import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
+import * as EthPrices from "./eth_prices.js";
+import { pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
-import PQueue from "p-queue";
-import fs from "fs/promises";
-import { pipe, TE } from "./fp.js";
-import { sql } from "./db.js";
 
 type HashBlock = {
   number: number;
@@ -66,15 +67,15 @@ const healBlock = async (hashBlock: HashBlock) => {
   // )();
   // await LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)();
 
-  // const ethPrice =
-  //   hashBlock.ethPrice !== null
-  //     ? hashBlock.ethPrice
-  //     : await pipe(
-  //         EthPrices.getPriceForOldBlock(block),
-  //         T.map((ethPrice) => ethPrice.ethusd),
-  //       )();
+  const ethPrice =
+    hashBlock.ethPrice !== null
+      ? hashBlock.ethPrice
+      : await pipe(
+          EthPrices.getPriceForOldBlock(block),
+          T.map((ethPrice) => ethPrice.ethusd),
+        )();
 
-  await Blocks.updateBlock(block, txrs)();
+  await Blocks.updateBlock(block, txrs, ethPrice)();
 
   // const contractBaseFees = BaseFees.calcBlockFeeBreakdown(
   //   block,
