@@ -444,7 +444,7 @@ const rollback = (block: BlockLondon): T.Task<void> => {
 
 export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
-    Log.debug(`analyzing block ${blockNumber}`),
+    () => Log.debug(`analyzing block ${blockNumber}`),
     () =>
       TAlt.seqSParT({
         block: () => getBlockWithRetry(blockNumber),
@@ -458,9 +458,10 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
             // We're missing the parent hash, update the previous block.
             () =>
               pipe(
-                Log.warn(
-                  "storeNewBlock, parent hash not found, storing parent again",
-                ),
+                () =>
+                  Log.warn(
+                    "storeNewBlock, parent hash not found, storing parent again",
+                  ),
                 () => storeNewBlock(blockNumber - 1),
               ),
             () => T.of(undefined),
