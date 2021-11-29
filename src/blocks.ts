@@ -17,7 +17,6 @@ import * as EthNode from "./eth_node.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPrices from "./eth_prices.js";
 import { A, B, E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
-import { hexToNumber } from "./hexadecimal.js";
 import * as Leaderboards from "./leaderboards.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
@@ -490,12 +489,8 @@ const rollback = (block: BlockLondon): T.Task<void> => {
 export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
     () => Log.debug(`analyzing block ${blockNumber}`),
-    () =>
-      TAlt.seqSParT({
-        block: () => getBlockWithRetry(blockNumber),
-        isKnownBlock: getIsKnownBlock(blockNumber),
-      }),
-    T.chainFirst(({ block }) =>
+    () => () => getBlockWithRetry(blockNumber),
+    T.chainFirst((block) =>
       pipe(
         getBlockHashIsKnown(block.parentHash),
         T.chain(
@@ -514,7 +509,10 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         ),
       ),
     ),
-    T.chain(({ block, isKnownBlock }) =>
+    T.chain((block) =>
+      TAlt.seqTParT(T.of(block), getIsKnownBlock(block.number)),
+    ),
+    T.chain(([block, isKnownBlock]) =>
       TAlt.seqSParT({
         block: T.of(block),
         isKnownBlock: T.of(isKnownBlock),
