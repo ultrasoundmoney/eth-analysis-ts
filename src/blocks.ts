@@ -475,7 +475,10 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         isKnownBlock: T.of(isKnownBlock),
         txrs: () => Transactions.getTxrsWithRetry(block),
         ethPrice: pipe(
-          EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
+          EthPrices.getEthPrice(
+            DateFns.fromUnixTime(block.timestamp),
+            Duration.millisFromMinutes(5),
+          ),
           TEAlt.getOrThrow,
         ),
       }),
