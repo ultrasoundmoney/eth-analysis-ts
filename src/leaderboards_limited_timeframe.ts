@@ -1,5 +1,6 @@
 import * as DateFns from "date-fns";
 import { performance } from "perf_hooks";
+import { BlockDb } from "./blocks.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { A, O, Ord, pipe, RA, T, TAlt } from "./fp.js";
@@ -185,7 +186,7 @@ export const addAllBlocksForAllTimeframes = (): T.Task<void> =>
   );
 
 export const addBlockForAllTimeframes = (
-  block: BlockLondon,
+  block: BlockDb,
   baseFeesToAddEth: ContractSums,
   baseFeesToAddUsd: ContractSums,
 ): void => {
@@ -194,7 +195,7 @@ export const addBlockForAllTimeframes = (
       blocksInTimeframe[timeframe],
       A.append({
         number: block.number,
-        minedAt: DateFns.fromUnixTime(block.timestamp),
+        minedAt: block.minedAt,
       }),
       A.sort(blockForTotalOrd),
     );

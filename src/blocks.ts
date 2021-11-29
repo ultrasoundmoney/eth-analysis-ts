@@ -6,11 +6,13 @@ import * as BaseFees from "./base_fees.js";
 import { FeeBreakdown } from "./base_fees.js";
 import * as BaseFeeSums from "./base_fee_sums.js";
 import * as BurnRates from "./burn_rates.js";
+import * as BurnRecordsAll from "./burn_records_all.js";
 import * as Contracts from "./contracts.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as Duration from "./duration.js";
+import { EthPrice } from "./etherscan.js";
 import * as EthNode from "./eth_node.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPrices from "./eth_prices.js";
@@ -102,8 +104,8 @@ export type BlockRow = {
   base_fee_sum_256: string;
   contract_creation_sum: number;
   eth_transfer_sum: number;
-  base_fee_per_gas: number;
-  gas_used: number;
+  base_fee_per_gas: bigint;
+  gas_used: bigint;
   eth_price?: number;
 };
 
@@ -121,22 +123,22 @@ export type BlockDb = {
 };
 
 const getBlockRow = (
-  block: BlockLondon,
+  block: BlockDb,
   feeBreakdown: FeeBreakdown,
   tips: number,
-  ethPrice: number | undefined,
+  ethPrice: number,
 ): BlockRow => ({
-  hash: block.hash,
-  number: block.number,
-  mined_at: DateFns.fromUnixTime(block.timestamp),
-  tips: tips,
-  base_fee_sum: Number(BaseFees.calcBlockBaseFeeSum(block)),
-  base_fee_sum_256: BaseFees.calcBlockBaseFeeSum(block).toString(),
+  ...(typeof ethPrice === "number" ? { eth_price: ethPrice } : undefined),
+  base_fee_per_gas: block.baseFeePerGas,
+  base_fee_sum: Number(block.baseFeeSum),
+  base_fee_sum_256: block.baseFeeSum.toString(),
   contract_creation_sum: feeBreakdown.contract_creation_fees,
   eth_transfer_sum: feeBreakdown.transfers,
-  base_fee_per_gas: hexToNumber(block.baseFeePerGas),
   gas_used: block.gasUsed,
-  ...(typeof ethPrice === "number" ? { eth_price: ethPrice } : undefined),
+  hash: block.hash,
+  mined_at: block.minedAt,
+  number: block.number,
+  tips: tips,
 });
 
 type ContractBaseFeesRow = {
@@ -176,14 +178,37 @@ const getBlockHashIsKnown = (hash: string): T.Task<boolean> =>
     T.map((rows) => rows[0]?.isKnown === true ?? false),
   );
 
+const blockDbFromBlock = (
+  block: BlockLondon,
+  txrs: TxRWeb3London[],
+  ethPrice: number,
+): BlockDb => {
+  const feeBreakdown = BaseFees.calcBlockFeeBreakdown(block, txrs);
+  const tips = BaseFees.calcBlockTips(block, txrs);
+
+  return {
+    baseFeePerGas: BigInt(block.baseFeePerGas),
+    baseFeeSum: BaseFees.calcBlockBaseFeeSum(block),
+    contractCreationSum: feeBreakdown.contract_creation_fees,
+    ethPrice,
+    ethTransferSum: feeBreakdown.transfers,
+    gasUsed: BigInt(block.gasUsed),
+    hash: block.hash,
+    minedAt: DateFns.fromUnixTime(block.timestamp),
+    number: block.number,
+    tips,
+  };
+};
+
 export const updateBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
-  ethPrice?: number,
+  ethPrice: number,
 ): T.Task<void> => {
+  const blockDb = blockDbFromBlock(block, txrs, ethPrice);
   const feeBreakdown = BaseFees.calcBlockFeeBreakdown(block, txrs);
   const tips = BaseFees.calcBlockTips(block, txrs);
-  const blockRow = getBlockRow(block, feeBreakdown, tips, ethPrice);
+  const blockRow = getBlockRow(blockDb, feeBreakdown, tips, ethPrice);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
   Log.debug(
@@ -248,12 +273,13 @@ export const updateBlock = (
 export const storeBlock = (
   block: BlockLondon,
   txrs: TxRWeb3London[],
-  ethPrice: number | undefined,
+  ethPrice: number,
 ): T.Task<void> => {
+  const blockDb = blockDbFromBlock(block, txrs, ethPrice);
   const feeBreakdown = BaseFees.calcBlockFeeBreakdown(block, txrs);
   const tips = BaseFees.calcBlockTips(block, txrs);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
-  const blockRow = getBlockRow(block, feeBreakdown, tips, ethPrice);
+  const blockRow = getBlockRow(blockDb, feeBreakdown, tips, ethPrice);
 
   Log.debug(
     `store  number: ${block.number}, hash: ${block.hash}, parentHash: ${block.parentHash}`,
@@ -376,6 +402,25 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
 const addMissingBlock = (blockNumber: number): T.Task<void> => {
   return pipe(
     () => getBlockWithRetry(blockNumber),
+    T.chainFirst((block) =>
+      pipe(
+        getBlockHashIsKnown(block.parentHash),
+        T.chain(
+          B.match(
+            // We're missing the parent hash, update the previous block.
+            () =>
+              pipe(
+                () =>
+                  Log.warn(
+                    "addMissingBlock, parent hash not found, storing parent again",
+                  ),
+                () => addMissingBlock(blockNumber - 1),
+              ),
+            () => T.of(undefined),
+          ),
+        ),
+      ),
+    ),
     T.chain((block) =>
       TAlt.seqTParT(
         T.of(block),
@@ -492,7 +537,7 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
           () =>
             pipe(
               rollback(block),
-              T.chain(() => updateBlock(block, txrs)),
+              T.chain(() => updateBlock(block, txrs, ethPrice.ethusd)),
             ),
         ),
       ),
@@ -504,10 +549,12 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
         ethPrice.ethusd,
       );
 
+      const blockDb = blockDbFromBlock(block, txrs, ethPrice.ethusd);
+
       const t0 = performance.now();
 
       LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
-        block,
+        blockDb,
         feeBreakdown.contract_use_fees,
         feeBreakdown.contract_use_fees_usd!,
       );
@@ -522,7 +569,9 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
       );
 
       return pipe(
-        TAlt.seqTParT(removeExpiredBlocksTask, addToLeaderboardAllTask),
+        TAlt.seqTParT(removeExpiredBlocksTask, addToLeaderboardAllTask, () =>
+          BurnRecordsAll.onNewBlock(blockDb),
+        ),
         T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
       );
     }),
