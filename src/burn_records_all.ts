@@ -176,7 +176,7 @@ const storeInScopeBlocks = (
   denomination: Denomination,
   granularity: Granularity,
   inScopeBlocks: FeeBlock[],
-) => {
+): void => {
   inScopeBlockMap[granularity][denomination] = inScopeBlocks;
   return undefined;
 };
@@ -184,25 +184,25 @@ const storeInScopeBlocks = (
 export const onNewBlock = async (blockToAdd: BlockDb) => {
   for (const denomination of Denominations.denominations) {
     for (const granularity of granularities) {
+      const feeBlockToAdd =
+        denomination === "eth"
+          ? feeBlockFromBlockEth(blockToAdd)
+          : feeBlockFromBlockUsd(blockToAdd);
+
+      const getIsBlockWithinMaxAge = getIsBlockWithinReferenceMaxAge(
+        granularityMillisMap[granularity],
+        feeBlockToAdd,
+      );
+
+      const inScopeBlocks = pipe(
+        inScopeBlockMap[granularity][denomination],
+        // To keep things fast we remember what blocks were within a given granularity for the last block whoms fee sum we calculated. Depending on the time that passed since the last block, a number of blocks now fall outside the interval of the block's timestamp minus the duration of the granularity. We filter those blocks.
+        A.filter(getIsBlockWithinMaxAge),
+        // Finally we add the current block to the scope.
+        A.append(feeBlockToAdd),
+      );
+
       for (const sorting of sortings) {
-        const feeBlockToAdd =
-          denomination === "eth"
-            ? feeBlockFromBlockEth(blockToAdd)
-            : feeBlockFromBlockUsd(blockToAdd);
-
-        const getIsBlockWithinMaxAge = getIsBlockWithinReferenceMaxAge(
-          granularityMillisMap[granularity],
-          feeBlockToAdd,
-        );
-
-        const inScopeBlocks = pipe(
-          inScopeBlockMap[granularity][denomination],
-          // To keep things fast we remember what blocks were within a given granularity for the last block whoms fee sum we calculated. Depending on the time that passed since the last block, a number of blocks now fall outside the interval of the block's timestamp minus the duration of the granularity. We filter those blocks.
-          A.filter(getIsBlockWithinMaxAge),
-          // Finally we add the current block to the scope.
-          A.append(feeBlockToAdd),
-        );
-
         const feeRecords = await readFeeRecords(
           denomination,
           granularity,
@@ -224,9 +224,9 @@ export const onNewBlock = async (blockToAdd: BlockDb) => {
           sorting,
           newFeeRecords,
         )();
-
-        storeInScopeBlocks(denomination, granularity, inScopeBlocks);
       }
+
+      storeInScopeBlocks(denomination, granularity, inScopeBlocks);
     }
   }
 };
