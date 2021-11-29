@@ -7,6 +7,8 @@ import * as EthNode from "./eth_node.js";
 import { O, pipe, T, TAlt } from "./fp.js";
 import * as Log from "./log.js";
 
+// TODO: slot0 seems slow to update, observations seem to update more regularly.
+
 const usdcEthUniPool = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8";
 const usdtEthUniPool = "0x4e68ccd3e89f51c3074ca5072bbac773960dfa36";
 const daiEthUniPool = "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8";
