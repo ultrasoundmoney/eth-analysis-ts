@@ -1,14 +1,11 @@
-import * as DateFnsAlt from "./date_fns_alt.js";
-import * as Blocks from "./blocks.js";
 import * as BaseFees from "./base_fees.js";
-import * as DateFns from "date-fns";
-import * as Duration from "./duration.js";
-import { A, NEA, O, Ord, pipe, ROA, T, TEAlt } from "./fp.js";
-import * as Denominations from "./denominations.js";
-import { BlockLondon } from "./eth_node.js";
-import { EthPrice } from "./etherscan.js";
-import { Denomination } from "./denominations.js";
+import * as Blocks from "./blocks.js";
 import { BlockDb } from "./blocks.js";
+import * as DateFnsAlt from "./date_fns_alt.js";
+import * as Denominations from "./denominations.js";
+import { Denomination } from "./denominations.js";
+import * as Duration from "./duration.js";
+import { A, NEA, O, Ord, pipe, T, TEAlt } from "./fp.js";
 
 const granularities = ["block", "m5", "h1", "d1", "d7"] as const;
 export type Granularity = typeof granularities[number];

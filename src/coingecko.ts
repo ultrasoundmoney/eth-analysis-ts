@@ -6,17 +6,11 @@ import { retrying } from "retry-ts/lib/Task.js";
 import urlcatM from "urlcat";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
-import { E, flow, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
+import { E, O, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
-
-type CoinResponse = {
-  market_data: {
-    circulating_supply: number;
-  };
-};
 
 export type PriceResponse = {
   ethereum: {
@@ -35,25 +29,6 @@ export type PriceResponse = {
     usd: number;
     usd_24h_change: number;
     usd_market_cap: number;
-  };
-};
-
-type MarketData = {
-  eth: {
-    usd: number;
-    usd24hChange: number;
-    btc: number;
-    btc24hChange: number;
-    circulatingSupply: number;
-  };
-  btc: {
-    usd: number;
-    usd24hChange: number;
-    circulatingSupply: number;
-  };
-  gold: {
-    usd: number;
-    usd24hChange: number;
   };
 };
 
@@ -115,11 +90,6 @@ const fetchWithRetry = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
     () => fetchCoinGecko(url),
     E.isLeft,
   );
-
-const circulatingSupplyCache = new QuickLRU<string, CoinResponse>({
-  maxSize: 100,
-  maxAge: Duration.millisFromSeconds(60),
-});
 
 const priceCache = new QuickLRU<string, PriceResponse>({
   maxSize: 100,
