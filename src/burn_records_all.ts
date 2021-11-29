@@ -78,8 +78,10 @@ export const mergeCandidate = (
           [worstRecord, candidateRecord] as NEA.NonEmptyArray<FeeRecord>,
           NEA.sort(ordering),
           NEA.head,
-          (betterRecord) => [...feeRecords.slice(0, -1), betterRecord],
+          (betterRecord) => [...feeRecords, betterRecord],
           A.sort(ordering),
+          // Keep the top 100 records.
+          A.takeLeft(100),
         ),
     ),
   );
