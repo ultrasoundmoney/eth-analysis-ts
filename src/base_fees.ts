@@ -1,6 +1,7 @@
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
+import { BlockDb } from "./blocks.js";
 import { BlockLondon } from "./eth_node.js";
 import { hexToNumber } from "./hexadecimal.js";
 import { sum } from "./numbers.js";
@@ -71,6 +72,9 @@ export const sumFeeMaps = (
 
 export const calcBlockBaseFeeSum = (block: BlockLondon): bigint =>
   block.gasUsedBI * block.baseFeePerGasBI;
+
+export const calcBlockBaseFeeSumDb = (block: BlockDb): bigint =>
+  block.gasUsed * block.baseFeePerGas;
 
 export const calcBlockFeeBreakdown = (
   block: BlockLondon,

@@ -18,12 +18,12 @@ type RawBlock = {
 };
 
 const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
-  baseFeePerGas: Number(rawBlock.base_fee_per_gas),
-  baseFeeSum: BigInt(rawBlock.base_fee_sum),
+  baseFeePerGas: BigInt(Number(rawBlock.base_fee_per_gas)),
+  baseFeeSum: BigInt(Number(rawBlock.base_fee_sum)),
   contractCreationSum: Number(rawBlock.contract_creation_sum),
   ethPrice: Number(rawBlock.eth_price),
   ethTransferSum: Number(rawBlock.eth_transfer_sum),
-  gasUsed: Number(rawBlock.gas_used),
+  gasUsed: BigInt(Number(rawBlock.gas_used)),
   hash: rawBlock.hash,
   minedAt: new Date(rawBlock.mined_at),
   number: Number(rawBlock.number),

@@ -108,12 +108,12 @@ export type BlockRow = {
 };
 
 export type BlockDb = {
-  baseFeePerGas: number;
+  baseFeePerGas: bigint;
   baseFeeSum: bigint;
   contractCreationSum: number;
   ethPrice: number;
   ethTransferSum: number;
-  gasUsed: number;
+  gasUsed: bigint;
   hash: string;
   minedAt: Date;
   number: number;
