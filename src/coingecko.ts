@@ -6,7 +6,7 @@ import { retrying } from "retry-ts/lib/Task.js";
 import urlcatM from "urlcat";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
-import { E, O, pipe, TE } from "./fp.js";
+import { E, O, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -108,7 +108,7 @@ const fetchWithCache = <A>(
         pipe(
           fetchWithRetry<A>(url),
           TE.chainFirstIOK((value) => () => {
-            Log.debug("coingecko fetch cache miss", { url });
+            Log.debug("coingecko fetch cache miss");
             cache.set(url, value);
           }),
         ),
@@ -116,7 +116,7 @@ const fetchWithCache = <A>(
         pipe(
           TE.of(cValue),
           TE.chainFirstIOK(() => () => {
-            Log.debug("coingecko fetch cache hit", url);
+            Log.debug("coingecko fetch cache hit");
           }),
         ),
     ),
@@ -137,7 +137,14 @@ export const getSimpleCoins = (): TE.TaskEither<
     include_24hr_change: "true",
   });
 
-  return () => pricesQueue.add(fetchWithCache<PriceResponse>(priceCache, url));
+  return pipe(
+    () => pricesQueue.add(fetchWithCache<PriceResponse>(priceCache, url)),
+    TE.chainFirstIOK((pr) => () => {
+      Log.debug(
+        `getSimpleCoins, btc: ${pr.bitcoin.usd}, eth: ${pr.ethereum.usd}, gold: ${pr["tether-gold"].usd}`,
+      );
+    }),
+  );
 };
 
 type HistoricPricesResponse = {
