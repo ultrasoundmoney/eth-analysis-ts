@@ -261,7 +261,7 @@ export const get24hAgoPrice = (): TE.TaskEither<string, number> =>
     TE.tryCatch(
       () => sql<{ ethPrice: number }[]>`
         SELECT timestamp, ethusd FROM eth_prices
-        ORDER BY ABS(EXTRACT(epoch FROM (mined_at - (NOW() - '1 days'::interval))))
+        ORDER BY ABS(EXTRACT(epoch FROM (timestamp - (NOW() - '1 days'::interval))))
         LIMIT 1
       `,
       String,
