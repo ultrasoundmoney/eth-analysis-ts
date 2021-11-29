@@ -152,24 +152,6 @@ const fetchWithCache = <A>(
     ),
   );
 
-const circulatingSupplyQueue = new PQueue({
-  concurrency: 1,
-});
-
-const getCirculatingSupplyWithCache = (
-  id: string,
-): TE.TaskEither<MarketDataError, number> =>
-  pipe(
-    () =>
-      circulatingSupplyQueue.add(
-        fetchWithCache<CoinResponse>(
-          circulatingSupplyCache,
-          `https://api.coingecko.com/api/v3/coins/${id}`,
-        ),
-      ),
-    TE.map((body) => body.market_data.circulating_supply),
-  );
-
 const pricesQueue = new PQueue({
   concurrency: 1,
 });
