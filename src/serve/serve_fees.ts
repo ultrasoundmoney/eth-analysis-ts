@@ -1,6 +1,6 @@
 import Router from "@koa/router";
 import * as Sentry from "@sentry/node";
-import Koa, { Context, Middleware } from "koa";
+import Koa, { Middleware } from "koa";
 import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
@@ -9,8 +9,6 @@ import * as Blocks from "../blocks.js";
 import { NewBlockPayload } from "../blocks.js";
 import { BurnRatesT } from "../burn_rates.js";
 import * as Canary from "../canary.js";
-import * as Coingecko from "../coingecko.js";
-import { MarketDataError } from "../coingecko.js";
 import * as Config from "../config.js";
 import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
@@ -18,10 +16,11 @@ import * as DerivedBlockStats from "../derived_block_stats.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeesBurnedPerInterval from "../fees_burned_per_interval.js";
-import { pipe, T, TAlt, TE } from "../fp.js";
+import { pipe, T, TAlt } from "../fp.js";
 import * as LatestBlockFees from "../latest_block_fees.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
+import * as MarketCaps from "../market_caps.js";
 
 if (Config.getEnv() !== "dev") {
   Sentry.init({
@@ -67,45 +66,6 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
     feesBurnedPerInterval: feesBurnedPerInterval,
     number: "unknown",
   };
-};
-
-const handleMarketDataError = (ctx: Context, error: MarketDataError) => {
-  switch (error._tag) {
-    case "timeout": {
-      Log.error(String(error.error));
-      ctx.status = 500;
-      ctx.body = { msg: "request to coingecko timed out" };
-      return undefined;
-    }
-    case "rate-limit": {
-      Log.error(String(error.error));
-      ctx.status = 429;
-      ctx.body = { msg: "hit coingecko api rate limit" };
-      return;
-    }
-    case "fetch-error": {
-      Log.error(String(error.error));
-      ctx.status = 500;
-      ctx.body = { msg: "coingecko fetch error" };
-      return undefined;
-    }
-    case "bad-response": {
-      Log.error(`coingecko bad response, status: ${error.status}`);
-      ctx.status = error.status;
-      ctx.body = {
-        msg: `coingecko bad response, status: ${error.status}`,
-      };
-      return undefined;
-    }
-    default: {
-      Log.error("unexpected get market data error", error);
-      ctx.status = 500;
-      ctx.body = {
-        msg: "unexpected get market data error",
-      };
-      return undefined;
-    }
-  }
 };
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
@@ -263,7 +223,7 @@ const handleAverageEthPrice: Middleware = async (ctx) => {
 
 const handleGetMarketCaps: Middleware = async (ctx) =>
   pipe(
-    () => Coingecko.getMarketCaps(),
+    () => MarketCaps.getMarketCaps(),
     T.map((marketCaps) => {
       ctx.set("Cache-Control", "max-age=30, stale-while-revalidate=600");
       ctx.set("Content-Type", "application/json");
