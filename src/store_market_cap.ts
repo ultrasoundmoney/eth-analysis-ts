@@ -12,54 +12,50 @@ process.on("unhandledRejection", (error) => {
 const warnWatermark = 180;
 const criticalWatermark = 360;
 
-export const storeMarketCapsAbortController = new AbortController();
-export const continuouslyStoreMarketCaps = async () => {
-  const intervalIterator = setInterval(
-    Duration.millisFromMinutes(1),
-    Date.now(),
-    { signal: storeMarketCapsAbortController.signal },
-  );
+const storeMarketCapsAbortController = new AbortController();
 
-  let lastRun = new Date();
+const intervalIterator = setInterval(
+  Duration.millisFromMinutes(1),
+  Date.now(),
+  { signal: storeMarketCapsAbortController.signal },
+);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for await (const _ of intervalIterator) {
-    const secondsSinceLastRun = DateFns.differenceInSeconds(
-      new Date(),
-      lastRun,
+let lastRun = new Date();
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+for await (const _ of intervalIterator) {
+  const secondsSinceLastRun = DateFns.differenceInSeconds(new Date(), lastRun);
+
+  if (secondsSinceLastRun >= warnWatermark) {
+    Log.warn(
+      `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
     );
-
-    if (secondsSinceLastRun >= warnWatermark) {
-      Log.warn(
-        `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
-      );
-    }
-
-    if (secondsSinceLastRun >= criticalWatermark) {
-      Log.error(
-        `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
-      );
-    }
-
-    lastRun = new Date();
-
-    await pipe(
-      MarketCaps.storeCurrentMarketCaps(),
-      TE.match(
-        (e) => {
-          if (typeof e === "string") {
-            throw new Error(e);
-          }
-
-          if (e._tag === "timeout" || e._tag === "rate-limit") {
-            Log.warn(e.error);
-            return;
-          }
-
-          throw e.error;
-        },
-        () => undefined,
-      ),
-    )();
   }
-};
+
+  if (secondsSinceLastRun >= criticalWatermark) {
+    Log.error(
+      `store market cap not keeping up, ${secondsSinceLastRun}s since last price fetch`,
+    );
+  }
+
+  lastRun = new Date();
+
+  await pipe(
+    MarketCaps.storeCurrentMarketCaps(),
+    TE.match(
+      (e) => {
+        if (typeof e === "string") {
+          throw new Error(e);
+        }
+
+        if (e._tag === "timeout" || e._tag === "rate-limit") {
+          Log.warn(e.error);
+          return;
+        }
+
+        throw e.error;
+      },
+      () => undefined,
+    ),
+  )();
+}
