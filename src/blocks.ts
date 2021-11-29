@@ -414,7 +414,7 @@ const addMissingBlock = (blockNumber: number): T.Task<void> => {
                   Log.warn(
                     "addMissingBlock, parent hash not found, storing parent again",
                   ),
-                () => addMissingBlock(blockNumber - 1),
+                () => storeNewBlock(blockNumber - 1),
               ),
             () => T.of(undefined),
           ),
@@ -523,6 +523,10 @@ export const storeNewBlock = (blockNumber: number): T.Task<void> =>
           EthPrices.getEthPrice(
             DateFns.fromUnixTime(block.timestamp),
             Duration.millisFromMinutes(5),
+          ),
+          TE.alt(
+            (): TE.TaskEither<string, EthPrice> =>
+              pipe(EthPrices.getPriceForOldBlock(block), T.map(E.right)),
           ),
           TEAlt.getOrThrow,
         ),

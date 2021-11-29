@@ -69,12 +69,38 @@ export const getFtxPrices = async (
   );
 };
 
+const findNearestHistoricPrice = (
+  orderedPrices: HistoricPrice[],
+  target: Date | number,
+): HistoricPrice => {
+  let nearestPrice = orderedPrices[0];
+
+  for (const price of orderedPrices) {
+    const distanceCandidate = Math.abs(
+      DateFns.differenceInSeconds(target, price[0]),
+    );
+    const distanceCurrent = Math.abs(
+      DateFns.differenceInSeconds(target, nearestPrice[0]),
+    );
+
+    // Prices are ordered from oldest to youngest. If the next candidate is further away, the target has to be older. As coming options are only ever younger, we can stop searching.
+    if (distanceCandidate > distanceCurrent) {
+      break;
+    }
+
+    nearestPrice = price;
+    continue;
+  }
+
+  return nearestPrice;
+};
+
 export const getNearestFtxPrice = async (
   maxDistanceInSeconds: number,
   timestamp: Date,
 ): Promise<EthPrice | undefined> => {
   const prices = await getFtxPrices(2, timestamp);
-  const nearestPrice = EthPrices.findNearestHistoricPrice(prices, timestamp);
+  const nearestPrice = findNearestHistoricPrice(prices, timestamp);
   Log.debug("ftx nearest", { prices, blockMinedAt: timestamp, nearestPrice });
   const distance = DateFnsAlt.secondsBetweenAbs(nearestPrice[0], timestamp);
 
