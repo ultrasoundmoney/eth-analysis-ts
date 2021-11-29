@@ -9,20 +9,20 @@ CREATE TYPE "timeframe" AS ENUM (
 
 CREATE TABLE "blocks" (
   "base_fee_per_gas" bigint,
-  "base_fee_sum" double precision,
+  "base_fee_sum" float8,
   "base_fee_sum_256" numeric(78),
-  "contract_creation_sum" double precision,
-  "eth_price" double precision,
-  "eth_transfer_sum" double precision,
+  "contract_creation_sum" float8,
+  "eth_price" float8,
+  "eth_transfer_sum" float8,
   "gas_used" bigint,
   "hash" text PRIMARY KEY,
   "mined_at" timestamptz NOT NULL,
   "number" int UNIQUE NOT NULL,
-  "tips" double precision
+  "tips" float8
 );
 
 CREATE TABLE "contract_base_fees" (
-  "base_fees" double precision,
+  "base_fees" float8,
   "block_number" int,
   "contract_address" text,
   PRIMARY KEY ("block_number", "contract_address")
@@ -67,8 +67,8 @@ CREATE TABLE "derived_block_stats" (
 );
 
 CREATE TABLE "contract_base_fee_sums" (
-  "base_fee_sum" double precision,
-  "base_fee_sum_usd" double precision,
+  "base_fee_sum" float8,
+  "base_fee_sum_usd" float8,
   "contract_address" text PRIMARY KEY
 );
 
@@ -78,23 +78,31 @@ CREATE TABLE "base_fee_sum_included_blocks" (
   "timeframe" timeframe PRIMARY KEY
 );
 
-CREATE TABLE "contract_creations" (
-  "address" text,
-  "block_number" int
-);
-
 CREATE TABLE "eth_prices" (
-  "ethusd" double precision,
-  "ethusd_24h_change" double precision,
+  "ethusd" float8,
+  "ethusd_24h_change" float8,
   "timestamp" timestamptz PRIMARY KEY
 );
 
 CREATE TABLE "market_caps" (
-  "btc_market_cap" double precision,
-  "eth_market_cap" double precision,
-  "gold_market_cap" double precision,
+  "btc_market_cap" float8,
+  "eth_market_cap" float8,
+  "gold_market_cap" float8,
   "timestamp" timestamptz PRIMARY KEY,
-  "usd_m3_market_cap" double precision
+  "usd_m2_market_cap" float8
+);
+
+CREATE TABLE "analysis_progress" (
+  "key" text PRIMARY KEY,
+  "lower_bound" int,
+  "upper_bound" int
+);
+
+CREATE TABLE "fee_records" (
+  "denomination" text,
+  "fee_sum" numeric(78),
+  "granularity" text,
+  "sorting" text
 );
 
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
@@ -107,9 +115,13 @@ ALTER TABLE "derived_block_stats" ADD FOREIGN KEY ("block_number") REFERENCES "b
 
 ALTER TABLE "contract_base_fee_sums" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
+ALTER TABLE "base_fee_sum_included_blocks" ADD FOREIGN KEY ("newest_included_block") REFERENCES "blocks" ("number");
+
 ALTER TABLE "base_fee_sum_included_blocks" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
 
-ALTER TABLE "base_fee_sum_included_blocks" ADD FOREIGN KEY ("newest_included_block") REFERENCES "blocks" ("number");
+ALTER TABLE "analysis_progress" ADD FOREIGN KEY ("lower_bound") REFERENCES "blocks" ("number");
+
+ALTER TABLE "analysis_progress" ADD FOREIGN KEY ("upper_bound") REFERENCES "blocks" ("number");
 
 CREATE INDEX ON "blocks" ("number");
 
