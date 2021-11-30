@@ -61,11 +61,6 @@ const healBlock = async (hashBlock: HashBlock) => {
     `block: ${block.number}, mined at: ${minedAtIso} ago, hash mismatch, gas used old:  ${hashBlock.gasUsed}, new: ${block.gasUsed} healing block`,
   );
   const txrs = await Transactions.getTxrsWithRetry(block);
-  // const sumsToRollback = await Leaderboards.getRangeBaseFees(
-  //   block.number,
-  //   block.number,
-  // )();
-  // await LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)();
 
   const ethPrice =
     hashBlock.ethPrice !== null
@@ -77,17 +72,6 @@ const healBlock = async (hashBlock: HashBlock) => {
 
   await Blocks.updateBlock(block, txrs, ethPrice)();
 
-  // const contractBaseFees = BaseFees.calcBlockFeeBreakdown(
-  //   block,
-  //   txrs,
-  //   ethPrice,
-  // );
-
-  // await LeaderboardsAll.addBlock(
-  //   block.number,
-  //   contractBaseFees.contract_use_fees,
-  //   contractBaseFees.contract_use_fees_usd!,
-  // )();
   return undefined;
 };
 
