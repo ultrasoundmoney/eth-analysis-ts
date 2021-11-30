@@ -10,7 +10,7 @@ import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
 import { E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
-import { intervalSqlMap, LimitedTimeframe, Timeframe } from "./timeframe.js";
+import { intervalSqlMap, LimitedTimeFrame, TimeFrame } from "./time_frame.js";
 
 export type BlockForPrice = {
   timestamp: number;
@@ -322,7 +322,7 @@ const getAllAveragePriceTask = (): T.Task<number> =>
     T.map((rows) => rows[0]?.ethPriceAverage ?? 0),
   );
 
-const getTimeframeAverageTask = (timeframe: LimitedTimeframe): T.Task<number> =>
+const getTimeframeAverageTask = (timeframe: LimitedTimeFrame): T.Task<number> =>
   pipe(
     () => sql<AveragePrice[]>`
         SELECT
@@ -335,7 +335,7 @@ const getTimeframeAverageTask = (timeframe: LimitedTimeframe): T.Task<number> =>
   );
 
 // Workaround as passing maxAge on .set is broken.
-const averagePriceCacheMap: Record<Timeframe, QuickLRU<string, number>> = {
+const averagePriceCacheMap: Record<TimeFrame, QuickLRU<string, number>> = {
   "5m": new QuickLRU<string, number>({
     maxSize: 1,
     maxAge: Duration.millisFromSeconds(3),
@@ -375,21 +375,21 @@ const averagePriceCacheMap: Record<Timeframe, QuickLRU<string, number>> = {
 //   all: Duration.milisFromMinutes(30),
 // };
 
-const getTimeFrameAverageWithCache = (timeFrame: Timeframe): T.Task<number> =>
+const getTimeFrameAverageWithCache = (timeframe: TimeFrame): T.Task<number> =>
   pipe(
-    averagePriceCacheMap[timeFrame].get(timeFrame),
+    averagePriceCacheMap[timeframe].get(timeframe),
     O.fromNullable,
     O.match(
       () =>
         pipe(
-          timeFrame === "all"
+          timeframe === "all"
             ? getAllAveragePriceTask()
-            : getTimeframeAverageTask(timeFrame),
+            : getTimeframeAverageTask(timeframe),
           T.chainFirstIOK((value) => () => {
             Log.debug(
-              `get eth average price for time frame: ${timeFrame} cache miss`,
+              `get eth average price for time frame: ${timeframe} cache miss`,
             );
-            averagePriceCacheMap[timeFrame].set(timeFrame, value);
+            averagePriceCacheMap[timeframe].set(timeframe, value);
           }),
         ),
       (cValue) =>
@@ -397,7 +397,7 @@ const getTimeFrameAverageWithCache = (timeFrame: Timeframe): T.Task<number> =>
           T.of(cValue),
           T.chainFirstIOK(() => () => {
             Log.debug(
-              `get eth average price for time frame: ${timeFrame} cache hit`,
+              `get eth average price for time frame: ${timeframe} cache hit`,
             );
           }),
         ),

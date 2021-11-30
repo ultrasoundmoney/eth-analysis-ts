@@ -1,7 +1,7 @@
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { pipe, T, TAlt } from "./fp.js";
-import { LimitedTimeframe } from "./timeframe.js";
+import { LimitedTimeFrame } from "./time_frame.js";
 
 export type BurnRatesT = {
   burnRate5m: number;
@@ -17,7 +17,7 @@ type BurnRate = {
   usd: number;
 };
 
-const timeframeIntervalMap: Record<LimitedTimeframe, string> = {
+const timeframeIntervalMap: Record<LimitedTimeFrame, string> = {
   "5m": "5 minutes",
   "1h": "1 hours",
   "24h": "24 hours",
@@ -25,7 +25,7 @@ const timeframeIntervalMap: Record<LimitedTimeframe, string> = {
   "30d": "30 days",
 };
 
-const timeframeMinutesMap: Record<LimitedTimeframe, number> = {
+const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
   "5m": 5,
   "1h": 60,
   "24h": 24 * 60,
@@ -35,7 +35,7 @@ const timeframeMinutesMap: Record<LimitedTimeframe, number> = {
 
 const getTimeframeBurnRate = (
   block: BlockLondon,
-  timeframe: LimitedTimeframe,
+  timeframe: LimitedTimeFrame,
 ) =>
   pipe(
     () => sql<BurnRate[]>`

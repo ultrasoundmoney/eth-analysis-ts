@@ -2,7 +2,6 @@ import * as DateFns from "date-fns";
 import { performance } from "perf_hooks";
 import { BlockDb } from "./blocks.js";
 import { sql } from "./db.js";
-import { BlockLondon } from "./eth_node.js";
 import { A, O, Ord, pipe, RA, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
@@ -14,14 +13,14 @@ import {
   LeaderboardRow,
 } from "./leaderboards.js";
 import * as Log from "./log.js";
-import * as Timeframe from "./timeframe.js";
-import { LimitedTimeframe } from "./timeframe.js";
+import * as TimeFrame from "./time_frame.js";
+import { LimitedTimeFrame } from "./time_frame.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
 
-type BlocksPerTimeframe = Record<LimitedTimeframe, BlockForTotal[]>;
+type BlocksPerTimeframe = Record<LimitedTimeFrame, BlockForTotal[]>;
 
-type ContractSumsPerTimeframe = Record<LimitedTimeframe, ContractSums>;
+type ContractSumsPerTimeframe = Record<LimitedTimeFrame, ContractSums>;
 
 // These are the blocks that make up the base fee sums for our limited timeframes.
 const blocksInTimeframe: BlocksPerTimeframe = {
@@ -58,7 +57,7 @@ export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
 };
 
 const getBlocksForTimeframe = (
-  timeframe: LimitedTimeframe,
+  timeframe: LimitedTimeFrame,
 ): T.Task<BlockForTotal[]> => {
   const minutes = Leaderboards.timeframeMinutesMap[timeframe];
   return () =>
@@ -124,7 +123,7 @@ const blockForTotalOrd: Ord<BlockForTotal> = {
 export const addAllBlocksForAllTimeframes = (): T.Task<void> =>
   pipe(
     pipe(
-      Timeframe.limitedTimeframes,
+      TimeFrame.limitedTimeFrames,
       RA.map((timeframe) => {
         Log.debug(`init leaderboard limited time frame ${timeframe}`);
 
@@ -190,7 +189,7 @@ export const addBlockForAllTimeframes = (
   baseFeesToAddEth: ContractSums,
   baseFeesToAddUsd: ContractSums,
 ): void => {
-  Timeframe.limitedTimeframes.forEach((timeframe) => {
+  TimeFrame.limitedTimeFrames.forEach((timeframe) => {
     blocksInTimeframe[timeframe] = pipe(
       blocksInTimeframe[timeframe],
       A.append({
@@ -220,28 +219,28 @@ export const rollbackToBefore = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
-  Timeframe.limitedTimeframes.forEach((timeframe) => {
-    const includedBlocks = blocksInTimeframe[timeframe];
+  TimeFrame.limitedTimeFrames.forEach((timeFrame) => {
+    const includedBlocks = blocksInTimeframe[timeFrame];
     const indexOfBlockToRollbackToBefore = includedBlocks.findIndex(
       (block) => block.number === blockNumber,
     );
 
     if (indexOfBlockToRollbackToBefore === -1) {
       Log.warn(
-        `received rollback but no blocks in timeframe ${timeframe} matched block number: ${blockNumber}, doing nothing`,
+        `received rollback but no blocks in timeframe ${timeFrame} matched block number: ${blockNumber}, doing nothing`,
       );
       return undefined;
     }
 
-    blocksInTimeframe[timeframe] = blocksInTimeframe[timeframe] =
+    blocksInTimeframe[timeFrame] = blocksInTimeframe[timeFrame] =
       includedBlocks.slice(0, indexOfBlockToRollbackToBefore);
 
-    contractSumsPerTimeframe[timeframe] = subtractFromSums(
-      contractSumsPerTimeframe[timeframe],
+    contractSumsPerTimeframe[timeFrame] = subtractFromSums(
+      contractSumsPerTimeframe[timeFrame],
       baseFeesToRemove.eth,
     );
-    contractSumsPerTimeframeUsd[timeframe] = subtractFromSums(
-      contractSumsPerTimeframeUsd[timeframe],
+    contractSumsPerTimeframeUsd[timeFrame] = subtractFromSums(
+      contractSumsPerTimeframeUsd[timeFrame],
       baseFeesToRemove.usd,
     );
 
@@ -251,7 +250,7 @@ export const rollbackToBefore = (
 
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
   pipe(
-    Timeframe.limitedTimeframes,
+    TimeFrame.limitedTimeFrames,
     RA.map((timeframe) => {
       const ageLimit = DateFns.subMinutes(
         new Date(),
@@ -272,7 +271,7 @@ export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
       const blocksToRemoveStr = expired.map((block) => block.number).join(",");
 
       Log.debug(
-        `some blocks are too old in ${timeframe} timeframe, removing ${blocksToRemoveStr}`,
+        `some blocks are too old in ${timeframe} timeFrame, removing ${blocksToRemoveStr}`,
       );
 
       blocksInTimeframe[timeframe] = valid;
@@ -308,7 +307,7 @@ type ContractRow = {
 };
 
 const getTopBaseFeeContracts = (
-  timeframe: LimitedTimeframe,
+  timeframe: LimitedTimeFrame,
 ): T.Task<LeaderboardRow[]> => {
   const contractSums = contractSumsPerTimeframe[timeframe];
   const contractSumsUsd = contractSumsPerTimeframeUsd[timeframe];
@@ -356,16 +355,16 @@ const getTopBaseFeeContracts = (
 };
 
 const calcLeaderboardForLimitedTimeframe = (
-  timeframe: LimitedTimeframe,
+  timeFrame: LimitedTimeFrame,
 ): T.Task<LeaderboardEntry[]> => {
   return pipe(
     TAlt.seqTParT(
       pipe(
-        getTopBaseFeeContracts(timeframe),
+        getTopBaseFeeContracts(timeFrame),
         T.chain(Leaderboards.extendRowsWithFamDetails),
       ),
-      () => Leaderboards.getEthTransferFeesForTimeframe(timeframe),
-      () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeframe),
+      () => Leaderboards.getEthTransferFeesForTimeframe(timeFrame),
+      () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeFrame),
     ),
     T.map(([contractUse, ethTransfer, contractCreation]) =>
       Leaderboards.buildLeaderboard(contractUse, ethTransfer, contractCreation),
@@ -374,7 +373,7 @@ const calcLeaderboardForLimitedTimeframe = (
 };
 
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
-  Record<LimitedTimeframe, LeaderboardEntry[]>
+  Record<LimitedTimeFrame, LeaderboardEntry[]>
 > =>
   TAlt.seqSParT({
     "5m": calcLeaderboardForLimitedTimeframe("5m"),

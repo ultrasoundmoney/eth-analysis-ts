@@ -5,7 +5,7 @@ import { sql } from "./db.js";
 import * as FamService from "./fam_service.js";
 import { FamDetails } from "./fam_service.js";
 import { O } from "./fp.js";
-import { LimitedTimeframe, Timeframe } from "./timeframe.js";
+import { LimitedTimeFrame, TimeFrame } from "./time_frame.js";
 
 export type LeaderboardRow = {
   contractAddress: string;
@@ -146,7 +146,7 @@ export const mergeBaseFees = (
   );
 };
 
-export const timeframeMinutesMap: Record<LimitedTimeframe, number> = {
+export const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
   "5m": 5,
   "1h": 1 * 60,
   "24h": 24 * 60,
@@ -155,7 +155,7 @@ export const timeframeMinutesMap: Record<LimitedTimeframe, number> = {
 };
 
 export const getEthTransferFeesForTimeframe = async (
-  timeframe: Timeframe,
+  timeframe: TimeFrame,
 ): Promise<BaseFees> => {
   if (timeframe === "all") {
     const rows = await sql<{ eth: number; usd: number }[]>`
@@ -179,7 +179,7 @@ export const getEthTransferFeesForTimeframe = async (
 };
 
 export const getContractCreationBaseFeesForTimeframe = async (
-  timeframe: Timeframe,
+  timeframe: TimeFrame,
 ): Promise<BaseFees> => {
   if (timeframe === "all") {
     const rows = await sql<{ eth: number; usd: number }[]>`
