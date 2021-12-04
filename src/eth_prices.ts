@@ -69,10 +69,10 @@ const getPriceForOlderBlockWithCache = async (
   const price = exactPrice || earlierPrice || laterPrice;
 
   Log.debug(
-    `found eth price for block: ${
+    `found eth price, block: ${
       block.number
-    }, target timestamp: ${DateFns.formatISO(
-      roundedTimestamp,
+    }, target timestamp: ${roundedTimestamp.toISOString()}, exact hit: ${priceByMinute.has(
+      roundedTimestamp.getTime(),
     )}, price: ${price}`,
   );
 

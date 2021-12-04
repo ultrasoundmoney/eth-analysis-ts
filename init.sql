@@ -92,16 +92,17 @@ CREATE TABLE "market_caps" (
   "usd_m2_market_cap" float8
 );
 
-CREATE TABLE "analysis_progress" (
+CREATE TABLE "analysis_state" (
   "key" text PRIMARY KEY,
-  "lower_bound" int,
-  "upper_bound" int
+  "last_analyzed_block" int
 );
 
 CREATE TABLE "fee_records" (
   "denomination" text,
   "fee_sum" numeric(78),
+  "first_block" int,
   "granularity" text,
+  "last_block" int,
   "sorting" text
 );
 
@@ -119,9 +120,11 @@ ALTER TABLE "base_fee_sum_included_blocks" ADD FOREIGN KEY ("newest_included_blo
 
 ALTER TABLE "base_fee_sum_included_blocks" ADD FOREIGN KEY ("oldest_included_block") REFERENCES "blocks" ("number");
 
-ALTER TABLE "analysis_progress" ADD FOREIGN KEY ("lower_bound") REFERENCES "blocks" ("number");
+ALTER TABLE "analysis_state" ADD FOREIGN KEY ("last_analyzed_block") REFERENCES "blocks" ("number");
 
-ALTER TABLE "analysis_progress" ADD FOREIGN KEY ("upper_bound") REFERENCES "blocks" ("number");
+ALTER TABLE "fee_records" ADD FOREIGN KEY ("first_block") REFERENCES "blocks" ("number");
+
+ALTER TABLE "fee_records" ADD FOREIGN KEY ("last_block") REFERENCES "blocks" ("number");
 
 CREATE INDEX ON "blocks" ("number");
 

@@ -22,6 +22,11 @@ const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
   baseFeeSum: BigInt(Number(rawBlock.base_fee_sum)),
   contractCreationSum: Number(rawBlock.contract_creation_sum),
   ethPrice: Number(rawBlock.eth_price),
+  ethPriceCents: BigInt(
+    BigInt(rawBlock.base_fee_per_gas) *
+      BigInt(rawBlock.gas_used) *
+      BigInt(Number(rawBlock.eth_price) * 100),
+  ),
   ethTransferSum: Number(rawBlock.eth_transfer_sum),
   gasUsed: BigInt(Number(rawBlock.gas_used)),
   hash: rawBlock.hash,

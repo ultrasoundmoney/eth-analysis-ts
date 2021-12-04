@@ -24,8 +24,11 @@ import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.
 import * as Log from "./log.js";
 import { logPerfT } from "./performance.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
+import * as Scaling from "./scaling.js";
 import * as Transactions from "./transactions.js";
 import { TxRWeb3London } from "./transactions.js";
+import makeEta from "simple-eta";
+import { Granularity } from "./burn_records_all.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -73,20 +76,13 @@ export const getBlockWithRetry = async (
   }
 };
 
-export const getLatestKnownBlockNumber = (): TE.TaskEither<string, number> =>
-  pipe(
-    TE.tryCatch(
-      () => sql<{ number: number }[]>`
-        SELECT MAX(number) AS number FROM blocks
-      `,
-      String,
-    ),
-    TE.chainEitherK((rows) =>
-      rows[0] === undefined
-        ? E.left("getLatestKnownBlockNumber, blocks table empty")
-        : E.right(rows[0].number),
-    ),
-  );
+export const getLatestKnownBlockNumber = async (): Promise<number> => {
+  const rows = await sql<{ number: number }[]>`
+    SELECT MAX(number) AS number FROM blocks
+  `;
+
+  return rows[0].number;
+};
 
 export const storeMissingBlockQueue = new PQueue({ concurrency: 1 });
 export const storeNewBlockQueue = new PQueue({
@@ -113,6 +109,7 @@ export type BlockDb = {
   baseFeeSum: bigint;
   contractCreationSum: number;
   ethPrice: number;
+  ethPriceCents: bigint;
   ethTransferSum: number;
   gasUsed: bigint;
   hash: string;
@@ -190,6 +187,7 @@ const blockDbFromBlock = (
     baseFeeSum: BaseFees.calcBlockBaseFeeSum(block),
     contractCreationSum: feeBreakdown.contract_creation_fees,
     ethPrice,
+    ethPriceCents: Scaling.usdToScaled(ethPrice),
     ethTransferSum: feeBreakdown.transfers,
     gasUsed: BigInt(block.gasUsed),
     hash: block.hash,
@@ -279,10 +277,6 @@ export const storeBlock = (
   const tips = BaseFees.calcBlockTips(block, txrs);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
   const blockRow = getBlockRow(blockDb, feeBreakdown, tips, ethPrice);
-
-  Log.debug(
-    `store  number: ${block.number}, hash: ${block.hash}, parentHash: ${block.parentHash}`,
-  );
 
   const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
@@ -438,6 +432,9 @@ export const addMissingBlocks = (
 ): T.Task<void> =>
   pipe(
     TAlt.seqTParT(() => EthNode.getLatestBlockNumber(), getKnownBlocks()),
+    T.chainFirstIOK(([latestBlockNumber]) => () => {
+      Log.debug(`syncing blocks table with chain, head: ${latestBlockNumber}`);
+    }),
     T.map(([latestBlockNumber, knownBlocks]) =>
       pipe(
         getBlockRange(
@@ -449,12 +446,22 @@ export const addMissingBlocks = (
     ),
     T.chain((missingBlocks) => {
       if (missingBlocks.length === 0) {
+        Log.debug("blocks table already in-sync with chain");
         return T.of(undefined);
       }
 
-      Log.info(
-        `blocks table out-of-sync, adding ${missingBlocks.length} missing blocks`,
-      );
+      Log.debug(`blocks table sync ${missingBlocks.length} blocks`);
+
+      const eta = makeEta({ max: missingBlocks.length });
+
+      const id = setInterval(() => {
+        eta.report(missingBlocks.length - storeMissingBlockQueue.size);
+        if (storeMissingBlockQueue.size === 0) {
+          clearInterval(id);
+          return;
+        }
+        Log.debug(`sync missing blocks, eta: ${eta.estimate()}s`);
+      }, 8000);
 
       return () =>
         storeMissingBlockQueue.addAll(missingBlocks.map(addMissingBlock));
@@ -489,7 +496,8 @@ const rollback = (block: BlockLondon): T.Task<void> => {
 export const storeNewBlock = (blockNumber: number): T.Task<void> =>
   pipe(
     () => Log.debug(`analyzing block ${blockNumber}`),
-    () => () => getBlockWithRetry(blockNumber),
+    T.fromIO,
+    T.chain(() => () => getBlockWithRetry(blockNumber)),
     T.chainFirst((block) =>
       pipe(
         getBlockHashIsKnown(block.parentHash),
@@ -669,3 +677,108 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
         : 0,
     ),
   );
+
+type BlockDbRow = {
+  baseFeePerGas: bigint;
+  contractCreationSum: number;
+  ethPrice: number;
+  ethTransferSum: number;
+  gasUsed: bigint;
+  hash: string;
+  minedAt: Date;
+  number: number;
+  tips: number;
+};
+
+const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
+  baseFeePerGas: row.baseFeePerGas,
+  baseFeeSum: row.baseFeePerGas * row.gasUsed,
+  contractCreationSum: row.contractCreationSum,
+  ethPrice: row.ethPrice,
+  // TODO: should be scaled going in, read the scaled value.
+  ethPriceCents: Scaling.usdToScaled(row.ethPrice),
+  ethTransferSum: row.ethTransferSum,
+  gasUsed: row.gasUsed,
+  hash: row.hash,
+  minedAt: row.minedAt,
+  number: row.number,
+  tips: row.tips,
+});
+
+export const getBlocks = (
+  from: number,
+  upToIncluding: number,
+): T.Task<BlockDb[]> =>
+  pipe(
+    () => sql<BlockDbRow[]>`
+      SELECT
+        base_fee_per_gas,
+        contract_creation_sum,
+        eth_price,
+        eth_transfer_sum,
+        gas_used,
+        hash,
+        mined_at,
+        number,
+        tips
+      FROM blocks
+      WHERE number >= ${from}
+      AND number <= ${upToIncluding}
+      ORDER BY number ASC
+    `,
+    T.map(A.map(blockDbFromRow)),
+  );
+
+const getPastBlockNumber = async (
+  referenceBlock: number,
+  period: Granularity,
+): Promise<number> => {
+  const [{ minedAt }] = await sql<
+    { minedAt: Date }[]
+  >`SELECT mined_at FROM blocks WHERE number = ${referenceBlock}`;
+
+  const interval = BurnRecordsAll.granularitySqlMap[period];
+
+  const [block] = await sql<{ number: number }[]>`
+    SELECT number FROM blocks
+    ORDER BY ABS(EXTRACT(epoch FROM (${minedAt} - ${interval}::interval )))
+    LIMIT 1
+  `;
+
+  return block.number;
+};
+
+export const getBlocksForGranularity = async (
+  granularity: Granularity,
+  referenceBlock: number,
+): Promise<FeeBlockRow[]> => {
+  const pastBlockNumber = await getPastBlockNumber(referenceBlock, granularity);
+  return getFeeBlocks(pastBlockNumber, referenceBlock);
+};
+
+// These blocks are minimized to only carry the information needed to calculate a record.
+export type FeeBlockRow = {
+  baseFeePerGas: bigint;
+  ethPrice: number;
+  // TODO: should be scaled going in, read the scaled value.
+  ethPriceCents: bigint;
+  gasUsed: bigint;
+  minedAt: Date;
+  number: number;
+};
+
+export const getFeeBlocks = async (
+  from: number,
+  upToIncluding: number,
+): Promise<FeeBlockRow[]> => sql<FeeBlockRow[]>`
+  SELECT
+    base_fee_per_gas,
+    eth_price,
+    (eth_price * 100)::bigint AS eth_price_cents
+    gas_used,
+    mined_at,
+    number
+  FROM blocks
+  WHERE number >= ${from}
+  AND number <= ${upToIncluding}
+`;

@@ -1,12 +1,9 @@
 import Sentry from "@sentry/node";
 import "@sentry/tracing";
-import { pipe } from "fp-ts/lib/function.js";
-import * as T from "fp-ts/lib/Task.js";
 import * as Blocks from "./blocks.js";
 import * as Config from "./config.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
-import { TAlt } from "./fp.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
@@ -26,24 +23,16 @@ if (Config.getEnv() !== "dev") {
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
-const syncLeaderboardAll = (): T.Task<void> => {
+const syncLeaderboardAll = async (): Promise<void> => {
   Log.info("adding missing blocks to leaderboard all");
-  return pipe(
-    LeaderboardsAll.addMissingBlocks(),
-    T.chainIOK(() => () => {
-      Log.info("done adding missing blocks to leaderboard all");
-    }),
-  );
+  await LeaderboardsAll.addMissingBlocks()();
+  Log.info("done adding missing blocks to leaderboard all");
 };
 
-const loadLeaderboardLimitedTimeframes = (): T.Task<void> => {
-  return pipe(
-    Log.info("loading leaderboards for limited timeframes"),
-    () => LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes(),
-    T.chainIOK(
-      () => () => Log.info("done loading leaderboards for limited timeframes"),
-    ),
-  );
+const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
+  Log.info("loading leaderboards for limited timeframes");
+  await LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes()();
+  Log.info("done loading leaderboards for limited timeframes");
 };
 
 try {
@@ -58,12 +47,14 @@ try {
   await Blocks.addMissingBlocks()();
   Log.info("done adding missing blocks");
 
-  await TAlt.seqTParT(
-    loadLeaderboardLimitedTimeframes(),
+  await Promise.all([
+    initLeaderboardLimitedTimeframes(),
+    // BurnRecordsAllSync.sync,
     syncLeaderboardAll(),
-  )();
+  ]);
 
   Blocks.storeNewBlockQueue.start();
+  Log.info("started analyzing new blocks from queue");
 } catch (error) {
   Log.error("error adding new blocks", { error });
   EthNode.closeConnection();

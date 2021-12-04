@@ -2,7 +2,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { Row } from "postgres";
 import * as Blocks from "./blocks.js";
 import { sql } from "./db.js";
-import { A, B, O, T, TAlt, TEAlt } from "./fp.js";
+import { A, B, O, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeeSums,
@@ -124,7 +124,7 @@ export const removeContractBaseFeeSums = (
                 )}::double precision[]) as base_fee_sum_usd
               ) as data_table
               WHERE contract_base_fee_sums.contract_address = data_table.contract_address
-              `;
+            `;
           }),
           T.map(() => undefined),
         ),
@@ -161,13 +161,22 @@ export const addMissingBlocks = (): T.Task<void> =>
           }),
         ),
       ),
-      pipe(Blocks.getLatestKnownBlockNumber(), TEAlt.getOrThrow),
+      Blocks.getLatestKnownBlockNumber,
     ),
     T.chain(([newestIncludedBlock, latestKnownBlockNumber]) => {
       if (latestKnownBlockNumber === newestIncludedBlock) {
         // All blocks already stored. Nothing to do.
+        Log.debug(
+          "leaderboard all already up to date with latest stored block",
+        );
         return T.of(undefined);
       }
+
+      Log.debug(
+        `sync leaderboard all, ${
+          latestKnownBlockNumber - newestIncludedBlock + 1
+        } blocks to analyze`,
+      );
 
       return pipe(
         Leaderboards.getRangeBaseFees(
