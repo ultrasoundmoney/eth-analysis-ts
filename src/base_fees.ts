@@ -1,7 +1,7 @@
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
-import { BlockDb } from "./blocks.js";
+import { BlockDb } from "./blocks/blocks.js";
 import { BlockLondon } from "./eth_node.js";
 import { hexToNumber } from "./hexadecimal.js";
 import { sum } from "./numbers.js";

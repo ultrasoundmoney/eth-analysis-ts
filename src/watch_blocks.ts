@@ -1,13 +1,15 @@
 import Sentry from "@sentry/node";
 import "@sentry/tracing";
-import * as Blocks from "./blocks.js";
 import * as Config from "./config.js";
+import * as StoreNewBlock from "./blocks/store_new_block.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
+import { syncBlocks } from "./blocks/sync.js";
+import { newBlockQueue } from "./blocks/store_new_block.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -41,10 +43,10 @@ try {
   Log.debug("started processing new blocks");
 
   EthNode.subscribeNewHeads((head) =>
-    Blocks.storeNewBlockQueue.add(Blocks.storeNewBlock(head.number)),
+    newBlockQueue.add(StoreNewBlock.storeNewBlock(head.number)),
   );
   Log.info("listening for and queueing new blocks to add");
-  await Blocks.addMissingBlocks()();
+  await syncBlocks()();
   Log.info("done adding missing blocks");
 
   await Promise.all([
@@ -53,7 +55,7 @@ try {
     syncLeaderboardAll(),
   ]);
 
-  Blocks.storeNewBlockQueue.start();
+  newBlockQueue.start();
   Log.info("started analyzing new blocks from queue");
 } catch (error) {
   Log.error("error adding new blocks", { error });

@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import { performance } from "perf_hooks";
-import { BlockDb } from "./blocks.js";
+import { BlockDb } from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import { A, O, Ord, pipe, RA, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";

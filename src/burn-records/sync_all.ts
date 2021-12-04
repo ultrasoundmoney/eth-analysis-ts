@@ -1,28 +1,11 @@
 import PQueue from "p-queue";
 import makeEta from "simple-eta";
-import {
-  FeeBlockRow,
-  getBlocks,
-  getBlocksForGranularity,
-  getLatestKnownBlockNumber,
-  londonHardForkBlockNumber,
-} from "../blocks.js";
-import {
-  addBlock,
-  FeeBlock,
-  FeeRecord,
-  feeRecordMap,
-  feeSetMap,
-  granularities,
-  Granularity,
-  orderingMap,
-  Sorting,
-  sortings,
-  sumFeeBlocks,
-} from "../burn_records_all.js";
+import * as Blocks from "../blocks/blocks.js";
 import { sql } from "../db.js";
 import { Denomination, denominations } from "../denominations.js";
 import { debug } from "../log.js";
+import * as All from "./all.js";
+import { FeeBlock, FeeRecord, Granularity, Sorting } from "./all.js";
 import { getLastAnalyzedBlockNumber } from "./analysis_state.js";
 
 export const syncBlocksQueue = new PQueue({ concurrency: 1 });
@@ -62,8 +45,8 @@ const getFeeRecords = async (
 
 const readStoredFeeRecords = async (): Promise<void> => {
   const tasks = denominations.flatMap((denomination) =>
-    granularities.flatMap((granularity) =>
-      sortings.flatMap(async (sorting) => {
+    All.granularities.flatMap((granularity) =>
+      All.sortings.flatMap(async (sorting) => {
         const feeRecordsUnsorted = await getFeeRecords(
           denomination,
           granularity,
@@ -71,10 +54,10 @@ const readStoredFeeRecords = async (): Promise<void> => {
         );
 
         const feeRecords = feeRecordsUnsorted.sort(
-          orderingMap[sorting].compare,
+          All.orderingMap[sorting].compare,
         );
 
-        feeRecordMap[granularity][sorting][denomination] = feeRecords;
+        All.feeRecordMap[granularity][sorting][denomination] = feeRecords;
 
         return undefined;
       }),
@@ -89,7 +72,10 @@ const getFeeBlocks = async (
   granularity: Granularity,
   upToIncluding: number,
 ): Promise<FeeBlock[]> => {
-  const blocks = await getBlocksForGranularity(granularity, upToIncluding);
+  const blocks = await Blocks.getBlocksForGranularity(
+    granularity,
+    upToIncluding,
+  );
 
   return blocks.map((blockRecord) => ({
     number: blockRecord.number,
@@ -106,15 +92,15 @@ const getFeeBlocks = async (
 
 const readFeeSets = async (upToIncluding: number): Promise<void> => {
   for (const denomination of denominations) {
-    for (const granularity of granularities) {
+    for (const granularity of All.granularities) {
       const feeBlocks = await getFeeBlocks(
         denomination,
         granularity,
         upToIncluding,
       );
 
-      feeSetMap[granularity][denomination] = {
-        sum: sumFeeBlocks(feeBlocks),
+      All.feeSetMap[granularity][denomination] = {
+        sum: All.sumFeeBlocks(feeBlocks),
         blocks: feeBlocks,
       };
     }
@@ -124,11 +110,11 @@ const readFeeSets = async (upToIncluding: number): Promise<void> => {
 const getNextBlockToAnalyze = async () => {
   const lastAnalyzed = await getLastAnalyzedBlockNumber();
   return lastAnalyzed === undefined
-    ? londonHardForkBlockNumber
+    ? Blocks.londonHardForkBlockNumber
     : lastAnalyzed + 1;
 };
 
-const addAllMissingBlocks = async (blocks: FeeBlockRow[]) => {
+const addAllMissingBlocks = async (blocks: Blocks.FeeBlockRow[]) => {
   debug(`burn-records-all sync ${blocks.length} blocks`);
 
   const eta = makeEta({ max: blocks.length });
@@ -142,13 +128,13 @@ const addAllMissingBlocks = async (blocks: FeeBlockRow[]) => {
     debug(`sync burn-records-all blocks, eta: ${eta.estimate()}s`);
   }, 8000);
 
-  syncBlocksQueue.addAll(blocks.map(addBlock));
+  syncBlocksQueue.addAll(blocks.map((block) => () => All.addBlock(block)));
 };
 
 export const sync = async (): Promise<void> => {
   const [nextToAdd, lastToAdd] = await Promise.all([
     getNextBlockToAnalyze(),
-    getLatestKnownBlockNumber(),
+    Blocks.getLatestKnownBlockNumber(),
     readStoredFeeRecords(),
   ]);
 
@@ -162,10 +148,10 @@ export const sync = async (): Promise<void> => {
     return undefined;
   }
 
-  debug("sets", feeSetMap);
-  debug("records", feeRecordMap);
+  debug("sets", All.feeSetMap);
+  debug("records", All.feeRecordMap);
 
-  const blocks = await getBlocks(nextToAdd, lastToAdd)();
+  const blocks = await Blocks.getBlocks(nextToAdd, lastToAdd)();
   debug(`init burn records all, ${blocks.length} blocks to add`);
   await addAllMissingBlocks(blocks);
 

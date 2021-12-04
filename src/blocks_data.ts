@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import neatCsv from "neat-csv";
 import { URL } from "url";
-import { BlockDb } from "./blocks.js";
+import { BlockDb } from "./blocks/blocks.js";
 import { A, O, pipe, T } from "./fp.js";
 
 type RawBlock = {

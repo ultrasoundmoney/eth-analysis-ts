@@ -5,7 +5,7 @@ import { Log as LogWeb3 } from "web3-core";
 import { Contract } from "web3-eth-contract";
 import { AbiItem } from "web3-utils";
 import WebSocket from "ws";
-import * as Blocks from "./blocks.js";
+import * as Blocks from "./blocks/blocks.js";
 import * as Config from "./config.js";
 import * as Duration from "./duration.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";

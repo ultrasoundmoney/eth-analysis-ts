@@ -1,7 +1,7 @@
 import _ from "lodash";
 import PQueue from "p-queue";
-import * as Blocks from "../blocks.js";
-import { BlockDb, FeeBlockRow } from "../blocks.js";
+import * as Blocks from "../blocks/blocks.js";
+import { BlockDb, FeeBlockRow } from "../blocks/blocks.js";
 import * as Cartesian from "../cartesian.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
 import { sql } from "../db.js";

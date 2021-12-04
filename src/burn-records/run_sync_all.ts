@@ -1,3 +1,3 @@
-import { init } from "./sync_all.js";
+import { sync } from "./sync_all.js";
 
-await init();
+await sync();

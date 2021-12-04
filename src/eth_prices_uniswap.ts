@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js";
 import * as DateFns from "date-fns";
-import * as Blocks from "./blocks.js";
+import * as Blocks from "./blocks/blocks.js";
 import * as Etherscan from "./etherscan.js";
 import { EthPrice } from "./etherscan.js";
 import * as EthNode from "./eth_node.js";

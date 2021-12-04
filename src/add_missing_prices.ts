@@ -1,5 +1,5 @@
 import * as DateFns from "date-fns";
-import * as Blocks from "./blocks.js";
+import * as Blocks from "./blocks/blocks.js";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import { sql } from "./db.js";
 import * as EthPrices from "./eth_prices.js";

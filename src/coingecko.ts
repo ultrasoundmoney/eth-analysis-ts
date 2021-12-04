@@ -6,7 +6,7 @@ import { retrying } from "retry-ts/lib/Task.js";
 import urlcatM from "urlcat";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
-import { E, O, pipe, T, TE } from "./fp.js";
+import { E, O, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.

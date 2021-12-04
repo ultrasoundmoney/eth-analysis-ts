@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 import PQueue from "p-queue";
 import type { TransactionReceipt as TxRWeb3 } from "web3-core";
-import * as Blocks from "./blocks.js";
+import * as Blocks from "./blocks/blocks.js";
 import { delay } from "./delay.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";

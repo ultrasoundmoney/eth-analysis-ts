@@ -1,6 +1,6 @@
 import { pipe } from "fp-ts/lib/function.js";
 import { Row } from "postgres";
-import * as Blocks from "./blocks.js";
+import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import { A, B, O, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";

@@ -1,7 +1,7 @@
 import * as DateFns from "date-fns";
 import fs from "fs/promises";
 import PQueue from "p-queue";
-import * as Blocks from "./blocks.js";
+import * as Blocks from "./blocks/blocks.js";
 import * as Config from "./config.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";

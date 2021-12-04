@@ -6,7 +6,6 @@ import * as DateFnsAlt from "./date_fns_alt.js";
 import { JsTimestamp } from "./date_fns_alt.js";
 import * as Duration from "./duration.js";
 import { EthPrice } from "./etherscan.js";
-import * as EthPrices from "./eth_prices.js";
 import { HistoricPrice } from "./eth_prices.js";
 import { A, pipe } from "./fp.js";
 import * as Log from "./log.js";
