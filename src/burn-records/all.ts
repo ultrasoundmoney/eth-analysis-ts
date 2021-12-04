@@ -167,7 +167,7 @@ const storeLastAnalyzed = async (lastAnalyzedBlock: number): Promise<void> => {
 
 export const storeNewBlockQueue = new PQueue({
   concurrency: 1,
-  autoStart: true,
+  autoStart: false,
 });
 
 type InsertableFeeRecordRow = {
