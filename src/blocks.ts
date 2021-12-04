@@ -6,7 +6,7 @@ import * as BaseFees from "./base_fees.js";
 import { FeeBreakdown } from "./base_fees.js";
 import * as BaseFeeSums from "./base_fee_sums.js";
 import * as BurnRates from "./burn_rates.js";
-import * as BurnRecordsAll from "./burn_records_all.js";
+import * as BurnRecordsAll from "./burn-records/all.js";
 import * as Contracts from "./contracts.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
@@ -28,7 +28,7 @@ import * as Scaling from "./scaling.js";
 import * as Transactions from "./transactions.js";
 import { TxRWeb3London } from "./transactions.js";
 import makeEta from "simple-eta";
-import { Granularity } from "./burn_records_all.js";
+import { Granularity } from "./burn-records/all.js";
 
 export const londonHardForkBlockNumber = 12965000;
 

@@ -1,16 +1,16 @@
 import _ from "lodash";
 import PQueue from "p-queue";
-import * as Blocks from "./blocks.js";
-import { BlockDb, FeeBlockRow } from "./blocks.js";
-import { getLastAnalyzedBlockNumber } from "./burn-records/analysis_state.js";
-import * as Cartesian from "./cartesian.js";
-import * as DateFnsAlt from "./date_fns_alt.js";
-import { sql } from "./db.js";
-import * as Denominations from "./denominations.js";
-import { Denomination, denominations } from "./denominations.js";
-import * as Duration from "./duration.js";
-import { A, B, O, Ord, OrdM, pipe } from "./fp.js";
-import * as Log from "./log.js";
+import * as Blocks from "../blocks.js";
+import { BlockDb, FeeBlockRow } from "../blocks.js";
+import * as Cartesian from "../cartesian.js";
+import * as DateFnsAlt from "../date_fns_alt.js";
+import { sql } from "../db.js";
+import * as Denominations from "../denominations.js";
+import { Denomination, denominations } from "../denominations.js";
+import * as Duration from "../duration.js";
+import { A, B, O, Ord, OrdM, pipe } from "../fp.js";
+import * as Log from "../log.js";
+import { getLastAnalyzedBlockNumber } from "./analysis_state.js";
 
 export const granularities = ["block", "m5", "h1", "d1", "d7"] as const;
 export type Granularity = typeof granularities[number];
