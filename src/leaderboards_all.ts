@@ -2,6 +2,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { Row } from "postgres";
 import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
+import { getLatestDerivedBlockStats } from "./derived_block_stats.js";
 import { A, B, O, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
@@ -161,10 +162,10 @@ export const addMissingBlocks = (): T.Task<void> =>
           }),
         ),
       ),
-      Blocks.getLatestKnownBlockNumber,
+      Blocks.getLastStoredBlock,
     ),
-    T.chain(([newestIncludedBlock, latestKnownBlockNumber]) => {
-      if (latestKnownBlockNumber === newestIncludedBlock) {
+    T.chain(([newestIncludedBlock, lastStoredBlock]) => {
+      if (lastStoredBlock.number === newestIncludedBlock) {
         // All blocks already stored. Nothing to do.
         Log.debug(
           "leaderboard all already up to date with latest stored block",
@@ -174,14 +175,14 @@ export const addMissingBlocks = (): T.Task<void> =>
 
       Log.debug(
         `sync leaderboard all, ${
-          latestKnownBlockNumber - newestIncludedBlock + 1
+          lastStoredBlock.number - newestIncludedBlock + 1
         } blocks to analyze`,
       );
 
       return pipe(
         Leaderboards.getRangeBaseFees(
           newestIncludedBlock + 1,
-          latestKnownBlockNumber,
+          lastStoredBlock.number,
         ),
         T.chain(addContractBaseFeeSums),
         T.map(() => undefined),

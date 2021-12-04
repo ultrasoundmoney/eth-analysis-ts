@@ -403,54 +403,60 @@ const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
   tips: row.tips,
 });
 
-export const getBlocks = (
+export const getBlocks = async (
   from: number,
   upToIncluding: number,
-): T.Task<BlockDb[]> =>
-  pipe(
-    () => sql<BlockDbRow[]>`
-      SELECT
-        base_fee_per_gas,
-        contract_creation_sum,
-        eth_price,
-        eth_transfer_sum,
-        gas_used,
-        hash,
-        mined_at,
-        number,
-        tips
-      FROM blocks
-      WHERE number >= ${from}
-      AND number <= ${upToIncluding}
-      ORDER BY number ASC
-    `,
-    T.map(A.map(blockDbFromRow)),
-  );
+): Promise<BlockDb[]> => {
+  const rows = await sql<BlockDbRow[]>`
+    SELECT
+      base_fee_per_gas,
+      contract_creation_sum,
+      eth_price,
+      eth_transfer_sum,
+      gas_used,
+      hash,
+      mined_at,
+      number,
+      tips
+    FROM blocks
+    WHERE number >= ${from}
+    AND number <= ${upToIncluding}
+    ORDER BY number ASC
+  `;
 
-export const getPastBlockNumber = async (
-  referenceBlock: number,
+  return rows.map(blockDbFromRow);
+};
+
+export const getPastBlock = async (
+  referenceBlock: BlockDb,
   interval: string,
-): Promise<number> => {
-  const [{ minedAt }] = await sql<
-    { minedAt: Date }[]
-  >`SELECT mined_at FROM blocks WHERE number = ${referenceBlock}`;
-
-  const [block] = await sql<{ number: number }[]>`
-    SELECT number FROM blocks
-    ORDER BY ABS(EXTRACT(epoch FROM (${minedAt} - ${interval}::interval )))
+): Promise<BlockDb> => {
+  const [row] = await sql<BlockDbRow[]>`
+    SELECT
+      base_fee_per_gas,
+      contract_creation_sum,
+      eth_price,
+      eth_transfer_sum,
+      gas_used,
+      hash,
+      mined_at,
+      number,
+      tips
+    FROM blocks
+    ORDER BY ABS(EXTRACT(epoch FROM (${referenceBlock.minedAt} - ${interval}::interval )))
     LIMIT 1
   `;
 
-  return block.number;
+  return blockDbFromRow(row);
 };
 
 export const getBlocksForGranularity = async (
   granularity: Granularity,
-  referenceBlock: number,
+  referenceBlock: BlockDb,
 ): Promise<FeeBlockRow[]> => {
   const interval = granularitySqlMap[granularity];
-  const pastBlockNumber = await getPastBlockNumber(referenceBlock, interval);
-  return getFeeBlocks(pastBlockNumber, referenceBlock);
+  const pastBlock = await getPastBlock(referenceBlock, interval);
+  return getFeeBlocks(pastBlock.number, referenceBlock.number);
 };
 
 // These blocks are minimized to only carry the information needed to calculate a record.
@@ -471,13 +477,14 @@ export const getFeeBlocks = async (
   SELECT
     base_fee_per_gas,
     eth_price,
-    (eth_price * 100)::bigint AS eth_price_cents
+    (eth_price * 100)::bigint AS eth_price_cents,
     gas_used,
     mined_at,
     number
   FROM blocks
   WHERE number >= ${from}
   AND number <= ${upToIncluding}
+  ORDER BY number DESC
 `;
 
 export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
@@ -486,10 +493,16 @@ export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
     .map((_, i) => toAndIncluding - i)
     .reverse();
 
-export const getLatestKnownBlockNumber = async (): Promise<number> => {
+export const getLastStoredBlock = async (): Promise<BlockDb> => {
   const rows = await sql<{ number: number }[]>`
     SELECT MAX(number) AS number FROM blocks
   `;
 
-  return rows[0].number;
+  if (rows.length === 0) {
+    throw new Error("can't get last stored block from empty table");
+  }
+
+  const [block] = await getBlocks(rows[0].number, rows[0].number);
+
+  return block;
 };

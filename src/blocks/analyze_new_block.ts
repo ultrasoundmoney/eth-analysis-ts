@@ -19,7 +19,8 @@ import { logPerfT } from "../performance.js";
 import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
-// import * as BurnRecordsAll from "../burn-records/all.js";
+import * as BurnRecordsAll from "../burn-records/all.js";
+import * as BurnRecordsLimitedTimeFrames from "../burn-records/limited_time_frames.js";
 
 export const newBlockQueue = new PQueue({
   concurrency: 1,
@@ -108,7 +109,8 @@ export const analyzeNewBlock = (blockNumber: number): T.Task<void> =>
         TAlt.seqTParT(
           removeExpiredBlocksTask,
           addToLeaderboardAllTask,
-          // () => BurnRecordsAll.onNewBlock(blockDb),
+          () => BurnRecordsAll.onNewBlock(blockDb),
+          () => BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
         ),
         T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
       );
@@ -146,7 +148,8 @@ const rollback = async (block: BlockLondon): Promise<void> => {
   LeaderboardsLimitedTimeframe.rollbackToBefore(block.number, sumsToRollback);
   await Promise.all([
     LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
-    // BurnRecordsAll.onRollback(block.number),
+    BurnRecordsAll.onRollback(block.number),
+    BurnRecordsLimitedTimeFrames.onRollback(block.number),
   ]);
   logPerfT("rollback", t0);
 };

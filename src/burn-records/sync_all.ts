@@ -5,8 +5,10 @@ import { sql } from "../db.js";
 import { Denomination, denominations } from "../denominations.js";
 import { debug } from "../log.js";
 import * as All from "./all.js";
-import { FeeBlock, FeeRecord, Granularity, Sorting } from "./all.js";
 import { getLastAnalyzedBlockNumber } from "./analysis_state.js";
+import { FeeBlock, FeeRecord, Granularity, Sorting } from "./burn_records.js";
+import * as BurnRecords from "./burn_records.js";
+import { BlockDb } from "../blocks/blocks.js";
 
 export const syncBlocksQueue = new PQueue({ concurrency: 1 });
 
@@ -45,8 +47,8 @@ const getFeeRecords = async (
 
 const readStoredFeeRecords = async (): Promise<void> => {
   const tasks = denominations.flatMap((denomination) =>
-    All.granularities.flatMap((granularity) =>
-      All.sortings.flatMap(async (sorting) => {
+    BurnRecords.granularities.flatMap((granularity) =>
+      BurnRecords.sortings.flatMap(async (sorting) => {
         const feeRecordsUnsorted = await getFeeRecords(
           denomination,
           granularity,
@@ -54,7 +56,7 @@ const readStoredFeeRecords = async (): Promise<void> => {
         );
 
         const feeRecords = feeRecordsUnsorted.sort(
-          All.orderingMap[sorting].compare,
+          BurnRecords.orderingMap[sorting].compare,
         );
 
         All.feeRecordMap[granularity][sorting][denomination] = feeRecords;
@@ -70,7 +72,7 @@ const readStoredFeeRecords = async (): Promise<void> => {
 const getFeeBlocks = async (
   denomination: Denomination,
   granularity: Granularity,
-  upToIncluding: number,
+  upToIncluding: BlockDb,
 ): Promise<FeeBlock[]> => {
   const blocks = await Blocks.getBlocksForGranularity(
     granularity,
@@ -90,9 +92,9 @@ const getFeeBlocks = async (
   }));
 };
 
-const readFeeSets = async (upToIncluding: number): Promise<void> => {
+const readFeeSets = async (upToIncluding: BlockDb): Promise<void> => {
   for (const denomination of denominations) {
-    for (const granularity of All.granularities) {
+    for (const granularity of BurnRecords.granularities) {
       const feeBlocks = await getFeeBlocks(
         denomination,
         granularity,
@@ -100,7 +102,7 @@ const readFeeSets = async (upToIncluding: number): Promise<void> => {
       );
 
       All.feeSetMap[granularity][denomination] = {
-        sum: All.sumFeeBlocks(feeBlocks),
+        sum: BurnRecords.sumFeeBlocks(feeBlocks),
         blocks: feeBlocks,
       };
     }
@@ -128,19 +130,29 @@ const addAllMissingBlocks = async (blocks: Blocks.FeeBlockRow[]) => {
     debug(`sync burn-records-all blocks, eta: ${eta.estimate()}s`);
   }, 8000);
 
-  syncBlocksQueue.addAll(blocks.map((block) => () => All.addBlock(block)));
+  syncBlocksQueue.addAll(
+    blocks.map(
+      (block) => () =>
+        BurnRecords.addBlock(
+          () => Promise.resolve(),
+          All.feeSetMap,
+          All.feeRecordMap,
+          block,
+        ),
+    ),
+  );
 };
 
 export const sync = async (): Promise<void> => {
-  const [nextToAdd, lastToAdd] = await Promise.all([
+  const [nextToAdd, lastStoredBlock] = await Promise.all([
     getNextBlockToAnalyze(),
-    Blocks.getLatestKnownBlockNumber(),
+    Blocks.getLastStoredBlock(),
     readStoredFeeRecords(),
   ]);
 
-  await readFeeSets(lastToAdd);
+  await readFeeSets(lastStoredBlock);
 
-  const missingBlocksCount = lastToAdd - nextToAdd + 1;
+  const missingBlocksCount = lastStoredBlock.number - nextToAdd + 1;
 
   // No blocks missing, we're done.
   if (missingBlocksCount <= 0) {
@@ -151,7 +163,7 @@ export const sync = async (): Promise<void> => {
   debug("sets", All.feeSetMap);
   debug("records", All.feeRecordMap);
 
-  const blocks = await Blocks.getBlocks(nextToAdd, lastToAdd)();
+  const blocks = await Blocks.getBlocks(nextToAdd, lastStoredBlock.number);
   debug(`init burn records all, ${blocks.length} blocks to add`);
   await addAllMissingBlocks(blocks);
 
