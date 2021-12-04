@@ -11,65 +11,31 @@ import * as Duration from "../duration.js";
 import { A, B, O, Ord, OrdM, pipe } from "../fp.js";
 import * as Log from "../log.js";
 import { getLastAnalyzedBlockNumber } from "./analysis_state.js";
-
-export const granularities = ["block", "m5", "h1", "d1", "d7"] as const;
-export type Granularity = typeof granularities[number];
-
-export const sortings = ["min", "max"] as const;
-export type Sorting = typeof sortings[number];
-
-// Range of blocks and their fee sum.
-export type FeeRecord = {
-  firstBlock: number;
-  lastBlock: number;
-  feeSum: bigint;
-};
-
-export type FeeBlock = {
-  number: number;
-  minedAt: Date;
-  fees: bigint;
-};
-
-export type FeeSetSum = {
-  sum: bigint;
-  blocks: FeeBlock[];
-};
-
-export type FeeRecordMap = Record<
+import {
+  FeeBlock,
+  FeeRecord,
+  FeeRecordMap,
+  FeeSetMap,
+  FeeSetSum,
+  granularities,
   Granularity,
-  Record<Sorting, Record<Denomination, FeeRecord[]>>
->;
+  makeFeeSetMap,
+  makeRecordMap,
+  Sorting,
+  sortings,
+} from "./burn_records.js";
 
-export type FeeSetMap = Record<Granularity, Record<Denomination, FeeSetSum>>;
-
-const makeFeeSetMap = (): FeeSetMap =>
-  pipe(
-    Cartesian.make2(Denominations.denominations, granularities),
-    A.reduce({} as FeeSetMap, (map, [denomination, granularity]) => {
-      map[granularity] = map[granularity] ?? {};
-      map[granularity][denomination] = { sum: 0n, blocks: [] };
-      return map;
-    }),
-  );
+// pipe(
+//   Cartesian.make2(Denominations.denominations, granularities),
+//   A.reduce({} as FeeSetMap, (map, [denomination, granularity]) => {
+//     map[granularity] = map[granularity] ?? {};
+//     map[granularity][denomination] = { sum: 0n, blocks: [] };
+//     return map;
+//   }),
+// );
 
 // The candidate map keeps track of sets of blocks and their corresponding fee sum. It updates in streaming fashion.
 export const feeSetMap: FeeSetMap = makeFeeSetMap();
-
-const makeRecordMap = (): FeeRecordMap => {
-  return pipe(
-    Cartesian.make3(Denominations.denominations, granularities, sortings),
-    A.reduce(
-      {} as FeeRecordMap,
-      (map, [denomination, granularity, sorting]) => {
-        map[granularity] = map[granularity] ?? {};
-        map[granularity][sorting] = map[granularity][sorting] ?? {};
-        map[granularity][sorting][denomination] = [];
-        return map;
-      },
-    ),
-  );
-};
 
 // Tracks fee records.
 export const feeRecordMap: FeeRecordMap = makeRecordMap();
@@ -323,10 +289,9 @@ export const addBlock = async (blockToAdd: FeeBlockRow): Promise<void> => {
     await Promise.all(tasks);
   };
 
-  const tasks = denominations.flatMap((denomination) =>
-    granularities.map((granularity) =>
+  const tasks = Cartesian.make2(denominations, granularities).map(
+    ([denomination, granularity]) =>
       updateFeesSetsAndRecords(denomination, granularity),
-    ),
   );
   await Promise.all(tasks);
   await storeLastAnalyzed(blockToAdd.number);

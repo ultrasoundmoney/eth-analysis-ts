@@ -17,7 +17,8 @@ import { sql } from "../db.js";
 import { usdToScaled } from "../scaling.js";
 import { fromUnixTime } from "date-fns";
 import { setContractsMinedAt, storeContracts } from "../contracts.js";
-import { Granularity, granularitySqlMap } from "../burn-records/all.js";
+import { granularitySqlMap } from "../burn-records/all.js";
+import { Granularity } from "../burn-records/burn_records.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
