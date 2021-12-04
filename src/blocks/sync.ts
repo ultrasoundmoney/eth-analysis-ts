@@ -8,7 +8,7 @@ import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { getBlockHashIsKnown, getBlockWithRetry } from "./blocks.js";
-import { storeNewBlock } from "./store_new_block.js";
+import { analyzeNewBlock } from "./analyze_new_block.js";
 
 export const syncBlockQueue = new PQueue({ concurrency: 1 });
 
@@ -27,7 +27,7 @@ const syncBlock = (blockNumber: number): T.Task<void> => {
                   Log.warn(
                     "addMissingBlock, parent hash not found, storing parent again",
                   ),
-                () => storeNewBlock(blockNumber - 1),
+                () => analyzeNewBlock(blockNumber - 1),
               ),
             () => T.of(undefined),
           ),
