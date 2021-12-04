@@ -1,95 +1,63 @@
 import PQueue from "p-queue";
 import makeEta from "simple-eta";
-import * as EthNode from "../eth_node.js";
 import * as EthPrices from "../eth_prices.js";
-import { A, B, pipe, T, TAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
-import * as Blocks from "./blocks.js";
-import { getBlockHashIsKnown, getBlockWithRetry } from "./blocks.js";
 import { analyzeNewBlock } from "./analyze_new_block.js";
+import * as Blocks from "./blocks.js";
+import { getBlockWithRetry } from "./blocks.js";
 
 export const syncBlockQueue = new PQueue({ concurrency: 1 });
 
-const syncBlock = (blockNumber: number): T.Task<void> => {
-  return pipe(
-    () => getBlockWithRetry(blockNumber),
-    T.chainFirst((block) =>
-      pipe(
-        getBlockHashIsKnown(block.parentHash),
-        T.chain(
-          B.match(
-            // We're missing the parent hash, update the previous block.
-            () =>
-              pipe(
-                () =>
-                  Log.warn(
-                    "addMissingBlock, parent hash not found, storing parent again",
-                  ),
-                () => analyzeNewBlock(blockNumber - 1),
-              ),
-            () => T.of(undefined),
-          ),
-        ),
-      ),
-    ),
-    T.chain((block) =>
-      TAlt.seqTParT(
-        T.of(block),
-        () => Transactions.getTxrsWithRetry(block),
-        EthPrices.getPriceForOldBlock(block),
-      ),
-    ),
-    T.chain(([block, txrs, ethPrice]) =>
-      Blocks.storeBlock(block, txrs, ethPrice?.ethusd),
-    ),
-  );
+const syncBlock = async (blockNumber: number): Promise<void> => {
+  const block = await getBlockWithRetry(blockNumber);
+  const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
+
+  if (!isParentKnown) {
+    // We're missing the parent hash, update the previous block.
+    Log.warn("storeNewBlock, parent hash not found, storing parent again");
+    await analyzeNewBlock(blockNumber - 1);
+  }
+
+  const [txrs, ethPrice] = await Promise.all([
+    Transactions.getTxrsWithRetry(block),
+    EthPrices.getPriceForOldBlock(block),
+  ]);
+
+  await Blocks.storeBlock(block, txrs, ethPrice.ethusd)();
 };
 
-export const syncBlocks = (
-  upToNumber: number | undefined = undefined,
-): T.Task<void> =>
-  pipe(
-    TAlt.seqTParT(
-      () => EthNode.getLatestBlockNumber(),
-      Blocks.getKnownBlocks(),
-    ),
-    T.chainFirstIOK(([latestBlockNumber]) => () => {
-      Log.debug(`syncing blocks table with chain, head: ${latestBlockNumber}`);
-    }),
-    T.map(([latestBlockNumber, knownBlocks]) =>
-      pipe(
-        Blocks.getBlockRange(
-          Blocks.londonHardForkBlockNumber,
-          upToNumber || latestBlockNumber,
-        ),
-        A.filter((number) => !knownBlocks.has(number)),
-      ),
-    ),
-    T.chain((missingBlocks) => {
-      if (missingBlocks.length === 0) {
-        Log.debug("blocks table already in-sync with chain");
-        return T.of(undefined);
-      }
+export const syncBlocks = async (upToIncluding: number): Promise<void> => {
+  const knownBlocks = await Blocks.getKnownBlocks()();
+  Log.debug(`syncing blocks table up to: ${upToIncluding}`);
 
-      Log.debug(`blocks table sync ${missingBlocks.length} blocks`);
+  const missingBlocks = Blocks.getBlockRange(
+    Blocks.londonHardForkBlockNumber,
+    upToIncluding,
+  ).filter((num) => !knownBlocks.has(num));
 
-      const eta = makeEta({ max: missingBlocks.length });
+  if (missingBlocks.length === 0) {
+    Log.debug("blocks table already in-sync with chain");
+    return undefined;
+  }
 
-      const id = setInterval(() => {
-        eta.report(missingBlocks.length - syncBlockQueue.size);
-        if (syncBlockQueue.size === 0) {
-          clearInterval(id);
-          return;
-        }
-        Log.debug(`sync missing blocks, eta: ${eta.estimate()}s`);
-      }, 8000);
+  Log.debug(`blocks table sync ${missingBlocks.length} blocks`);
 
-      return () => syncBlockQueue.addAll(missingBlocks.map(syncBlock));
-    }),
-    T.chainFirstIOK(() => () => {
-      PerformanceMetrics.setShouldLogBlockFetchRate(false);
-    }),
-    T.map(() => undefined),
+  const eta = makeEta({ max: missingBlocks.length });
+
+  const id = setInterval(() => {
+    eta.report(missingBlocks.length - syncBlockQueue.size);
+    if (syncBlockQueue.size === 0) {
+      clearInterval(id);
+      return;
+    }
+    Log.debug(`sync missing blocks, eta: ${eta.estimate()}s`);
+  }, 8000);
+
+  await syncBlockQueue.addAll(
+    missingBlocks.map((block) => () => syncBlock(block)),
   );
+
+  PerformanceMetrics.setShouldLogBlockFetchRate(false);
+};

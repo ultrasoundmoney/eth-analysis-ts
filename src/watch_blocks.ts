@@ -42,11 +42,12 @@ try {
   await EthNode.connect();
   Log.debug("started processing new blocks");
 
+  const chainHeadNumber = await EthNode.getLatestBlockNumber();
   EthNode.subscribeNewHeads((head) =>
-    newBlockQueue.add(AnalyzeNewBlock.analyzeNewBlock(head.number)),
+    newBlockQueue.add(() => AnalyzeNewBlock.analyzeNewBlock(head.number)),
   );
   Log.info("listening for and queueing new blocks to add");
-  await syncBlocks()();
+  await syncBlocks(chainHeadNumber);
   Log.info("done adding missing blocks");
 
   await Promise.all([

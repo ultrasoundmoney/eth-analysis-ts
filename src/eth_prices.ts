@@ -91,10 +91,8 @@ const getPriceForOlderBlockWithCache = async (
 export const getOldPriceSeqQueue = new PQueue({ concurrency: 1 });
 
 // Execute these sequentially for maximum cache hits.
-export const getPriceForOldBlock =
-  (block: BlockForPrice): T.Task<EthPrice> =>
-  () =>
-    getOldPriceSeqQueue.add(() => getPriceForOlderBlockWithCache(block));
+export const getPriceForOldBlock = (block: BlockForPrice): Promise<EthPrice> =>
+  getOldPriceSeqQueue.add(() => getPriceForOlderBlockWithCache(block));
 
 // Odds are the price we're looking for was recently stored. Because of this we keep a cache.
 const priceCache = new QuickLRU<number, EthPrice>({

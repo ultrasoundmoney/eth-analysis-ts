@@ -1,140 +1,97 @@
-import { fromUnixTime } from "date-fns";
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import { calcBaseFeeSums } from "../base_fee_sums.js";
+import * as BurnRecordsAll from "../burn-records/all.js";
+import * as BurnRecordsLimitedTimeFrames from "../burn-records/limited_time_frames.js";
 import { calcBurnRates } from "../burn_rates.js";
 import { sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
-import { millisFromMinutes } from "../duration.js";
-import { EthPrice } from "../etherscan.js";
 import { BlockLondon } from "../eth_node.js";
-import { getEthPrice, getPriceForOldBlock } from "../eth_prices.js";
-import { B, E, pipe, T, TAlt, TE, TEAlt } from "../fp.js";
-import { LeaderboardEntries } from "../leaderboards.js";
+import { getPriceForOldBlock } from "../eth_prices.js";
+import { pipe, T, TAlt } from "../fp.js";
 import * as Leaderboards from "../leaderboards.js";
+import { LeaderboardEntries } from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
-import { logPerfT } from "../performance.js";
+import { logPerf, logPerfT } from "../performance.js";
 import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
-import * as BurnRecordsAll from "../burn-records/all.js";
-import * as BurnRecordsLimitedTimeFrames from "../burn-records/limited_time_frames.js";
 
 export const newBlockQueue = new PQueue({
   concurrency: 1,
   autoStart: false,
 });
 
-export const analyzeNewBlock = (blockNumber: number): T.Task<void> =>
-  pipe(
-    () => Log.debug(`analyzing block ${blockNumber}`),
-    T.fromIO,
-    T.chain(() => () => Blocks.getBlockWithRetry(blockNumber)),
-    T.chainFirst((block) =>
-      pipe(
-        Blocks.getBlockHashIsKnown(block.parentHash),
-        T.chain(
-          B.match(
-            // We're missing the parent hash, update the previous block.
-            () =>
-              pipe(
-                () =>
-                  Log.warn(
-                    "storeNewBlock, parent hash not found, storing parent again",
-                  ),
-                () => analyzeNewBlock(blockNumber - 1),
-              ),
-            () => T.of(undefined),
-          ),
-        ),
-      ),
-    ),
-    T.chain((block) =>
-      TAlt.seqTParT(T.of(block), Blocks.getIsKnownBlock(block.number)),
-    ),
-    T.chain(([block, isKnownBlock]) =>
-      TAlt.seqSParT({
-        block: T.of(block),
-        isKnownBlock: T.of(isKnownBlock),
-        txrs: () => getTxrsWithRetry(block),
-        ethPrice: pipe(
-          getEthPrice(fromUnixTime(block.timestamp), millisFromMinutes(5)),
-          TE.alt(
-            (): TE.TaskEither<string, EthPrice> =>
-              pipe(getPriceForOldBlock(block), T.map(E.right)),
-          ),
-          TEAlt.getOrThrow,
-        ),
-      }),
-    ),
-    T.chainFirst(({ block, isKnownBlock, txrs, ethPrice }) =>
-      pipe(
-        isKnownBlock,
-        B.match(
-          () => Blocks.storeBlock(block, txrs, ethPrice.ethusd),
-          // Rollback
-          () =>
-            pipe(
-              () => rollback(block),
-              T.chain(() => Blocks.updateBlock(block, txrs, ethPrice.ethusd)),
-            ),
-        ),
-      ),
-    ),
-    T.chainFirst(({ block, txrs, ethPrice }) => {
-      const feeBreakdown = calcBlockFeeBreakdown(block, txrs, ethPrice.ethusd);
+export const analyzeNewBlock = async (blockNumber: number): Promise<void> => {
+  Log.debug(`analyzing block ${blockNumber}`);
+  const block = await Blocks.getBlockWithRetry(blockNumber);
+  const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
-      const blockDb = Blocks.blockDbFromBlock(block, txrs, ethPrice.ethusd);
+  if (!isParentKnown) {
+    // We're missing the parent hash, update the previous block.
+    Log.warn("storeNewBlock, parent hash not found, storing parent again");
+    await analyzeNewBlock(blockNumber - 1);
+  }
 
-      const t0 = performance.now();
+  const isKnownBlock = await Blocks.getIsKnownBlock(blockNumber)();
+  if (isKnownBlock) {
+    const [txrs, ethPrice] = await Promise.all([
+      getTxrsWithRetry(block),
+      getPriceForOldBlock(block),
+      rollback(block),
+    ]);
+    await Blocks.updateBlock(block, txrs, ethPrice.ethusd)();
+  }
 
-      LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
-        blockDb,
-        feeBreakdown.contract_use_fees,
-        feeBreakdown.contract_use_fees_usd!,
-      );
+  const [txrs, ethPrice] = await Promise.all([
+    getTxrsWithRetry(block),
+    getPriceForOldBlock(block),
+  ]);
+  await Blocks.storeBlock(block, txrs, ethPrice.ethusd)();
 
-      const removeExpiredBlocksTask =
-        LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes();
+  const feeBreakdown = calcBlockFeeBreakdown(block, txrs, ethPrice.ethusd);
 
-      const addToLeaderboardAllTask = LeaderboardsAll.addBlock(
-        block.number,
-        feeBreakdown.contract_use_fees,
-        feeBreakdown.contract_use_fees_usd!,
-      );
+  const blockDb = Blocks.blockDbFromBlock(block, txrs, ethPrice.ethusd);
 
-      return pipe(
-        TAlt.seqTParT(
-          removeExpiredBlocksTask,
-          addToLeaderboardAllTask,
-          () => BurnRecordsAll.onNewBlock(blockDb),
-          () => BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
-        ),
-        T.chainFirstIOK(logPerfT("adding block to leaderboards", t0)),
-      );
-    }),
-    T.chain(({ block }) => {
-      Log.debug(`store block seq queue ${newBlockQueue.size}`);
-      const allBlocksProcessed =
-        newBlockQueue.size === 0 &&
-        // This function is on this queue.
-        newBlockQueue.pending <= 1;
+  const tStartAnalyze = performance.now();
 
-      if (!allBlocksProcessed) {
-        Log.debug(
-          "blocks left to process, skipping computation of derived stats",
-        );
-        return T.of(undefined);
-      }
-
-      return pipe(
-        updateDerivedBlockStats(block),
-        T.chain(() => notifyNewDerivedStats(block)),
-      );
-    }),
+  LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
+    blockDb,
+    feeBreakdown.contract_use_fees,
+    feeBreakdown.contract_use_fees_usd!,
   );
+
+  const addToLeaderboardAllTask = LeaderboardsAll.addBlock(
+    block.number,
+    feeBreakdown.contract_use_fees,
+    feeBreakdown.contract_use_fees_usd!,
+  );
+
+  await Promise.all([
+    LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+    addToLeaderboardAllTask(),
+    BurnRecordsAll.onNewBlock(blockDb),
+    BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
+  ]);
+
+  logPerf("adding block to leaderboards", tStartAnalyze);
+
+  Log.debug(`store block seq queue ${newBlockQueue.size}`);
+  const allBlocksProcessed =
+    newBlockQueue.size === 0 &&
+    // This function is on this queue.
+    newBlockQueue.pending <= 1;
+
+  if (!allBlocksProcessed) {
+    Log.debug("blocks left to process, skipping computation of derived stats");
+    return;
+  }
+
+  await updateDerivedBlockStats(block)();
+  await notifyNewDerivedStats(block)();
+};
 
 const rollback = async (block: BlockLondon): Promise<void> => {
   const t0 = performance.now();

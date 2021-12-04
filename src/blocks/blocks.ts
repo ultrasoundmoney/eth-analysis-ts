@@ -102,13 +102,13 @@ const getNewContractsFromBlock = (txrs: TxRWeb3London[]): string[] =>
     A.compact,
   );
 
-export const getBlockHashIsKnown = (hash: string): T.Task<boolean> =>
-  pipe(
-    () => sql<{ isKnown: boolean }[]>`
+export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
+  const [block] = await sql<{ isKnown: boolean }[]>`
       SELECT EXISTS(SELECT hash FROM blocks WHERE hash = ${hash}) AS is_known
-    `,
-    T.map((rows) => rows[0]?.isKnown === true ?? false),
-  );
+    `;
+
+  return block?.isKnown ?? false;
+};
 
 export const getBlockWithRetry = async (
   blockNumber: number | "latest" | string,
@@ -206,7 +206,7 @@ export const storeBlock = (
   );
 
   return pipe(
-    getBlockHashIsKnown(block.parentHash),
+    () => getBlockHashIsKnown(block.parentHash),
     T.chainIOK((isParentHashKnown) => () => {
       if (!isParentHashKnown) {
         alert("store block, missed a block, stopping");
@@ -276,7 +276,7 @@ export const updateBlock = (
   );
 
   return pipe(
-    getBlockHashIsKnown(block.parentHash),
+    () => getBlockHashIsKnown(block.parentHash),
     T.chainIOK((isParentHashKnown) => () => {
       if (!isParentHashKnown) {
         alert("update block, missed a block, stopping");

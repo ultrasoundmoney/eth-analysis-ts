@@ -65,7 +65,9 @@ export const onNewBlock = async (block: Blocks.BlockDb) => {
   }
 };
 
-export const onRollback = async (rollbackToAndIncluding: number) => {
+export const onRollback = async (
+  rollbackToAndIncluding: number,
+): Promise<void> => {
   Log.debug(
     `burn record limited time frames rollback to and including block: ${rollbackToAndIncluding}`,
   );
@@ -75,9 +77,10 @@ export const onRollback = async (rollbackToAndIncluding: number) => {
   );
 
   if (latestIncludedBlock === undefined) {
-    throw new Error(
-      "tried to rollback burn-records-all but no block in fee set sum",
+    Log.warn(
+      "tried to rollback burn-records-limited-time-frame but no block in fee set sum",
     );
+    return undefined;
   }
 
   const blocksToRollback = Blocks.getBlockRange(

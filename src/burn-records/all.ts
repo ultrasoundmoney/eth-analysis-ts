@@ -123,9 +123,10 @@ export const onRollback = async (
   const latestIncludedBlock = _.last(feeSetMap["block"]["eth"]["blocks"]);
 
   if (latestIncludedBlock === undefined) {
-    throw new Error(
-      "tried to rollback burn-records-all but no block in fee set sum",
+    Log.warn(
+      "tried to rollback burn-records-all but no block in fee set sum, skipping",
     );
+    return;
   }
 
   const blocksToRollback = Blocks.getBlockRange(
