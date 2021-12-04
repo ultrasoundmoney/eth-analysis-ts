@@ -427,15 +427,13 @@ export const getBlocks = (
     T.map(A.map(blockDbFromRow)),
   );
 
-const getPastBlockNumber = async (
+export const getPastBlockNumber = async (
   referenceBlock: number,
-  period: Granularity,
+  interval: string,
 ): Promise<number> => {
   const [{ minedAt }] = await sql<
     { minedAt: Date }[]
   >`SELECT mined_at FROM blocks WHERE number = ${referenceBlock}`;
-
-  const interval = granularitySqlMap[period];
 
   const [block] = await sql<{ number: number }[]>`
     SELECT number FROM blocks
@@ -450,7 +448,8 @@ export const getBlocksForGranularity = async (
   granularity: Granularity,
   referenceBlock: number,
 ): Promise<FeeBlockRow[]> => {
-  const pastBlockNumber = await getPastBlockNumber(referenceBlock, granularity);
+  const interval = granularitySqlMap[granularity];
+  const pastBlockNumber = await getPastBlockNumber(referenceBlock, interval);
   return getFeeBlocks(pastBlockNumber, referenceBlock);
 };
 
