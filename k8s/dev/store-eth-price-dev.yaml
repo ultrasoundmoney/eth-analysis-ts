@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: store-market-cap
+  name: store-eth-price-dev
   labels:
-    app: store-market-cap
+    app: store-eth-price-dev
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: store-market-cap
+      app: store-eth-price-dev
   template:
     metadata:
       labels:
-        app: store-market-cap
+        app: store-eth-price-dev
     spec:
       containers:
-        - name: store-market-cap
+        - name: store-eth-price-dev
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/store_market_cap.js"]
+          command: ["node", "src/store_eth_price.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
@@ -34,6 +34,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: PGDATABASE
+              value: devdb
           resources:
             requests:
               cpu: 25m
