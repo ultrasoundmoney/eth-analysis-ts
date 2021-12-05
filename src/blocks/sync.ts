@@ -4,9 +4,9 @@ import * as EthPrices from "../eth_prices.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
-import { analyzeNewBlock } from "./analyze_new_block.js";
 import * as Blocks from "./blocks.js";
 import { getBlockWithRetry } from "./blocks.js";
+import { addBlock } from "./new_block.js";
 
 export const syncBlockQueue = new PQueue({ concurrency: 1 });
 
@@ -17,7 +17,8 @@ const syncBlock = async (blockNumber: number): Promise<void> => {
   if (!isParentKnown) {
     // We're missing the parent hash, update the previous block.
     Log.warn("storeNewBlock, parent hash not found, storing parent again");
-    await analyzeNewBlock(blockNumber - 1);
+    const previousBlock = await Blocks.getBlockWithRetry(blockNumber - 1);
+    await addBlock(previousBlock);
   }
 
   const [txrs, ethPrice] = await Promise.all([

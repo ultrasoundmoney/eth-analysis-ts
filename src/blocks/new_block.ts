@@ -4,9 +4,10 @@ import { calcBaseFeeSums } from "../base_fee_sums.js";
 import * as BurnRecordsAll from "../burn-records/all.js";
 import * as BurnRecordsLimitedTimeFrames from "../burn-records/limited_time_frames.js";
 import { calcBurnRates } from "../burn_rates.js";
+import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
-import { BlockLondon } from "../eth_node.js";
+import { BlockLondon, Head } from "../eth_node.js";
 import { getPriceForOldBlock } from "../eth_prices.js";
 import { pipe, T, TAlt } from "../fp.js";
 import * as Leaderboards from "../leaderboards.js";
@@ -19,30 +20,71 @@ import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
 
+// 1
+// 2 <-
+// 1
+// 2
+//
+// 1 <-
+// 2
+// 1
+// 2
+//
+// 1
+// 2
+//
+// 1 <-
+// 2
+
 export const newBlockQueue = new PQueue({
   concurrency: 1,
   autoStart: false,
 });
 
-export const analyzeNewBlock = async (blockNumber: number): Promise<void> => {
-  Log.debug(`analyzing block ${blockNumber}`);
-  const block = await Blocks.getBlockWithRetry(blockNumber);
+const rollback = async (blockNumber: number): Promise<void> => {
+  Log.info(`rolling back block: ${blockNumber}`);
+
+  const t0 = performance.now();
+
+  const sumsToRollback = await Leaderboards.getRangeBaseFees(
+    blockNumber,
+    blockNumber,
+  )();
+  LeaderboardsLimitedTimeframe.rollbackToBefore(blockNumber, sumsToRollback);
+  await Promise.all([
+    LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
+    // BurnRecordsAll.onRollback(blockNumber),
+    BurnRecordsLimitedTimeFrames.onRollback(blockNumber),
+  ]);
+
+  await Contracts.deleteContractsMinedAt(blockNumber);
+  await Blocks.deleteContractBaseFees(blockNumber);
+  await Blocks.deleteBlock(blockNumber);
+
+  logPerf("rollback", t0);
+};
+
+export const addBlock = async (head: Head): Promise<void> => {
+  Log.debug(`add block from new head ${head.number}`);
+  const block = await Blocks.getBlockWithRetry(head.number);
+
+  if (head.hash !== block.hash) {
+    Log.warn(`queued head is no longer valid, skipping`);
+    return;
+  }
+
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
   if (!isParentKnown) {
     // We're missing the parent hash, update the previous block.
-    Log.warn("storeNewBlock, parent hash not found, storing parent again");
-    await analyzeNewBlock(blockNumber - 1);
+    Log.alert("got new head, parent hash not found, storing parent again");
+    const previousBlock = await Blocks.getBlockWithRetry(head.number - 1);
+    await addBlock(previousBlock);
   }
 
-  const isKnownBlock = await Blocks.getIsKnownBlock(blockNumber)();
-  if (isKnownBlock) {
-    const [txrs, ethPrice] = await Promise.all([
-      getTxrsWithRetry(block),
-      getPriceForOldBlock(block),
-      rollback(block),
-    ]);
-    await Blocks.updateBlock(block, txrs, ethPrice.ethusd)();
+  const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
+  if (block.number <= syncedBlockHeight) {
+    rollback(block.number);
   }
 
   const [txrs, ethPrice] = await Promise.all([
@@ -72,7 +114,7 @@ export const analyzeNewBlock = async (blockNumber: number): Promise<void> => {
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
     addToLeaderboardAllTask(),
-    BurnRecordsAll.onNewBlock(blockDb),
+    // BurnRecordsAll.onNewBlock(blockDb),
     BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
   ]);
 
@@ -93,23 +135,8 @@ export const analyzeNewBlock = async (blockNumber: number): Promise<void> => {
   await notifyNewDerivedStats(block)();
 };
 
-const rollback = async (block: BlockLondon): Promise<void> => {
-  const t0 = performance.now();
-
-  Log.info(`rolling back block: ${block.number}`);
-
-  const sumsToRollback = await Leaderboards.getRangeBaseFees(
-    block.number,
-    block.number,
-  )();
-  LeaderboardsLimitedTimeframe.rollbackToBefore(block.number, sumsToRollback);
-  await Promise.all([
-    LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
-    BurnRecordsAll.onRollback(block.number),
-    BurnRecordsLimitedTimeFrames.onRollback(block.number),
-  ]);
-  logPerfT("rollback", t0);
-};
+export const onNewBlock = async (head: Head): Promise<void> =>
+  newBlockQueue.add(() => addBlock(head));
 
 const updateDerivedBlockStats = (block: BlockLondon) => {
   Log.debug("updating derived stats");

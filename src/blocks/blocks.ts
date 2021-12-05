@@ -5,7 +5,7 @@ import { A, O, pipe, T, TAlt } from "../fp.js";
 import { segmentTxrs, TxRWeb3London } from "../transactions.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as EthNode from "../eth_node.js";
-import { debug, warn } from "../log.js";
+import * as Log from "../log.js";
 import { delay } from "../delay.js";
 import {
   calcBlockBaseFeeSum,
@@ -26,7 +26,7 @@ export type NewBlockPayload = {
   number: number;
 };
 
-export type BlockRow = {
+export type BlockDbInsertable = {
   hash: string;
   number: number;
   mined_at: Date;
@@ -54,12 +54,12 @@ export type BlockDb = {
   tips: number;
 };
 
-const getBlockRow = (
+const insertableFromBlock = (
   block: BlockDb,
   feeBreakdown: FeeBreakdown,
   tips: number,
   ethPrice: number,
-): BlockRow => ({
+): BlockDbInsertable => ({
   ...(typeof ethPrice === "number" ? { eth_price: ethPrice } : undefined),
   base_fee_per_gas: block.baseFeePerGas,
   base_fee_sum: Number(block.baseFeeSum),
@@ -141,7 +141,7 @@ export const getBlockWithRetry = async (
       throw new Error("failed to fetch block, stayed null");
     }
 
-    warn(
+    Log.warn(
       `asked for block ${blockNumber}, got null, waiting ${delaySeconds}s and trying again`,
     );
     await delay(delayMilis);
@@ -180,12 +180,13 @@ export const storeBlock = (
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
   const tips = calcBlockTips(block, txrs);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
-  const blockRow = getBlockRow(blockDb, feeBreakdown, tips, ethPrice);
+  const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
 
   const addresses = contractBaseFeesRows.map(
     (contractBurnRow) => contractBurnRow.contract_address,
   );
 
+  Log.debug(`storing block: ${block.number}, ${block.hash}`);
   const storeBlockTask = () => sql`INSERT INTO blocks ${sql(blockRow)}`;
 
   const storeContractsTask = storeContracts(addresses);
@@ -197,7 +198,7 @@ export const storeBlock = (
 
   const updateContractsMinedAtTask = pipe(
     getNewContractsFromBlock(txrs),
-    (addresses) =>
+    (addresses) => () =>
       setContractsMinedAt(
         addresses,
         block.number,
@@ -209,7 +210,7 @@ export const storeBlock = (
     () => getBlockHashIsKnown(block.parentHash),
     T.chainIOK((isParentHashKnown) => () => {
       if (!isParentHashKnown) {
-        alert("store block, missed a block, stopping");
+        Log.alert("store block, missed a block, stopping");
         throw new Error("missing block");
       }
 
@@ -225,18 +226,34 @@ export const storeBlock = (
   );
 };
 
-export const updateBlock = (
+export const deleteBlock = async (blockNumber: number): Promise<void> => {
+  await sql`
+    DELETE FROM blocks
+    number = ${blockNumber}
+  `;
+};
+
+export const deleteContractBaseFees = async (
+  blockNumber: number,
+): Promise<void> => {
+  await sql`
+    DELETE FROM contract_base_fees
+    WHERE block_number = ${blockNumber}
+  `;
+};
+
+export const updateBlock = async (
   block: BlockLondon,
   txrs: TxRWeb3London[],
   ethPrice: number,
-): T.Task<void> => {
+): Promise<void> => {
   const blockDb = blockDbFromBlock(block, txrs, ethPrice);
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
   const tips = calcBlockTips(block, txrs);
-  const blockRow = getBlockRow(blockDb, feeBreakdown, tips, ethPrice);
+  const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
   const contractBaseFeesRows = getContractRows(block, feeBreakdown);
 
-  debug(
+  Log.debug(
     `update number: ${block.number}, hash: ${block.hash}, parentHash: ${block.parentHash}`,
   );
 
@@ -244,55 +261,43 @@ export const updateBlock = (
     (contractBurnRow) => contractBurnRow.contract_address,
   );
 
-  const updateBlockTask = pipe(
-    () => sql`
-      UPDATE blocks
-      SET
-        ${sql(blockRow)}
-      WHERE
-        number = ${block.number}
-    `,
-    T.map(() => undefined),
-  );
+  const updateBlockTask = () => sql`
+    UPDATE blocks
+    SET
+      ${sql(blockRow)}
+    WHERE
+      number = ${block.number}
+  `;
 
-  const updateContractBaseFeesTask = TAlt.seqTSeqT(
-    () =>
-      sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`,
-    contractBaseFeesRows.length !== 0
-      ? () => sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`
-      : T.of(undefined),
-  );
+  const updateContractBaseFeesTask = async () => {
+    await sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`;
 
-  const storeContractsTask = storeContracts(addresses);
+    if (contractBaseFeesRows.length !== 0) {
+      await sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
+    }
+  };
 
-  const updateContractsMinedAtTask = pipe(
-    getNewContractsFromBlock(txrs),
-    (addresses) =>
-      setContractsMinedAt(
-        addresses,
-        block.number,
-        fromUnixTime(block.timestamp),
-      ),
-  );
+  const updateContractsMinedAtTask = async () => {
+    const addresses = getNewContractsFromBlock(txrs);
+    await setContractsMinedAt(
+      addresses,
+      block.number,
+      fromUnixTime(block.timestamp),
+    );
+  };
 
-  return pipe(
-    () => getBlockHashIsKnown(block.parentHash),
-    T.chainIOK((isParentHashKnown) => () => {
-      if (!isParentHashKnown) {
-        alert("update block, missed a block, stopping");
-        throw new Error("missing block");
-      }
+  const isParentHashKnown = await getBlockHashIsKnown(block.parentHash);
+  if (!isParentHashKnown) {
+    alert("update block, missed a block, stopping");
+    throw new Error("missing block");
+  }
 
-      return undefined;
-    }),
-    T.chain(() =>
-      TAlt.seqTSeqT(
-        TAlt.seqTParT(storeContractsTask, updateBlockTask),
-        TAlt.seqTParT(updateContractBaseFeesTask, updateContractsMinedAtTask),
-      ),
-    ),
-    T.map(() => undefined),
-  );
+  await Promise.all([storeContracts(addresses)(), updateBlockTask()]);
+
+  await Promise.all([
+    updateContractBaseFeesTask(),
+    updateContractsMinedAtTask(),
+  ]);
 };
 
 export const getIsKnownBlock = (blockNumber: number): T.Task<boolean> =>
@@ -303,6 +308,14 @@ export const getIsKnownBlock = (blockNumber: number): T.Task<boolean> =>
       >`SELECT EXISTS(SELECT number FROM blocks WHERE number = ${blockNumber}) AS is_known`,
     T.map((rows) => rows[0]?.isKnown ?? false),
   );
+
+export const getSyncedBlockHeight = async (): Promise<number> => {
+  const rows = await sql<{ max: number }[]>`
+    SELECT MAX(number) FROM blocks
+  `;
+
+  return rows[0].max;
+};
 
 export const getKnownBlocks = (): T.Task<Set<number>> =>
   pipe(
@@ -380,6 +393,7 @@ type BlockDbRow = {
   baseFeePerGas: bigint;
   contractCreationSum: number;
   ethPrice: number;
+  ethPriceCents: bigint;
   ethTransferSum: number;
   gasUsed: bigint;
   hash: string;
@@ -394,7 +408,7 @@ const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
   contractCreationSum: row.contractCreationSum,
   ethPrice: row.ethPrice,
   // TODO: should be scaled going in, read the scaled value.
-  ethPriceCents: usdToScaled(row.ethPrice),
+  ethPriceCents: row.ethPriceCents,
   ethTransferSum: row.ethTransferSum,
   gasUsed: row.gasUsed,
   hash: row.hash,
@@ -412,6 +426,7 @@ export const getBlocks = async (
       base_fee_per_gas,
       contract_creation_sum,
       eth_price,
+      (eth_price * 100)::bigint AS eth_price_cents,
       eth_transfer_sum,
       gas_used,
       hash,

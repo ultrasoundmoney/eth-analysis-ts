@@ -250,7 +250,6 @@ export type BlockLondon = {
   uncles: string[];
 };
 
-// Mimics web3.js translation of fields.
 // NOTE: this is not safe. We lose precision here. Convert these to big int at some point.
 const translateBlock = (rawBlock: RawBlock): BlockLondon => ({
   ...rawBlock,
@@ -260,7 +259,7 @@ const translateBlock = (rawBlock: RawBlock): BlockLondon => ({
   gasUsedBI: BigInt(rawBlock.gasUsed),
   gasLimit: hexToNumber(rawBlock.gasLimit),
   number: hexToNumber(rawBlock.number),
-  size: hexToNumber(rawBlock.number),
+  size: hexToNumber(rawBlock.size),
   timestamp: hexToNumber(rawBlock.timestamp),
 });
 
@@ -383,7 +382,10 @@ export const closeConnection = () => {
 
 const translateHead = (rawHead: RawHead): Head => ({
   ...rawHead,
+  gasLimit: hexToNumber(rawHead.gasLimit),
+  gasUsed: hexToNumber(rawHead.gasUsed),
   number: hexToNumber(rawHead.number),
+  timestamp: hexToNumber(rawHead.timestamp),
 });
 
 let subscribeHeadsAttempt = 0;
@@ -445,44 +447,44 @@ export const subscribeNewHeads = (
   });
 };
 
-type RawHead = {
-  parentHash: string;
-  sha3Uncles: string;
-  miner: string;
-  stateRoot: string;
-  transactionsRoot: string;
-  receiptsRoot: string;
-  logsBloom: string;
+export type RawHead = {
+  baseFeePerGas: string;
   difficulty: string;
-  number: string;
+  extraData: string;
   gasLimit: string;
   gasUsed: string;
-  timestamp: string;
-  extraData: string;
+  hash: string;
+  logsBloom: string;
+  miner: string;
   mixHash: string;
   nonce: string;
-  baseFeePerGas: string;
-  hash: string;
+  number: string;
+  parentHash: string;
+  receiptsRoot: string;
+  sha3Uncles: string;
+  stateRoot: string;
+  timestamp: string;
+  transactionsRoot: string;
 };
 
-type Head = {
-  parentHash: string;
-  sha3Uncles: string;
-  miner: string;
-  stateRoot: string;
-  transactionsRoot: string;
-  receiptsRoot: string;
-  logsBloom: string;
+export type Head = {
+  baseFeePerGas: string;
   difficulty: string;
-  number: number;
-  gasLimit: string;
-  gasUsed: string;
-  timestamp: string;
   extraData: string;
+  gasLimit: number;
+  gasUsed: number;
+  hash: string;
+  logsBloom: string;
+  miner: string;
   mixHash: string;
   nonce: string;
-  baseFeePerGas: string;
-  hash: string;
+  number: number;
+  parentHash: string;
+  receiptsRoot: string;
+  sha3Uncles: string;
+  stateRoot: string;
+  timestamp: number;
+  transactionsRoot: string;
 };
 
 // Doesn't seem to do anything.

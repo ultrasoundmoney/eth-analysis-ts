@@ -2,7 +2,6 @@ import fs from "fs/promises";
 import neatCsv from "neat-csv";
 import { URL } from "url";
 import { BlockDb } from "./blocks/blocks.js";
-import { A, O, pipe, T } from "./fp.js";
 
 type RawBlock = {
   base_fee_per_gas: string;
@@ -25,7 +24,7 @@ const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
   ethPriceCents: BigInt(
     BigInt(rawBlock.base_fee_per_gas) *
       BigInt(rawBlock.gas_used) *
-      BigInt(Number(rawBlock.eth_price) * 100),
+      BigInt(Math.round(Number(rawBlock.eth_price)) * 100),
   ),
   ethTransferSum: Number(rawBlock.eth_transfer_sum),
   gasUsed: BigInt(Number(rawBlock.gas_used)),
@@ -37,15 +36,8 @@ const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
 
 const blocks5mPath = new URL("./blocks_5m.csv", import.meta.url).pathname;
 
-export const getSingleBlock = (): T.Task<BlockDb> =>
-  pipe(
-    () => fs.readFile(blocks5mPath, "utf8"),
-    T.chain((raw) => () => neatCsv<RawBlock>(raw)),
-    T.map(A.lookup(1)),
-    T.map(O.map(blockFromRawBlock)),
-    T.map(
-      O.getOrElseW(() => {
-        throw new Error("get single block, no block");
-      }),
-    ),
-  );
+export const getSingleBlock = async (): Promise<BlockDb> => {
+  const file = await fs.readFile(blocks5mPath, "utf8");
+  const rawBlocks = await neatCsv<RawBlock>(file);
+  return blockFromRawBlock(rawBlocks[1]);
+};

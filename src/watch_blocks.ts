@@ -1,15 +1,15 @@
 import Sentry from "@sentry/node";
 import "@sentry/tracing";
 import * as Config from "./config.js";
-import * as AnalyzeNewBlock from "./blocks/analyze_new_block.js";
+import * as BlocksNewBlock from "./blocks/new_block.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
-import { syncBlocks } from "./blocks/sync.js";
-import { newBlockQueue } from "./blocks/analyze_new_block.js";
+import * as BlocksSync from "./blocks/sync.js";
+import * as BurnRecordsSync from "./burn-records/sync_all.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -40,23 +40,21 @@ const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
 try {
   Config.ensureCriticalBlockAnalysisConfig();
   await EthNode.connect();
-  Log.debug("started processing new blocks");
 
-  const chainHeadNumber = await EthNode.getLatestBlockNumber();
-  EthNode.subscribeNewHeads((head) =>
-    newBlockQueue.add(() => AnalyzeNewBlock.analyzeNewBlock(head.number)),
-  );
-  Log.info("listening for and queueing new blocks to add");
-  await syncBlocks(chainHeadNumber);
-  Log.info("done adding missing blocks");
+  const chainHeadOnStart = await EthNode.getLatestBlockNumber();
+  Log.debug(`fast-sync blocks up to ${chainHeadOnStart}`);
+  EthNode.subscribeNewHeads(BlocksNewBlock.onNewBlock);
+  Log.debug("listening and queuing new chain heads for analysis");
+  await BlocksSync.syncBlocks(chainHeadOnStart);
+  Log.info("fast-sync blocks done");
 
   await Promise.all([
     initLeaderboardLimitedTimeframes(),
-    // BurnRecordsAllSync.sync,
+    // BurnRecordsSync.sync(),
     syncLeaderboardAll(),
   ]);
 
-  newBlockQueue.start();
+  BlocksNewBlock.newBlockQueue.start();
   Log.info("started analyzing new blocks from queue");
 } catch (error) {
   Log.error("error adding new blocks", { error });

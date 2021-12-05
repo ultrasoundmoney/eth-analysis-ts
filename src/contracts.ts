@@ -239,25 +239,31 @@ export const setLastLeaderboardEntryToNow = async (
   `;
 };
 
-export const setContractsMinedAt = (
+export const setContractsMinedAt = async (
   addresses: string[],
   blockNumber: number,
   date: Date,
-): T.Task<void> => {
+): Promise<void> => {
   if (addresses.length === 0) {
-    return T.of(undefined);
+    return;
   }
 
-  return pipe(
-    () => sql`
-      UPDATE contracts
-      SET
-        mined_at = ${date},
-        mined_at_block = ${blockNumber}
-      WHERE address IN (${addresses})
-    `,
-    T.map(() => undefined),
-  );
+  await sql`
+    UPDATE contracts
+    SET
+      mined_at = ${date},
+      mined_at_block = ${blockNumber}
+    WHERE address IN (${addresses})
+  `;
+};
+
+export const deleteContractsMinedAt = async (
+  blockNumber: number,
+): Promise<void> => {
+  await sql`
+    DELETE FROM contracts
+    WHERE mined_at_block = ${blockNumber}
+  `;
 };
 
 export const getTwitterHandle = (address: string): T.Task<string | undefined> =>

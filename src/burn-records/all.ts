@@ -7,7 +7,7 @@ import { sql } from "../db.js";
 import { Denomination } from "../denominations.js";
 import { A, pipe } from "../fp.js";
 import * as Log from "../log.js";
-import { getLastAnalyzedBlockNumber } from "./analysis_state.js";
+import { logPerf } from "../performance.js";
 import {
   addBlock,
   FeeBlock,

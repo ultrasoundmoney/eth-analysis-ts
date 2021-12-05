@@ -15,6 +15,7 @@ import {
 import * as Blocks from "../blocks/blocks.js";
 import _ from "lodash";
 import * as Log from "../log.js";
+import { logPerf } from "../performance.js";
 
 type FeeSetMapPerTimeFrame = Record<LimitedTimeFrame, FeeSetMap>;
 
@@ -58,11 +59,13 @@ export const init = async () => {
 };
 
 export const onNewBlock = async (block: Blocks.BlockDb) => {
+  const t0 = performance.now();
   for (const timeFrame of limitedTimeFrames) {
     const feeSetMap = feeSetMapPerTimeFrame[timeFrame];
     const feeRecordMap = feeRecordMapPerTimeFrame[timeFrame];
     await addBlock(() => Promise.resolve(), feeSetMap, feeRecordMap, block);
   }
+  logPerf("add block to burn record all took: ", t0);
 };
 
 export const onRollback = async (
