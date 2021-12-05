@@ -41,7 +41,7 @@ export const expireOldBlocks = (
     ),
   );
 
-const storeLastAnalyzed = async (lastAnalyzedBlock: BlockDb): Promise<void> => {
+const storeLastAnalyzed = async (lastAnalyzedBlock: number): Promise<void> => {
   await sql`
     INSERT INTO analysis_state (
       key,
@@ -50,7 +50,7 @@ const storeLastAnalyzed = async (lastAnalyzedBlock: BlockDb): Promise<void> => {
       'burn_records_all',
       NULL
     ) ON CONFLICT (key) DO UPDATE SET
-      last_analyzed_block = ${lastAnalyzedBlock.number}
+      last_analyzed_block = ${lastAnalyzedBlock}
   `;
 
   return undefined;
@@ -109,8 +109,10 @@ const writeFeeRecordsToDb = async (
 };
 
 export const onNewBlock = async (block: BlockDb): Promise<void> => {
+  const t0 = performance.now();
   await addBlock(writeFeeRecordsToDb, feeSetMap, feeRecordMap, block);
-  await storeLastAnalyzed(block);
+  logPerf("add block to burn record all took: ", t0);
+  await storeLastAnalyzed(block.number);
 };
 
 export const onRollback = async (
@@ -142,6 +144,7 @@ export const onRollback = async (
       feeRecordMap,
       block,
     );
+    await storeLastAnalyzed(blockNumber - 1);
   }
 };
 
