@@ -3,7 +3,7 @@ import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import { sql } from "../db.js";
 import { Denomination, denominations } from "../denominations.js";
-import { debug } from "../log.js";
+import * as Log from "../log.js";
 import * as All from "./all.js";
 import { getLastAnalyzedBlockNumber } from "./analysis_state.js";
 import { FeeBlock, FeeRecord, Granularity, Sorting } from "./burn_records.js";
@@ -116,7 +116,7 @@ const getNextBlockToAnalyze = async () => {
 };
 
 const addAllMissingBlocks = async (blocks: Blocks.FeeBlockRow[]) => {
-  debug(`burn-records-all sync ${blocks.length} blocks`);
+  Log.debug(`burn-records-all sync ${blocks.length} blocks`);
 
   const eta = makeEta({ max: blocks.length });
 
@@ -126,7 +126,7 @@ const addAllMissingBlocks = async (blocks: Blocks.FeeBlockRow[]) => {
       clearInterval(id);
       return;
     }
-    debug(`sync burn-records-all blocks, eta: ${eta.estimate()}s`);
+    Log.debug(`sync burn-records-all blocks, eta: ${eta.estimate()}s`);
   }, 8000);
 
   syncBlocksQueue.addAll(
@@ -155,15 +155,12 @@ export const sync = async (): Promise<void> => {
 
   // No blocks missing, we're done.
   if (missingBlocksCount <= 0) {
-    debug("init burn records all, already in sync");
+    Log.debug("init burn records all, already in sync");
     return undefined;
   }
 
-  debug("sets", All.feeSetMap);
-  debug("records", All.feeRecordMap);
-
   const blocks = await Blocks.getBlocks(nextToAdd, lastStoredBlock.number);
-  debug(`init burn records all, ${blocks.length} blocks to add`);
+  Log.debug(`init burn records all, ${blocks.length} blocks to add`);
   await addAllMissingBlocks(blocks);
 
   return undefined;
