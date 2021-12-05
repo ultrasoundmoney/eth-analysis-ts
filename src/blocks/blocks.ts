@@ -242,64 +242,6 @@ export const deleteContractBaseFees = async (
   `;
 };
 
-export const updateBlock = async (
-  block: BlockLondon,
-  txrs: TxRWeb3London[],
-  ethPrice: number,
-): Promise<void> => {
-  const blockDb = blockDbFromBlock(block, txrs, ethPrice);
-  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
-  const tips = calcBlockTips(block, txrs);
-  const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
-  const contractBaseFeesRows = getContractRows(block, feeBreakdown);
-
-  Log.debug(
-    `update number: ${block.number}, hash: ${block.hash}, parentHash: ${block.parentHash}`,
-  );
-
-  const addresses = contractBaseFeesRows.map(
-    (contractBurnRow) => contractBurnRow.contract_address,
-  );
-
-  const updateBlockTask = () => sql`
-    UPDATE blocks
-    SET
-      ${sql(blockRow)}
-    WHERE
-      number = ${block.number}
-  `;
-
-  const updateContractBaseFeesTask = async () => {
-    await sql`DELETE FROM contract_base_fees WHERE block_number = ${block.number}`;
-
-    if (contractBaseFeesRows.length !== 0) {
-      await sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`;
-    }
-  };
-
-  const updateContractsMinedAtTask = async () => {
-    const addresses = getNewContractsFromBlock(txrs);
-    await setContractsMinedAt(
-      addresses,
-      block.number,
-      fromUnixTime(block.timestamp),
-    );
-  };
-
-  const isParentHashKnown = await getBlockHashIsKnown(block.parentHash);
-  if (!isParentHashKnown) {
-    alert("update block, missed a block, stopping");
-    throw new Error("missing block");
-  }
-
-  await Promise.all([storeContracts(addresses)(), updateBlockTask()]);
-
-  await Promise.all([
-    updateContractBaseFeesTask(),
-    updateContractsMinedAtTask(),
-  ]);
-};
-
 export const getIsKnownBlock = (blockNumber: number): T.Task<boolean> =>
   pipe(
     () =>

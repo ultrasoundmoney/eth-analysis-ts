@@ -27,7 +27,7 @@ for (const block of blocks) {
     number: block.number,
   };
 
-  const ethPrice = await EthPrices.getPriceForOldBlock(fauxBlock)();
+  const ethPrice = await EthPrices.getPriceForOldBlock(fauxBlock);
 
   Log.debug(
     `found price: ${ethPrice.ethusd}, timestamp: ${DateFns.formatISO(

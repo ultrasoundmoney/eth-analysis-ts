@@ -86,6 +86,13 @@ export const onRollback = async (
     return undefined;
   }
 
+  if (latestIncludedBlock.number < rollbackToAndIncluding) {
+    Log.debug(
+      `rollback to ${rollbackToAndIncluding}, but burn records at ${latestIncludedBlock.number}`,
+    );
+    return undefined;
+  }
+
   const blocksToRollback = Blocks.getBlockRange(
     rollbackToAndIncluding,
     latestIncludedBlock.number,

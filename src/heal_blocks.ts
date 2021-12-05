@@ -60,17 +60,14 @@ const healBlock = async (hashBlock: HashBlock) => {
   Log.warn(
     `block: ${block.number}, mined at: ${minedAtIso} ago, hash mismatch, gas used old:  ${hashBlock.gasUsed}, new: ${block.gasUsed} healing block`,
   );
-  const txrs = await Transactions.getTxrsWithRetry(block);
+  // const txrs = await Transactions.getTxrsWithRetry(block);
 
-  const ethPrice =
-    hashBlock.ethPrice !== null
-      ? hashBlock.ethPrice
-      : await pipe(
-          EthPrices.getPriceForOldBlock(block),
-          T.map((ethPrice) => ethPrice.ethusd),
-        )();
+  // const ethPrice =
+  //   hashBlock.ethPrice !== null
+  //     ? hashBlock.ethPrice
+  //     : (await EthPrices.getPriceForOldBlock(block)).ethusd;
 
-  await Blocks.updateBlock(block, txrs, ethPrice)();
+  await sql`SELECT 'not viable'`;
 
   return undefined;
 };

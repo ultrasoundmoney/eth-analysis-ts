@@ -1,7 +1,6 @@
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import { calcBaseFeeSums } from "../base_fee_sums.js";
-import * as BurnRecordsAll from "../burn-records/all.js";
 import * as BurnRecordsLimitedTimeFrames from "../burn-records/limited_time_frames.js";
 import { calcBurnRates } from "../burn_rates.js";
 import * as Contracts from "../contracts.js";
@@ -20,28 +19,12 @@ import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
 
-// 1
-// 2 <-
-// 1
-// 2
-//
-// 1 <-
-// 2
-// 1
-// 2
-//
-// 1
-// 2
-//
-// 1 <-
-// 2
-
 export const newBlockQueue = new PQueue({
   concurrency: 1,
   autoStart: false,
 });
 
-const rollback = async (blockNumber: number): Promise<void> => {
+const rollbackBlock = async (blockNumber: number): Promise<void> => {
   Log.info(`rolling back block: ${blockNumber}`);
 
   const t0 = performance.now();
@@ -50,7 +33,7 @@ const rollback = async (blockNumber: number): Promise<void> => {
     blockNumber,
     blockNumber,
   )();
-  LeaderboardsLimitedTimeframe.rollbackToBefore(blockNumber, sumsToRollback);
+  LeaderboardsLimitedTimeframe.onRollback(blockNumber, sumsToRollback);
   await Promise.all([
     LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
     // BurnRecordsAll.onRollback(blockNumber),
@@ -76,6 +59,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
   if (!isParentKnown) {
+    // TODO: should never happen anymore, remove this if no alert shows up.
     // We're missing the parent hash, update the previous block.
     Log.alert("got new head, parent hash not found, storing parent again");
     const previousBlock = await Blocks.getBlockWithRetry(head.number - 1);
@@ -84,7 +68,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
-    rollback(block.number);
+    rollbackBlock(block.number);
   }
 
   const [txrs, ethPrice] = await Promise.all([

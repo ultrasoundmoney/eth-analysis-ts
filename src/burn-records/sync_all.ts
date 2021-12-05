@@ -9,6 +9,7 @@ import { getLastAnalyzedBlockNumber } from "./analysis_state.js";
 import { FeeBlock, FeeRecord, Granularity, Sorting } from "./burn_records.js";
 import * as BurnRecords from "./burn_records.js";
 import { BlockDb } from "../blocks/blocks.js";
+import * as Cartesian from "../cartesian.js";
 
 export const syncBlocksQueue = new PQueue({ concurrency: 1 });
 
@@ -46,25 +47,23 @@ const getFeeRecords = async (
 };
 
 const readStoredFeeRecords = async (): Promise<void> => {
-  const tasks = denominations.flatMap((denomination) =>
-    BurnRecords.granularities.flatMap((granularity) =>
-      BurnRecords.sortings.flatMap(async (sorting) => {
-        const feeRecordsUnsorted = await getFeeRecords(
-          denomination,
-          granularity,
-          sorting,
-        );
+  const tasks = Cartesian.make3(
+    denominations,
+    BurnRecords.granularities,
+    BurnRecords.sortings,
+  ).map(async ([denomination, granularity, sorting]) => {
+    const feeRecordsUnsorted = await getFeeRecords(
+      denomination,
+      granularity,
+      sorting,
+    );
 
-        const feeRecords = feeRecordsUnsorted.sort(
-          BurnRecords.orderingMap[sorting].compare,
-        );
+    const feeRecords = feeRecordsUnsorted.sort(
+      BurnRecords.orderingMap[sorting].compare,
+    );
 
-        All.feeRecordMap[granularity][sorting][denomination] = feeRecords;
-
-        return undefined;
-      }),
-    ),
-  );
+    All.feeRecordMap[granularity][sorting][denomination] = feeRecords;
+  });
 
   await Promise.all(tasks);
 };

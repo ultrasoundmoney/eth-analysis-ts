@@ -215,7 +215,7 @@ const findExpiredBlocks = (
   return { valid, expired };
 };
 
-export const rollbackToBefore = (
+export const onRollback = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
