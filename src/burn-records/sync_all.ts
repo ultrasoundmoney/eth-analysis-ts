@@ -1,4 +1,3 @@
-import PQueue from "p-queue";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import { sql } from "../db.js";
@@ -10,8 +9,8 @@ import { FeeBlock, FeeRecord, Granularity, Sorting } from "./burn_records.js";
 import * as BurnRecords from "./burn_records.js";
 import { BlockDb } from "../blocks/blocks.js";
 import * as Cartesian from "../cartesian.js";
-
-export const syncBlocksQueue = new PQueue({ concurrency: 1 });
+import _ from "lodash";
+import { logPerf } from "../performance.js";
 
 type FeeRecordRow = {
   firstBlock: number;
@@ -115,53 +114,57 @@ const getNextBlockToAnalyze = async () => {
     : lastAnalyzed + 1;
 };
 
-const addAllMissingBlocks = async (blocks: Blocks.FeeBlockRow[]) => {
-  Log.debug(`burn-records-all sync ${blocks.length} blocks`);
+export const sync = async (): Promise<void> => {
+  Log.debug("syncing burn records all");
+  const tReadFeeRecords = performance.now();
+  const [nextToAdd, lastStoredBlock] = await Promise.all([
+    getNextBlockToAnalyze(),
+    Blocks.getLastStoredBlock(),
+    readStoredFeeRecords(),
+  ]);
+  logPerf("reading fee records all", tReadFeeRecords);
 
-  const eta = makeEta({ max: blocks.length });
+  const tReadFeeSets = performance.now();
+  // await readFeeSets(lastStoredBlock);
+  logPerf("reading fee sets", tReadFeeSets);
+
+  const missingBlocksCount = lastStoredBlock.number - nextToAdd + 1;
+
+  // No blocks missing, we're done.
+  if (missingBlocksCount <= 0) {
+    Log.debug("sync burn records all, already in sync");
+    return undefined;
+  }
+
+  const blocksToSync = Blocks.getBlockRange(nextToAdd, lastStoredBlock.number);
+  Log.debug(`sync burn records all, ${blocksToSync.length} blocks to add`);
+
+  const eta = makeEta({ max: blocksToSync.length });
+  let blocksDone = 0;
 
   const id = setInterval(() => {
-    eta.report(blocks.length - syncBlocksQueue.size);
-    if (syncBlocksQueue.size === 0) {
+    eta.report(blocksDone);
+    if (blocksToSync.length === blocksDone) {
       clearInterval(id);
       return;
     }
     Log.debug(`sync burn-records-all blocks, eta: ${eta.estimate()}s`);
   }, 8000);
 
-  syncBlocksQueue.addAll(
-    blocks.map(
-      (block) => () =>
-        BurnRecords.addBlock(
-          () => Promise.resolve(),
-          All.feeSetMap,
-          All.feeRecordMap,
-          block,
-        ),
-    ),
-  );
-};
+  // Grabbing blocks from the DB one-by-one is slow, yet we may need all blocks since the London hardfork, therefore we work in chunks of 10_000.
+  for (const chunk of _.chunk(blocksToSync, 10000)) {
+    const blocks = await Blocks.getBlocks(_.first(chunk)!, _.last(chunk)!);
 
-export const sync = async (): Promise<void> => {
-  const [nextToAdd, lastStoredBlock] = await Promise.all([
-    getNextBlockToAnalyze(),
-    Blocks.getLastStoredBlock(),
-    readStoredFeeRecords(),
-  ]);
-
-  await readFeeSets(lastStoredBlock);
-
-  const missingBlocksCount = lastStoredBlock.number - nextToAdd + 1;
-
-  // No blocks missing, we're done.
-  if (missingBlocksCount <= 0) {
-    Log.debug("init burn records all, already in sync");
-    return undefined;
+    for (const block of blocks) {
+      await BurnRecords.addBlock(
+        () => Promise.resolve(),
+        All.feeSetMap,
+        All.feeRecordMap,
+        block,
+      );
+      blocksDone = blocksDone + 1;
+    }
   }
 
-  const blocks = await Blocks.getBlocks(nextToAdd, lastStoredBlock.number);
-  Log.debug(`init burn records all, ${blocks.length} blocks to add`);
-  await addAllMissingBlocks(blocks);
-
-  return undefined;
+  Log.info("sync burn records all, done");
 };
