@@ -1,5 +1,4 @@
 import _ from "lodash";
-import PQueue from "p-queue";
 import makeEta from "simple-eta";
 import * as EthPrices from "../eth_prices.js";
 import * as Log from "../log.js";
