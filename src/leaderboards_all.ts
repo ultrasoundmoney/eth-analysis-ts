@@ -32,7 +32,7 @@ export const getNewestIncludedBlockNumber = (): T.Task<O.Option<number>> =>
     T.map((rows) => pipe(rows[0]?.newestIncludedBlock, O.fromNullable)),
   );
 
-const setNewestIncludedBlockNumber =
+export const setNewestIncludedBlockNumber =
   (blockNumber: number): T.Task<Row[]> =>
   () =>
     sql`
