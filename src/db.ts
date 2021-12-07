@@ -1,7 +1,7 @@
 import { camelCase } from "change-case";
 import { pipe } from "fp-ts/lib/function.js";
 import O from "fp-ts/lib/Option.js";
-import postgres from "postgres";
+import postgres, { TransactionSql } from "postgres";
 import * as Config from "./config.js";
 
 const port = pipe(
@@ -28,3 +28,9 @@ export const sql = postgres({
     application_name: Config.getName(),
   },
 });
+
+export type SqlArg =
+  | typeof sql
+  | TransactionSql<{
+      bigint: (number: bigint) => string;
+    }>;

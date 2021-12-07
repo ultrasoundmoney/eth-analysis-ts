@@ -4,22 +4,18 @@ import { sql } from "./db.js";
 import { O, pipe, T } from "./fp.js";
 import * as OpenSea from "./opensea.js";
 
-export const storeContracts = (addresses: string[]): T.Task<void> => {
+export const storeContracts = async (addresses: string[]): Promise<void> => {
   if (addresses.length === 0) {
-    return T.of(undefined);
+    return;
   }
 
-  return pipe(
-    addresses,
-    A.map((address) => ({ address })),
-    (addresses) => () =>
-      sql`
-        INSERT INTO contracts
-        ${sql(addresses, "address")}
-        ON CONFLICT DO NOTHING
-      `,
-    T.map(() => undefined),
-  );
+  const rows = addresses.map((address) => ({ address }));
+
+  await sql`
+    INSERT INTO contracts
+    ${sql(rows)}
+    ON CONFLICT DO NOTHING
+  `;
 };
 
 export type SimpleTextColumn =

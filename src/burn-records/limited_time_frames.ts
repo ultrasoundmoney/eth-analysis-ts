@@ -36,13 +36,17 @@ export const feeRecordMapPerTimeFrame: FeeRecordMapPerTimeFrame =
   }, {} as FeeRecordMapPerTimeFrame);
 
 export const init = async () => {
+  Log.debug("init burn records limited time frames");
   const lastStoredBlock = await Blocks.getLastStoredBlock();
+  const tGetd30Blocks = performance.now();
   const d30OldBlock = await Blocks.getPastBlock(lastStoredBlock, "30 days");
   const d30Blocks = await Blocks.getFeeBlocks(
     d30OldBlock.number,
     lastStoredBlock.number,
   );
+  logPerf("init BRLT, reading d30 blocks", tGetd30Blocks);
 
+  const tAddBlocks = performance.now();
   for (const timeFrame of limitedTimeFrames) {
     const getIsBlockWithinTimeFrame = getIsBlockWithinReferenceMaxAge(
       limitedTimeFrameMillisMap[timeFrame],
@@ -56,6 +60,7 @@ export const init = async () => {
       await addBlock(() => Promise.resolve(), feeSetMap, feeRecordMap, block);
     }
   }
+  logPerf("init BRLT, adding blocks to time frames", tAddBlocks);
 };
 
 export const onNewBlock = async (block: Blocks.BlockDb) => {

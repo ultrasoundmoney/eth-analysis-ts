@@ -42,6 +42,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
 
   await Contracts.deleteContractsMinedAt(blockNumber);
   await Blocks.deleteContractBaseFees(blockNumber);
+  await Blocks.deleteDerivedBlockStats(blockNumber);
   await Blocks.deleteBlock(blockNumber);
 
   logPerf("rollback", t0);
@@ -68,14 +69,14 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
-    rollbackBlock(block.number);
+    await rollbackBlock(block.number);
   }
 
   const [txrs, ethPrice] = await Promise.all([
     getTxrsWithRetry(block),
     getPriceForOldBlock(block),
   ]);
-  await Blocks.storeBlock(block, txrs, ethPrice.ethusd)();
+  await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs, ethPrice.ethusd);
 

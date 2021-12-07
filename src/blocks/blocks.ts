@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/node";
 import { millisFromSeconds } from "../duration.js";
 import { BlockLondon } from "../eth_node.js";
 import { A, O, pipe, T, TAlt } from "../fp.js";
+import * as DateFns from "date-fns";
 import { segmentTxrs, TxRWeb3London } from "../transactions.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as EthNode from "../eth_node.js";
@@ -13,9 +14,8 @@ import {
   calcBlockTips,
   FeeBreakdown,
 } from "../base_fees.js";
-import { sql } from "../db.js";
+import { sql, SqlArg } from "../db.js";
 import { usdToScaled } from "../scaling.js";
-import { fromUnixTime } from "date-fns";
 import { setContractsMinedAt, storeContracts } from "../contracts.js";
 import { granularitySqlMap } from "../burn-records/all.js";
 import { Granularity } from "../burn-records/burn_records.js";
@@ -165,17 +165,17 @@ export const blockDbFromBlock = (
     ethTransferSum: feeBreakdown.transfers,
     gasUsed: BigInt(block.gasUsed),
     hash: block.hash,
-    minedAt: fromUnixTime(block.timestamp),
+    minedAt: DateFns.fromUnixTime(block.timestamp),
     number: block.number,
     tips,
   };
 };
 
-export const storeBlock = (
+export const storeBlock = async (
   block: BlockLondon,
   txrs: TxRWeb3London[],
   ethPrice: number,
-): T.Task<void> => {
+): Promise<void> => {
   const blockDb = blockDbFromBlock(block, txrs, ethPrice);
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
   const tips = calcBlockTips(block, txrs);
@@ -189,47 +189,50 @@ export const storeBlock = (
   Log.debug(`storing block: ${block.number}, ${block.hash}`);
   const storeBlockTask = () => sql`INSERT INTO blocks ${sql(blockRow)}`;
 
-  const storeContractsTask = storeContracts(addresses);
-
   const storeContractsBaseFeesTask =
     contractBaseFeesRows.length !== 0
-      ? () => sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`
-      : T.of(undefined);
+      ? async () =>
+          sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`
+      : () => undefined;
 
-  const updateContractsMinedAtTask = pipe(
-    getNewContractsFromBlock(txrs),
-    (addresses) => () =>
-      setContractsMinedAt(
-        addresses,
-        block.number,
-        fromUnixTime(block.timestamp),
-      ),
-  );
+  const updateContractsMinedAtTask = async () => {
+    const addresses = getNewContractsFromBlock(txrs);
+    return setContractsMinedAt(
+      addresses,
+      block.number,
+      DateFns.fromUnixTime(block.timestamp),
+    );
+  };
 
-  return pipe(
-    () => getBlockHashIsKnown(block.parentHash),
-    T.chainIOK((isParentHashKnown) => () => {
-      if (!isParentHashKnown) {
-        Log.alert("store block, missed a block, stopping");
-        throw new Error("missing block");
-      }
+  const isParentKnown = await getBlockHashIsKnown(block.parentHash);
 
-      return undefined;
-    }),
-    T.chain(() =>
-      TAlt.seqTSeqT(
-        TAlt.seqTParT(storeContractsTask, storeBlockTask),
-        TAlt.seqTParT(storeContractsBaseFeesTask, updateContractsMinedAtTask),
-      ),
-    ),
-    T.map(() => undefined),
-  );
+  if (!isParentKnown) {
+    // TODO: should never happen anymore, remove this if no alert shows up.
+    // We're missing the parent hash, update the previous block.
+    Log.alert("sync block, parent hash not found, storing parent again");
+    throw new Error("tried to store a block out of order");
+  }
+
+  await Promise.all([storeContracts(addresses), storeBlockTask()]);
+  await Promise.all([
+    storeContractsBaseFeesTask(),
+    updateContractsMinedAtTask(),
+  ]);
+};
+
+export const deleteDerivedBlockStats = async (
+  blockNumber: number,
+): Promise<void> => {
+  await sql`
+    DELETE FROM derived_block_stats
+    WHERE block_number = ${blockNumber}
+  `;
 };
 
 export const deleteBlock = async (blockNumber: number): Promise<void> => {
   await sql`
     DELETE FROM blocks
-    number = ${blockNumber}
+    WHERE number = ${blockNumber}
   `;
 };
 

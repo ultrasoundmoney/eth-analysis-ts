@@ -148,20 +148,15 @@ export const sync = async (): Promise<void> => {
       clearInterval(id);
       return;
     }
-    Log.debug(`sync burn-records-all blocks, eta: ${eta.estimate()}s`);
+    Log.debug(`sync burn records all, eta: ${eta.estimate()}s`);
   }, 8000);
 
   // Grabbing blocks from the DB one-by-one is slow, yet we may need all blocks since the London hardfork, therefore we work in chunks of 10_000.
-  for (const chunk of _.chunk(blocksToSync, 10000)) {
+  for (const chunk of _.chunk(blocksToSync, 1000)) {
     const blocks = await Blocks.getBlocks(_.first(chunk)!, _.last(chunk)!);
 
     for (const block of blocks) {
-      await BurnRecords.addBlock(
-        () => Promise.resolve(),
-        All.feeSetMap,
-        All.feeRecordMap,
-        block,
-      );
+      await All.onNewBlock(block);
       blocksDone = blocksDone + 1;
     }
   }

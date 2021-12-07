@@ -1,3 +1,4 @@
+import _ from "lodash";
 import PQueue from "p-queue";
 import makeEta from "simple-eta";
 import * as EthPrices from "../eth_prices.js";
@@ -8,15 +9,15 @@ import * as Blocks from "./blocks.js";
 import { getBlockWithRetry } from "./blocks.js";
 import { addBlock } from "./new_block.js";
 
-export const syncBlockQueue = new PQueue({ concurrency: 1 });
-
 const syncBlock = async (blockNumber: number): Promise<void> => {
+  Log.debug(`sync block: ${blockNumber}`);
   const block = await getBlockWithRetry(blockNumber);
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
   if (!isParentKnown) {
+    // TODO: should never happen anymore, remove this if no alert shows up.
     // We're missing the parent hash, update the previous block.
-    Log.warn("storeNewBlock, parent hash not found, storing parent again");
+    Log.alert("sync block, parent hash not found, storing parent again");
     const previousBlock = await Blocks.getBlockWithRetry(blockNumber - 1);
     await addBlock(previousBlock);
   }
@@ -26,7 +27,7 @@ const syncBlock = async (blockNumber: number): Promise<void> => {
     EthPrices.getPriceForOldBlock(block),
   ]);
 
-  await Blocks.storeBlock(block, txrs, ethPrice.ethusd)();
+  await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 };
 
 export const syncBlocks = async (upToIncluding: number): Promise<void> => {
@@ -43,22 +44,28 @@ export const syncBlocks = async (upToIncluding: number): Promise<void> => {
     return undefined;
   }
 
-  Log.debug(`blocks table sync ${missingBlocks.length} blocks`);
+  Log.debug(
+    `blocks table sync ${missingBlocks.length} blocks, start: ${
+      missingBlocks[0]
+    }, end: ${_.last(missingBlocks)}`,
+  );
 
   const eta = makeEta({ max: missingBlocks.length });
+  let blocksDone = 0;
 
   const id = setInterval(() => {
-    eta.report(missingBlocks.length - syncBlockQueue.size);
-    if (syncBlockQueue.size === 0) {
+    eta.report(blocksDone);
+    if (blocksDone === missingBlocks.length) {
       clearInterval(id);
       return;
     }
     Log.debug(`sync missing blocks, eta: ${eta.estimate()}s`);
   }, 8000);
 
-  await syncBlockQueue.addAll(
-    missingBlocks.map((block) => () => syncBlock(block)),
-  );
+  for (const missingBlock of missingBlocks) {
+    await syncBlock(missingBlock);
+    blocksDone = blocksDone + 1;
+  }
 
   PerformanceMetrics.setShouldLogBlockFetchRate(false);
 };
