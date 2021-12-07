@@ -32,10 +32,10 @@ export const getNewestIncludedBlockNumber = (): T.Task<O.Option<number>> =>
     T.map((rows) => pipe(rows[0]?.newestIncludedBlock, O.fromNullable)),
   );
 
-export const setNewestIncludedBlockNumber =
-  (blockNumber: number): T.Task<Row[]> =>
-  () =>
-    sql`
+export const setNewestIncludedBlockNumber = async (
+  blockNumber: number,
+): Promise<void> => {
+  await sql`
       INSERT INTO base_fee_sum_included_blocks (
         oldest_included_block,
         newest_included_block,
@@ -50,6 +50,7 @@ export const setNewestIncludedBlockNumber =
         oldest_included_block = ${Blocks.londonHardForkBlockNumber},
         newest_included_block = ${blockNumber}
     `;
+};
 
 const addContractBaseFeeSums = (
   contractSums: ContractBaseFeeSums,
@@ -143,7 +144,7 @@ export const addBlock = (
   pipe(
     TAlt.seqTParT(
       addContractBaseFeeSums({ eth: baseFeeSumsEth, usd: baseFeeSumsUsd }),
-      setNewestIncludedBlockNumber(blockNumber),
+      () => setNewestIncludedBlockNumber(blockNumber),
     ),
     T.map(() => undefined),
   );
