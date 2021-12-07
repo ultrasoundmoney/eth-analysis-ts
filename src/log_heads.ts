@@ -91,7 +91,7 @@ const logHead = async (receivedAt: Date, rawHead: RawHead) => {
   const insertable: HeadInsertable = {
     ...head,
     is_duplicate_number: isKnownNumber,
-    is_jumping_ahead: isParentKnown,
+    is_jumping_ahead: !isParentKnown,
   };
 
   await sql`
