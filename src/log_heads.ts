@@ -143,7 +143,7 @@ const onMessage = (buffer: Buffer) => {
   );
 };
 
-Log.info("log-heads start");
+Log.info("log heads start");
 const ws = new WebSocket(Config.getGethUrl());
 
 ws.on("error", (event) => {
