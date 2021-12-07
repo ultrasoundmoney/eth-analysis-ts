@@ -36,6 +36,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
   LeaderboardsLimitedTimeframe.onRollback(blockNumber, sumsToRollback);
   await Promise.all([
     LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
+    LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
     // BurnRecordsAll.onRollback(blockNumber),
     BurnRecordsLimitedTimeFrames.onRollback(blockNumber),
   ]);
