@@ -23,8 +23,6 @@ spec:
                   fieldPath: metadata.name
             - name: LOG_LEVEL
               value: DEBUG
-            - name: PGDATABASE
-              value: devdb
           resources:
             requests:
               cpu: 100m
