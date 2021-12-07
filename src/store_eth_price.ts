@@ -39,5 +39,5 @@ for await (const _ of intervalIterator) {
 
   lastRun = new Date();
 
-  await EthPrices.storePrice()();
+  await EthPrices.storeBestPrice();
 }
