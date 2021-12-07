@@ -102,76 +102,74 @@ const priceCache = new QuickLRU<number, EthPrice>({
 // JS Date rounded to minute precision.
 type MinuteDate = Date;
 
-type PriceRow = {
+type PriceInsertable = {
   timestamp: MinuteDate;
   ethusd: number;
 };
 
-const toPriceRow = (ethPrice: EthPrice): PriceRow => ({
+const insertableFromPrice = (ethPrice: EthPrice): PriceInsertable => ({
   timestamp: DateFns.roundToNearestMinutes(ethPrice.timestamp),
   ethusd: ethPrice.ethusd,
 });
 
-export const storePrice = (): T.Task<void> =>
-  pipe(
-    EthPricesUniswap.getMedianEthPrice(),
-    T.chainFirstIOK((ethPrice) => () => {
-      Log.debug(
-        `storing new eth/usdc timestamp: ${ethPrice.timestamp.toISOString()}, price: ${
-          ethPrice.ethusd
-        }`,
-      );
-      priceCache.set(ethPrice.timestamp.getTime(), ethPrice);
-    }),
-    T.chain((uniswapEthPrice) => {
-      // Prices can be at most 5 min old.
-      const maxPriceAge = Duration.millisFromMinutes(5);
-      const isUniPriceWithinLimit =
-        DateFnsAlt.millisecondsBetweenAbs(
-          uniswapEthPrice.timestamp,
-          new Date(),
-        ) <= maxPriceAge;
-      if (isUniPriceWithinLimit) {
-        return T.of(uniswapEthPrice);
-      }
+const storePrice = async (ethPrice: EthPrice): Promise<void> => {
+  await sql`
+    INSERT INTO eth_prices
+      ${sql(insertableFromPrice(ethPrice))}
+    ON CONFLICT DO NOTHING
+  `;
+  return undefined;
+};
 
-      return pipe(
-        () => EthPricesFtx.getNearestFtxPrice(maxPriceAge, new Date()),
-        T.map((ftxEthPrice) => {
-          if (ftxEthPrice === undefined) {
-            Log.error(
-              "uniswap price too old, fell back to FTX but price was undefined, using uniswap price",
-            );
-            return uniswapEthPrice;
-          }
-
-          const isWithinDistanceLimit =
-            DateFnsAlt.millisecondsBetweenAbs(
-              new Date(),
-              ftxEthPrice.timestamp,
-            ) <= maxPriceAge;
-
-          if (isWithinDistanceLimit) {
-            return ftxEthPrice;
-          }
-
-          Log.error(
-            `uniswap and ftx prices more than ${maxPriceAge}s old, failed to find recent price, returning old price`,
-          );
-          return uniswapEthPrice;
-        }),
-      );
-    }),
-    T.chain(
-      (ethPrice) => () =>
-        sql`
-          INSERT INTO eth_prices
-            ${sql(toPriceRow(ethPrice))}
-          ON CONFLICT DO NOTHING
-        `,
-    ),
-    T.map(() => undefined),
+export const storeBestPrice = async (): Promise<void> => {
+  const ethPrice = await EthPricesUniswap.getMedianEthPrice()();
+  Log.debug(
+    `storing new eth/usdc timestamp: ${ethPrice.timestamp.toISOString()}, price: ${
+      ethPrice.ethusd
+    }`,
   );
+
+  // Prices can be at most 5 min old.
+  const maxPriceAge = Duration.millisFromMinutes(5);
+  const isEthPriceWithinLimit =
+    DateFnsAlt.millisecondsBetweenAbs(new Date(), ethPrice.timestamp) <=
+    maxPriceAge;
+
+  if (isEthPriceWithinLimit) {
+    await storePrice(ethPrice);
+    return undefined;
+  }
+
+  const ftxEthPrice = await EthPricesFtx.getNearestFtxPrice(
+    maxPriceAge,
+    new Date(),
+  );
+
+  if (ftxEthPrice === undefined) {
+    Log.error(
+      "uniswap price too old, fell back to FTX but price was undefined, using uniswap price",
+    );
+    await storePrice(ethPrice);
+    return undefined;
+  }
+
+  const isWithinDistanceLimit =
+    DateFnsAlt.millisecondsBetweenAbs(new Date(), ftxEthPrice.timestamp) <=
+    maxPriceAge;
+
+  if (isWithinDistanceLimit) {
+    Log.debug(
+      `falling back to ftx eth price for:${ethPrice.timestamp.toISOString()}`,
+    );
+    await storePrice(ftxEthPrice);
+    return undefined;
+  }
+
+  Log.error(
+    `uniswap and ftx prices more than ${maxPriceAge}s old, failed to find recent price, storing an old price`,
+  );
+  await storePrice(ethPrice);
+};
 
 export type HistoricPrice = [JsTimestamp, number];
 
