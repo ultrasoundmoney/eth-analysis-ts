@@ -76,8 +76,6 @@ const logHead = async (receivedAt: Date, rawHead: RawHead): Promise<void> => {
     received_at: receivedAt,
   };
 
-  Log.debug(`logging: ${head.number}, ${head.hash}`);
-
   const [isKnownNumber, isParentKnown] = await Promise.all([
     getIsKnownNumber(head.number),
     getIsKnownHash(head.parent_hash),
@@ -89,12 +87,18 @@ const logHead = async (receivedAt: Date, rawHead: RawHead): Promise<void> => {
     is_jumping_ahead: !isParentKnown,
   };
 
+  Log.debug(
+    `logging: ${
+      head.number
+    }, duplicate: ${isKnownNumber}, jumping: ${!isParentKnown}, hash: ${
+      head.hash
+    }`,
+  );
+
   await sql`
     INSERT INTO heads_log
       ${sql(insertable)}
   `;
-
-  Log.debug(`done logging: ${head.number}, ${head.hash}`);
 };
 
 let headsSubscriptionId: string | undefined = undefined;
