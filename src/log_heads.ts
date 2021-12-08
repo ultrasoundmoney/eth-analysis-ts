@@ -1,13 +1,8 @@
-import * as Fs from "fs/promises";
-import { pipe } from "./fp.js";
 import * as DateFns from "date-fns";
 import PQueue from "p-queue";
-import * as Config from "./config.js";
 import WebSocket from "ws";
-import { promisify } from "util";
-import { env } from "process";
+import * as Config from "./config.js";
 import { sql } from "./db.js";
-import { insert } from "fp-ts/lib/ReadonlySet";
 import * as Log from "./log.js";
 
 type SubscriptionConfirmationEnvelope = {
@@ -49,7 +44,7 @@ const headsQueue = new PQueue({ concurrency: 1 });
 
 const getIsKnownNumber = async (number: number): Promise<boolean> => {
   const rows = await sql<{ exists: boolean }[]>`
-    SELECT EXISTS(SELECT number FROM blocks WHERE number = ${number})
+    SELECT EXISTS(SELECT number FROM heads_log WHERE number = ${number})
   `;
 
   return rows[0]?.exists ?? false;
@@ -57,7 +52,7 @@ const getIsKnownNumber = async (number: number): Promise<boolean> => {
 
 const getIsKnownHash = async (hash: string): Promise<boolean> => {
   const rows = await sql<{ exists: boolean }[]>`
-    SELECT EXISTS(SELECT hash FROM blocks WHERE hash = ${hash})
+    SELECT EXISTS(SELECT hash FROM heads_log WHERE hash = ${hash})
   `;
 
   return rows[0]?.exists ?? false;
