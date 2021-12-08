@@ -191,6 +191,7 @@ const send = (message: string) =>
 
 // We clear the log on start because we can't be sure whether something was a jump or just the process restarting otherwise.
 await sql`TRUNCATE TABLE heads_log`;
+Log.debug("cleared heads_log");
 
 // Unique-ish id we use to identify the subscription confirmation.
 const headSubscriptionMessageId = 63601;
