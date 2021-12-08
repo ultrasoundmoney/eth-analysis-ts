@@ -85,15 +85,17 @@ const logHead = async (
     getIsKnownHash(head.parent_hash),
   ]);
 
+  const isJumpingAhead = isFirstLog ? false : !isParentKnown;
+
   const insertable: HeadInsertable = {
     ...head,
     is_duplicate_number: isKnownNumber,
-    is_jumping_ahead: isFirstLog ? false : !isParentKnown,
+    is_jumping_ahead: isJumpingAhead,
   };
 
   Log.debug(`logging: number, duplicate, jumping, hash`);
   Log.debug(
-    `${head.number}, ${isKnownNumber}, ${!isParentKnown}, ${head.hash}`,
+    `${head.number}, ${isKnownNumber}, ${isJumpingAhead}, ${head.hash}`,
   );
 
   await sql`
