@@ -67,7 +67,7 @@ const getIsSubscriptionConfirmation = (
 const getIsHeadEnvelope = (envelope: unknown): envelope is HeadEnvelope =>
   (envelope as HeadEnvelope)?.method === "eth_subscription";
 
-const logHead = async (receivedAt: Date, rawHead: RawHead) => {
+const logHead = async (receivedAt: Date, rawHead: RawHead): Promise<void> => {
   const head = {
     hash: rawHead.hash,
     number: Number(rawHead.number),
