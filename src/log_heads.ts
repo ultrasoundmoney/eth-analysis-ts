@@ -67,7 +67,11 @@ const getIsSubscriptionConfirmation = (
 const getIsHeadEnvelope = (envelope: unknown): envelope is HeadEnvelope =>
   (envelope as HeadEnvelope)?.method === "eth_subscription";
 
-const logHead = async (receivedAt: Date, rawHead: RawHead): Promise<void> => {
+const logHead = async (
+  receivedAt: Date,
+  isFirstLog: boolean,
+  rawHead: RawHead,
+): Promise<void> => {
   const head = {
     hash: rawHead.hash,
     number: Number(rawHead.number),
@@ -84,15 +88,12 @@ const logHead = async (receivedAt: Date, rawHead: RawHead): Promise<void> => {
   const insertable: HeadInsertable = {
     ...head,
     is_duplicate_number: isKnownNumber,
-    is_jumping_ahead: !isParentKnown,
+    is_jumping_ahead: isFirstLog ? false : !isParentKnown,
   };
 
+  Log.debug(`logging: number, duplicate, jumping, hash`);
   Log.debug(
-    `logging: ${
-      head.number
-    }, duplicate: ${isKnownNumber}, jumping: ${!isParentKnown}, hash: ${
-      head.hash
-    }`,
+    `${head.number}, ${isKnownNumber}, ${!isParentKnown}, ${head.hash}`,
   );
 
   await sql`
@@ -102,6 +103,15 @@ const logHead = async (receivedAt: Date, rawHead: RawHead): Promise<void> => {
 };
 
 let headsSubscriptionId: string | undefined = undefined;
+
+let isFirstCall = true;
+const getIsFirstCall = (): boolean => {
+  if (isFirstCall) {
+    isFirstCall = false;
+    return true;
+  }
+  return false;
+};
 
 const onMessage = (buffer: Buffer) => {
   if (!Buffer.isBuffer(buffer)) {
@@ -132,7 +142,11 @@ const onMessage = (buffer: Buffer) => {
       }`,
     );
 
-    headsQueue.add(() => logHead(new Date(), envelope.params.result));
+    const isFirstCall = getIsFirstCall();
+
+    headsQueue.add(() =>
+      logHead(new Date(), isFirstCall, envelope.params.result),
+    );
     return;
   }
 
@@ -174,6 +188,9 @@ const send = (message: string) =>
       resolve(undefined);
     });
   });
+
+// We clear the log on start because we can't be sure whether something was a jump or just the process restarting otherwise.
+await sql`TRUNCATE TABLE heads_log`;
 
 // Unique-ish id we use to identify the subscription confirmation.
 const headSubscriptionMessageId = 63601;
