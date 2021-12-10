@@ -10,7 +10,8 @@ import { millisFromHours, millisFromMinutes } from "../duration.js";
 import { A, Ord, OrdM, pipe } from "../fp.js";
 import * as __ from "../lodash_alt.js";
 import * as Log from "../log.js";
-import * as TimeFrame from "../time_frame.js";
+import * as TimeFrames from "../time_frames.js";
+import { TimeFrame } from "../time_frames.js";
 
 // TODO: rename 'block' to 'b1'
 export const blockGranularity = "block" as const;
@@ -80,6 +81,23 @@ export const makeFeeSetMap = (): FeeSetMap => {
   }
   return map;
 };
+
+export const makeRecordState = (
+  denomination: Denomination,
+  granularity: Granularity,
+  sorting: Sorting,
+  timeFrame: TimeFrame,
+): RecordState => ({
+  denomination,
+  sorting,
+  granularity,
+  timeFrame,
+  sums: [],
+  topSums: [],
+  feeBlocks: [],
+  sumsRollbackBuffer: [],
+  feeBlockRollbackBuffer: [],
+});
 
 export const getIsBlockWithinReferenceMaxAge =
   (maxAge: number, referenceBlock: { minedAt: Date }) =>
@@ -216,48 +234,6 @@ export type OnNewRecordSet = (
   feeRecords: FeeRecord[],
 ) => Promise<void>;
 
-export const addBlock = async (
-  onNewRecordSet: OnNewRecordSet,
-  feeSetMap: FeeSetMap,
-  feeRecordMap: FeeRecordMap,
-  blockToAdd: FeeBlockRow,
-): Promise<void> => {
-  const tasks = Cartesian.make2(denominations, granularities).map(
-    async ([denomination, granularity]) => {
-      const feeSetSum = feeSetMap[granularity][denomination];
-      const newFeeSetSum = addBlockToFeeSet(
-        feeSetSum,
-        denomination,
-        granularity,
-        blockToAdd,
-      );
-      feeSetMap[granularity][denomination] = newFeeSetSum;
-
-      for (const sorting of sortings) {
-        const feeRecords = feeRecordMap[granularity][sorting][denomination];
-        const { isNewRecordSet, feeRecords: newFeeRecords } = addBlockToRecords(
-          feeRecords,
-          sorting,
-          newFeeSetSum,
-        );
-
-        // As storing fee records is expensive (DB write), and infrequent, we only do so when a new record is set.
-        if (isNewRecordSet) {
-          feeRecordMap[granularity][sorting][denomination] = newFeeRecords;
-          await onNewRecordSet(
-            denomination,
-            granularity,
-            sorting,
-            newFeeRecords,
-          );
-        }
-      }
-    },
-  );
-
-  await Promise.all(tasks);
-};
-
 export const rollbackFeeSet = (feeSetSum: FeeSetSum): FeeSetSum => {
   // When the active rollback includes more blocks than the length of the fee set, e.g. rolling back more than one block, with 'block' granularity containing only a single block, the fee set will be empty at this point.
   const blockToRemove = _.last(feeSetSum.blocks);
@@ -321,14 +297,25 @@ export type Sum = {
 
 export type RecordState = {
   denomination: Denomination;
+  granularity: Granularity;
+  feeBlockRollbackBuffer: FeeBlock[];
   // Used to calculate the next sum without refeteching all blocks.
   feeBlocks: FeeBlock[];
-  feeBlockRollbackBuffer: FeeBlock[];
-  sumsRollbackBuffer: Sum[];
-  // Used to drop top sums that fall outside the time frame.
+  sorting: Sorting;
+  // Used to rollback to the previous sum we were calculating with.
+  // Used to drop top sums that fall outside the time frame?
   sums: Sum[];
+  sumsRollbackBuffer: Sum[];
+  timeFrame: TimeFrame;
   topSums: Sum[];
 };
+
+// The entire state and computation is duplicated for each denomination. This is not necessary. We could simply track extra copies of topSums for each denomination and track the fees and fee sums in both denomination on each block and sum.
+// The entire state and computation is duplicated for each sorting. We could keep track of two topSums lists instead.
+export type RecordStateMap = Record<
+  Granularity,
+  Record<Sorting, Record<Denomination, RecordState>>
+>;
 
 const getBlockFees = (
   denomination: Denomination,
@@ -393,15 +380,12 @@ export const getTopSumsMaxCount = (granularity: Granularity): number => {
 
 export const mergeCandidate2 = (
   sorting: Sorting,
-  granularity: Granularity,
+  // granularity: Granularity,
   topSums: Sum[],
   sum: Sum,
-): {
-  topSums: Sum[];
-  isNewRecordSet: boolean;
-} => {
+): Sum[] => {
   const sumGreaterThan = OrdM.gt(topSumOrderingMap[sorting]);
-  const topSumsMaxCount = getTopSumsMaxCount(granularity);
+  // const topSumsMaxCount = getTopSumsMaxCount(granularity);
 
   // Find the index the candidate would rank at.
   let i = topSums.length;
@@ -416,24 +400,25 @@ export const mergeCandidate2 = (
   }
 
   // Don't add candidates worse than our worst when topSums is at limit.
-  if (i === topSums.length && topSums.length >= topSumsMaxCount) {
-    return {
-      topSums,
-      isNewRecordSet: false,
-    };
-  }
+  // if (i === topSums.length && topSums.length >= topSumsMaxCount) {
+  //   return {
+  //     topSums,
+  //     isNewRecordSet: false,
+  //   };
+  // }
 
   const mergedSums = __.insertAt(i, sum, topSums);
-  const newTopSums = _.dropRight(
-    mergedSums,
-    mergedSums.length - topSumsMaxCount,
-  );
+  // const newTopSums = _.dropRight(
+  //   mergedSums,
+  //   mergedSums.length - topSumsMaxCount,
+  // );
 
   // Otherwise, insert at the correct index.
-  return {
-    topSums: newTopSums,
-    isNewRecordSet: true,
-  };
+  // return {
+  //   topSums: newTopSums,
+  //   isNewRecordSet: true,
+  // };
+  return mergedSums;
 };
 
 export const getIsOverlapping = (records: Sum[], sum: Sum): boolean => {
@@ -541,11 +526,8 @@ export const getMatchingSumIndexFromRight = (
 export const addBlockToState = (
   recordState: RecordState,
   block: FeeBlockRow,
-  granularity: Granularity,
-  denomination: Denomination,
-  sorting: Sorting,
-  timeFrame: TimeFrame.TimeFrame,
 ): RecordState => {
+  const { timeFrame, granularity, denomination, sorting } = recordState;
   Log.debug(
     `burn records, ${timeFrame}, new tip: ${block.number}, ${granularity}, ${denomination}, ${sorting}`,
   );
@@ -571,17 +553,16 @@ export const addBlockToState = (
     recordState.feeBlocks,
     (block) => !getIsBlockWithinGranularity(block),
   );
-
-  for (const expiredBlock of expiredBlocks) {
-    recordState.feeBlockRollbackBuffer.push(expiredBlock);
-    newSum.start = newSum.start + 1;
-    newSum.startMinedAt = _.head(recordState.feeBlocks)!.minedAt;
-    newSum.sum = newSum.sum - expiredBlock.fees;
-  }
+  recordState.feeBlockRollbackBuffer = [
+    ...recordState.feeBlockRollbackBuffer,
+    ...expiredBlocks,
+  ];
+  newSum.start = newSum.start + expiredBlocks.length;
+  newSum.startMinedAt = _.first(recordState.feeBlocks)!.minedAt;
+  newSum.sum = newSum.sum - sumFeeBlocks(expiredBlocks);
 
   // Keep the live blocks for the current sum.
-  const liveBlocks = recordState.feeBlocks.slice(expiredBlocks.length);
-  recordState.feeBlocks = liveBlocks;
+  recordState.feeBlocks = _.drop(recordState.feeBlocks, expiredBlocks.length);
 
   // Update sums.
   recordState.sums.push(newSum);
@@ -589,15 +570,12 @@ export const addBlockToState = (
   // Merge the sum into top sums.
   const mergeResult = mergeCandidate2(
     sorting,
-    granularity,
+    // granularity,
     recordState.topSums,
     newSum,
   );
 
-  if (mergeResult.isNewRecordSet) {
-    // TODO: call hook to write to db?
-    recordState.topSums = mergeResult.topSums;
-  }
+  recordState.topSums = mergeResult;
 
   // Drop sums outside of time frame.
   const nowSubRollback = DateFns.subMilliseconds(
@@ -608,7 +586,7 @@ export const addBlockToState = (
     timeFrame === "all"
       ? (sum: Sum) => DateFns.isAfter(sum.startMinedAt, nowSubRollback)
       : getIsSumWithinMaxAgeWithMaxAge(
-          TimeFrame.timeFrameMillisMap[timeFrame],
+          TimeFrames.timeFrameMillisMap[timeFrame],
           feeBlockToAdd,
         );
 
@@ -617,13 +595,21 @@ export const addBlockToState = (
     (sum) => !getIsSumWithinTimeFrame(sum),
   );
 
-  for (const expiredSum of expiredSums) {
-    recordState.sumsRollbackBuffer.push(expiredSum);
-  }
+  const expiredSumsSet = new Set(expiredSums.map((sum) => sum.end));
 
-  // Store sums that are within the time frame.
-  const liveSums = recordState.sums.slice(expiredSums.length);
-  recordState.sums = liveSums;
+  // Drop expired sums from sums.
+  recordState.sums = _.drop(recordState.sums, expiredSums.length);
+
+  // Drop expired sums from top sums.
+  recordState.topSums = recordState.topSums.filter(
+    (sum) => !expiredSumsSet.has(sum.end),
+  );
+
+  // Remember expired sums.
+  recordState.sumsRollbackBuffer = [
+    ...recordState.sumsRollbackBuffer,
+    ...expiredSums,
+  ];
 
   const getIsBlockWithinRollbackBuffer = getIsBlockWithinMaxAgeWithMaxAge(
     rollbackBufferMillis,
@@ -650,15 +636,23 @@ export const addBlockToState = (
 
 export const rollbackBlock = (
   recordState: RecordState,
-  granularity: Granularity,
-  timeFrame: TimeFrame.TimeFrame,
-  sorting: Sorting,
+  block?: BlockDb,
 ): RecordState => {
-  const lastBlock = _.last(recordState.sums)?.end;
-  Log.debug(`burn records ${timeFrame} rollback, ${lastBlock}, ${granularity}`);
+  const { granularity, sorting, timeFrame } = recordState;
+  const lastBlock = _.last(recordState.feeBlocks);
+
+  Log.debug(
+    `burn records ${timeFrame} rollback, ${lastBlock?.number}, ${granularity}`,
+  );
+
+  if (block && lastBlock?.number !== block.number) {
+    throw new Error(
+      `tried to roll back block ${block.number} but tip is: ${lastBlock}`,
+    );
+  }
 
   // Drop the most recently added fee block.
-  recordState.feeBlocks = recordState.feeBlocks.slice(0, -1);
+  recordState.feeBlocks = _.dropRight(recordState.feeBlocks, 1);
 
   // Restore fee blocks from rollback buffer that are within the interval `lastFeeBlock - granularity`.
   const feeBlocksToRestore = getFeeBlocksForRollback(recordState, granularity);
@@ -696,9 +690,10 @@ export const rollbackBlock = (
     timeFrame === "all"
       ? () => true
       : getIsSumWithinMaxAgeWithMaxAge(
-          TimeFrame.timeFrameMillisMap[timeFrame],
+          TimeFrames.timeFrameMillisMap[timeFrame],
           _.last(recordState.feeBlocks)!,
         );
+
   const sumsToRestore = _.takeRightWhile(
     recordState.sumsRollbackBuffer,
     getIsSumWithinTimeFrame,
@@ -710,7 +705,14 @@ export const rollbackBlock = (
     sumsToRestore.length,
   );
 
+  // Restore sums
   recordState.sums = [...sumsToRestore, ...recordState.sums];
+
+  // Restore top sums
+  recordState.topSums = sumsToRestore.reduce(
+    (topSums, sum) => mergeCandidate2(sorting, topSums, sum),
+    recordState.topSums,
+  );
 
   return recordState;
 };
