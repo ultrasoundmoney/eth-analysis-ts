@@ -37,13 +37,13 @@ const eta = makeEta({
   max: blocks.length,
 });
 
-const logPerf = _.debounce((block) => {
+const logPerf = _.throttle((block) => {
   Log.info(
     `burn records process all eta estimate: ${eta.estimate()}s, last block: ${
       block.number
     }`,
   );
-});
+}, 2000);
 
 for (const block of blocks) {
   for (const recordState of recordStates) {
@@ -56,4 +56,4 @@ for (const block of blocks) {
   }
 }
 
-Performance.logPerf("added all blocks to state in", t0);
+Performance.logPerf("analyse all blocks", t0);
