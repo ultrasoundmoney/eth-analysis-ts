@@ -125,7 +125,7 @@ export const sync = async (): Promise<void> => {
   logPerf("reading fee records all", tReadFeeRecords);
 
   const tReadFeeSets = performance.now();
-  // await readFeeSets(lastStoredBlock);
+  await readFeeSets(lastStoredBlock);
   logPerf("reading fee sets", tReadFeeSets);
 
   const missingBlocksCount = lastStoredBlock.number - nextToAdd + 1;
