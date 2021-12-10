@@ -661,6 +661,13 @@ export const rollbackBlock = (
     recordState.sumsRollbackBuffer,
     getIsSumWithinTimeFrame,
   );
+
+  // Drop sums we restore
+  recordState.sumsRollbackBuffer = _.dropRight(
+    recordState.sumsRollbackBuffer,
+    sumsToRestore.length,
+  );
+
   recordState.sums = [...sumsToRestore, ...recordState.sums];
 
   return recordState;
