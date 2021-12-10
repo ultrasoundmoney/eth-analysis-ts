@@ -13,8 +13,8 @@ import {
   LeaderboardRow,
 } from "./leaderboards.js";
 import * as Log from "./log.js";
-import * as TimeFrame from "./time_frame.js";
-import { LimitedTimeFrame } from "./time_frame.js";
+import * as TimeFrame from "./time_frames.js";
+import { LimitedTimeFrame } from "./time_frames.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
 
