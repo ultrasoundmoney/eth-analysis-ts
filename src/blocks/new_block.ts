@@ -38,7 +38,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
     LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
     LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
     // BurnRecordsAll.onRollback(blockNumber),
-    BurnRecordsLimitedTimeFrames.onRollback(blockNumber),
+    // BurnRecordsLimitedTimeFrames.onRollback(blockNumber),
   ]);
 
   await Contracts.deleteContractsMinedAt(blockNumber);
@@ -101,7 +101,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
     addToLeaderboardAllTask(),
     // BurnRecordsAll.onNewBlock(blockDb),
-    BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
+    // BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
   ]);
 
   logPerf("adding block to leaderboards", tStartAnalyze);
