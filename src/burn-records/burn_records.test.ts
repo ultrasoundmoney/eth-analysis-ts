@@ -433,6 +433,55 @@ test("rollback for timed granularities restore fee blocks within graularity", as
   assert.is(last2.number, blocks[0].number);
 });
 
+test("rollback consumes a fee block from the feeBlocks rollback buffer", async () => {
+  const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
+  const finalState = advanceState("block", [
+    ...makeAddUpdates(blocks),
+    ...makeRollbackUpdates(1),
+  ]);
+
+  assert.is(finalState.feeBlockRollbackBuffer.length, 0);
+});
+
+test("rollback consumes a sum from the sums rollback buffer", async () => {
+  const blocks = await BlocksData.getH1Blocks();
+  // these 27 blocks set us up exactly so that the last block is the first that pushes several sums out of the 5m time frame and into the rollback buffer.
+  const m5Blocks = _.take(blocks, 26);
+  const state1 = advanceState("block", makeAddUpdates(m5Blocks), "max", "5m");
+
+  assert.is(state1.sumsRollbackBuffer.length, 4);
+
+  const state2 = advanceState(
+    "block",
+    makeRollbackUpdates(1),
+    "max",
+    "5m",
+    state1,
+  );
+
+  assert.is(state2.sumsRollbackBuffer.length, 0);
+});
+
+test("rollback handles multiple rollbacks on block granularity", async () => {
+  const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
+  const finalState = advanceState("block", [
+    ...makeAddUpdates(blocks),
+    ...makeRollbackUpdates(2),
+  ]);
+
+  assert.is(_.last(finalState.feeBlocks)!.number, blocks[0].number);
+});
+
+test("rollback handles multiple rollbacks on timed granularity", async () => {
+  const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
+  const finalState = advanceState("m5", [
+    ...makeAddUpdates(blocks),
+    ...makeRollbackUpdates(2),
+  ]);
+
+  assert.is(_.last(finalState.feeBlocks)!.number, blocks[0].number);
+});
+
 test("merge candidate adds candidates under limit in sorted order", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
   const sums = blocks.map((block) =>
@@ -541,6 +590,22 @@ test("for equal fee top sums the earlier one ranks higher", async () => {
 
   assert.is(topSums[0]?.end, seedBlock.number);
   assert.is(topSums[1]?.end, sameFeeBlock.number);
+});
+
+test.skip("top sums outside time frame get dropped", async () => {
+  const blocks = await BlocksData.getH1Blocks();
+  // We slice so that the first sums fall outside of the m5 time frame.
+  const m5PlusBlocks = blocks.slice(0, 26);
+
+  const outsideM5Sum = 13666568;
+
+  const finalState = advanceState("m5", [...makeAddUpdates(m5PlusBlocks)]);
+
+  const containsExpiredSum = finalState.topSums.some(
+    (sum) => sum.end === outsideM5Sum,
+  );
+
+  assert.not(containsExpiredSum, "topSums contains expired sum but shouldn't");
 });
 
 test.skip("does not advance state for granularities bigger than time frames", async () => {});
