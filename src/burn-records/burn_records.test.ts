@@ -7,9 +7,7 @@ import * as Duration from "../duration.js";
 import { TimeFrame } from "../time_frame.js";
 import * as BurnRecords from "./burn_records.js";
 import {
-  addBlockToState,
   FeeBlock,
-  feeBlockFromBlock,
   Granularity,
   RecordState,
   Sorting,
@@ -45,7 +43,7 @@ const advanceState = (
 ): RecordState =>
   instructions.reduce((state, instruction) => {
     if (instruction.type === "add") {
-      return addBlockToState(
+      return BurnRecords.addBlockToState(
         state,
         instruction.block,
         granularity,
