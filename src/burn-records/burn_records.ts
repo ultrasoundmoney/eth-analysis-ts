@@ -626,6 +626,12 @@ export const rollbackBlock = (
 
   // Restore fee blocks from rollback buffer that are within the interval `lastFeeBlock - granularity`.
   const feeBlocksToRestore = getFeeBlocksForRollback(recordState, granularity);
+  // Drop blocks we use from the rollback buffer.
+  recordState.feeBlockRollbackBuffer = _.dropRight(
+    recordState.feeBlockRollbackBuffer,
+    feeBlocksToRestore.length,
+  );
+  // Add them back onto fee blocks.
   recordState.feeBlocks = [...feeBlocksToRestore, ...recordState.feeBlocks];
 
   // Remove the last sum we calculated from top sums.
