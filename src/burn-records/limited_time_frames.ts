@@ -1,39 +1,63 @@
-import {
-  LimitedTimeFrame,
-  limitedTimeFrameMillisMap,
-  limitedTimeFrames,
-} from "../time_frame.js";
-import {
-  addBlock,
-  FeeRecordMap,
-  FeeSetMap,
-  getIsBlockWithinReferenceMaxAge,
-  makeFeeSetMap,
-  makeRecordMap,
-  rollbackLastBlock,
-} from "./burn_records.js";
-import * as Blocks from "../blocks/blocks.js";
 import _ from "lodash";
+import * as Blocks from "../blocks/blocks.js";
+import * as Cartesian from "../cartesian.js";
+import { denominations } from "../denominations.js";
 import * as Log from "../log.js";
 import { logPerf } from "../performance.js";
+import * as TimeFrames from "../time_frames.js";
+import { TimeFrame } from "../time_frames.js";
+import {
+  addBlockToState,
+  getIsBlockWithinReferenceMaxAge,
+  granularities,
+  Granularity,
+  granularityMillisMap,
+  makeRecordState,
+  RecordState,
+  rollbackBlock,
+  sortings,
+} from "./burn_records.js";
 
-type FeeSetMapPerTimeFrame = Record<LimitedTimeFrame, FeeSetMap>;
+const getIsGranularityEnabledForTimeFrame = (
+  granularity: Granularity,
+  timeFrame: TimeFrame,
+) => {
+  if (granularity === "block") {
+    return true;
+  }
 
-// The candidate map keeps track of sets of blocks and their corresponding fee sum. It updates in streaming fashion.
-export const feeSetMapPerTimeFrame: FeeSetMapPerTimeFrame =
-  limitedTimeFrames.reduce((map, timeFrame) => {
-    map[timeFrame] = makeFeeSetMap();
-    return map;
-  }, {} as FeeSetMapPerTimeFrame);
+  if (timeFrame === "all") {
+    return true;
+  }
 
-type FeeRecordMapPerTimeFrame = Record<LimitedTimeFrame, FeeRecordMap>;
+  const granularityMillis = granularityMillisMap[granularity];
+  const timeFrameMillis = TimeFrames.timeFrameMillisMap[timeFrame];
 
-// Tracks fee records.
-export const feeRecordMapPerTimeFrame: FeeRecordMapPerTimeFrame =
-  limitedTimeFrames.reduce((map, timeFrame) => {
-    map[timeFrame] = makeRecordMap();
-    return map;
-  }, {} as FeeRecordMapPerTimeFrame);
+  if (timeFrameMillis > granularityMillis) {
+    return true;
+  }
+
+  return false;
+};
+
+const recordStates = Cartesian.make4(
+  denominations,
+  granularities,
+  TimeFrames.limitedTimeFrames,
+  sortings,
+)
+  .map(([denomination, granularity, timeFrame, sorting]) =>
+    getIsGranularityEnabledForTimeFrame(granularity, timeFrame)
+      ? makeRecordState(denomination, granularity, sorting, timeFrame)
+      : undefined,
+  )
+  .filter((v): v is RecordState => v !== undefined);
+
+const getRecordStateByTimeFrame = (
+  recordStates: RecordState[],
+  timeFrame: TimeFrame,
+): RecordState[] =>
+  recordStates.filter((recordState) => recordState.timeFrame === timeFrame)!;
 
 export const init = async () => {
   Log.debug("init burn records limited time frames");
@@ -44,31 +68,47 @@ export const init = async () => {
     d30OldBlock.number,
     lastStoredBlock.number,
   );
-  logPerf("init BRLT, reading d30 blocks", tGetd30Blocks);
+  logPerf(
+    "init burn records limited timeframes, reading d30 blocks",
+    tGetd30Blocks,
+  );
 
   const tAddBlocks = performance.now();
-  for (const timeFrame of limitedTimeFrames) {
+  for (const timeFrame of TimeFrames.limitedTimeFrames) {
     const getIsBlockWithinTimeFrame = getIsBlockWithinReferenceMaxAge(
-      limitedTimeFrameMillisMap[timeFrame],
+      TimeFrames.limitedTimeFrameMillisMap[timeFrame],
       lastStoredBlock,
     );
     const blocksInTimeFrame = _.dropWhile(d30Blocks, getIsBlockWithinTimeFrame);
     const blocksOldToNew = blocksInTimeFrame.reverse();
-    const feeSetMap = feeSetMapPerTimeFrame[timeFrame];
-    const feeRecordMap = feeRecordMapPerTimeFrame[timeFrame];
+    const timeFrameRecordStates = getRecordStateByTimeFrame(
+      recordStates,
+      timeFrame,
+    );
     for (const block of blocksOldToNew) {
-      await addBlock(() => Promise.resolve(), feeSetMap, feeRecordMap, block);
+      const tasks = timeFrameRecordStates.map(
+        (recordState) => () => addBlockToState(recordState, block),
+      );
+      await Promise.all(tasks);
     }
   }
-  logPerf("init BRLT, adding blocks to time frames", tAddBlocks);
+  logPerf(
+    "init burn records limited time frames, adding blocks to time frames",
+    tAddBlocks,
+  );
 };
 
 export const onNewBlock = async (block: Blocks.BlockDb) => {
   const t0 = performance.now();
-  for (const timeFrame of limitedTimeFrames) {
-    const feeSetMap = feeSetMapPerTimeFrame[timeFrame];
-    const feeRecordMap = feeRecordMapPerTimeFrame[timeFrame];
-    await addBlock(() => Promise.resolve(), feeSetMap, feeRecordMap, block);
+  for (const timeFrame of TimeFrames.limitedTimeFrames) {
+    const timeFrameRecordStates = getRecordStateByTimeFrame(
+      recordStates,
+      timeFrame,
+    );
+    const tasks = timeFrameRecordStates.map((recordState) =>
+      addBlockToState(recordState, block),
+    );
+    await Promise.all(tasks);
   }
   logPerf("add block to burn record all took: ", t0);
 };
@@ -80,9 +120,7 @@ export const onRollback = async (
     `burn record limited time frames rollback to and including block: ${rollbackToAndIncluding}`,
   );
 
-  const latestIncludedBlock = _.last(
-    feeSetMapPerTimeFrame["5m"]["block"]["eth"]["blocks"],
-  );
+  const latestIncludedBlock = _.last(recordStates[0]["feeBlocks"]);
 
   if (latestIncludedBlock === undefined) {
     Log.warn(
@@ -103,19 +141,19 @@ export const onRollback = async (
     latestIncludedBlock.number,
   ).reverse();
 
-  // TODO: exclude where granularity >= timeFrame
-  for (const timeFrame of limitedTimeFrames) {
-    const feeSetMap = feeSetMapPerTimeFrame[timeFrame];
-    const feeRecordMap = feeRecordMapPerTimeFrame[timeFrame];
+  for (const timeFrame of TimeFrames.limitedTimeFrames) {
+    const timeFrameRecordStates = getRecordStateByTimeFrame(
+      recordStates,
+      timeFrame,
+    );
 
-    for (const blockNumber of blocksToRollback) {
-      const [block] = await Blocks.getBlocks(blockNumber, blockNumber);
-      await rollbackLastBlock(
-        () => Promise.resolve(),
-        feeSetMap,
-        feeRecordMap,
-        block,
-      );
-    }
+    const tasks = timeFrameRecordStates.map(async (recordState) => {
+      for (const blockNumber of blocksToRollback) {
+        const [block] = await Blocks.getBlocks(blockNumber, blockNumber);
+        rollbackBlock(recordState, block);
+      }
+    });
+
+    await Promise.all(tasks);
   }
 };

@@ -21,7 +21,7 @@ export const getEnv = (): Env => {
     case "staging":
       return "staging";
     default:
-      Log.warn("no ENV in env, defaulting to dev");
+      Log.debug("no ENV in env, defaulting to dev");
       return "dev";
   }
 };

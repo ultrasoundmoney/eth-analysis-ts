@@ -2,7 +2,8 @@ import * as Duration from "./duration.js";
 
 export const limitedTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const;
 export type LimitedTimeFrame = typeof limitedTimeFrames[number];
-export type TimeFrame = LimitedTimeFrame | "all";
+export const timeFrames = [...limitedTimeFrames, "all"] as const;
+export type TimeFrame = typeof timeFrames[number];
 
 export const intervalSqlMap: Record<LimitedTimeFrame, string> = {
   "5m": "5 minutes",

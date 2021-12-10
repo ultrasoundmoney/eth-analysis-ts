@@ -4,28 +4,30 @@ import * as Blocks from "../blocks/blocks.js";
 import { BlockDb } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
 import { sql } from "../db.js";
-import { Denomination } from "../denominations.js";
+import { Denomination, denominations } from "../denominations.js";
 import { A, pipe } from "../fp.js";
 import * as Log from "../log.js";
 import { logPerf } from "../performance.js";
 import {
-  addBlock,
+  addBlockToState,
   FeeBlock,
   FeeRecord,
-  FeeRecordMap,
-  FeeSetMap,
+  granularities,
   Granularity,
-  makeFeeSetMap,
-  makeRecordMap,
+  RecordState,
+  rollbackBlock,
   rollbackLastBlock,
   Sorting,
+  sortings,
 } from "./burn_records.js";
+import * as Cartesian from "../cartesian.js";
 
-// The candidate map keeps track of sets of blocks and their corresponding fee sum. It updates in streaming fashion.
-export const feeSetMap: FeeSetMap = makeFeeSetMap();
-
-// Tracks fee records.
-export const feeRecordMap: FeeRecordMap = makeRecordMap();
+export const recordStates: RecordState[] = [];
+// export const recordStates = Cartesian.make3(
+//   denominations,
+//   granularities,
+//   sortings,
+// ).map();
 
 export const expireOldBlocks = (
   maxAge: number,
@@ -110,7 +112,8 @@ const writeFeeRecordsToDb = async (
 
 export const onNewBlock = async (block: BlockDb): Promise<void> => {
   const t0 = performance.now();
-  await addBlock(writeFeeRecordsToDb, feeSetMap, feeRecordMap, block);
+  addBlockToState(recordStates[0], block);
+  // TODO: write new records to DB
   logPerf("add block to burn record all took: ", t0);
   await storeLastAnalyzed(block.number);
 };
@@ -122,7 +125,7 @@ export const onRollback = async (
     `burn record all rollback to and including block: ${rollbackToAndIncluding}`,
   );
 
-  const latestIncludedBlock = _.last(feeSetMap["block"]["eth"]["blocks"]);
+  const latestIncludedBlock = _.last(recordStates[0].feeBlocks);
 
   if (latestIncludedBlock === undefined) {
     Log.warn(
@@ -138,12 +141,7 @@ export const onRollback = async (
 
   for (const blockNumber of blocksToRollback) {
     const [block] = await Blocks.getBlocks(blockNumber, blockNumber);
-    await rollbackLastBlock(
-      writeFeeRecordsToDb,
-      feeSetMap,
-      feeRecordMap,
-      block,
-    );
+    rollbackBlock(recordStates[0], block);
     await storeLastAnalyzed(blockNumber - 1);
   }
 };

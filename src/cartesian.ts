@@ -23,3 +23,22 @@ export const make3 = <A, B, C>(
   }
   return products;
 };
+
+export const make4 = <A, B, C, D>(
+  as: readonly A[],
+  bs: readonly B[],
+  cs: readonly C[],
+  ds: readonly D[],
+): [A, B, C, D][] => {
+  const products = [] as [A, B, C, D][];
+  for (const a of as) {
+    for (const b of bs) {
+      for (const c of cs) {
+        for (const d of ds) {
+          products.push([a, b, c, d]);
+        }
+      }
+    }
+  }
+  return products;
+};
