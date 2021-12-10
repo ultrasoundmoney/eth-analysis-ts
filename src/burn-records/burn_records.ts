@@ -498,12 +498,16 @@ export const addBlockToState = (
   }
 
   // Drop sums outside of time frame.
+  const nowSubRollback = DateFns.subMilliseconds(
+    new Date(),
+    rollbackBufferMillis,
+  );
   const getIsSumWithinTimeFrame =
     timeFrame === "all"
-      ? () => true
+      ? (sum: Sum) => DateFns.isAfter(sum.startMinedAt, nowSubRollback)
       : getIsSumWithinMaxAgeWithMaxAge(
           TimeFrame.timeFrameMillisMap[timeFrame],
-          newSum,
+          feeBlockToAdd,
         );
 
   const expiredSums = _.takeWhile(
@@ -531,7 +535,7 @@ export const addBlockToState = (
 
   const getIsSumWithinRollbackBuffer = getIsSumWithinMaxAgeWithMaxAge(
     rollbackBufferMillis,
-    newSum,
+    feeBlockToAdd,
   );
 
   recordState.sumsRollbackBuffer = _.dropWhile(
@@ -646,19 +650,12 @@ export const rollbackBlock = (
   // Drop the last sum we calculated
   recordState.sums = recordState.sums.slice(0, -1);
 
-  const newTipSum = _.last(recordState.sums);
-  if (newTipSum === undefined) {
-    throw new Error(
-      `tried to rollback burn records with ${timeFrame} time frame, but no sum left to reference to determine which sums in the rollback buffer are inside the current time frame`,
-    );
-  }
-
   const getIsSumWithinTimeFrame =
     timeFrame === "all"
       ? () => true
       : getIsSumWithinMaxAgeWithMaxAge(
           TimeFrame.timeFrameMillisMap[timeFrame],
-          newTipSum,
+          _.last(recordState.feeBlocks)!,
         );
   const sumsToRestore = _.takeRightWhile(
     recordState.sumsRollbackBuffer,
