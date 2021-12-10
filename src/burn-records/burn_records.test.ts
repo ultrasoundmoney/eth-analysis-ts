@@ -4,28 +4,12 @@ import * as assert from "uvu/assert";
 import { BlockDb } from "../blocks/blocks.js";
 import * as BlocksData from "../blocks_data.js";
 import * as Duration from "../duration.js";
-import { TimeFrame } from "../time_frame.js";
 import * as BurnRecords from "./burn_records.js";
-import {
-  FeeBlock,
-  Granularity,
-  RecordState,
-  Sorting,
-  Sum,
-} from "./burn_records.js";
+import { FeeBlock, RecordState, Sum } from "./burn_records.js";
 
 (BigInt.prototype as any).toJSON = function () {
   return this.toString();
 };
-
-const makeRecordState = (): RecordState => ({
-  denomination: "eth",
-  feeBlocks: [],
-  feeBlockRollbackBuffer: [],
-  sumsRollbackBuffer: [],
-  sums: [],
-  topSums: [],
-});
 
 type StateInstruction =
   | {
@@ -35,30 +19,24 @@ type StateInstruction =
   | { type: "rollback" };
 
 const advanceState = (
-  granularity: Granularity,
   instructions: StateInstruction[],
-  sorting: Sorting = "max",
-  timeFrame: TimeFrame = "5m",
-  recordState: RecordState = makeRecordState(),
-): RecordState =>
-  instructions.reduce((state, instruction) => {
+  recordState?: RecordState,
+): RecordState => {
+  const initState =
+    recordState || BurnRecords.makeRecordState("eth", "block", "max", "5m");
+
+  return instructions.reduce((state, instruction) => {
     if (instruction.type === "add") {
-      return BurnRecords.addBlockToState(
-        state,
-        instruction.block,
-        granularity,
-        "eth",
-        sorting,
-        timeFrame,
-      );
+      return BurnRecords.addBlockToState(state, instruction.block);
     }
 
     if (instruction.type === "rollback") {
-      return BurnRecords.rollbackBlock(state, granularity, timeFrame, sorting);
+      return BurnRecords.rollbackBlock(state);
     }
 
     throw new Error("didn't know how to process state instruction");
-  }, recordState);
+  }, initState);
+};
 
 const makeAddUpdate = (block: BlockDb): StateInstruction => ({
   type: "add",
@@ -74,9 +52,11 @@ const makeAddUpdates = (blocks: BlockDb[]): StateInstruction[] =>
 const makeRollbackUpdates = (n: number): StateInstruction[] =>
   new Array(n).fill(null).map(() => ({ type: "rollback" }));
 
+const makeM5State = () => BurnRecords.makeRecordState("eth", "m5", "max", "5m");
+
 test("a new block results in a new fee block", async () => {
   const block = await BlocksData.getSingleBlock();
-  const newState = advanceState("m5", [makeAddUpdate(block)]);
+  const newState = advanceState([makeAddUpdate(block)], makeM5State());
 
   const [lastFeeBlock] = newState.feeBlocks;
   assert.is(lastFeeBlock?.number, block.number);
@@ -85,7 +65,7 @@ test("a new block results in a new fee block", async () => {
 test("a new block results in a new sum", async () => {
   const block = await BlocksData.getSingleBlock();
   const feeBlock = BurnRecords.feeBlockFromBlock("eth", block);
-  const finalState = advanceState("m5", [makeAddUpdate(block)]);
+  const finalState = advanceState([makeAddUpdate(block)], makeM5State());
 
   const [lastSum] = finalState.sums;
   const expectedSum: Sum = {
@@ -102,7 +82,7 @@ test("a new block results in a new sum", async () => {
 test("block granularity adds at most one fee block", async () => {
   const m5Blocks = await BlocksData.getM5Blocks();
   const blocks = m5Blocks.slice(1, 3);
-  const finalState = advanceState("block", makeAddUpdates(blocks));
+  const finalState = advanceState(makeAddUpdates(blocks));
 
   const lastFeeBlock = _.last(finalState.feeBlocks);
 
@@ -118,7 +98,7 @@ test("block granularity adds at most one fee block", async () => {
 test("adding two blocks results in a sum of the two", async () => {
   const m5Blocks = await BlocksData.getM5Blocks();
   const blocks = m5Blocks.slice(1, 3);
-  const newState = advanceState("m5", makeAddUpdates(blocks));
+  const newState = advanceState(makeAddUpdates(blocks), makeM5State());
   const lastSum = _.last(newState.sums);
   const feeBlocksExpected = blocks.map((block) =>
     BurnRecords.feeBlockFromBlock("eth", block),
@@ -138,7 +118,7 @@ test("adding two blocks results in a sum of the two", async () => {
 test("a new sum is added within the topSums limit", async () => {
   const block = await BlocksData.getSingleBlock();
   const feeBlock = BurnRecords.feeBlockFromBlock("eth", block);
-  const finalState = advanceState("m5", [makeAddUpdate(block)]);
+  const finalState = advanceState([makeAddUpdate(block)], makeM5State());
 
   const [lastSum] = finalState.topSums;
   const expectedSum: Sum = {
@@ -196,7 +176,7 @@ test("a new sum is not added outside the topSums limit", async () => {
     number: blocks[0].number + 1,
     baseFeePerGas: 0n,
   };
-  const finalState = advanceState("block", [
+  const finalState = advanceState([
     ...makeAddUpdates(blocks),
     makeAddUpdate(zeroFeeBlock),
   ]);
@@ -218,7 +198,7 @@ test("a record setting block makes it into topSums", async () => {
     baseFeePerGas: 1n * 10n ** 18n,
   };
 
-  const finalState = advanceState("block", [
+  const finalState = advanceState([
     ...makeAddUpdates(blocks),
     makeAddUpdate(highFeeBlock),
   ]);
@@ -228,7 +208,7 @@ test("a record setting block makes it into topSums", async () => {
 
 test("sorting max sorts top records in descending order", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
-  const finalState = advanceState("block", makeAddUpdates(blocks), "max");
+  const finalState = advanceState(makeAddUpdates(blocks));
   const first = _.head(finalState.topSums)!;
   const last = _.last(finalState.topSums)!;
   assert.ok(first.sum > last.sum);
@@ -236,7 +216,10 @@ test("sorting max sorts top records in descending order", async () => {
 
 test("sorting min sorts top records in ascending order", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
-  const finalState = advanceState("block", makeAddUpdates(blocks), "min");
+  const finalState = advanceState(
+    makeAddUpdates(blocks),
+    BurnRecords.makeRecordState("eth", "block", "min", "5m"),
+  );
   const first = _.head(finalState.topSums)!;
   const last = _.last(finalState.topSums)!;
 
@@ -267,7 +250,7 @@ test("should create a correct m5 topSumsMaxCount", () => {
 
 test("computes records from top sums", async () => {
   const blocks = await BlocksData.getM5Blocks();
-  const finalState = advanceState("block", makeAddUpdates(blocks), "max");
+  const finalState = advanceState(makeAddUpdates(blocks));
   const records = BurnRecords.getRecords(finalState);
   const first = _.head(records)!;
   const last = _.last(records)!;
@@ -337,7 +320,7 @@ test("recognizes right-side overlap", async () => {
 
 test("rollback removes a block from the fee blocks set for block", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
-  const finalState = advanceState("block", [
+  const finalState = advanceState([
     ...makeAddUpdates(blocks),
     ...makeRollbackUpdates(1),
   ]);
@@ -347,34 +330,22 @@ test("rollback removes a block from the fee blocks set for block", async () => {
 
 test("rollback removes a block from the fee blocks set for m5", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
-  const state1 = advanceState("m5", makeAddUpdates(blocks));
+  const state1 = advanceState(makeAddUpdates(blocks), makeM5State());
 
   assert.is(state1.feeBlocks.length, 2);
 
-  const state2 = advanceState(
-    "m5",
-    makeRollbackUpdates(1),
-    "max",
-    "1h",
-    state1,
-  );
+  const state2 = advanceState(makeRollbackUpdates(1), state1);
 
   assert.is(state2.feeBlocks.length, 1);
 });
 
 test("rollback removes a sum from the sums", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
-  const state1 = advanceState("m5", makeAddUpdates(blocks));
+  const state1 = advanceState(makeAddUpdates(blocks), makeM5State());
 
   assert.is(state1.sums.length, 2);
 
-  const state2 = advanceState(
-    "m5",
-    makeRollbackUpdates(1),
-    "max",
-    "1h",
-    state1,
-  );
+  const state2 = advanceState(makeRollbackUpdates(1), state1);
 
   assert.is(state2.sums.length, 1);
 });
@@ -382,17 +353,11 @@ test("rollback removes a sum from the sums", async () => {
 test("rollback removes the reverted sum from top sums", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
 
-  const state1 = advanceState("m5", makeAddUpdates(blocks));
+  const state1 = advanceState(makeAddUpdates(blocks), makeM5State());
   const first1 = _.head(state1.topSums)!;
   assert.is(first1?.end, 13666165);
 
-  const state2 = advanceState(
-    "m5",
-    makeRollbackUpdates(1),
-    "max",
-    "1h",
-    state1,
-  );
+  const state2 = advanceState(makeRollbackUpdates(1), state1);
   const first2 = _.head(state2.topSums)!;
   assert.is.not(first2?.end, 13666165);
 });
@@ -400,17 +365,11 @@ test("rollback removes the reverted sum from top sums", async () => {
 test("rollback for 'block' granularity restores the previous fee block", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
 
-  const state1 = advanceState("block", makeAddUpdates(blocks));
+  const state1 = advanceState(makeAddUpdates(blocks));
   const last1 = _.last(state1.feeBlocks)!;
   assert.is(last1.number, blocks[1].number);
 
-  const state2 = advanceState(
-    "block",
-    makeRollbackUpdates(1),
-    "max",
-    "1h",
-    state1,
-  );
+  const state2 = advanceState(makeRollbackUpdates(1), state1);
   const last2 = _.last(state2.feeBlocks)!;
   assert.is(last2.number, blocks[0].number);
 });
@@ -418,24 +377,19 @@ test("rollback for 'block' granularity restores the previous fee block", async (
 test("rollback for timed granularities restore fee blocks within graularity", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
 
-  const state1 = advanceState("m5", makeAddUpdates(blocks));
+  const initState = makeM5State();
+  const state1 = advanceState(makeAddUpdates(blocks), initState);
   const last1 = _.last(state1.feeBlocks)!;
   assert.is(last1.number, blocks[1].number);
 
-  const state2 = advanceState(
-    "m5",
-    makeRollbackUpdates(1),
-    "max",
-    "1h",
-    state1,
-  );
+  const state2 = advanceState(makeRollbackUpdates(1), state1);
   const last2 = _.last(state2.feeBlocks)!;
   assert.is(last2.number, blocks[0].number);
 });
 
 test("rollback consumes a fee block from the feeBlocks rollback buffer", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
-  const finalState = advanceState("block", [
+  const finalState = advanceState([
     ...makeAddUpdates(blocks),
     ...makeRollbackUpdates(1),
   ]);
@@ -447,24 +401,18 @@ test("rollback consumes a sum from the sums rollback buffer", async () => {
   const blocks = await BlocksData.getH1Blocks();
   // these 27 blocks set us up exactly so that the last block is the first that pushes several sums out of the 5m time frame and into the rollback buffer.
   const m5Blocks = _.take(blocks, 26);
-  const state1 = advanceState("block", makeAddUpdates(m5Blocks), "max", "5m");
+  const state1 = advanceState(makeAddUpdates(m5Blocks));
 
   assert.is(state1.sumsRollbackBuffer.length, 4);
 
-  const state2 = advanceState(
-    "block",
-    makeRollbackUpdates(1),
-    "max",
-    "5m",
-    state1,
-  );
+  const state2 = advanceState(makeRollbackUpdates(1), state1);
 
   assert.is(state2.sumsRollbackBuffer.length, 0);
 });
 
 test("rollback handles multiple rollbacks on block granularity", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
-  const finalState = advanceState("block", [
+  const finalState = advanceState([
     ...makeAddUpdates(blocks),
     ...makeRollbackUpdates(2),
   ]);
@@ -474,10 +422,11 @@ test("rollback handles multiple rollbacks on block granularity", async () => {
 
 test("rollback handles multiple rollbacks on timed granularity", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
-  const finalState = advanceState("m5", [
-    ...makeAddUpdates(blocks),
-    ...makeRollbackUpdates(2),
-  ]);
+  const initState = makeM5State();
+  const finalState = advanceState(
+    [...makeAddUpdates(blocks), ...makeRollbackUpdates(2)],
+    initState,
+  );
 
   assert.is(_.last(finalState.feeBlocks)!.number, blocks[0].number);
 });
@@ -599,7 +548,8 @@ test.skip("top sums outside time frame get dropped", async () => {
 
   const outsideM5Sum = 13666568;
 
-  const finalState = advanceState("m5", [...makeAddUpdates(m5PlusBlocks)]);
+  const initState = makeM5State();
+  const finalState = advanceState([...makeAddUpdates(m5PlusBlocks)], initState);
 
   const containsExpiredSum = finalState.topSums.some(
     (sum) => sum.end === outsideM5Sum,
