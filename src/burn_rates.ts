@@ -1,7 +1,7 @@
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { pipe, T, TAlt } from "./fp.js";
-import { LimitedTimeFrame } from "./time_frame.js";
+import { LimitedTimeFrame } from "./time_frames.js";
 
 export type BurnRatesT = {
   burnRate5m: number;

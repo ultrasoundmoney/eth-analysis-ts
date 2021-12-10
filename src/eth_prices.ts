@@ -10,7 +10,7 @@ import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
 import { E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
-import { intervalSqlMap, LimitedTimeFrame, TimeFrame } from "./time_frame.js";
+import { intervalSqlMap, LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
 export type BlockForPrice = {
   timestamp: number;

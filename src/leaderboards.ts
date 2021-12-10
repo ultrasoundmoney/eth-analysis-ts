@@ -5,7 +5,7 @@ import { sql } from "./db.js";
 import * as FamService from "./fam_service.js";
 import { FamDetails } from "./fam_service.js";
 import { O } from "./fp.js";
-import { LimitedTimeFrame, TimeFrame } from "./time_frame.js";
+import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
 export type LeaderboardRow = {
   contractAddress: string;

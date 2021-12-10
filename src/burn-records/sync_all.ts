@@ -61,7 +61,7 @@ const readStoredFeeRecords = async (): Promise<void> => {
       BurnRecords.orderingMap[sorting].compare,
     );
 
-    All.feeRecordMap[granularity][sorting][denomination] = feeRecords;
+    // All.feeRecordMap[granularity][sorting][denomination] = feeRecords;
   });
 
   await Promise.all(tasks);
@@ -99,10 +99,10 @@ const readFeeSets = async (upToIncluding: BlockDb): Promise<void> => {
         upToIncluding,
       );
 
-      All.feeSetMap[granularity][denomination] = {
-        sum: BurnRecords.sumFeeBlocks(feeBlocks),
-        blocks: feeBlocks,
-      };
+      // All.feeSetMap[granularity][denomination] = {
+      //   sum: BurnRecords.sumFeeBlocks(feeBlocks),
+      //   blocks: feeBlocks,
+      // };
     }
   }
 };

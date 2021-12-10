@@ -2,8 +2,8 @@ import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { T, TAlt } from "./fp.js";
-import * as TimeFrame from "./time_frame.js";
-import { LimitedTimeFrame } from "./time_frame.js";
+import * as TimeFrame from "./time_frames.js";
+import { LimitedTimeFrame } from "./time_frames.js";
 
 export type FeesBurnedT = {
   feesBurned5m: number;
