@@ -1,3 +1,4 @@
+import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import * as Cartesian from "../cartesian.js";
@@ -18,8 +19,8 @@ Log.info(`last stored block is: ${lastStoredBlock.number}`);
 //   AND number <= ${lastStoredBlock.number}
 // `;
 
-// const blocks = await Blocks.getFeeBlocks(12965000, lastStoredBlock.number);
-const blocks = await Blocks.getFeeBlocks(12965000, 12971000);
+const blocks = await Blocks.getFeeBlocks(12965000, lastStoredBlock.number);
+// const blocks = await Blocks.getFeeBlocks(12965000, 13065000);
 
 Performance.logPerf("fetched all blocks in", t0);
 
@@ -36,18 +37,22 @@ const eta = makeEta({
   max: blocks.length,
 });
 
+const logPerf = _.debounce((block) => {
+  Log.info(
+    `burn records process all eta estimate: ${eta.estimate()}s, last block: ${
+      block.number
+    }`,
+  );
+});
+
 for (const block of blocks) {
   for (const recordState of recordStates) {
     BurnRecords.addBlockToState(recordState, block);
   }
   blocksDone = blocksDone + 1;
   eta.report(blocksDone);
-  if (new Date().getSeconds() % 15 === 0) {
-    Log.info(
-      `burn records process all eta estimate: ${eta.estimate()}s, last block: ${
-        block.number
-      }`,
-    );
+  if (new Date().getSeconds() % 8 === 0) {
+    logPerf(block);
   }
 }
 
