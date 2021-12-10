@@ -86,15 +86,16 @@ test("a new block results in a new fee block", async () => {
 
 test("a new block results in a new sum", async () => {
   const block = await BlocksData.getSingleBlock();
-  const feeBlock = feeBlockFromBlock("eth", block);
+  const feeBlock = BurnRecords.feeBlockFromBlock("eth", block);
   const finalState = advanceState("m5", [makeAddUpdate(block)]);
 
   const [lastSum] = finalState.sums;
   const expectedSum: Sum = {
-    sum: feeBlock.fees,
-    start: feeBlock.number,
     end: feeBlock.number,
+    endMinedAt: feeBlock.minedAt,
+    start: feeBlock.number,
     startMinedAt: feeBlock.minedAt,
+    sum: feeBlock.fees,
   };
 
   assert.equal(lastSum, expectedSum);
@@ -126,10 +127,11 @@ test("adding two blocks results in a sum of the two", async () => {
   );
 
   const expectedSum = {
-    sum: BurnRecords.sumFeeBlocks(feeBlocksExpected),
-    start: blocks[0].number,
     end: blocks[1].number,
+    endMinedAt: blocks[1].minedAt,
+    start: blocks[0].number,
     startMinedAt: blocks[0].minedAt,
+    sum: BurnRecords.sumFeeBlocks(feeBlocksExpected),
   };
 
   assert.equal(lastSum, expectedSum);
@@ -137,15 +139,16 @@ test("adding two blocks results in a sum of the two", async () => {
 
 test("a new sum is added within the topSums limit", async () => {
   const block = await BlocksData.getSingleBlock();
-  const feeBlock = feeBlockFromBlock("eth", block);
+  const feeBlock = BurnRecords.feeBlockFromBlock("eth", block);
   const finalState = advanceState("m5", [makeAddUpdate(block)]);
 
   const [lastSum] = finalState.topSums;
   const expectedSum: Sum = {
-    sum: feeBlock.fees,
-    start: feeBlock.number,
     end: feeBlock.number,
+    endMinedAt: feeBlock.minedAt,
+    start: feeBlock.number,
     startMinedAt: feeBlock.minedAt,
+    sum: feeBlock.fees,
   };
 
   assert.equal(lastSum, expectedSum);
@@ -278,15 +281,17 @@ test("recognizes left-side overlap", async () => {
   const sumA: Sum = {
     start: 0,
     end: 2,
-    sum: 0n,
+    endMinedAt: new Date(),
     startMinedAt: new Date(),
+    sum: 0n,
   };
 
   const sumB: Sum = {
     start: 1,
     end: 3,
-    sum: 0n,
+    endMinedAt: new Date(),
     startMinedAt: new Date(),
+    sum: 0n,
   };
 
   assert.ok(BurnRecords.getIsOverlapping([sumA], sumB));
@@ -296,15 +301,17 @@ test("recognizes left-side overlap", async () => {
   const sumA: Sum = {
     start: 0,
     end: 2,
-    sum: 0n,
+    endMinedAt: new Date(),
     startMinedAt: new Date(),
+    sum: 0n,
   };
 
   const sumB: Sum = {
     start: 1,
     end: 3,
-    sum: 0n,
+    endMinedAt: new Date(),
     startMinedAt: new Date(),
+    sum: 0n,
   };
 
   assert.ok(BurnRecords.getIsOverlapping([sumA], sumB));
@@ -314,15 +321,17 @@ test("recognizes right-side overlap", async () => {
   const sumA: Sum = {
     start: 1,
     end: 3,
-    sum: 0n,
+    endMinedAt: new Date(),
     startMinedAt: new Date(),
+    sum: 0n,
   };
 
   const sumB: Sum = {
     start: 0,
     end: 2,
-    sum: 0n,
+    endMinedAt: new Date(),
     startMinedAt: new Date(),
+    sum: 0n,
   };
 
   assert.ok(BurnRecords.getIsOverlapping([sumA], sumB));

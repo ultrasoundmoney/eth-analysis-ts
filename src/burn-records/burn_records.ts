@@ -1,17 +1,16 @@
+import * as DateFns from "date-fns";
 import _ from "lodash";
-import * as Duration from "../duration.js";
-import * as DateFnsAlt from "../date_fns_alt.js";
 import { BlockDb, FeeBlockRow } from "../blocks/blocks.js";
 import * as Cartesian from "../cartesian.js";
+import * as DateFnsAlt from "../date_fns_alt.js";
 import { millisecondsBetweenAbs } from "../date_fns_alt.js";
 import { Denomination, denominations } from "../denominations.js";
+import * as Duration from "../duration.js";
 import { millisFromHours, millisFromMinutes } from "../duration.js";
 import { A, Ord, OrdM, pipe } from "../fp.js";
 import * as __ from "../lodash_alt.js";
-import * as TimeFrame from "../time_frame.js";
 import * as Log from "../log.js";
-import { record } from "io-ts/lib/Guard";
-import { feeRecordMap } from "./all.js";
+import * as TimeFrame from "../time_frame.js";
 
 // TODO: rename 'block' to 'b1'
 export const blockGranularity = "block" as const;
@@ -313,17 +312,20 @@ export const rollbackLastBlock = async (
 };
 
 export type Sum = {
-  start: number;
   end: number;
+  endMinedAt: Date;
+  start: number;
   startMinedAt: Date;
   sum: bigint;
 };
 
 export type RecordState = {
   denomination: Denomination;
+  // Used to calculate the next sum without refeteching all blocks.
   feeBlocks: FeeBlock[];
   feeBlockRollbackBuffer: FeeBlock[];
   sumsRollbackBuffer: Sum[];
+  // Used to drop top sums that fall outside the time frame.
   sums: Sum[];
   topSums: Sum[];
 };
@@ -345,8 +347,9 @@ export const makeNewSum = (
 ): Sum => {
   if (lastSum === undefined) {
     return {
-      start: block.number,
       end: block.number,
+      endMinedAt: block.minedAt,
+      start: block.number,
       startMinedAt: block.minedAt,
       sum: getBlockFees("eth", block),
     };
@@ -355,6 +358,7 @@ export const makeNewSum = (
   return {
     ...lastSum,
     end: lastSum.end + 1,
+    endMinedAt: block.minedAt,
     sum: lastSum.sum + getBlockFees(denomination, block),
   };
 };
@@ -366,12 +370,10 @@ const getIsBlockWithinMaxAgeWithMaxAge =
     maxAge;
 
 const getIsSumWithinMaxAgeWithMaxAge =
-  (maxAge: number, referenceSum: Sum) =>
+  (maxAge: number, referenceBlock: { minedAt: Date }) =>
   (sum: Sum): boolean =>
-    DateFnsAlt.millisecondsBetweenAbs(
-      referenceSum.startMinedAt,
-      sum.startMinedAt,
-    ) <= maxAge;
+    DateFnsAlt.millisecondsBetweenAbs(referenceBlock.minedAt, sum.endMinedAt) <=
+    maxAge;
 
 export const recordsCount = 10;
 export const rollbackBufferMillis = Duration.millisFromMinutes(10);
