@@ -49,6 +49,7 @@ export type BlockDb = {
   ethTransferSum: number;
   gasUsed: bigint;
   hash: string;
+  // TODO: rename this to timestamp.
   minedAt: Date;
   number: number;
   tips: number;

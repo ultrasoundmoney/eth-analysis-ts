@@ -34,10 +34,52 @@ const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
   tips: Number(rawBlock.tips),
 });
 
-const blocks5mPath = new URL("./blocks_5m.csv", import.meta.url).pathname;
+const blocksM5Path = new URL("./blocks_5m.csv", import.meta.url).pathname;
+const blocksH1Path = new URL("./blocks_1h.csv", import.meta.url).pathname;
+const blocksD1Path = new URL("./blocks_1d.csv", import.meta.url).pathname;
+
+let m5Blocks: BlockDb[] | undefined = undefined;
 
 export const getSingleBlock = async (): Promise<BlockDb> => {
-  const file = await fs.readFile(blocks5mPath, "utf8");
-  const rawBlocks = await neatCsv<RawBlock>(file);
-  return blockFromRawBlock(rawBlocks[1]);
+  if (m5Blocks === undefined) {
+    const file = await fs.readFile(blocksM5Path, "utf8");
+    const rawBlocks = await neatCsv<RawBlock>(file);
+    m5Blocks = rawBlocks.map(blockFromRawBlock);
+  }
+
+  return m5Blocks[1];
+};
+
+export const getM5Blocks = async (): Promise<BlockDb[]> => {
+  if (m5Blocks === undefined) {
+    const file = await fs.readFile(blocksM5Path, "utf8");
+    const rawBlocks = await neatCsv<RawBlock>(file);
+    m5Blocks = rawBlocks.map(blockFromRawBlock);
+  }
+
+  return m5Blocks;
+};
+
+let h1Blocks: BlockDb[] | undefined = undefined;
+
+export const getH1Blocks = async (): Promise<BlockDb[]> => {
+  if (h1Blocks === undefined) {
+    const file = await fs.readFile(blocksH1Path, "utf8");
+    const rawBlocks = await neatCsv<RawBlock>(file);
+    h1Blocks = rawBlocks.map(blockFromRawBlock);
+  }
+
+  return h1Blocks;
+};
+
+let d1Blocks: BlockDb[] | undefined = undefined;
+
+export const getD1Blocks = async (): Promise<BlockDb[]> => {
+  if (d1Blocks === undefined) {
+    const file = await fs.readFile(blocksD1Path, "utf8");
+    const rawBlocks = await neatCsv<RawBlock>(file);
+    d1Blocks = rawBlocks.map(blockFromRawBlock);
+  }
+
+  return d1Blocks;
 };

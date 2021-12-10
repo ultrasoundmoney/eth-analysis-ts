@@ -103,6 +103,7 @@ export const onRollback = async (
     latestIncludedBlock.number,
   ).reverse();
 
+  // TODO: exclude where granularity >= timeFrame
   for (const timeFrame of limitedTimeFrames) {
     const feeSetMap = feeSetMapPerTimeFrame[timeFrame];
     const feeRecordMap = feeRecordMapPerTimeFrame[timeFrame];

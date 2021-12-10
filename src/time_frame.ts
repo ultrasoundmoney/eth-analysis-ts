@@ -19,3 +19,11 @@ export const limitedTimeFrameMillisMap: Record<LimitedTimeFrame, number> = {
   "7d": Duration.millisFromDays(7),
   "30d": Duration.millisFromDays(30),
 };
+
+export const timeFrameMillisMap: Record<LimitedTimeFrame, number> = {
+  "5m": Duration.millisFromMinutes(5),
+  "1h": Duration.millisFromHours(1),
+  "24h": Duration.millisFromHours(24),
+  "7d": Duration.millisFromDays(7),
+  "30d": Duration.millisFromDays(30),
+};

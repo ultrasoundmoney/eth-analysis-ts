@@ -321,6 +321,7 @@ export const extendRowsWithFamDetails = (
 
 export type ContractAddress = string;
 export type ContractSums = Map<ContractAddress, number>;
+
 export const pickDenomination = (
   sums: ContractBaseFeesNext,
   denomination: "eth" | "usd",
