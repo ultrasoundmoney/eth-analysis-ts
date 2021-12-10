@@ -436,6 +436,108 @@ export const mergeCandidate2 = (
   };
 };
 
+export const getIsOverlapping = (records: Sum[], sum: Sum): boolean => {
+  for (const record of records) {
+    // Sum overlaps with record on right hand side.
+    if (sum.start <= record.start && sum.end >= record.start) {
+      return true;
+    }
+
+    // Sum overlaps with record on left hand side.
+    if (sum.start <= record.end && sum.end >= record.end) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+export const getRecords = (recordState: RecordState): Sum[] => {
+  const records: Sum[] = [];
+
+  for (const topSum of recordState.topSums) {
+    if (getIsOverlapping(records, topSum)) {
+      continue;
+    }
+
+    records.push(topSum);
+
+    if (records.length === recordsCount) {
+      return records;
+    }
+  }
+
+  throw new Error(
+    "hit end of top sums without finding desired number of records",
+  );
+};
+
+// NOTE: to review
+// Figures out what blocks to add back from the fee block rollback buffer.
+const getFeeBlocksForRollback = (
+  recordState: RecordState,
+  granularity: Granularity,
+): FeeBlock[] => {
+  // For the `block` granularity we don't rollback time-wise, we simply roll back one block.
+  if (granularity === "block") {
+    const lastExpiredFeeBlock = _.last(recordState.feeBlockRollbackBuffer);
+    if (lastExpiredFeeBlock === undefined) {
+      Log.warn(
+        "tried to rollback burn records with block granularity but exhausted the rollback buffer",
+      );
+      return [];
+    }
+    return [lastExpiredFeeBlock];
+  }
+
+  // To rollback all fee blocks we dropped for the last added block, we need to add back all fee blocks that were still within our granularity one block ago.
+  const tipBeforeRestore = _.last(recordState.feeBlocks);
+  if (tipBeforeRestore === undefined) {
+    throw new Error(
+      `tried to rollback burn records with ${granularity} granularity, but no fee block left to reference to determine which blocks in the rollback buffer are inside the current granularity`,
+    );
+  }
+  const getIsBlockWithinGranularity = getIsBlockWithinMaxAgeWithMaxAge(
+    granularityMillisMap[granularity],
+    tipBeforeRestore!,
+  );
+  const feeBlocksToRestore = _.takeRightWhile(
+    recordState.feeBlockRollbackBuffer,
+    getIsBlockWithinGranularity,
+  );
+
+  return feeBlocksToRestore;
+};
+
+export const getMatchingSumIndexFromRight = (
+  sorting: Sorting,
+  topSums: Sum[],
+  sum: Sum,
+): number | undefined => {
+  if (topSums.length === 0) {
+    return undefined;
+  }
+
+  const lt = OrdM.lt(topSumOrderingMap[sorting]);
+  for (let i = topSums.length - 1; i >= 0; i--) {
+    const candidate = topSums[i];
+
+    // Found it!
+    if (candidate.end === sum.end) {
+      return i;
+    }
+
+    // Not going to find it anymore.
+    if (lt(sum, candidate)) {
+      return undefined;
+    }
+  }
+
+  throw new Error(
+    "no matching top sum found but sum is greater than all top sums",
+  );
+};
+
 export const addBlockToState = (
   recordState: RecordState,
   block: FeeBlockRow,
@@ -546,72 +648,6 @@ export const addBlockToState = (
   return recordState;
 };
 
-// NOTE: to review
-// Figures out what blocks to add back from the fee block rollback buffer.
-const getFeeBlocksForRollback = (
-  recordState: RecordState,
-  granularity: Granularity,
-): FeeBlock[] => {
-  // For the `block` granularity we don't rollback time-wise, we simply roll back one block.
-  if (granularity === "block") {
-    const lastExpiredFeeBlock = _.last(recordState.feeBlockRollbackBuffer);
-    if (lastExpiredFeeBlock === undefined) {
-      Log.warn(
-        "tried to rollback burn records with block granularity but exhausted the rollback buffer",
-      );
-      return [];
-    }
-    return [lastExpiredFeeBlock];
-  }
-
-  // To rollback all fee blocks we dropped for the last added block, we need to add back all fee blocks that were still within our granularity one block ago.
-  const tipBeforeRestore = _.last(recordState.feeBlocks);
-  if (tipBeforeRestore === undefined) {
-    throw new Error(
-      `tried to rollback burn records with ${granularity} granularity, but no fee block left to reference to determine which blocks in the rollback buffer are inside the current granularity`,
-    );
-  }
-  const getIsBlockWithinGranularity = getIsBlockWithinMaxAgeWithMaxAge(
-    granularityMillisMap[granularity],
-    tipBeforeRestore!,
-  );
-  const feeBlocksToRestore = _.takeRightWhile(
-    recordState.feeBlockRollbackBuffer,
-    getIsBlockWithinGranularity,
-  );
-
-  return feeBlocksToRestore;
-};
-
-export const getMatchingSumIndexFromRight = (
-  sorting: Sorting,
-  topSums: Sum[],
-  sum: Sum,
-): number | undefined => {
-  if (topSums.length === 0) {
-    return undefined;
-  }
-
-  const lt = OrdM.lt(topSumOrderingMap[sorting]);
-  for (let i = topSums.length - 1; i >= 0; i--) {
-    const candidate = topSums[i];
-
-    // Found it!
-    if (candidate.end === sum.end) {
-      return i;
-    }
-
-    // Not going to find it anymore.
-    if (lt(sum, candidate)) {
-      return undefined;
-    }
-  }
-
-  throw new Error(
-    "no matching top sum found but sum is greater than all top sums",
-  );
-};
-
 export const rollbackBlock = (
   recordState: RecordState,
   granularity: Granularity,
@@ -677,40 +713,4 @@ export const rollbackBlock = (
   recordState.sums = [...sumsToRestore, ...recordState.sums];
 
   return recordState;
-};
-
-export const getIsOverlapping = (records: Sum[], sum: Sum): boolean => {
-  for (const record of records) {
-    // Sum overlaps with record on right hand side.
-    if (sum.start <= record.start && sum.end >= record.start) {
-      return true;
-    }
-
-    // Sum overlaps with record on left hand side.
-    if (sum.start <= record.end && sum.end >= record.end) {
-      return true;
-    }
-  }
-
-  return false;
-};
-
-export const getRecords = (recordState: RecordState): Sum[] => {
-  const records: Sum[] = [];
-
-  for (const topSum of recordState.topSums) {
-    if (getIsOverlapping(records, topSum)) {
-      continue;
-    }
-
-    records.push(topSum);
-
-    if (records.length === recordsCount) {
-      return records;
-    }
-  }
-
-  throw new Error(
-    "hit end of top sums without finding desired number of records",
-  );
 };
