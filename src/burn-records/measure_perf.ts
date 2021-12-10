@@ -11,13 +11,15 @@ Log.info("measuring add all blocks performance");
 
 const t0 = performance.now();
 const lastStoredBlock = await Blocks.getLastStoredBlock();
+Log.info(`last stored block is: ${lastStoredBlock.number}`);
 // const blocksCount = await sql<{ count: number }[]>`
 //   SELECT COUNT(*) FROM blocks
 //   WHERE number >= 12965000
 //   AND number <= ${lastStoredBlock.number}
 // `;
 
-const blocks = await Blocks.getFeeBlocks(12965000, lastStoredBlock.number);
+// const blocks = await Blocks.getFeeBlocks(12965000, lastStoredBlock.number);
+const blocks = await Blocks.getFeeBlocks(12965000, 12971000);
 
 Performance.logPerf("fetched all blocks in", t0);
 
@@ -34,16 +36,19 @@ const eta = makeEta({
   max: blocks.length,
 });
 
-setInterval(() => {
-  Log.info(`sync missing blocks, eta: ${eta.estimate()}s`);
-}, 4000);
-
 for (const block of blocks) {
   for (const recordState of recordStates) {
     BurnRecords.addBlockToState(recordState, block);
   }
   blocksDone = blocksDone + 1;
   eta.report(blocksDone);
+  if (new Date().getSeconds() % 15 === 0) {
+    Log.info(
+      `burn records process all eta estimate: ${eta.estimate()}s, last block: ${
+        block.number
+      }`,
+    );
+  }
 }
 
 Performance.logPerf("added all blocks to state in", t0);
