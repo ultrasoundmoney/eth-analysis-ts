@@ -1,4 +1,5 @@
 import _ from "lodash";
+import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import * as Log from "../log.js";
 import { logPerf } from "../performance.js";
@@ -41,10 +42,26 @@ export const init = async () => {
       recordStates,
       timeFrame,
     );
+
+    const eta = makeEta({ max: blocksInTimeFrame.length });
+    let blocksDone = 0;
+
+    const id = setInterval(() => {
+      eta.report(blocksDone);
+      if (blocksDone === blocksInTimeFrame.length) {
+        clearInterval(id);
+        return;
+      }
+      Log.debug(
+        `burn records add blocks to ${timeFrame} state, eta: ${eta.estimate()}s`,
+      );
+    }, 8000);
+
     for (const block of blocksOldToNew) {
       for (const recordState of timeFrameRecordStates) {
         addBlockToState(recordState, block);
       }
+      blocksDone = blocksDone + 1;
     }
   }
   logPerf("init burn records, adding blocks to time frames", tInitAllState);
