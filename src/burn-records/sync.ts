@@ -34,7 +34,7 @@ export const init = async () => {
     const blocksInTimeFrame = _.dropWhile(allBlocks, getIsBlockWithinTimeFrame);
     const blocksOldToNew = blocksInTimeFrame.reverse();
     logPerf(
-      "init burn records, filter time frame blocks from all",
+      `init burn records, filter time frame ${timeFrame} blocks`,
       tFilterBlocks,
     );
     const timeFrameRecordStates = getRecordStatesByTimeFrame(
