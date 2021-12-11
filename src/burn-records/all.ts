@@ -121,7 +121,7 @@ export const onRollback = async (
     `burn record all rollback to and including block: ${rollbackToAndIncluding}`,
   );
 
-  const latestIncludedBlock = _.last(recordStates[0].feeBlocks);
+  const latestIncludedBlock = recordStates[0].feeBlocks.peekBack();
 
   if (latestIncludedBlock === undefined) {
     Log.warn(

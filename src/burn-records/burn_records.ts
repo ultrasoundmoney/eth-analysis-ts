@@ -1,4 +1,5 @@
 import * as DateFns from "date-fns";
+import Denque from "denque";
 import _ from "lodash";
 import { BlockDb, FeeBlockRow } from "../blocks/blocks.js";
 import * as Cartesian from "../cartesian.js";
@@ -51,11 +52,11 @@ export const makeRecordState = (
 ): RecordState => ({
   granularity,
   timeFrame,
-  sums: [],
+  sums: new Denque(),
   topSumsMap: { eth: { max: [], min: [] }, usd: { max: [], min: [] } },
-  feeBlocks: [],
-  sumsRollbackBuffer: [],
-  feeBlockRollbackBuffer: [],
+  feeBlocks: new Denque(),
+  sumsRollbackBuffer: new Denque(),
+  feeBlockRollbackBuffer: new Denque(),
 });
 
 export const getIsBlockWithinReferenceMaxAge =
@@ -124,13 +125,13 @@ export type Sum = {
 
 export type RecordState = {
   granularity: Granularity;
-  feeBlockRollbackBuffer: FeeBlock[];
+  feeBlockRollbackBuffer: Denque<FeeBlock>;
   // Used to calculate the next sum without refeteching all blocks.
-  feeBlocks: FeeBlock[];
+  feeBlocks: Denque<FeeBlock>;
   // Used to rollback to the previous sum we were calculating with.
   // Used to drop top sums that fall outside the time frame?
-  sums: Sum[];
-  sumsRollbackBuffer: Sum[];
+  sums: Denque<Sum>;
+  sumsRollbackBuffer: Denque<Sum>;
   timeFrame: TimeFrame;
   topSumsMap: Record<Denomination, Record<Sorting, Sum[]>>;
 };
@@ -280,39 +281,36 @@ export const getRecords = (topSums: Sum[]): Sum[] => {
 
 // NOTE: to review
 // Figures out what blocks to add back from the fee block rollback buffer.
-const getFeeBlocksForRollback = (
+const getBlocksToRestoreCount = (
   recordState: RecordState,
   granularity: Granularity,
-): FeeBlock[] => {
+): number => {
   // For the `block` granularity we don't rollback time-wise, we simply roll back one block.
   if (granularity === "block") {
-    const lastExpiredFeeBlock = _.last(recordState.feeBlockRollbackBuffer);
-    if (lastExpiredFeeBlock === undefined) {
-      Log.warn(
-        "tried to rollback burn records with block granularity but exhausted the rollback buffer",
-      );
-      return [];
-    }
-    return [lastExpiredFeeBlock];
+    return 1;
   }
 
   // To rollback all fee blocks we dropped for the last added block, we need to add back all fee blocks that were still within our granularity one block ago.
-  const tipBeforeRestore = _.last(recordState.feeBlocks);
-  if (tipBeforeRestore === undefined) {
+  const newTip = recordState.feeBlocks.peekBack();
+  if (newTip === undefined) {
     throw new Error(
       `tried to rollback burn records with ${granularity} granularity, but no fee block left to reference to determine which blocks in the rollback buffer are inside the current granularity`,
     );
   }
   const getIsBlockWithinGranularity = getIsBlockWithinMaxAgeWithMaxAge(
     granularityMillisMap[granularity],
-    tipBeforeRestore!,
+    newTip!,
   );
-  const feeBlocksToRestore = _.takeRightWhile(
-    recordState.feeBlockRollbackBuffer,
-    getIsBlockWithinGranularity,
-  );
-
-  return feeBlocksToRestore;
+  let i = 0;
+  let newestFeeBlock = recordState.feeBlockRollbackBuffer.peekBack();
+  while (
+    newestFeeBlock !== undefined &&
+    getIsBlockWithinGranularity(newestFeeBlock)
+  ) {
+    i++;
+    newestFeeBlock = recordState.feeBlockRollbackBuffer.peekAt(i);
+  }
+  return i;
 };
 
 export const getMatchingSumIndexFromRight = (
@@ -353,7 +351,7 @@ export const addBlockToState = (
 
   const feeBlockToAdd = feeBlockFromBlock(block);
 
-  const lastSum = _.last(recordState.sums);
+  const lastSum = recordState.sums.peekBack();
 
   const newSum = makeNewSum(lastSum, block);
 
@@ -368,18 +366,20 @@ export const addBlockToState = (
         );
 
   // Remove expired fees from the current sum, and remember removed blocks.
-  const expiredBlocks = _.takeWhile(
-    recordState.feeBlocks,
-    (block) => !getIsBlockWithinGranularity(block),
-  );
-  recordState.feeBlockRollbackBuffer.push(...expiredBlocks);
-  newSum.start = newSum.start + expiredBlocks.length;
-  newSum.startMinedAt = _.first(recordState.feeBlocks)!.minedAt;
-  newSum.sumEth = newSum.sumEth - sumFeeBlocks("eth", expiredBlocks);
-  newSum.sumUsd = newSum.sumUsd - sumFeeBlocks("usd", expiredBlocks);
-
   // Keep the live blocks for the current sum.
-  recordState.feeBlocks = _.drop(recordState.feeBlocks, expiredBlocks.length);
+  let oldestFeeBlock = recordState.feeBlocks.peekFront();
+  while (
+    oldestFeeBlock !== undefined &&
+    !getIsBlockWithinGranularity(oldestFeeBlock)
+  ) {
+    const expiredBlock = recordState.feeBlocks.shift()!;
+    recordState.feeBlockRollbackBuffer.push(expiredBlock);
+    newSum.start = newSum.start + 1;
+    newSum.startMinedAt = recordState.feeBlocks.peekFront()!.minedAt;
+    newSum.sumEth = newSum.sumEth - expiredBlock.feesEth;
+    newSum.sumUsd = newSum.sumUsd - expiredBlock.feesUsd;
+    oldestFeeBlock = recordState.feeBlocks.peekFront();
+  }
 
   // Update sums.
   recordState.sums.push(newSum);
@@ -411,46 +411,51 @@ export const addBlockToState = (
           feeBlockToAdd,
         );
 
-  const expiredSums = _.takeWhile(
-    recordState.sums,
-    (sum) => !getIsSumWithinTimeFrame(sum),
-  );
-
-  const expiredSumsSet = new Set(expiredSums.map((sum) => sum.end));
-
+  let oldestSum = recordState.sums.peekFront();
+  const expiredSumSet = new Set();
   // Drop expired sums from sums.
-  recordState.sums = _.drop(recordState.sums, expiredSums.length);
+  while (oldestSum !== undefined && !getIsSumWithinTimeFrame(oldestSum)) {
+    const expiredSum = recordState.sums.shift()!;
+    expiredSumSet.add(expiredSum.end);
+    recordState.sumsRollbackBuffer.push(expiredSum);
+    oldestSum = recordState.sums.peekFront();
+  }
 
   // Drop expired sums from top sums.
   for (const [denomination, sorting] of dimensions) {
     const topSums = recordState.topSumsMap[denomination][sorting];
     recordState.topSumsMap[denomination][sorting] = topSums.filter(
-      (sum) => !expiredSumsSet.has(sum.end),
+      (sum) => !expiredSumSet.has(sum.end),
     );
   }
-
-  // Remember expired sums.
-  recordState.sumsRollbackBuffer.push(...expiredSums);
 
   const getIsBlockWithinRollbackBuffer = getIsBlockWithinMaxAgeWithMaxAge(
     rollbackBufferMillis,
     block,
   );
 
-  recordState.feeBlockRollbackBuffer = _.dropWhile(
-    recordState.feeBlockRollbackBuffer,
-    (block) => !getIsBlockWithinRollbackBuffer(block),
-  );
+  let oldestBufferFeeBlock = recordState.feeBlockRollbackBuffer.peekFront();
+  while (
+    oldestBufferFeeBlock !== undefined &&
+    !getIsBlockWithinRollbackBuffer(oldestBufferFeeBlock)
+  ) {
+    recordState.feeBlockRollbackBuffer.shift();
+    oldestBufferFeeBlock = recordState.feeBlockRollbackBuffer.peekFront();
+  }
 
   const getIsSumWithinRollbackBuffer = getIsSumWithinMaxAgeWithMaxAge(
     rollbackBufferMillis,
     feeBlockToAdd,
   );
 
-  recordState.sumsRollbackBuffer = _.dropWhile(
-    recordState.sumsRollbackBuffer,
-    (sum) => !getIsSumWithinRollbackBuffer(sum),
-  );
+  let oldestBufferSum = recordState.sumsRollbackBuffer.peekFront();
+  while (
+    oldestBufferSum !== undefined &&
+    !getIsSumWithinRollbackBuffer(oldestBufferSum)
+  ) {
+    recordState.sumsRollbackBuffer.shift();
+    oldestBufferSum = recordState.sumsRollbackBuffer.peekFront();
+  }
 
   return recordState;
 };
@@ -460,7 +465,7 @@ export const rollbackBlock = (
   block?: BlockDb,
 ): RecordState => {
   const { granularity, timeFrame } = recordState;
-  const lastBlock = _.last(recordState.feeBlocks);
+  const lastBlock = recordState.feeBlocks.peekBack();
 
   Log.debug(
     `burn records ${timeFrame} rollback, ${lastBlock?.number}, ${granularity}`,
@@ -473,20 +478,22 @@ export const rollbackBlock = (
   }
 
   // Drop the most recently added fee block.
-  recordState.feeBlocks = _.dropRight(recordState.feeBlocks, 1);
+  recordState.feeBlocks.pop();
 
   // Restore fee blocks from rollback buffer that are within the interval `lastFeeBlock - granularity`.
-  const feeBlocksToRestore = getFeeBlocksForRollback(recordState, granularity);
   // Drop blocks we use from the rollback buffer.
-  recordState.feeBlockRollbackBuffer = _.dropRight(
-    recordState.feeBlockRollbackBuffer,
-    feeBlocksToRestore.length,
+  const blocksToRestoreCount = getBlocksToRestoreCount(
+    recordState,
+    granularity,
   );
-  // Add them back onto fee blocks.
-  recordState.feeBlocks = [...feeBlocksToRestore, ...recordState.feeBlocks];
+  for (let i = 0; i < blocksToRestoreCount; i++) {
+    const feeBlockToRestore = recordState.feeBlockRollbackBuffer.pop()!;
+    // Add them back onto fee blocks.
+    recordState.feeBlocks.unshift(feeBlockToRestore);
+  }
 
   // Remove the last sum we calculated from top sums.
-  const lastSum = _.last(recordState.sums);
+  const lastSum = recordState.sums.peekBack();
 
   if (lastSum === undefined) {
     throw new Error(
@@ -509,36 +516,40 @@ export const rollbackBlock = (
   }
 
   // Drop the last sum we calculated
-  recordState.sums = recordState.sums.slice(0, -1);
+  recordState.sums.pop();
 
   const getIsSumWithinTimeFrame =
     timeFrame === "all"
       ? () => true
       : getIsSumWithinMaxAgeWithMaxAge(
           TimeFrames.timeFrameMillisMap[timeFrame],
-          _.last(recordState.feeBlocks)!,
+          recordState.feeBlocks.peekBack()!,
         );
 
-  const sumsToRestore = _.takeRightWhile(
-    recordState.sumsRollbackBuffer,
-    getIsSumWithinTimeFrame,
-  );
+  let newestBufferSum = recordState.sumsRollbackBuffer.peekBack();
+  // const sumsToRestore = _.takeRightWhile(
+  //   recordState.sumsRollbackBuffer,
+  //   getIsSumWithinTimeFrame,
+  // );
 
-  // Drop sums we restore
-  recordState.sumsRollbackBuffer = _.dropRight(
-    recordState.sumsRollbackBuffer,
-    sumsToRestore.length,
-  );
-
-  // Restore sums
-  recordState.sums = [...sumsToRestore, ...recordState.sums];
-
-  // Restore top sums
-  for (const [denomination, sorting] of dimensions) {
-    recordState.topSumsMap[denomination][sorting] = sumsToRestore.reduce(
-      (topSums, sum) => mergeCandidate2(denomination, sorting, topSums, sum),
-      recordState.topSumsMap[denomination][sorting],
-    );
+  while (
+    newestBufferSum !== undefined &&
+    getIsSumWithinTimeFrame(newestBufferSum)
+  ) {
+    // Drop sums we restore
+    const sumToRestore = recordState.sumsRollbackBuffer.pop()!;
+    // Restore sums
+    recordState.sums.unshift(sumToRestore);
+    // Restore top sums
+    for (const [denomination, sorting] of dimensions) {
+      recordState.topSumsMap[denomination][sorting] = mergeCandidate2(
+        denomination,
+        sorting,
+        recordState.topSumsMap[denomination][sorting],
+        sumToRestore,
+      );
+    }
+    newestBufferSum = recordState.sumsRollbackBuffer.peekBack();
   }
 
   return recordState;

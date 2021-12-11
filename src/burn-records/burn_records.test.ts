@@ -53,7 +53,7 @@ FeeBlocks("a new block results in a new fee block", async () => {
   const block = await BlocksData.getSingleBlock();
   const newState = advanceState(makeAddUpdates([block]), makeM5State());
 
-  const [lastFeeBlock] = newState.feeBlocks;
+  const lastFeeBlock = newState.feeBlocks.peekFront();
   assert.is(lastFeeBlock?.number, block.number);
 });
 
@@ -62,7 +62,7 @@ FeeBlocks("a new block results in a new sum", async () => {
   const feeBlock = BurnRecords.feeBlockFromBlock(block);
   const finalState = advanceState(makeAddUpdates([block]), makeM5State());
 
-  const [lastSum] = finalState.sums;
+  const lastSum = finalState.sums.peekFront();
   const expectedSum: Sum = {
     end: feeBlock.number,
     endMinedAt: feeBlock.minedAt,
@@ -80,7 +80,7 @@ FeeBlocks("block granularity adds at most one fee block", async () => {
   const blocks = m5Blocks.slice(1, 3);
   const finalState = advanceState(makeAddUpdates(blocks));
 
-  const lastFeeBlock = _.last(finalState.feeBlocks);
+  const lastFeeBlock = finalState.feeBlocks.peekBack();
 
   const expectedFees: FeeBlock = BurnRecords.feeBlockFromBlock(blocks[1]);
 
@@ -93,7 +93,7 @@ const Sums = suite("Sums");
 Sums("adding two blocks results in a sum of the two", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(1, 3);
   const { sums } = advanceState(makeAddUpdates(blocks), makeM5State());
-  const lastSum = _.last(sums);
+  const lastSum = sums.peekBack();
   const feeBlocks = blocks.map((block) => BurnRecords.feeBlockFromBlock(block));
 
   const expectedSum = {
@@ -398,11 +398,11 @@ Rollbacks(
     const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
 
     const state1 = advanceState(makeAddUpdates(blocks));
-    const last1 = _.last(state1.feeBlocks)!;
+    const last1 = state1.feeBlocks.peekBack()!;
     assert.is(last1.number, blocks[1].number);
 
     const state2 = advanceState(makeRollbackUpdates(1), state1);
-    const last2 = _.last(state2.feeBlocks)!;
+    const last2 = state2.feeBlocks.peekBack()!;
     assert.is(last2.number, blocks[0].number);
   },
 );
@@ -414,11 +414,11 @@ Rollbacks(
 
     const initState = makeM5State();
     const state1 = advanceState(makeAddUpdates(blocks), initState);
-    const last1 = _.last(state1.feeBlocks)!;
+    const last1 = state1.feeBlocks.peekBack()!;
     assert.is(last1.number, blocks[1].number);
 
     const state2 = advanceState(makeRollbackUpdates(1), state1);
-    const last2 = _.last(state2.feeBlocks)!;
+    const last2 = state2.feeBlocks.peekBack()!;
     assert.is(last2.number, blocks[0].number);
   },
 );
@@ -458,7 +458,7 @@ Rollbacks(
       ...makeRollbackUpdates(2),
     ]);
 
-    assert.is(_.last(finalState.feeBlocks)!.number, blocks[0].number);
+    assert.is(finalState.feeBlocks.peekBack()!.number, blocks[0].number);
   },
 );
 
@@ -472,7 +472,7 @@ Rollbacks(
       initState,
     );
 
-    assert.is(_.last(finalState.feeBlocks)!.number, blocks[0].number);
+    assert.is(finalState.feeBlocks.peekBack()!.number, blocks[0].number);
   },
 );
 
