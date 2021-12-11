@@ -141,11 +141,3 @@ export const onRollback = async (
     await storeLastAnalyzed(blockNumber - 1);
   }
 };
-
-export const granularitySqlMap: Record<Granularity, string> = {
-  block: "0 seconds",
-  m5: "5 minutes",
-  h1: "1 hours",
-  d1: "1 days",
-  d7: "7 days",
-};

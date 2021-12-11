@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import { calcBaseFeeSums } from "../base_fee_sums.js";
-import * as BurnRecordsLimitedTimeFrames from "../burn-records/limited_time_frames.js";
+import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import { calcBurnRates } from "../burn_rates.js";
 import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
@@ -37,8 +37,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
   await Promise.all([
     LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
     LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
-    // BurnRecordsAll.onRollback(blockNumber),
-    // BurnRecordsLimitedTimeFrames.onRollback(blockNumber),
+    BurnRecordsNewHead.onRollback(blockNumber),
   ]);
 
   await Contracts.deleteContractsMinedAt(blockNumber);

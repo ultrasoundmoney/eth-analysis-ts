@@ -1,24 +1,24 @@
 import * as Sentry from "@sentry/node";
-import { millisFromSeconds } from "../duration.js";
-import { BlockLondon } from "../eth_node.js";
-import { A, O, pipe, T, TAlt } from "../fp.js";
 import * as DateFns from "date-fns";
-import { segmentTxrs, TxRWeb3London } from "../transactions.js";
-import * as PerformanceMetrics from "../performance_metrics.js";
-import * as EthNode from "../eth_node.js";
-import * as Log from "../log.js";
-import { delay } from "../delay.js";
 import {
   calcBlockBaseFeeSum,
   calcBlockFeeBreakdown,
   calcBlockTips,
   FeeBreakdown,
 } from "../base_fees.js";
-import { sql, SqlArg } from "../db.js";
-import { usdToScaled } from "../scaling.js";
-import { setContractsMinedAt, storeContracts } from "../contracts.js";
-import { granularitySqlMap } from "../burn-records/all.js";
+import * as BurnRecords from "../burn-records/burn_records.js";
 import { Granularity } from "../burn-records/burn_records.js";
+import { setContractsMinedAt, storeContracts } from "../contracts.js";
+import { sql } from "../db.js";
+import { delay } from "../delay.js";
+import { millisFromSeconds } from "../duration.js";
+import * as EthNode from "../eth_node.js";
+import { BlockLondon } from "../eth_node.js";
+import { A, O, pipe, T } from "../fp.js";
+import * as Log from "../log.js";
+import * as PerformanceMetrics from "../performance_metrics.js";
+import { usdToScaled } from "../scaling.js";
+import { segmentTxrs, TxRWeb3London } from "../transactions.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -415,7 +415,7 @@ export const getBlocksForGranularity = async (
   granularity: Granularity,
   referenceBlock: BlockDb,
 ): Promise<FeeBlockRow[]> => {
-  const interval = granularitySqlMap[granularity];
+  const interval = BurnRecords.granularitySqlMap[granularity];
   const pastBlock = await getPastBlock(referenceBlock, interval);
   return getFeeBlocks(pastBlock.number, referenceBlock.number);
 };

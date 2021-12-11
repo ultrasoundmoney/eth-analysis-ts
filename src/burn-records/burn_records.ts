@@ -59,6 +59,47 @@ export const makeRecordState = (
   feeBlockRollbackBuffer: new Denque(),
 });
 
+export const granularitySqlMap: Record<Granularity, string> = {
+  block: "0 seconds",
+  m5: "5 minutes",
+  h1: "1 hours",
+  d1: "1 days",
+  d7: "7 days",
+};
+
+export const getIsGranularityEnabledForTimeFrame = (
+  granularity: Granularity,
+  timeFrame: TimeFrame,
+) => {
+  if (granularity === "block") {
+    return true;
+  }
+
+  if (timeFrame === "all") {
+    return true;
+  }
+
+  const granularityMillis = granularityMillisMap[granularity];
+  const timeFrameMillis = TimeFrames.timeFrameMillisMap[timeFrame];
+
+  if (timeFrameMillis > granularityMillis) {
+    return true;
+  }
+
+  return false;
+};
+
+export const recordStates = Cartesian.make2(
+  granularities,
+  TimeFrames.timeFrames,
+)
+  .map(([granularity, timeFrame]) =>
+    getIsGranularityEnabledForTimeFrame(granularity, timeFrame)
+      ? makeRecordState(granularity, timeFrame)
+      : undefined,
+  )
+  .filter((v): v is RecordState => v !== undefined);
+
 export const getIsBlockWithinReferenceMaxAge =
   (maxAge: number, referenceBlock: { minedAt: Date }) =>
   (targetBlock: { minedAt: Date }) =>
@@ -106,13 +147,6 @@ export const topSumOrderingMap: Record<
     ),
   },
 };
-
-export type OnNewRecordSet = (
-  denomination: Denomination,
-  granularity: Granularity,
-  sorting: Sorting,
-  feeRecords: FeeRecord[],
-) => Promise<void>;
 
 export type Sum = {
   end: number;
@@ -201,13 +235,11 @@ export const getTopSumsMaxCount = (granularity: Granularity): number => {
 export const mergeCandidate2 = (
   denomination: Denomination,
   sorting: Sorting,
-  // granularity: Granularity,
   topSums: Sum[],
   sum: Sum,
 ): Sum[] => {
   const sumGreaterThan = OrdM.gt(topSumOrderingMap[denomination][sorting]);
   const sumEqualTo = topSumOrderingMap[denomination][sorting].equals;
-  // const topSumsMaxCount = getTopSumsMaxCount(granularity);
 
   // Find the index the candidate would rank at.
   let i = topSums.length;
@@ -221,26 +253,7 @@ export const mergeCandidate2 = (
     }
   }
 
-  // Don't add candidates worse than our worst when topSums is at limit.
-  // if (i === topSums.length && topSums.length >= topSumsMaxCount) {
-  //   return {
-  //     topSums,
-  //     isNewRecordSet: false,
-  //   };
-  // }
-
-  const mergedSums = __.insertAt(i, sum, topSums);
-  // const newTopSums = _.dropRight(
-  //   mergedSums,
-  //   mergedSums.length - topSumsMaxCount,
-  // );
-
-  // Otherwise, insert at the correct index.
-  // return {
-  //   topSums: newTopSums,
-  //   isNewRecordSet: true,
-  // };
-  return mergedSums;
+  return __.insertAt(i, sum, topSums);
 };
 
 export const getIsOverlapping = (records: Sum[], sum: Sum): boolean => {
@@ -555,24 +568,8 @@ export const rollbackBlock = (
   return recordState;
 };
 
-export const getIsGranularityEnabledForTimeFrame = (
-  granularity: Granularity,
+export const getRecordStatesByTimeFrame = (
+  recordStates: RecordState[],
   timeFrame: TimeFrame,
-) => {
-  if (granularity === "block") {
-    return true;
-  }
-
-  if (timeFrame === "all") {
-    return true;
-  }
-
-  const granularityMillis = granularityMillisMap[granularity];
-  const timeFrameMillis = TimeFrames.timeFrameMillisMap[timeFrame];
-
-  if (timeFrameMillis > granularityMillis) {
-    return true;
-  }
-
-  return false;
-};
+): RecordState[] =>
+  recordStates.filter((recordState) => recordState.timeFrame === timeFrame)!;

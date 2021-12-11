@@ -6,7 +6,7 @@ import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { getBlockWithRetry } from "./blocks.js";
-import { addBlock } from "./new_block.js";
+import { addBlock } from "./new_head.js";
 
 const syncBlock = async (blockNumber: number): Promise<void> => {
   Log.debug(`sync block: ${blockNumber}`);
