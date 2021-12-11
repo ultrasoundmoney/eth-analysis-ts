@@ -12,15 +12,11 @@ import {
   addBlockToState,
   FeeBlock,
   FeeRecord,
-  granularities,
   Granularity,
   RecordState,
   rollbackBlock,
-  rollbackLastBlock,
   Sorting,
-  sortings,
 } from "./burn_records.js";
-import * as Cartesian from "../cartesian.js";
 
 export const recordStates: RecordState[] = [];
 // export const recordStates = Cartesian.make3(

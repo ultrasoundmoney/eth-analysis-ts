@@ -1,7 +1,6 @@
 import _ from "lodash";
 import * as Blocks from "../blocks/blocks.js";
 import * as Cartesian from "../cartesian.js";
-import { denominations } from "../denominations.js";
 import * as Log from "../log.js";
 import { logPerf } from "../performance.js";
 import * as TimeFrames from "../time_frames.js";
@@ -9,46 +8,20 @@ import { TimeFrame } from "../time_frames.js";
 import {
   addBlockToState,
   getIsBlockWithinReferenceMaxAge,
+  getIsGranularityEnabledForTimeFrame,
   granularities,
-  Granularity,
-  granularityMillisMap,
   makeRecordState,
   RecordState,
   rollbackBlock,
-  sortings,
 } from "./burn_records.js";
 
-const getIsGranularityEnabledForTimeFrame = (
-  granularity: Granularity,
-  timeFrame: TimeFrame,
-) => {
-  if (granularity === "block") {
-    return true;
-  }
-
-  if (timeFrame === "all") {
-    return true;
-  }
-
-  const granularityMillis = granularityMillisMap[granularity];
-  const timeFrameMillis = TimeFrames.timeFrameMillisMap[timeFrame];
-
-  if (timeFrameMillis > granularityMillis) {
-    return true;
-  }
-
-  return false;
-};
-
-const recordStates = Cartesian.make4(
-  denominations,
+const recordStates = Cartesian.make2(
   granularities,
   TimeFrames.limitedTimeFrames,
-  sortings,
 )
-  .map(([denomination, granularity, timeFrame, sorting]) =>
+  .map(([granularity, timeFrame]) =>
     getIsGranularityEnabledForTimeFrame(granularity, timeFrame)
-      ? makeRecordState(denomination, granularity, sorting, timeFrame)
+      ? makeRecordState(granularity, timeFrame)
       : undefined,
   )
   .filter((v): v is RecordState => v !== undefined);

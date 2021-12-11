@@ -21,8 +21,7 @@ const advanceState = (
   instructions: StateInstruction[],
   recordState?: RecordState,
 ): RecordState => {
-  const initState =
-    recordState || BurnRecords.makeRecordState("eth", "block", "max", "5m");
+  const initState = recordState || BurnRecords.makeRecordState("block", "5m");
 
   return instructions.reduce((state, instruction) => {
     if (instruction.type === "add") {
@@ -46,7 +45,7 @@ const makeAddUpdates = (blocks: BlockDb[]): StateInstruction[] =>
 const makeRollbackUpdates = (n: number): StateInstruction[] =>
   new Array(n).fill(null).map(() => ({ type: "rollback" }));
 
-const makeM5State = () => BurnRecords.makeRecordState("eth", "m5", "max", "5m");
+const makeM5State = () => BurnRecords.makeRecordState("m5", "5m");
 
 const FeeBlocks = suite("FeeBlocks");
 
@@ -60,7 +59,7 @@ FeeBlocks("a new block results in a new fee block", async () => {
 
 FeeBlocks("a new block results in a new sum", async () => {
   const block = await BlocksData.getSingleBlock();
-  const feeBlock = BurnRecords.feeBlockFromBlock("eth", block);
+  const feeBlock = BurnRecords.feeBlockFromBlock(block);
   const finalState = advanceState(makeAddUpdates([block]), makeM5State());
 
   const [lastSum] = finalState.sums;
@@ -69,7 +68,8 @@ FeeBlocks("a new block results in a new sum", async () => {
     endMinedAt: feeBlock.minedAt,
     start: feeBlock.number,
     startMinedAt: feeBlock.minedAt,
-    sum: feeBlock.fees,
+    sumEth: feeBlock.feesEth,
+    sumUsd: feeBlock.feesUsd,
   };
 
   assert.equal(lastSum, expectedSum);
@@ -82,10 +82,7 @@ FeeBlocks("block granularity adds at most one fee block", async () => {
 
   const lastFeeBlock = _.last(finalState.feeBlocks);
 
-  const expectedFees: FeeBlock = BurnRecords.feeBlockFromBlock(
-    "eth",
-    blocks[1],
-  );
+  const expectedFees: FeeBlock = BurnRecords.feeBlockFromBlock(blocks[1]);
 
   assert.is(finalState.feeBlocks.length, 1);
   assert.equal(lastFeeBlock, expectedFees);
@@ -97,16 +94,15 @@ Sums("adding two blocks results in a sum of the two", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(1, 3);
   const { sums } = advanceState(makeAddUpdates(blocks), makeM5State());
   const lastSum = _.last(sums);
-  const feeBlocks = blocks.map((block) =>
-    BurnRecords.feeBlockFromBlock("eth", block),
-  );
+  const feeBlocks = blocks.map((block) => BurnRecords.feeBlockFromBlock(block));
 
   const expectedSum = {
     end: blocks[1].number,
     endMinedAt: blocks[1].minedAt,
     start: blocks[0].number,
     startMinedAt: blocks[0].minedAt,
-    sum: BurnRecords.sumFeeBlocks(feeBlocks),
+    sumEth: BurnRecords.sumFeeBlocks("eth", feeBlocks),
+    sumUsd: BurnRecords.sumFeeBlocks("usd", feeBlocks),
   };
 
   assert.equal(lastSum, expectedSum);
@@ -114,10 +110,11 @@ Sums("adding two blocks results in a sum of the two", async () => {
 
 Sums("finds the proper matching index for a sum in topSums", async () => {
   const block = await BlocksData.getSingleBlock();
-  const sum = BurnRecords.makeNewSum("eth", undefined, block);
-  const lowerSum = { ...sum, sum: sum.sum - 1n };
-  const higherSum = { ...sum, sum: sum.sum + 1n };
+  const sum = BurnRecords.makeNewSum(undefined, block);
+  const lowerSum = { ...sum, sumEth: sum.sumEth - 1n };
+  const higherSum = { ...sum, sumEth: sum.sumEth + 1n };
   const index = BurnRecords.getMatchingSumIndexFromRight(
+    "eth",
     "max",
     [higherSum, lowerSum],
     sum,
@@ -131,13 +128,19 @@ Sums(
   async () => {
     const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
     const sums = blocks.map((block) =>
-      BurnRecords.makeNewSum("eth", undefined, block),
+      BurnRecords.makeNewSum(undefined, block),
     );
 
-    const index = BurnRecords.getMatchingSumIndexFromRight("max", [], sums[0]);
+    const index = BurnRecords.getMatchingSumIndexFromRight(
+      "eth",
+      "max",
+      [],
+      sums[0],
+    );
     assert.is(index, undefined);
 
     const index2 = BurnRecords.getMatchingSumIndexFromRight(
+      "eth",
       "max",
       [sums[1]],
       sums[0],
@@ -152,16 +155,17 @@ const TopSums = suite("TopSums");
 
 TopSums("a new sum is added to topSums", async () => {
   const block = await BlocksData.getSingleBlock();
-  const feeBlock = BurnRecords.feeBlockFromBlock("eth", block);
+  const feeBlock = BurnRecords.feeBlockFromBlock(block);
   const finalState = advanceState(makeAddUpdates([block]), makeM5State());
 
-  const [lastSum] = finalState.topSums;
+  const [lastSum] = finalState.topSumsMap["eth"]["max"];
   const expectedSum: Sum = {
     end: feeBlock.number,
     endMinedAt: feeBlock.minedAt,
     start: feeBlock.number,
     startMinedAt: feeBlock.minedAt,
-    sum: feeBlock.fees,
+    sumEth: feeBlock.feesEth,
+    sumUsd: feeBlock.feesUsd,
   };
 
   assert.equal(lastSum, expectedSum);
@@ -179,41 +183,39 @@ TopSums("record setting block makes it into topSums", async () => {
     baseFeePerGas: 1n * 10n ** 18n,
   };
 
-  const finalState = advanceState([
+  const { topSumsMap } = advanceState([
     ...makeAddUpdates(blocks),
     ...makeAddUpdates([highFeeBlock]),
   ]);
 
-  assert.is(finalState.topSums[0].end, highFeeBlock.number);
+  assert.is(topSumsMap["eth"]["max"][0].end, highFeeBlock.number);
 });
 
 TopSums("sorting max sorts top records in descending order", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
-  const initState = BurnRecords.makeRecordState("eth", "block", "max", "5m");
-  const finalState = advanceState(makeAddUpdates(blocks), initState);
-  const first = _.head(finalState.topSums)!;
-  const last = _.last(finalState.topSums)!;
-  assert.ok(first.sum > last.sum);
+  const initState = BurnRecords.makeRecordState("block", "5m");
+  const { topSumsMap } = advanceState(makeAddUpdates(blocks), initState);
+  const first = _.head(topSumsMap["eth"]["max"])!;
+  const last = _.last(topSumsMap["eth"]["max"])!;
+  assert.ok(first.sumEth > last.sumEth);
 });
 
 TopSums("sorting min sorts top records in ascending order", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
-  const initState = BurnRecords.makeRecordState("eth", "block", "min", "5m");
-  const finalState = advanceState(makeAddUpdates(blocks), initState);
-  const first = _.head(finalState.topSums)!;
-  const last = _.last(finalState.topSums)!;
+  const initState = BurnRecords.makeRecordState("block", "5m");
+  const { topSumsMap } = advanceState(makeAddUpdates(blocks), initState);
+  const first = _.head(topSumsMap["eth"]["min"])!;
+  const last = _.last(topSumsMap["eth"]["min"])!;
 
-  assert.ok(first.sum < last.sum);
+  assert.ok(first.sumEth < last.sumEth);
 });
 
 TopSums("merge candidate adds candidates in sorted order", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 3);
-  const sums = blocks.map((block) =>
-    BurnRecords.makeNewSum("eth", undefined, block),
-  );
+  const sums = blocks.map((block) => BurnRecords.makeNewSum(undefined, block));
 
   const topSums = sums.reduce(
-    (topSums, sum) => BurnRecords.mergeCandidate2("max", topSums, sum),
+    (topSums, sum) => BurnRecords.mergeCandidate2("eth", "max", topSums, sum),
     [] as Sum[],
   );
 
@@ -225,9 +227,11 @@ TopSums("merge candidate adds candidates in sorted order", async () => {
 TopSums("merge candidate drops expired sums from topSums", async () => {
   const blocks = (await BlocksData.getH1Blocks()).slice(0, 26);
 
-  const { topSums } = advanceState(makeAddUpdates(blocks));
+  const { topSumsMap } = advanceState(makeAddUpdates(blocks));
 
-  const containsExpiredSum = topSums.some((sum) => sum.end === 13666568);
+  const containsExpiredSum = topSumsMap["eth"]["max"].some(
+    (sum) => sum.end === 13666568,
+  );
 
   assert.not(containsExpiredSum);
 });
@@ -241,9 +245,14 @@ TopSums("for equal fee top sums the earlier one ranks higher", async () => {
     gasUsed: blocks[1].gasUsed,
   };
 
-  const seedSum = BurnRecords.makeNewSum("eth", undefined, seedBlock);
-  const sameFeeSum = BurnRecords.makeNewSum("eth", undefined, sameFeeBlock);
-  const topSums = BurnRecords.mergeCandidate2("max", [seedSum], sameFeeSum);
+  const seedSum = BurnRecords.makeNewSum(undefined, seedBlock);
+  const sameFeeSum = BurnRecords.makeNewSum(undefined, sameFeeBlock);
+  const topSums = BurnRecords.mergeCandidate2(
+    "eth",
+    "max",
+    [seedSum],
+    sameFeeSum,
+  );
 
   assert.is(topSums[0]?.end, seedBlock.number);
   assert.is(topSums[1]?.end, sameFeeBlock.number);
@@ -257,11 +266,13 @@ TopSums("top sums outside time frame get dropped", async () => {
   const outsideM5Sum = 13666568;
 
   const initState = makeM5State();
-  const finalState = advanceState([...makeAddUpdates(m5PlusBlocks)], initState);
-
-  const containsExpiredSum = finalState.topSums.some(
-    (sum) => sum.end === outsideM5Sum,
+  const { topSumsMap } = advanceState(
+    [...makeAddUpdates(m5PlusBlocks)],
+    initState,
   );
+  const topSums = topSumsMap["eth"]["max"];
+
+  const containsExpiredSum = topSums.some((sum) => sum.end === outsideM5Sum);
 
   assert.not(containsExpiredSum, "topSums contains expired sum but shouldn't");
 });
@@ -272,8 +283,9 @@ const Records = suite("Records");
 
 Records("computes records from top sums", async () => {
   const blocks = await BlocksData.getM5Blocks();
-  const finalState = advanceState(makeAddUpdates(blocks));
-  const records = BurnRecords.getRecords(finalState);
+  const { topSumsMap } = advanceState(makeAddUpdates(blocks));
+  const topSums = topSumsMap["eth"]["max"];
+  const records = BurnRecords.getRecords(topSums);
   const first = _.head(records)!;
   const last = _.last(records)!;
   assert.is(first.end, 13666171);
@@ -286,7 +298,8 @@ Records("recognizes left-side overlap", async () => {
     end: 2,
     endMinedAt: new Date(),
     startMinedAt: new Date(),
-    sum: 0n,
+    sumEth: 0n,
+    sumUsd: 0n,
   };
 
   const sumB: Sum = {
@@ -294,7 +307,8 @@ Records("recognizes left-side overlap", async () => {
     end: 3,
     endMinedAt: new Date(),
     startMinedAt: new Date(),
-    sum: 0n,
+    sumEth: 0n,
+    sumUsd: 0n,
   };
 
   assert.ok(BurnRecords.getIsOverlapping([sumA], sumB));
@@ -306,7 +320,8 @@ Records("recognizes right-side overlap", async () => {
     end: 3,
     endMinedAt: new Date(),
     startMinedAt: new Date(),
-    sum: 0n,
+    sumEth: 0n,
+    sumUsd: 0n,
   };
 
   const sumB: Sum = {
@@ -314,7 +329,8 @@ Records("recognizes right-side overlap", async () => {
     end: 2,
     endMinedAt: new Date(),
     startMinedAt: new Date(),
-    sum: 0n,
+    sumEth: 0n,
+    sumUsd: 0n,
   };
 
   assert.ok(BurnRecords.getIsOverlapping([sumA], sumB));
@@ -366,11 +382,13 @@ Rollbacks("rollback removes the reverted sum from top sums", async () => {
   const blocks = (await BlocksData.getM5Blocks()).slice(0, 2);
 
   const state1 = advanceState(makeAddUpdates(blocks), makeM5State());
-  const first1 = _.head(state1.topSums)!;
+  const topSums1 = state1.topSumsMap["eth"]["max"];
+  const first1 = _.head(topSums1)!;
   assert.is(first1?.end, 13666165);
 
   const state2 = advanceState(makeRollbackUpdates(1), state1);
-  const first2 = _.head(state2.topSums)!;
+  const topSums2 = state2.topSumsMap["eth"]["max"];
+  const first2 = _.head(topSums2)!;
   assert.is.not(first2?.end, 13666165);
 });
 

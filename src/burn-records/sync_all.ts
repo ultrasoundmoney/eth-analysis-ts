@@ -80,13 +80,12 @@ const getFeeBlocks = async (
   return blocks.map((blockRecord) => ({
     number: blockRecord.number,
     minedAt: blockRecord.minedAt,
-    fees:
-      denomination === "eth"
-        ? blockRecord.baseFeePerGas * blockRecord.gasUsed
-        : (blockRecord.baseFeePerGas *
-            blockRecord.gasUsed *
-            blockRecord.ethPriceCents) /
-          10n ** 18n,
+    feesEth: blockRecord.baseFeePerGas * blockRecord.gasUsed,
+    feesUsd:
+      (blockRecord.baseFeePerGas *
+        blockRecord.gasUsed *
+        blockRecord.ethPriceCents) /
+      10n ** 18n,
   }));
 };
 
