@@ -50,7 +50,7 @@ try {
 
   await Promise.all([
     initLeaderboardLimitedTimeframes(),
-    // BurnRecordsSync.sync(),
+    BurnRecordsSync.init(),
     syncLeaderboardAll(),
   ]);
 

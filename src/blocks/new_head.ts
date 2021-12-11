@@ -100,8 +100,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
     addToLeaderboardAllTask(),
-    // BurnRecordsAll.onNewBlock(blockDb),
-    // BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
+    BurnRecordsNewHead.onNewBlock(blockDb),
   ]);
 
   logPerf("adding block to leaderboards", tStartAnalyze);
@@ -112,13 +111,12 @@ export const addBlock = async (head: Head): Promise<void> => {
     // This function is on this queue.
     newBlockQueue.pending <= 1;
 
-  if (!allBlocksProcessed) {
+  if (allBlocksProcessed) {
+    await updateDerivedBlockStats(block)();
+    await notifyNewDerivedStats(block)();
+  } else {
     Log.debug("blocks left to process, skipping computation of derived stats");
-    return;
   }
-
-  await updateDerivedBlockStats(block)();
-  await notifyNewDerivedStats(block)();
 };
 
 export const onNewBlock = async (head: Head): Promise<void> =>
@@ -148,6 +146,8 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chainFirstIOK(logPerfT("calc leaderboard limited timeframes", t0)),
   );
 
+  const burnRecords = BurnRecords.getRecords();
+
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
     TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAll),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
@@ -159,8 +159,6 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
       leaderboardAll: leaderboardAll,
     })),
   );
-
-  const burnRecords = BurnRecords.getRecords();
 
   return pipe(
     TAlt.seqSParT({ burnRates, feesBurned, leaderboards }),

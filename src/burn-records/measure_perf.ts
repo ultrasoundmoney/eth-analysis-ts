@@ -1,13 +1,11 @@
-// import * as DateFns from "date-fns";
-// import { readFileSync } from "fs";
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
-// import { deserialize } from "../json.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
 import * as BurnRecords from "./burn_records.js";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (BigInt.prototype as any).toJSON = function () {
   return this.toString() + "n";
 };
@@ -22,14 +20,6 @@ const blocks = await Blocks.getFeeBlocks(
   Blocks.londonHardForkBlockNumber,
   lastStoredBlock.number,
 );
-// writeFileSync("blocks.tmp", JSON.stringify(blocks, serialize));
-// const blocks = JSON.parse(
-//   readFileSync("./blocks.tmp", "utf8"),
-//   deserialize,
-// ).map((block: any) => ({
-//   ...block,
-//   minedAt: DateFns.parseISO(block.minedAt),
-// }));
 Log.info(`${blocks.length} blocks total`);
 
 Performance.logPerf("get all blocks", t0);

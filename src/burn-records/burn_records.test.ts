@@ -5,10 +5,7 @@ import { BlockDb } from "../blocks/blocks.js";
 import * as BlocksData from "../blocks_data.js";
 import * as BurnRecords from "./burn_records.js";
 import { FeeBlock, RecordState, Sum } from "./burn_records.js";
-
-(BigInt.prototype as any).toJSON = function () {
-  return this.toString();
-};
+import "../json.js";
 
 type StateInstruction =
   | {
@@ -285,7 +282,7 @@ Records("computes records from top sums", async () => {
   const blocks = await BlocksData.getM5Blocks();
   const { topSumsMap } = advanceState(makeAddUpdates(blocks));
   const topSums = topSumsMap["eth"]["max"];
-  const records = BurnRecords.getRecords(topSums);
+  const records = BurnRecords.getRecordsFromTopSums(topSums);
   const first = _.head(records)!;
   const last = _.last(records)!;
   assert.is(first.end, 13666171);

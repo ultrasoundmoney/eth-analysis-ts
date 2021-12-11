@@ -93,7 +93,7 @@ const logHead = async (
     is_jumping_ahead: isJumpingAhead,
   };
 
-  Log.debug(`logging: number, duplicate, jumping, hash`);
+  Log.debug("logging: number, duplicate, jumping, hash");
   Log.debug(
     `${head.number}, ${isKnownNumber}, ${isJumpingAhead}, ${head.hash}`,
   );
@@ -118,7 +118,7 @@ const getIsFirstCall = (): boolean => {
 const onMessage = (buffer: Buffer) => {
   if (!Buffer.isBuffer(buffer)) {
     console.log("expected buffer, got: ", buffer);
-    throw new Error(`unexpected message, not a buffer`);
+    throw new Error("unexpected message, not a buffer");
   }
 
   const envelopeJson = buffer.toString();
@@ -154,7 +154,7 @@ const onMessage = (buffer: Buffer) => {
 
   console.log("unexpected envelope", envelope);
   throw new Error(
-    `unexpected message, not a subscription confirmation or new head`,
+    "unexpected message, not a subscription confirmation or new head",
   );
 };
 

@@ -1,6 +1,7 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import { FeesBurnedT } from "./base_fee_sums.js";
+import { BurnRecordsT } from "./burn-records/burn_records.js";
 import { BurnRatesT } from "./burn_rates.js";
 import { sql } from "./db.js";
 import { LeaderboardEntries } from "./leaderboards.js";
@@ -10,6 +11,7 @@ export type DerivedBlockStats = {
   burnRates: BurnRatesT;
   feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
+  burnRecords: BurnRecordsT;
 };
 
 export const getLatestDerivedBlockStats = (): T.Task<DerivedBlockStats> => () =>
@@ -35,6 +37,7 @@ export const storeDerivedBlockStats = ({
   burnRates,
   feesBurned,
   leaderboards,
+  burnRecords,
 }: DerivedBlockStats): T.Task<void> => {
   return pipe(
     () => sql`
@@ -42,18 +45,21 @@ export const storeDerivedBlockStats = ({
         block_number,
         burn_rates,
         fees_burned,
-        leaderboards
+        leaderboards,
+        burn_records
       )
       VALUES (
         ${blockNumber},
         ${sql.json(burnRates)},
         ${sql.json(feesBurned)},
-        ${sql.json(leaderboards)}
+        ${sql.json(leaderboards)},
+        ${sql.json(burnRecords)}
       )
       ON CONFLICT (block_number) DO UPDATE SET
         burn_rates = ${sql.json(burnRates)},
         fees_burned = ${sql.json(feesBurned)},
-        leaderboards = ${sql.json(leaderboards)}
+        leaderboards = ${sql.json(leaderboards)},
+        burn_records = ${sql.json(burnRecords)}
     `,
     T.map(() => undefined),
   );

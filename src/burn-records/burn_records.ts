@@ -272,7 +272,7 @@ export const getIsOverlapping = (records: Sum[], sum: Sum): boolean => {
   return false;
 };
 
-export const getRecords = (topSums: Sum[]): Sum[] => {
+export const getRecordsFromTopSums = (topSums: Sum[]): Sum[] => {
   const records: Sum[] = [];
 
   for (const topSum of topSums) {
@@ -573,3 +573,23 @@ export const getRecordStatesByTimeFrame = (
   timeFrame: TimeFrame,
 ): RecordState[] =>
   recordStates.filter((recordState) => recordState.timeFrame === timeFrame)!;
+
+export type BurnRecordsT = {
+  denomination: Denomination;
+  granularity: Granularity;
+  sorting: Sorting;
+  records: Sum[];
+}[];
+
+export const getRecords = (): BurnRecordsT => {
+  return recordStates.flatMap((recordState) =>
+    Cartesian.make2(denominations, sortings).map(([denomination, sorting]) => ({
+      denomination,
+      sorting,
+      granularity: recordState.granularity,
+      records: getRecordsFromTopSums(
+        recordState.topSumsMap[denomination][sorting],
+      ),
+    })),
+  );
+};

@@ -28,15 +28,13 @@ export const onRollback = async (
   rollbackToAndIncluding: number,
 ): Promise<void> => {
   Log.debug(
-    `burn record limited time frames rollback to and including block: ${rollbackToAndIncluding}`,
+    `burn records rollback to and including block: ${rollbackToAndIncluding}`,
   );
 
   const latestIncludedBlock = recordStates[0].feeBlocks.peekBack();
 
   if (latestIncludedBlock === undefined) {
-    Log.warn(
-      "tried to rollback burn-records-limited-time-frame but no block in fee set sum",
-    );
+    Log.warn("tried to rollback burn records but no block in fee set sum");
     return undefined;
   }
 
