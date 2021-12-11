@@ -1,3 +1,7 @@
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
 export const serialize = (_key: unknown, value: unknown) =>
   typeof value === "bigint" ? value.toString() + "n" : value;
 
