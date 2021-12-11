@@ -577,19 +577,21 @@ export const getRecordStatesByTimeFrame = (
 export type BurnRecordsT = {
   denomination: Denomination;
   granularity: Granularity;
-  sorting: Sorting;
   records: Sum[];
+  sorting: Sorting;
+  timeFrame: TimeFrame;
 }[];
 
 export const getRecords = (): BurnRecordsT => {
   return recordStates.flatMap((recordState) =>
     Cartesian.make2(denominations, sortings).map(([denomination, sorting]) => ({
       denomination,
-      sorting,
       granularity: recordState.granularity,
       records: getRecordsFromTopSums(
         recordState.topSumsMap[denomination][sorting],
       ),
+      sorting,
+      timeFrame: recordState.timeFrame,
     })),
   );
 };
