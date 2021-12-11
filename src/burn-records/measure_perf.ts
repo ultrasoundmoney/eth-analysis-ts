@@ -1,35 +1,41 @@
+// import * as DateFns from "date-fns";
+// import { readFileSync } from "fs";
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
-import * as Cartesian from "../cartesian.js";
-// import { sql } from "../db.js";
-import { denominations } from "../denominations.js";
+// import { deserialize } from "../json.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
 import * as BurnRecords from "./burn_records.js";
+
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString() + "n";
+};
 
 Log.info("measuring add all blocks performance");
 
 const t0 = performance.now();
 const lastStoredBlock = await Blocks.getLastStoredBlock();
 Log.info(`last stored block is: ${lastStoredBlock.number}`);
-// const blocksCount = await sql<{ count: number }[]>`
-//   SELECT COUNT(*) FROM blocks
-//   WHERE number >= 12965000
-//   AND number <= ${lastStoredBlock.number}
-// `;
 
-const blocks = await Blocks.getFeeBlocks(12965000, lastStoredBlock.number);
-// const blocks = await Blocks.getFeeBlocks(12965000, 13065000);
+const blocks = await Blocks.getFeeBlocks(
+  Blocks.londonHardForkBlockNumber,
+  lastStoredBlock.number,
+);
+// writeFileSync("blocks.tmp", JSON.stringify(blocks, serialize));
+// const blocks = JSON.parse(
+//   readFileSync("./blocks.tmp", "utf8"),
+//   deserialize,
+// ).map((block: any) => ({
+//   ...block,
+//   minedAt: DateFns.parseISO(block.minedAt),
+// }));
+Log.info(`${blocks.length} blocks total`);
 
-Performance.logPerf("fetched all blocks in", t0);
+Performance.logPerf("get all blocks", t0);
 
-export const recordStates = Cartesian.make3(
-  denominations,
-  BurnRecords.granularities,
-  BurnRecords.sortings,
-).map(([denomination, granularity, sorting]) =>
-  BurnRecords.makeRecordState(denomination, granularity, sorting, "all"),
+export const recordStates = BurnRecords.granularities.map((granularity) =>
+  BurnRecords.makeRecordState(granularity, "all"),
 );
 
 let blocksDone = 0;

@@ -350,9 +350,6 @@ export const addBlockToState = (
   block: FeeBlockRow,
 ): RecordState => {
   const { timeFrame, granularity } = recordState;
-  Log.debug(
-    `burn records, ${timeFrame}, new tip: ${block.number}, ${granularity}`,
-  );
 
   const feeBlockToAdd = feeBlockFromBlock(block);
 
