@@ -58,6 +58,7 @@ export const init = async () => {
         addBlockToState(recordState, block);
       }
       blocksDone = blocksDone + 1;
+      eta.report(blocksDone);
       logEta(block);
     }
   }
