@@ -1,13 +1,16 @@
+import * as DateFns from "date-fns";
+import { readFileSync } from "fs";
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
+import { deserialize } from "../json.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
 import * as BurnRecords from "./burn_records.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (BigInt.prototype as any).toJSON = function () {
-  return this.toString() + "n";
+  return this.toString();
 };
 
 Log.info("measuring add all blocks performance");
@@ -16,10 +19,16 @@ const t0 = performance.now();
 const lastStoredBlock = await Blocks.getLastStoredBlock();
 Log.info(`last stored block is: ${lastStoredBlock.number}`);
 
-const blocks = await Blocks.getFeeBlocks(
-  Blocks.londonHardForkBlockNumber,
-  lastStoredBlock.number,
-);
+// const blocks = await Blocks.getFeeBlocks(
+//   Blocks.londonHardForkBlockNumber,
+//   lastStoredBlock.number,
+// );
+// writeFileSync("./blocks-all.json", JSON.stringify(blocks, serialize));
+const blocks = JSON.parse(
+  readFileSync("./blocks-all.json", "utf8"),
+  deserialize,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+).map((block: any) => ({ ...block, minedAt: DateFns.parseISO(block.minedAt) }));
 Log.info(`${blocks.length} blocks total`);
 
 Performance.logPerf("get all blocks", t0);

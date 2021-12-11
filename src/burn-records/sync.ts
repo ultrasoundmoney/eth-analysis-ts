@@ -45,23 +45,20 @@ export const init = async () => {
 
     const eta = makeEta({ max: blocksInTimeFrame.length });
     let blocksDone = 0;
-
-    const id = setInterval(() => {
-      eta.report(blocksDone);
-      if (blocksDone === blocksInTimeFrame.length) {
-        clearInterval(id);
-        return;
-      }
-      Log.debug(
-        `burn records add blocks to ${timeFrame} state, eta: ${eta.estimate()}s`,
+    const logEta = _.throttle((block) => {
+      Log.info(
+        `burn records init ${timeFrame} state eta: ${eta.estimate()}s, last block: ${
+          block.number
+        }`,
       );
-    }, 8000);
+    }, 2000);
 
     for (const block of blocksOldToNew) {
       for (const recordState of timeFrameRecordStates) {
         addBlockToState(recordState, block);
       }
       blocksDone = blocksDone + 1;
+      logEta(block);
     }
   }
   logPerf("init burn records, adding blocks to time frames", tInitAllState);
