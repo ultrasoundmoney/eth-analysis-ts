@@ -38,5 +38,5 @@ spec:
                   fieldPath: metadata.name
           resources:
             requests:
-              cpu: 25m
+              cpu: 250m
               memory: 512Mi
