@@ -36,7 +36,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
   )();
   LeaderboardsLimitedTimeframe.onRollback(blockNumber, sumsToRollback);
   await Promise.all([
-    LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
+    LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
     LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
     BurnRecordsNewHead.onRollback(blockNumber),
   ]);
@@ -91,11 +91,12 @@ export const addBlock = async (head: Head): Promise<void> => {
     feeBreakdown.contract_use_fees_usd!,
   );
 
-  const addToLeaderboardAllTask = LeaderboardsAll.addBlock(
-    block.number,
-    feeBreakdown.contract_use_fees,
-    feeBreakdown.contract_use_fees_usd!,
-  );
+  const addToLeaderboardAllTask = () =>
+    LeaderboardsAll.addBlock(
+      block.number,
+      feeBreakdown.contract_use_fees,
+      feeBreakdown.contract_use_fees_usd!,
+    );
 
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
@@ -136,10 +137,11 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chainFirstIOK(logPerfT("calc burn rates", t0)),
   );
 
-  const leaderboardAll = pipe(
-    LeaderboardsAll.calcLeaderboardAll(),
-    T.chainFirstIOK(logPerfT("calc leaderboard all", t0)),
-  );
+  const leaderboardAllTask = async () => {
+    const leaderboardAll = await LeaderboardsAll.calcLeaderboardAll();
+    logPerfT("calc leaderboard all", t0);
+    return leaderboardAll;
+  };
 
   const leaderboardLimitedTimeframes = pipe(
     LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
@@ -149,7 +151,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   const burnRecords = BurnRecords.getRecords();
 
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
-    TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAll),
+    TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAllTask),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
       leaderboard5m: leaderboardLimitedTimeframes["5m"],
       leaderboard1h: leaderboardLimitedTimeframes["1h"],

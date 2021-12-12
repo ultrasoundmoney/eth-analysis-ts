@@ -31,7 +31,6 @@ const syncBlock = async (blockNumber: number): Promise<void> => {
 
 export const syncBlocks = async (upToIncluding: number): Promise<void> => {
   const knownBlocks = await Blocks.getKnownBlocks()();
-  Log.debug(`syncing blocks table up to: ${upToIncluding}`);
 
   const missingBlocks = Blocks.getBlockRange(
     Blocks.londonHardForkBlockNumber,

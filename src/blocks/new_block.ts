@@ -15,7 +15,7 @@ import { LeaderboardEntries } from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
-import { logPerf, logPerfT } from "../performance.js";
+import * as Performance from "../performance.js";
 import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
@@ -36,7 +36,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
   )();
   LeaderboardsLimitedTimeframe.onRollback(blockNumber, sumsToRollback);
   await Promise.all([
-    LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback)(),
+    LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
     LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
     BurnRecordsNewHead.onRollback(blockNumber),
   ]);
@@ -46,7 +46,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
   await Blocks.deleteDerivedBlockStats(blockNumber);
   await Blocks.deleteBlock(blockNumber);
 
-  logPerf("rollback", t0);
+  Performance.logPerf("rollback", t0);
 };
 
 export const addBlock = async (head: Head): Promise<void> => {
@@ -91,11 +91,12 @@ export const addBlock = async (head: Head): Promise<void> => {
     feeBreakdown.contract_use_fees_usd!,
   );
 
-  const addToLeaderboardAllTask = LeaderboardsAll.addBlock(
-    block.number,
-    feeBreakdown.contract_use_fees,
-    feeBreakdown.contract_use_fees_usd!,
-  );
+  const addToLeaderboardAllTask = () =>
+    LeaderboardsAll.addBlock(
+      block.number,
+      feeBreakdown.contract_use_fees,
+      feeBreakdown.contract_use_fees_usd!,
+    );
 
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
@@ -104,7 +105,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     // BurnRecordsLimitedTimeFrames.onNewBlock(blockDb),
   ]);
 
-  logPerf("adding block to leaderboards", tStartAnalyze);
+  Performance.logPerf("adding block to leaderboards", tStartAnalyze);
 
   Log.debug(`store block seq queue ${newBlockQueue.size}`);
   const allBlocksProcessed =
@@ -130,26 +131,29 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
 
   const feesBurned = pipe(
     calcBaseFeeSums(block),
-    T.chainFirstIOK(logPerfT("calc base fee sums", t0)),
+    T.chainFirstIOK(Performance.logPerfT("calc base fee sums", t0)),
   );
 
   const burnRates = pipe(
     calcBurnRates(block),
-    T.chainFirstIOK(logPerfT("calc burn rates", t0)),
+    T.chainFirstIOK(Performance.logPerfT("calc burn rates", t0)),
   );
 
-  const leaderboardAll = pipe(
-    LeaderboardsAll.calcLeaderboardAll(),
-    T.chainFirstIOK(logPerfT("calc leaderboard all", t0)),
-  );
+  const leaderboardAllTask = async () => {
+    const leaderboardAll = await LeaderboardsAll.calcLeaderboardAll();
+    Performance.logPerf("calc leaderboard all", t0);
+    return leaderboardAll;
+  };
 
   const leaderboardLimitedTimeframes = pipe(
     LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
-    T.chainFirstIOK(logPerfT("calc leaderboard limited timeframes", t0)),
+    T.chainFirstIOK(
+      Performance.logPerfT("calc leaderboard limited timeframes", t0),
+    ),
   );
 
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
-    TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAll),
+    TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAllTask),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
       leaderboard5m: leaderboardLimitedTimeframes["5m"],
       leaderboard1h: leaderboardLimitedTimeframes["1h"],
