@@ -11,7 +11,7 @@ export type DerivedBlockStats = {
   burnRates: BurnRatesT;
   feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
-  burnRecords: BurnRecordsT;
+  // burnRecords: BurnRecordsT;
 };
 
 export const getLatestDerivedBlockStats = (): T.Task<DerivedBlockStats> => () =>
@@ -37,8 +37,8 @@ export const storeDerivedBlockStats = ({
   burnRates,
   feesBurned,
   leaderboards,
-  burnRecords,
-}: DerivedBlockStats): T.Task<void> => {
+}: // burnRecords,
+DerivedBlockStats): T.Task<void> => {
   return pipe(
     () => sql`
       INSERT INTO derived_block_stats (
@@ -52,14 +52,12 @@ export const storeDerivedBlockStats = ({
         ${blockNumber},
         ${sql.json(burnRates)},
         ${sql.json(feesBurned)},
-        ${sql.json(leaderboards)},
-        ${sql.json(burnRecords)}
+        ${sql.json(leaderboards)}
       )
       ON CONFLICT (block_number) DO UPDATE SET
         burn_rates = ${sql.json(burnRates)},
         fees_burned = ${sql.json(feesBurned)},
-        leaderboards = ${sql.json(leaderboards)},
-        burn_records = ${sql.json(burnRecords)}
+        leaderboards = ${sql.json(leaderboards)}
     `,
     T.map(() => undefined),
   );

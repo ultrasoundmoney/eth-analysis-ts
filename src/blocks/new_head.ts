@@ -38,7 +38,7 @@ const rollbackBlock = async (blockNumber: number): Promise<void> => {
   await Promise.all([
     LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
     LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
-    BurnRecordsNewHead.onRollback(blockNumber),
+    // BurnRecordsNewHead.onRollback(blockNumber),
   ]);
 
   await Contracts.deleteContractsMinedAt(blockNumber);
@@ -101,7 +101,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
     addToLeaderboardAllTask(),
-    BurnRecordsNewHead.onNewBlock(blockDb),
+    // BurnRecordsNewHead.onNewBlock(blockDb),
   ]);
 
   logPerf("adding block to leaderboards", tStartAnalyze);
@@ -148,7 +148,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     T.chainFirstIOK(logPerfT("calc leaderboard limited timeframes", t0)),
   );
 
-  const burnRecords = BurnRecords.getRecords();
+  // const burnRecords = BurnRecords.getRecords();
 
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
     TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAllTask),
@@ -170,7 +170,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
         burnRates,
         feesBurned,
         leaderboards,
-        burnRecords,
+        // burnRecords,
       }),
     ),
     T.chainFirstIOK(() => () => {

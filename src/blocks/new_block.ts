@@ -174,7 +174,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
         burnRates,
         feesBurned,
         leaderboards,
-        burnRecords,
+        // burnRecords,
       }),
     ),
     T.chainFirstIOK(() => () => {
