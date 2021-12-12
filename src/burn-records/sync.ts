@@ -35,7 +35,7 @@ export const init = async () => {
     const blocksInTimeFrame = _.dropWhile(allBlocks, getIsBlockWithinTimeFrame);
     const blocksOldToNew = blocksInTimeFrame.reverse();
     logPerf(
-      `init burn records, filter time frame ${timeFrame} blocks`,
+      `init burn records, filter time frame ${timeFrame}, ${blocksInTimeFrame.length} blocks`,
       tFilterBlocks,
     );
     const timeFrameRecordStates = getRecordStatesByTimeFrame(
@@ -43,23 +43,23 @@ export const init = async () => {
       timeFrame,
     );
 
-    const eta = makeEta({ max: blocksInTimeFrame.length });
-    let blocksDone = 0;
-    const logEta = _.throttle((block) => {
-      Log.info(
-        `burn records init ${timeFrame} state eta: ${eta.estimate()}s, last block: ${
-          block.number
-        }`,
-      );
-    }, 2000);
+    for (const recordState of timeFrameRecordStates) {
+      const eta = makeEta({ max: blocksInTimeFrame.length });
+      let blocksDone = 0;
+      const logEta = _.throttle((block) => {
+        Log.debug(
+          `burn records init, time frame: ${timeFrame}, granularity: ${
+            recordState.granularity
+          }, eta: ${eta.estimate()}s, last block: ${block.number}`,
+        );
+      }, 2000);
 
-    for (const block of blocksOldToNew) {
-      for (const recordState of timeFrameRecordStates) {
+      for (const block of blocksOldToNew) {
         addBlockToState(recordState, block);
+        blocksDone = blocksDone + 1;
+        eta.report(blocksDone);
+        logEta(block);
       }
-      blocksDone = blocksDone + 1;
-      eta.report(blocksDone);
-      logEta(block);
     }
   }
   logPerf("init burn records, adding blocks to time frames", tInitAllState);
