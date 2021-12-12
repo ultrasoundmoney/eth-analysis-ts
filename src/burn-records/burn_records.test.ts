@@ -144,6 +144,23 @@ Sums(
   },
 );
 
+Sums("sums outside time frame get dropped", async () => {
+  const blocks = await BlocksData.getH1Blocks();
+  // We slice so that the first sums fall outside of the m5 time frame.
+  const m5PlusBlocks = blocks.slice(0, 26);
+
+  const outsideM5Block = 13666571;
+
+  const initState = makeM5State();
+  const { sums } = advanceState([...makeAddUpdates(m5PlusBlocks)], initState);
+
+  const containsExpiredSum = sums
+    .toArray()
+    .some((sum) => sum.end === outsideM5Block);
+
+  assert.not(containsExpiredSum, "topSums contains expired sum but shouldn't");
+});
+
 Sums.run();
 
 const TopSums = suite("TopSums");
@@ -257,7 +274,7 @@ TopSums("top sums outside time frame get dropped", async () => {
   // We slice so that the first sums fall outside of the m5 time frame.
   const m5PlusBlocks = blocks.slice(0, 26);
 
-  const outsideM5Sum = 13666568;
+  const outsideM5Block = 13666571;
 
   const initState = makeM5State();
   const { topSumsMap } = advanceState(
@@ -266,7 +283,7 @@ TopSums("top sums outside time frame get dropped", async () => {
   );
   const topSums = topSumsMap["eth"]["max"];
 
-  const containsExpiredSum = topSums.some((sum) => sum.end === outsideM5Sum);
+  const containsExpiredSum = topSums.some((sum) => sum.end === outsideM5Block);
 
   assert.not(containsExpiredSum, "topSums contains expired sum but shouldn't");
 });
