@@ -152,7 +152,6 @@ export type Sum = {
   end: number;
   endMinedAt: Date;
   start: number;
-  startMinedAt: Date;
   sumEth: bigint;
   sumUsd: bigint;
 };
@@ -189,7 +188,6 @@ export const makeNewSum = (
       end: block.number,
       endMinedAt: block.minedAt,
       start: block.number,
-      startMinedAt: block.minedAt,
       sumEth: getBlockFees("eth", block),
       sumUsd: getBlockFees("usd", block),
     };
@@ -388,7 +386,6 @@ export const addBlockToState = (
     const expiredBlock = recordState.feeBlocks.shift()!;
     recordState.feeBlockRollbackBuffer.push(expiredBlock);
     newSum.start = newSum.start + 1;
-    newSum.startMinedAt = recordState.feeBlocks.peekFront()!.minedAt;
     newSum.sumEth = newSum.sumEth - expiredBlock.feesEth;
     newSum.sumUsd = newSum.sumUsd - expiredBlock.feesUsd;
     oldestFeeBlock = recordState.feeBlocks.peekFront();
@@ -418,7 +415,7 @@ export const addBlockToState = (
   );
   const getIsSumWithinTimeFrame =
     timeFrame === "all"
-      ? (sum: Sum) => DateFns.isAfter(sum.startMinedAt, nowSubRollback)
+      ? (sum: Sum) => DateFns.isAfter(sum.endMinedAt, nowSubRollback)
       : getIsSumWithinMaxAgeWithMaxAge(
           TimeFrames.timeFrameMillisMap[timeFrame],
           feeBlockToAdd,

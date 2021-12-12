@@ -64,7 +64,6 @@ FeeBlocks("a new block results in a new sum", async () => {
     end: feeBlock.number,
     endMinedAt: feeBlock.minedAt,
     start: feeBlock.number,
-    startMinedAt: feeBlock.minedAt,
     sumEth: feeBlock.feesEth,
     sumUsd: feeBlock.feesUsd,
   };
@@ -97,7 +96,6 @@ Sums("adding two blocks results in a sum of the two", async () => {
     end: blocks[1].number,
     endMinedAt: blocks[1].minedAt,
     start: blocks[0].number,
-    startMinedAt: blocks[0].minedAt,
     sumEth: BurnRecords.sumFeeBlocks("eth", feeBlocks),
     sumUsd: BurnRecords.sumFeeBlocks("usd", feeBlocks),
   };
@@ -160,7 +158,6 @@ TopSums("a new sum is added to topSums", async () => {
     end: feeBlock.number,
     endMinedAt: feeBlock.minedAt,
     start: feeBlock.number,
-    startMinedAt: feeBlock.minedAt,
     sumEth: feeBlock.feesEth,
     sumUsd: feeBlock.feesUsd,
   };
@@ -294,7 +291,6 @@ Records("recognizes left-side overlap", async () => {
     start: 0,
     end: 2,
     endMinedAt: new Date(),
-    startMinedAt: new Date(),
     sumEth: 0n,
     sumUsd: 0n,
   };
@@ -303,7 +299,6 @@ Records("recognizes left-side overlap", async () => {
     start: 1,
     end: 3,
     endMinedAt: new Date(),
-    startMinedAt: new Date(),
     sumEth: 0n,
     sumUsd: 0n,
   };
@@ -316,7 +311,6 @@ Records("recognizes right-side overlap", async () => {
     start: 1,
     end: 3,
     endMinedAt: new Date(),
-    startMinedAt: new Date(),
     sumEth: 0n,
     sumUsd: 0n,
   };
@@ -325,7 +319,6 @@ Records("recognizes right-side overlap", async () => {
     start: 0,
     end: 2,
     endMinedAt: new Date(),
-    startMinedAt: new Date(),
     sumEth: 0n,
     sumUsd: 0n,
   };
