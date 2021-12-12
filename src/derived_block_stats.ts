@@ -45,8 +45,7 @@ DerivedBlockStats): T.Task<void> => {
         block_number,
         burn_rates,
         fees_burned,
-        leaderboards,
-        burn_records
+        leaderboards
       )
       VALUES (
         ${blockNumber},
