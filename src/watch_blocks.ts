@@ -27,7 +27,7 @@ PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
 const syncLeaderboardAll = async (): Promise<void> => {
   Log.info("adding missing blocks to leaderboard all");
-  await LeaderboardsAll.addMissingBlocks()();
+  await LeaderboardsAll.addMissingBlocks();
   Log.info("done adding missing blocks to leaderboard all");
 };
 
