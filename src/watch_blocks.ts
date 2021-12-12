@@ -9,7 +9,7 @@ import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as BlocksSync from "./blocks/sync.js";
-import * as BurnRecordsSync from "./burn-records/sync.js";
+// import * as BurnRecordsSync from "./burn-records/sync.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;

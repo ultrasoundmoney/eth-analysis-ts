@@ -1,8 +1,8 @@
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import { calcBaseFeeSums } from "../base_fee_sums.js";
-import * as BurnRecords from "../burn-records/burn_records.js";
-import * as BurnRecordsNewHead from "../burn-records/new_head.js";
+// import * as BurnRecords from "../burn-records/burn_records.js";
+// import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import { calcBurnRates } from "../burn_rates.js";
 import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
