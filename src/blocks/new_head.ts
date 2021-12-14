@@ -99,7 +99,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     );
 
   await Promise.all([
-    LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+    LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
     // BurnRecordsNewHead.onNewBlock(blockDb),
   ]);
