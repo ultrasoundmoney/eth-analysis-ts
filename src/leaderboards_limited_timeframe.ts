@@ -248,53 +248,52 @@ export const onRollback = (
   });
 };
 
+const removeExpiredBlocks = (timeFrame: LimitedTimeFrame): T.Task<void> => {
+  const ageLimit = DateFns.subMinutes(
+    new Date(),
+    Leaderboards.timeframeMinutesMap[timeFrame],
+  );
+  const { expired, valid } = findExpiredBlocks(
+    ageLimit,
+    blocksInTimeframe[timeFrame],
+  );
+
+  if (expired.length === 0) {
+    Log.debug(`no expired blocks, nothing to do for time frame ${timeFrame}`);
+    return T.of(undefined);
+  }
+
+  const blocksToRemoveStr = expired.map((block) => block.number).join(",");
+
+  Log.debug(
+    `some blocks are too old in ${timeFrame} time frame, removing ${blocksToRemoveStr}`,
+  );
+
+  blocksInTimeframe[timeFrame] = valid;
+
+  return pipe(
+    Leaderboards.getRangeBaseFees(
+      expired[0].number,
+      expired[expired.length - 1].number,
+    ),
+    T.chainIOK((baseFees) => () => {
+      contractSumsPerTimeframe[timeFrame] = subtractFromSums(
+        contractSumsPerTimeframe[timeFrame],
+        baseFees.eth,
+      );
+      contractSumsPerTimeframeUsd[timeFrame] = subtractFromSums(
+        contractSumsPerTimeframeUsd[timeFrame],
+        baseFees.usd,
+      );
+    }),
+  );
+};
+
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
   pipe(
     TimeFrame.limitedTimeFrames,
-    RA.map((timeframe) => {
-      const ageLimit = DateFns.subMinutes(
-        new Date(),
-        Leaderboards.timeframeMinutesMap[timeframe],
-      );
-      const { expired, valid } = findExpiredBlocks(
-        ageLimit,
-        blocksInTimeframe[timeframe],
-      );
-
-      if (expired.length === 0) {
-        Log.debug(
-          `no expired blocks, nothing to do for timeframe ${timeframe}`,
-        );
-        return T.of(undefined);
-      }
-
-      const blocksToRemoveStr = expired.map((block) => block.number).join(",");
-
-      Log.debug(
-        `some blocks are too old in ${timeframe} timeFrame, removing ${blocksToRemoveStr}`,
-      );
-
-      blocksInTimeframe[timeframe] = valid;
-
-      return pipe(
-        Leaderboards.getRangeBaseFees(
-          expired[0].number,
-          expired[expired.length - 1].number,
-        ),
-        T.chainIOK((baseFees) => () => {
-          contractSumsPerTimeframe[timeframe] = subtractFromSums(
-            contractSumsPerTimeframe[timeframe],
-            baseFees.eth,
-          );
-          contractSumsPerTimeframeUsd[timeframe] = subtractFromSums(
-            contractSumsPerTimeframeUsd[timeframe],
-            baseFees.usd,
-          );
-        }),
-      );
-    }),
-    T.sequenceArray,
-    T.map(() => undefined),
+    T.traverseArray(removeExpiredBlocks),
+    TAlt.concatAllVoid,
   );
 
 type ContractRow = {
