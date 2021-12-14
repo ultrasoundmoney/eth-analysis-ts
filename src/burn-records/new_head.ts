@@ -1,6 +1,5 @@
 import * as Blocks from "../blocks/blocks.js";
 import * as Log from "../log.js";
-import { logPerf } from "../performance.js";
 import * as TimeFrames from "../time_frames.js";
 import {
   addBlockToState,
@@ -9,8 +8,7 @@ import {
   rollbackBlock,
 } from "./burn_records.js";
 
-export const onNewBlock = async (block: Blocks.BlockDb) => {
-  const t0 = performance.now();
+export const onNewBlock = async (block: Blocks.BlockDb): Promise<void> => {
   for (const timeFrame of TimeFrames.limitedTimeFrames) {
     const timeFrameRecordStates = getRecordStatesByTimeFrame(
       recordStates,
@@ -21,7 +19,6 @@ export const onNewBlock = async (block: Blocks.BlockDb) => {
     );
     await Promise.all(tasks);
   }
-  logPerf("add block to burn record all took: ", t0);
 };
 
 export const onRollback = async (

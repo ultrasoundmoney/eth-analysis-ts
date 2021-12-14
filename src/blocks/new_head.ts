@@ -19,6 +19,7 @@ import { logPerf, logPerfT } from "../performance.js";
 import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
+import * as Performance from "../performance.js";
 
 export const newBlockQueue = new PQueue({
   concurrency: 1,
@@ -98,10 +99,15 @@ export const addBlock = async (head: Head): Promise<void> => {
       feeBreakdown.contract_use_fees_usd!,
     );
 
+  // const BurnRecordsOnNewBlock = Performance.withPerfLogAsync(
+  //   "add block to burn record all",
+  //   BurnRecordsNewHead.onNewBlock,
+  // );
+
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
-    // BurnRecordsNewHead.onNewBlock(blockDb),
+    // BurnRecordsOnNewBlock,
   ]);
 
   logPerf("adding block to leaderboards", tStartAnalyze);
