@@ -2,7 +2,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { sql } from "./db.js";
 import { BlockLondon } from "./eth_node.js";
 import { T, TAlt } from "./fp.js";
-import * as TimeFrame from "./time_frames.js";
+import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrame } from "./time_frames.js";
 
 export type FeesBurnedT = {
@@ -35,7 +35,7 @@ const getTimeframeBaseFeeSum = (
         SUM(base_fee_sum) AS eth,
         SUM(base_fee_sum * eth_price / 1e18) AS usd
       FROM blocks
-      WHERE mined_at >= now() - ${TimeFrame.intervalSqlMap[timeframe]}::interval
+      WHERE mined_at >= now() - ${TimeFrames.intervalSqlMap[timeframe]}::interval
       AND number <= ${block.number}
     `,
     T.map((rows) => ({
