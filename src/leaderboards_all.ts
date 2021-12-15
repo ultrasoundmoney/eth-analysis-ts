@@ -82,9 +82,9 @@ const addContractBaseFeeSums = async (
         UNNEST(${sql.array(feesUsd)}::double precision[])
       ON CONFLICT (contract_address) DO UPDATE SET
         base_fee_sum =
-          contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::double precision,
+          contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::float8,
         base_fee_sum_usd =
-          contract_base_fee_sums.base_fee_sum_usd + excluded.base_fee_sum_usd::double precision
+          contract_base_fee_sums.base_fee_sum_usd + excluded.base_fee_sum_usd::float8
     `;
   });
   await Promise.all(promises);
@@ -113,13 +113,13 @@ export const removeContractBaseFeeSums = async (
 
     await sql`
       UPDATE contract_base_fee_sums SET
-      base_fee_sum = contract_base_fee_sums.base_fee_sum - data_table.base_fee_sum,
-      base_fee_sum_usd = contract_base_fee_sums.base_fee_sum_usd - data_table.base_fee_sum_usd
+        base_fee_sum = contract_base_fee_sums.base_fee_sum - data_table.base_fee_sum,
+        base_fee_sum_usd = contract_base_fee_sums.base_fee_sum_usd - data_table.base_fee_sum_usd
       FROM (
         SELECT
-        UNNEST(${sql.array(addresses)}::text[]) as contract_address,
-        UNNEST(${sql.array(fees)}::double precision[]) as base_fee_sum,
-        UNNEST(${sql.array(feesUsd)}::double precision[]) as base_fee_sum_usd
+          UNNEST(${sql.array(addresses)}::text[]) as contract_address,
+          UNNEST(${sql.array(fees)}::double precision[]) as base_fee_sum,
+          UNNEST(${sql.array(feesUsd)}::double precision[]) as base_fee_sum_usd
       ) as data_table
       WHERE contract_base_fee_sums.contract_address = data_table.contract_address
     `;
