@@ -244,6 +244,7 @@ const continuouslyUpdateScarcity = async () => {
   }
 };
 
+Scarcity.getLatestScarcity();
 continuouslyUpdateScarcity();
 
 const handleGetScarcity: Middleware = async (ctx) => {
