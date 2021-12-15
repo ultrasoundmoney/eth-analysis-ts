@@ -19,7 +19,7 @@ const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
 export const getAddressesForMetadata = (
   leaderboards: LeaderboardEntries | undefined,
 ): Set<string> => {
-  if (leaderboards === undefined) {
+  if (leaderboards === undefined || leaderboards === null) {
     Log.error("tried to get addresses for empty leaderboards");
     return new Set();
   }
