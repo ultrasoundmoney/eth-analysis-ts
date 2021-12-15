@@ -1,6 +1,7 @@
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
+import { BlockDb } from "../blocks/blocks.js";
 import * as Log from "../log.js";
 import { logPerf } from "../performance.js";
 import * as TimeFrames from "../time_frames.js";
@@ -11,9 +12,8 @@ import {
   recordStates,
 } from "./burn_records.js";
 
-export const init = async () => {
+export const init = async (lastStoredBlock: BlockDb) => {
   Log.debug("init burn records limited time frames");
-  const lastStoredBlock = await Blocks.getLastStoredBlock();
   const tGetAllBlocks = performance.now();
   const allBlocks = await Blocks.getFeeBlocks(
     Blocks.londonHardForkBlockNumber,
