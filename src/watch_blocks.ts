@@ -6,7 +6,7 @@ import * as Config from "./config.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
 // import * as BurnRecordsSync from "./burn-records/sync.js";
-import * as FeeBurn from "./fee_burns.js";
+import * as FeeBurns from "./fee_burns.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
@@ -56,7 +56,7 @@ try {
     initLeaderboardLimitedTimeframes(),
     // BurnRecordsSync.init(),
     syncLeaderboardAll(),
-    FeeBurn.init(),
+    FeeBurns.init(),
     EthLocked.init(),
     EthStaked.init(),
     EthSupply.init(),
