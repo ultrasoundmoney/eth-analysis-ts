@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
-import { deserialize } from "../json.js";
+import { deserializeBigInt } from "../json.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
 import * as BurnRecords from "./burn_records.js";
@@ -26,7 +26,7 @@ Log.info(`last stored block is: ${lastStoredBlock.number}`);
 // writeFileSync("./blocks-all.json", JSON.stringify(blocks, serialize));
 const blocks = JSON.parse(
   readFileSync("./blocks-all.json", "utf8"),
-  deserialize,
+  deserializeBigInt,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ).map((block: any) => ({ ...block, minedAt: DateFns.parseISO(block.minedAt) }));
 Log.info(`${blocks.length} blocks total`);
