@@ -33,6 +33,8 @@ spec:
                 name: twitter-usm
             - secretRef:
                 name: node-urls
+            - secretRef:
+                name: defi-pulse-api-key
           env:
             - name: NAME
               valueFrom:
