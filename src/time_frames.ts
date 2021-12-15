@@ -1,4 +1,4 @@
-import * as Duration from "./duration.js";
+import * as TimeFrames from "./duration.js";
 
 export const limitedTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const;
 export type LimitedTimeFrame = typeof limitedTimeFrames[number];
@@ -14,17 +14,17 @@ export const intervalSqlMap: Record<LimitedTimeFrame, string> = {
 };
 
 export const limitedTimeFrameMillisMap: Record<LimitedTimeFrame, number> = {
-  "5m": Duration.millisFromMinutes(5),
-  "1h": Duration.millisFromHours(1),
-  "24h": Duration.millisFromDays(1),
-  "7d": Duration.millisFromDays(7),
-  "30d": Duration.millisFromDays(30),
+  "5m": TimeFrames.millisFromMinutes(5),
+  "1h": TimeFrames.millisFromHours(1),
+  "24h": TimeFrames.millisFromDays(1),
+  "7d": TimeFrames.millisFromDays(7),
+  "30d": TimeFrames.millisFromDays(30),
 };
 
 export const timeFrameMillisMap: Record<LimitedTimeFrame, number> = {
-  "5m": Duration.millisFromMinutes(5),
-  "1h": Duration.millisFromHours(1),
-  "24h": Duration.millisFromHours(24),
-  "7d": Duration.millisFromDays(7),
-  "30d": Duration.millisFromDays(30),
+  "5m": TimeFrames.millisFromMinutes(5),
+  "1h": TimeFrames.millisFromHours(1),
+  "24h": TimeFrames.millisFromHours(24),
+  "7d": TimeFrames.millisFromDays(7),
+  "30d": TimeFrames.millisFromDays(30),
 };
