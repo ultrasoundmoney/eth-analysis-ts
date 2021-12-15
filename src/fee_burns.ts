@@ -39,7 +39,11 @@ export const getInitSumForTimeFrame = async (
     WHERE number >= ${from}
   `;
 
-  Log.debug(`got precise fee burn for ${timeFrame}`);
+  Log.debug(
+    `got precise fee burn for ${timeFrame}, eth: ${
+      Number(rows[0]?.eth) / 10 ** 18
+    }`,
+  );
 
   return {
     eth: BigInt(rows[0].eth),
@@ -48,7 +52,7 @@ export const getInitSumForTimeFrame = async (
 };
 
 type BaseFeeSums = Record<TimeFrame, PreciseBaseFeeSum>;
-const current: Record<TimeFrame, PreciseBaseFeeSum | undefined> = {
+const currentBurned: Record<TimeFrame, PreciseBaseFeeSum | undefined> = {
   "1h": undefined,
   "24h": undefined,
   "30d": undefined,
@@ -58,10 +62,10 @@ const current: Record<TimeFrame, PreciseBaseFeeSum | undefined> = {
 };
 
 const addToCurrent = (timeFrame: TimeFrame, sum: PreciseBaseFeeSum) => {
-  const eth = current[timeFrame]?.eth ?? 0n;
-  const usd = current[timeFrame]?.usd ?? 0;
+  const eth = currentBurned[timeFrame]?.eth ?? 0n;
+  const usd = currentBurned[timeFrame]?.usd ?? 0;
 
-  current[timeFrame] = {
+  currentBurned[timeFrame] = {
     eth: eth + sum.eth,
     usd: usd + sum.usd,
   };
@@ -74,6 +78,7 @@ export const init = async (): Promise<void> => {
     addToCurrent(timeFrame, sum);
   });
   await Promise.all(tasks);
+  console.log(currentBurned);
 };
 
 export const onNewBlock = (block: BlockDb): void => {
@@ -100,17 +105,17 @@ export const onRollback = (block: BlockDb): void => {
 };
 
 export const getFeeBurns = (): BaseFeeSums => {
-  if (Object.values(current).some((value) => value === undefined)) {
+  if (Object.values(currentBurned).some((value) => value === undefined)) {
     throw new Error("tried to get precise fee burns before init");
   }
 
-  return current as BaseFeeSums;
+  return currentBurned as BaseFeeSums;
 };
 
 export const getAllFeesBurned = (): PreciseBaseFeeSum => {
-  if (current["all"] === undefined) {
+  if (currentBurned["all"] === undefined) {
     throw new Error("tried to get all precise fee burn before init");
   }
 
-  return current["all"];
+  return currentBurned["all"];
 };
