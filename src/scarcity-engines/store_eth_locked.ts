@@ -3,10 +3,7 @@ import * as Duration from "../duration.js";
 import * as FetchAlt from "../fetch_alt.js";
 import * as Log from "../log.js";
 
-const fetchWithRetry = FetchAlt.withRetry({
-  limit: 5,
-  useBinaryExponentialBackoff: true,
-});
+const fetchWithRetry = FetchAlt.withRetry(5, 2000, true);
 
 const marketDataEndpoint = `https://data-api.defipulse.com/api/v1/defipulse/api/MarketData?api-key=${process.env.DEFI_PULSE_API_KEY}`;
 
