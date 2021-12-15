@@ -30,6 +30,18 @@ export const getLatestDerivedBlockStats = (): T.Task<DerivedBlockStats> => () =>
     )
 `.then((rows) => rows[0]);
 
+export const getLatestStatsWithLeaderboards =
+  async (): Promise<DerivedBlockStats> => {
+    const rows = await sql<DerivedBlockStats[]>`
+      SELECT * FROM derived_block_stats
+      WHERE block_number = (
+        SELECT MAX(block_number) FROM derived_block_stats
+        WHERE leaderboards IS NOT NULL
+      )
+    `;
+    return rows[0];
+  };
+
 export const getDerivedBlockStats = (
   blockNumber: number,
 ): T.Task<DerivedBlockStats | undefined> =>

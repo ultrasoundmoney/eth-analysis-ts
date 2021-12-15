@@ -17,9 +17,14 @@ const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;
 
 export const getAddressesForMetadata = (
-  leaderboards: LeaderboardEntries,
-): Set<string> =>
-  pipe(
+  leaderboards: LeaderboardEntries | undefined,
+): Set<string> => {
+  if (leaderboards === undefined) {
+    Log.error("tried to get addresses for empty leaderboards");
+    return new Set();
+  }
+
+  return pipe(
     Object.values(leaderboards),
     // We'd like to add metadata longest lasting, to shortest lasting timeframe.
     A.reverse,
@@ -29,6 +34,7 @@ export const getAddressesForMetadata = (
     A.compact,
     (addresses) => new Set(addresses),
   );
+};
 
 export const addMetadataForLeaderboards = (
   addresses: string[],

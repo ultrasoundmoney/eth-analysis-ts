@@ -13,7 +13,8 @@ const main = async () => {
   try {
     await EthNode.connect();
 
-    let lastSeenStats = await DerivedBlockStats.getLatestDerivedBlockStats()();
+    let lastSeenStats =
+      await DerivedBlockStats.getLatestStatsWithLeaderboards();
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
