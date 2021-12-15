@@ -19,34 +19,45 @@ import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
 import * as Performance from "../performance.js";
+import * as FeeBurn from "../fee_burn.js";
 
 export const newBlockQueue = new PQueue({
   concurrency: 1,
   autoStart: false,
 });
 
-const rollbackBlock = async (blockNumber: number): Promise<void> => {
-  Log.info(`rolling back block: ${blockNumber}`);
+const rollbackTo = async (blockNumber: number): Promise<void> => {
+  Log.info(`rolling back to and including: ${blockNumber}`);
+  const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
 
-  const t0 = performance.now();
+  const blocksToRollback = Blocks.getBlockRange(blockNumber, syncedBlockHeight);
+  const blocksNewestFirst = blocksToRollback.reverse();
 
-  const sumsToRollback = await Leaderboards.getRangeBaseFees(
-    blockNumber,
-    blockNumber,
-  )();
-  LeaderboardsLimitedTimeframe.onRollback(blockNumber, sumsToRollback);
-  await Promise.all([
-    LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
-    LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
-    // BurnRecordsNewHead.onRollback(blockNumber),
-  ]);
+  for (const blockNumber of blocksNewestFirst) {
+    Log.debug(`rolling back ${blockNumber}`);
+    const [block] = await Blocks.getBlocks(blockNumber, blockNumber);
+    const t0 = performance.now();
 
-  await Contracts.deleteContractsMinedAt(blockNumber);
-  await Blocks.deleteContractBaseFees(blockNumber);
-  await Blocks.deleteDerivedBlockStats(blockNumber);
-  await Blocks.deleteBlock(blockNumber);
+    FeeBurn.onRollback(block);
 
-  Performance.logPerf("rollback", t0);
+    const sumsToRollback = await Leaderboards.getRangeBaseFees(
+      blockNumber,
+      blockNumber,
+    )();
+    LeaderboardsLimitedTimeframe.onRollback(blockNumber, sumsToRollback);
+    await Promise.all([
+      LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
+      LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
+      // BurnRecordsNewHead.onRollback(blockNumber),
+    ]);
+
+    await Contracts.deleteContractsMinedAt(blockNumber);
+    await Blocks.deleteContractBaseFees(blockNumber);
+    await Blocks.deleteDerivedBlockStats(blockNumber);
+    await Blocks.deleteBlock(blockNumber);
+
+    Performance.logPerf("rollback", t0);
+  }
 };
 
 export const addBlock = async (head: Head): Promise<void> => {
@@ -70,7 +81,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
-    await rollbackBlock(block.number);
+    await rollbackTo(block.number);
   }
 
   const [txrs, ethPrice] = await Promise.all([
