@@ -181,9 +181,9 @@ const getTopBaseFeeContracts = async (): Promise<LeaderboardRow[]> => sql<
     FROM contract_base_fee_sums
     ORDER BY base_fee_sum DESC
     LIMIT 100
-
+  )
   SELECT
-  base_fee_sum AS base_fees,
+    base_fee_sum AS base_fees,
     base_fee_sum_usd AS base_fees_usd,
     category,
     contract_address,
