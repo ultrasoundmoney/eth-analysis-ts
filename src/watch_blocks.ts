@@ -1,15 +1,16 @@
 import Sentry from "@sentry/node";
 import "@sentry/tracing";
-import * as Config from "./config.js";
 import * as BlocksNewBlock from "./blocks/new_head.js";
+import * as BlocksSync from "./blocks/sync.js";
+import * as Config from "./config.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
+// import * as BurnRecordsSync from "./burn-records/sync.js";
+import * as FeeBurn from "./fee_burn.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
-import * as BlocksSync from "./blocks/sync.js";
-// import * as BurnRecordsSync from "./burn-records/sync.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -52,6 +53,7 @@ try {
     initLeaderboardLimitedTimeframes(),
     // BurnRecordsSync.init(),
     syncLeaderboardAll(),
+    FeeBurn.init(),
   ]);
 
   BlocksNewBlock.newBlockQueue.start();
