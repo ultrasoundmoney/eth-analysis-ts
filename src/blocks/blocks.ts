@@ -17,7 +17,7 @@ import { BlockLondon } from "../eth_node.js";
 import { A, O, pipe, T } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
-import { usdToScaled } from "../scaling.js";
+import { usdToScaled } from "../usd_scaling.js";
 import { segmentTxrs, TxRWeb3London } from "../transactions.js";
 
 export const londonHardForkBlockNumber = 12965000;

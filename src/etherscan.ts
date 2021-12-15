@@ -11,6 +11,7 @@ import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
 import { delay } from "./delay.js";
 import * as Duration from "./duration.js";
+import * as FetchAlt from "./fetch_alt.js";
 import { E, O, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -77,7 +78,7 @@ export const fetchAbi = (
               ? TE.right(JSON.parse(abiRaw.result))
               : abiRaw.status === "0"
               ? TE.left({
-                  _tag: "abi-not-found" as const,
+                  _tag: "abi-not-found",
                   message: `${abiRaw.message} - ${abiRaw.result}`,
                 })
               : TE.left({ _tag: "api-error", message: abiRaw.result }),
@@ -328,3 +329,35 @@ export const getEthPrice = () =>
     () => fetchEthPrice(),
     E.isLeft,
   );
+
+type EthSupplyResponse = {
+  status: "0" | "1";
+  message: string;
+  result: string;
+};
+
+export const getEthSupply = async () => {
+  const url = urlcat("https://api.etherscan.io/api", {
+    module: "stats",
+    action: "ethsupply",
+    apiKey: Config.getEtherscanToken(),
+  });
+
+  const fetch = FetchAlt.withRetry();
+  const res = await fetch(url);
+
+  if (res.status !== 200) {
+    try {
+      const errBody = await res.json();
+      Log.error("fetch etherscan eth supply, bad response", errBody);
+    } catch (error) {
+      // nothing
+    }
+    throw new Error(
+      `fetch etherscan eth supply, bad response, status: ${res.status}`,
+    );
+  }
+
+  const body = (await res.json()) as EthSupplyResponse;
+  return body.result;
+};

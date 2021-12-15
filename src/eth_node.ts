@@ -520,3 +520,7 @@ export const makeContract = (address: string, abi: AbiItem[]): Contract => {
   const Contract = getWeb3().eth.Contract;
   return new Contract(abi, address);
 };
+
+export const getBalance = (address: string): Promise<string> => {
+  return getWeb3().eth.getBalance(address);
+};
