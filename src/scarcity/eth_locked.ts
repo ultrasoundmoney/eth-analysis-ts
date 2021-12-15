@@ -2,6 +2,7 @@ import { setInterval } from "timers/promises";
 import * as Duration from "../duration.js";
 import * as FetchAlt from "../fetch_alt.js";
 import * as Log from "../log.js";
+import * as Config from "../config.js";
 
 const fetchWithRetry = FetchAlt.withRetry(5, 2000, true);
 
@@ -13,6 +14,13 @@ type LastEthLocked = {
 };
 
 let lastEthLocked: LastEthLocked | undefined = undefined;
+
+const storeEthLocked = (ethLocked: number) => {
+  lastEthLocked = {
+    timestamp: new Date(),
+    ethLocked,
+  };
+};
 
 type MarketData = {
   All: {
@@ -26,7 +34,8 @@ type MarketData = {
   };
 };
 
-const updateEthLocked = async () => {
+// Uses 5 API credits per call, we have 2000 per month.
+const getEthLocked = async (): Promise<number> => {
   Log.debug("getting ETH locked from DefiPulse");
   const res = await fetchWithRetry(marketDataEndpoint);
 
@@ -39,21 +48,29 @@ const updateEthLocked = async () => {
 
   Log.debug(`got eth locked from defi pulse: ${ethLocked} ETH`);
 
-  lastEthLocked = {
-    timestamp: new Date(),
-    ethLocked,
-  };
+  return ethLocked;
 };
 
-export const getEthLocked = async () => {
-  return lastEthLocked;
-};
-
-updateEthLocked();
+export const getLastEthLocked = () => lastEthLocked;
 
 const intervalIterator = setInterval(Duration.millisFromHours(12), Date.now());
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-for await (const _ of intervalIterator) {
-  await updateEthLocked();
-}
+export const init = async () => {
+  // As we don't have many API credits for this endpoint and services may restart many times during dev, we don't fetch a fresh number during dev.
+  if (Config.getEnv() === "prod" || Config.getEnv() === "staging") {
+    const ethLocked = await getEthLocked();
+    storeEthLocked(ethLocked);
+  } else {
+    storeEthLocked(9499823.32579059);
+  }
+
+  continuouslyUpdate();
+};
+
+const continuouslyUpdate = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for await (const _ of intervalIterator) {
+    const ethLocked = await getEthLocked();
+    storeEthLocked(ethLocked);
+  }
+};

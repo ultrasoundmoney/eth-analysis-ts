@@ -2,6 +2,7 @@ import * as Blocks from "./blocks/blocks.js";
 import { BlockDb } from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import { WeiBI } from "./eth_units.js";
+import * as Log from "./log.js";
 import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 import { Usd } from "./usd_scaling.js";
@@ -38,6 +39,8 @@ export const getInitSumForTimeFrame = async (
     WHERE number >= ${from}
   `;
 
+  Log.debug(`got precise fee burn for ${timeFrame}`);
+
   return {
     eth: BigInt(rows[0].eth),
     usd: rows[0].usd,
@@ -45,7 +48,14 @@ export const getInitSumForTimeFrame = async (
 };
 
 type BaseFeeSums = Record<TimeFrame, PreciseBaseFeeSum>;
-const current = {} as BaseFeeSums;
+const current: Record<TimeFrame, PreciseBaseFeeSum | undefined> = {
+  "1h": undefined,
+  "24h": undefined,
+  "30d": undefined,
+  "5m": undefined,
+  "7d": undefined,
+  all: undefined,
+};
 
 const addToCurrent = (timeFrame: TimeFrame, sum: PreciseBaseFeeSum) => {
   const eth = current[timeFrame]?.eth ?? 0n;
@@ -58,6 +68,7 @@ const addToCurrent = (timeFrame: TimeFrame, sum: PreciseBaseFeeSum) => {
 };
 
 export const init = async (): Promise<void> => {
+  Log.debug("init precise fee burn");
   const tasks = TimeFrames.timeFrames.map(async (timeFrame) => {
     const sum = await getInitSumForTimeFrame(timeFrame);
     addToCurrent(timeFrame, sum);
@@ -88,6 +99,18 @@ export const onRollback = (block: BlockDb): void => {
   }
 };
 
-export const getFeeBurns = (): BaseFeeSums => current;
+export const getFeeBurns = (): BaseFeeSums => {
+  if (Object.values(current).some((value) => value === undefined)) {
+    throw new Error("tried to get precise fee burns before init");
+  }
 
-export const getAllFeesBurned = (): PreciseBaseFeeSum => current["all"];
+  return current as BaseFeeSums;
+};
+
+export const getAllFeesBurned = (): PreciseBaseFeeSum => {
+  if (current["all"] === undefined) {
+    throw new Error("tried to get all precise fee burn before init");
+  }
+
+  return current["all"];
+};

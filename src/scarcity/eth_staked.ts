@@ -14,8 +14,6 @@ type LastEthStaked = {
 let lastEthStaked: undefined | LastEthStaked = undefined;
 
 const updateEthStaked = async () => {
-  Log.info("getting ETH staked from ETH2 deposit contract");
-
   const balanceHex = await EthNode.getBalance(eth2DepositAddress);
   const balance = BigInt(balanceHex);
 
@@ -27,17 +25,20 @@ const updateEthStaked = async () => {
   };
 };
 
-export const getEthStaked = () => {
+export const getLastEthStaked = () => {
   return lastEthStaked;
 };
 
-await EthNode.connect();
-
-updateEthStaked();
-
 const intervalIterator = setInterval(Duration.millisFromMinutes(1), Date.now());
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-for await (const _ of intervalIterator) {
+const continuouslyUpdate = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for await (const _ of intervalIterator) {
+    await updateEthStaked();
+  }
+};
+
+export const init = async () => {
   await updateEthStaked();
-}
+  continuouslyUpdate();
+};

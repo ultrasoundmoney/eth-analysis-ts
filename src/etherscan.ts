@@ -336,7 +336,7 @@ type EthSupplyResponse = {
   result: string;
 };
 
-export const getEthSupply = async () => {
+export const getEthSupply = async (): Promise<bigint> => {
   const url = urlcat("https://api.etherscan.io/api", {
     module: "stats",
     action: "ethsupply",
@@ -344,7 +344,7 @@ export const getEthSupply = async () => {
   });
 
   const fetch = FetchAlt.withRetry();
-  const res = await fetch(url);
+  const res = await apiQueue.add(() => fetch(url));
 
   if (res.status !== 200) {
     try {
@@ -359,5 +359,5 @@ export const getEthSupply = async () => {
   }
 
   const body = (await res.json()) as EthSupplyResponse;
-  return body.result;
+  return BigInt(body.result);
 };

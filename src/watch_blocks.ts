@@ -6,11 +6,14 @@ import * as Config from "./config.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
 // import * as BurnRecordsSync from "./burn-records/sync.js";
-import * as FeeBurn from "./fee_burn.js";
+import * as FeeBurn from "./fee_burns.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
+import * as EthLocked from "./scarcity/eth_locked.js";
+import * as EthStaked from "./scarcity/eth_staked.js";
+import * as EthSupply from "./scarcity/eth_supply.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -54,12 +57,15 @@ try {
     // BurnRecordsSync.init(),
     syncLeaderboardAll(),
     FeeBurn.init(),
+    EthLocked.init(),
+    EthStaked.init(),
+    EthSupply.init(),
   ]);
 
   BlocksNewBlock.newBlockQueue.start();
   Log.info("started analyzing new blocks from queue");
 } catch (error) {
-  Log.error("error adding new blocks", { error });
+  Log.error("error analyzing blocks", error);
   EthNode.closeConnection();
   sql.end();
   throw error;

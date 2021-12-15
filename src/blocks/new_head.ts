@@ -9,17 +9,18 @@ import { sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
 import { BlockLondon, Head } from "../eth_node.js";
 import { getPriceForOldBlock } from "../eth_prices.js";
+import * as FeeBurn from "../fee_burns.js";
 import { pipe, T, TAlt } from "../fp.js";
 import * as Leaderboards from "../leaderboards.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
+import * as Performance from "../performance.js";
+import * as Scarcity from "../scarcity/new_head.js";
 import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
-import * as Performance from "../performance.js";
-import * as FeeBurn from "../fee_burn.js";
 
 export const newBlockQueue = new PQueue({
   concurrency: 1,
@@ -120,6 +121,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
     // BurnRecordsOnNewBlock,
+    Scarcity.onNewBlock(blockDb),
   ]);
 
   Performance.logPerf("second order analyze block", tStartAnalyze);

@@ -47,6 +47,7 @@ export const syncBlocks = async (upToIncluding: number): Promise<void> => {
   }
 
   if (syncedBlockHeight > upToIncluding) {
+    Log.debug(`chain head: ${upToIncluding}, synced to: ${syncedBlockHeight}`);
     throw new Error("chain head is behind blocks table?!");
   }
 
