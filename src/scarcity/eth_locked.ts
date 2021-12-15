@@ -40,7 +40,7 @@ const getEthLocked = async (): Promise<number> => {
   const res = await fetchWithRetry(marketDataEndpoint);
 
   if (res.status !== 200) {
-    Log.error(`bad response from defi pulse ${res.status}`);
+    throw new Error(`bad response from defi pulse ${res.status}`);
   }
 
   const marketData = (await res.json()) as MarketData;
