@@ -35,10 +35,10 @@ export const getDerivedBlockStats = (
 export const storeDerivedBlockStats = ({
   blockNumber,
   burnRates,
+  // burnRecords,
   feesBurned,
   leaderboards,
-}: // burnRecords,
-DerivedBlockStats): T.Task<void> => {
+}: DerivedBlockStats): T.Task<void> => {
   return pipe(
     () => sql`
       INSERT INTO derived_block_stats (
