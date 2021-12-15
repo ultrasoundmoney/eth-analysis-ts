@@ -21,7 +21,7 @@ const updateEthSupply = async () => {
   };
 };
 
-export const getLastEthSupply = async () => {
+export const getLastEthSupply = () => {
   return lastEthSupply;
 };
 

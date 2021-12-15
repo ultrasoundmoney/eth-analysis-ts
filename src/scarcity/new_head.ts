@@ -9,6 +9,18 @@ import * as EthLocked from "./eth_locked.js";
 import * as EthStaked from "./eth_staked.js";
 import * as EthSupply from "./eth_supply.js";
 
+export type ScarcityEngine = {
+  amount: number | bigint;
+  name: string;
+  startedOn: Date;
+};
+
+export type Scarcity = {
+  engines: ScarcityEngine[];
+  ethSupply: bigint;
+  number: number;
+};
+
 export const onNewBlock = async (block: BlockDb) => {
   const ethBurned = FeeBurn.getAllFeesBurned().eth;
   const ethLocked = EthLocked.getLastEthLocked();
@@ -25,13 +37,16 @@ export const onNewBlock = async (block: BlockDb) => {
     return;
   }
 
-  const maxAge = Duration.millisFromMinutes(10);
+  if (ethSupply === undefined) {
+    Log.error("can't store scarcity, missing eth supply");
+    return;
+  }
 
   const ethStakedAge = DateFnsAlt.millisecondsBetweenAbs(
     new Date(),
     ethStaked.timestamp,
   );
-  if (ethStakedAge > maxAge) {
+  if (ethStakedAge > Duration.millisFromMinutes(10)) {
     Log.error("eth staked update too old");
     return;
   }
@@ -40,29 +55,42 @@ export const onNewBlock = async (block: BlockDb) => {
     new Date(),
     ethLocked.timestamp,
   );
-  if (ethLockedAge > maxAge) {
+  if (ethLockedAge > Duration.millisFromDays(1)) {
     Log.error("eth locked update too old");
     return;
   }
 
-  const scarcityEngines = {
+  const ethSupplyAge = DateFnsAlt.millisecondsBetweenAbs(
+    new Date(),
+    ethSupply.timestamp,
+  );
+  if (ethSupplyAge > Duration.millisFromMinutes(10)) {
+    Log.error("eth supply update too old to calculate scarcity");
+  }
+
+  const scarcity: Scarcity = {
     engines: [
       {
-        name: "staked",
         amount: ethStaked.ethStaked,
-        timestamp: new Date("2020-11-03T00:00:00.000Z"),
+        name: "staked",
+        startedOn: new Date("2020-11-03T00:00:00.000Z"),
       },
       {
-        name: "locked",
         amount: ethLocked.ethLocked,
-        timestamp: new Date("2017-09-02T00:00:00.000Z"),
+        name: "locked",
+        startedOn: new Date("2017-09-02T00:00:00.000Z"),
+      },
+      {
+        amount: ethBurned,
+        name: "burned",
+        startedOn: new Date("2021-08-05T12:33:42.000Z"),
       },
     ],
-    ethSupply: ethSupply,
-    ethBurned: ethBurned,
+    ethSupply: ethSupply.ethSupply,
+    number: block.number,
   };
 
-  const insertable = JSON.stringify(scarcityEngines, serializeBigInt);
+  const insertable = JSON.stringify(scarcity, serializeBigInt);
 
   await sql`
     INSERT INTO derived_block_stats (
@@ -75,5 +103,5 @@ export const onNewBlock = async (block: BlockDb) => {
     SET scarcity = excluded.scarcity
   `;
 
-  Log.debug(`store scarcity done for ${block.number}`);
+  Log.debug("done updating scarcity");
 };

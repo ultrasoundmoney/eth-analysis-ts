@@ -4,6 +4,7 @@ import Koa, { Middleware } from "koa";
 import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
+import { setInterval } from "timers/promises";
 import { FeesBurnedT } from "../base_fee_sums.js";
 import * as Blocks from "../blocks/blocks.js";
 import { NewBlockPayload } from "../blocks/blocks.js";
@@ -21,6 +22,7 @@ import * as LatestBlockFees from "../latest_block_fees.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market_caps.js";
+import * as Scarcity from "../scarcity/scarcity.js";
 
 if (Config.getEnv() !== "dev") {
   Sentry.init({
@@ -47,6 +49,8 @@ let cache: Cache = {
   number: undefined,
   leaderboards: undefined,
 };
+
+let scarcityCache: string | undefined = undefined;
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
@@ -231,6 +235,24 @@ const handleGetMarketCaps: Middleware = async (ctx) =>
     }),
   )();
 
+const intervalIterator = setInterval(Duration.millisFromMinutes(1), Date.now());
+
+const continuouslyUpdateScarcity = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for await (const _ of intervalIterator) {
+    scarcityCache = await Scarcity.getLatestScarcity();
+  }
+};
+
+continuouslyUpdateScarcity();
+
+const handleGetScarcity: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = scarcityCache;
+  return undefined;
+};
+
 const updateCachesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
@@ -247,12 +269,12 @@ const updateCachesForBlockNumber = async (
     }),
     T.map(({ derivedBlockStats, latestBlockFees, baseFeePerGas }) => {
       cache = {
-        latestBlockFees,
-        burnRates: derivedBlockStats?.burnRates,
-        number,
-        feesBurned: derivedBlockStats?.feesBurned,
         baseFeePerGas,
+        burnRates: derivedBlockStats?.burnRates,
+        feesBurned: derivedBlockStats?.feesBurned,
+        latestBlockFees,
         leaderboards: derivedBlockStats?.leaderboards,
+        number,
       };
     }),
     T.map(() => undefined),
@@ -314,6 +336,7 @@ router.get("/fees/set-contract-name", handleSetContractName);
 router.get("/fees/set-contract-category", handleSetContractCategory);
 router.get("/fees/average-eth-price", handleAverageEthPrice);
 router.get("/fees/market-caps", handleGetMarketCaps);
+router.get("/fees/scarcity", handleGetScarcity);
 
 app.use(bodyParser());
 app.use(router.routes());

@@ -9,15 +9,25 @@ import { LeaderboardEntries } from "./leaderboards.js";
 export type DerivedBlockStats = {
   blockNumber: number;
   burnRates: BurnRatesT;
+  // burnRecords: BurnRecordsT;
   feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
+};
+
+export type DerivedBlockStatsSerialized = {
+  blockNumber: number;
+  burnRates: BurnRatesT;
   // burnRecords: BurnRecordsT;
+  feesBurned: FeesBurnedT;
+  leaderboards: LeaderboardEntries;
 };
 
 export const getLatestDerivedBlockStats = (): T.Task<DerivedBlockStats> => () =>
   sql<DerivedBlockStats[]>`
-  SELECT * FROM derived_block_stats
-  WHERE block_number = (SELECT MAX(block_number) FROM derived_block_stats)
+    SELECT * FROM derived_block_stats
+    WHERE block_number = (
+      SELECT MAX(block_number) FROM derived_block_stats
+    )
 `.then((rows) => rows[0]);
 
 export const getDerivedBlockStats = (
@@ -26,8 +36,8 @@ export const getDerivedBlockStats = (
   pipe(
     () =>
       sql<DerivedBlockStats[]>`
-      SELECT * FROM derived_block_stats
-      WHERE block_number = ${blockNumber}
+        SELECT * FROM derived_block_stats
+        WHERE block_number = ${blockNumber}
     `,
     T.map((rows) => rows[0]),
   );
