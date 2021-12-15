@@ -9,14 +9,24 @@ import * as EthLocked from "./eth_locked.js";
 import * as EthStaked from "./eth_staked.js";
 import * as EthSupply from "./eth_supply.js";
 
-export type ScarcityEngine = {
-  amount: number | bigint;
-  name: string;
-  startedOn: Date;
-};
-
 export type Scarcity = {
-  engines: ScarcityEngine[];
+  engines: {
+    burned: {
+      amount: bigint;
+      name: string;
+      startedOn: Date;
+    };
+    locked: {
+      amount: number;
+      name: string;
+      startedOn: Date;
+    };
+    staked: {
+      amount: bigint;
+      name: string;
+      startedOn: Date;
+    };
+  };
   ethSupply: bigint;
   number: number;
 };
@@ -69,23 +79,23 @@ export const onNewBlock = async (block: BlockDb) => {
   }
 
   const scarcity: Scarcity = {
-    engines: [
-      {
-        amount: ethStaked.ethStaked,
-        name: "staked",
-        startedOn: new Date("2020-11-03T00:00:00.000Z"),
-      },
-      {
-        amount: ethLocked.ethLocked,
-        name: "locked",
-        startedOn: new Date("2017-09-02T00:00:00.000Z"),
-      },
-      {
+    engines: {
+      burned: {
         amount: ethBurned,
         name: "burned",
         startedOn: new Date("2021-08-05T12:33:42.000Z"),
       },
-    ],
+      locked: {
+        amount: ethLocked.ethLocked,
+        name: "locked",
+        startedOn: new Date("2017-09-02T00:00:00.000Z"),
+      },
+      staked: {
+        amount: ethStaked.ethStaked,
+        name: "staked",
+        startedOn: new Date("2020-11-03T00:00:00.000Z"),
+      },
+    },
     ethSupply: ethSupply.ethSupply,
     number: block.number,
   };
