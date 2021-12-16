@@ -37,7 +37,7 @@ const trimMarketCapsTable = (): T.Task<void> =>
     T.map(() => undefined),
   );
 
-type StoreMarketCapsError = MarketDataError | string;
+type StoreMarketCapsError = MarketDataError | Error | string;
 
 type MarketCapRow = {
   btc_market_cap: number;

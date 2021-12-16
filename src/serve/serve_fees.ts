@@ -17,7 +17,7 @@ import * as DerivedBlockStats from "../derived_block_stats.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeesBurnedPerInterval from "../fees_burned_per_interval.js";
-import { pipe, T, TAlt } from "../fp.js";
+import { pipe, T, TAlt, TE } from "../fp.js";
 import * as LatestBlockFees from "../latest_block_fees.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
@@ -75,17 +75,19 @@ const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
     EthPrices.getEthStats(),
-    T.map((ethStats) => {
-      if (ethStats === undefined) {
+    TE.match(
+      (e) => {
+        Log.error(e);
         ctx.status = 500;
+        return;
+      },
+      (ethStats) => {
+        ctx.set("Cache-Control", "max-age=15, stale-while-revalidate=600");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = ethStats;
         return undefined;
-      }
-
-      ctx.set("Cache-Control", "max-age=15, stale-while-revalidate=600");
-      ctx.set("Content-Type", "application/json");
-      ctx.body = ethStats;
-      return undefined;
-    }),
+      },
+    ),
   )();
 
 const handleGetBurnRate: Middleware = async (ctx) => {
