@@ -48,6 +48,10 @@ for await (const _ of intervalIterator) {
           throw new Error(e);
         }
 
+        if (e instanceof Error) {
+          throw e;
+        }
+
         if (e._tag === "timeout" || e._tag === "rate-limit") {
           Log.warn(e.error);
           return;
