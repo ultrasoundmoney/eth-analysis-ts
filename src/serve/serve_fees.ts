@@ -143,6 +143,7 @@ const handleSetContractTwitterHandle: Middleware = async (ctx) => {
     ctx.body = { msg: "missing handle" };
     return undefined;
   }
+
   if (typeof address !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing address" };
@@ -209,6 +210,7 @@ const handleSetContractCategory: Middleware = async (ctx) => {
     ctx.body = { msg: "missing category" };
     return undefined;
   }
+
   if (typeof address !== "string") {
     ctx.status = 400;
     ctx.body = { msg: "missing address" };
@@ -259,25 +261,21 @@ const handleGetScarcity: Middleware = async (ctx) => {
 const updateCachesForBlockNumber = async (
   blockNumber: number,
 ): Promise<void> => {
-  const derivedBlockStats = DerivedBlockStats.getDerivedBlockStats(blockNumber);
-  const latestBlockFees = LatestBlockFees.getLatestBlockFees(blockNumber);
-  const baseFeePerGas = Blocks.getBaseFeesPerGas(blockNumber);
-  const number = blockNumber;
-
   return pipe(
     TAlt.seqSParT({
-      derivedBlockStats,
-      latestBlockFees,
-      baseFeePerGas,
+      derivedBlockStats: () =>
+        DerivedBlockStats.getDerivedBlockStats(blockNumber),
+      latestBlockFees: LatestBlockFees.getLatestBlockFees(blockNumber),
+      baseFeePerGas: Blocks.getBaseFeesPerGas(blockNumber),
     }),
     T.map(({ derivedBlockStats, latestBlockFees, baseFeePerGas }) => {
       cache = {
         baseFeePerGas,
-        burnRates: derivedBlockStats?.burnRates,
-        feesBurned: derivedBlockStats?.feesBurned,
+        burnRates: derivedBlockStats?.burnRates ?? undefined,
+        feesBurned: derivedBlockStats?.feesBurned ?? undefined,
         latestBlockFees,
-        leaderboards: derivedBlockStats?.leaderboards,
-        number,
+        leaderboards: derivedBlockStats?.leaderboards ?? undefined,
+        number: blockNumber,
       };
     }),
     T.map(() => undefined),

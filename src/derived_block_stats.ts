@@ -8,10 +8,10 @@ import { LeaderboardEntries } from "./leaderboards.js";
 
 export type DerivedBlockStats = {
   blockNumber: number;
-  burnRates: BurnRatesT;
+  burnRates: BurnRatesT | null;
   // burnRecords: BurnRecordsT;
-  feesBurned: FeesBurnedT;
-  leaderboards: LeaderboardEntries;
+  feesBurned: FeesBurnedT | null;
+  leaderboards: LeaderboardEntries | null;
 };
 
 export type DerivedBlockStatsSerialized = {
@@ -42,17 +42,16 @@ export const getLatestStatsWithLeaderboards =
     return rows[0];
   };
 
-export const getDerivedBlockStats = (
+export const getDerivedBlockStats = async (
   blockNumber: number,
-): T.Task<DerivedBlockStats | undefined> =>
-  pipe(
-    () =>
-      sql<DerivedBlockStats[]>`
-        SELECT * FROM derived_block_stats
-        WHERE block_number = ${blockNumber}
-    `,
-    T.map((rows) => rows[0]),
-  );
+): Promise<DerivedBlockStats | undefined> => {
+  const rows = await sql<DerivedBlockStats[]>`
+    SELECT * FROM derived_block_stats
+    WHERE block_number = ${blockNumber}
+  `;
+
+  return rows[0];
+};
 
 export const storeDerivedBlockStats = ({
   blockNumber,
