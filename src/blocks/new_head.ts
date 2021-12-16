@@ -27,7 +27,7 @@ export const newBlockQueue = new PQueue({
   autoStart: false,
 });
 
-const rollbackTo = async (blockNumber: number): Promise<void> => {
+export const rollbackTo = async (blockNumber: number): Promise<void> => {
   Log.info(`rolling back to and including: ${blockNumber}`);
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
 

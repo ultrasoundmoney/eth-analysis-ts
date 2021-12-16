@@ -1,12 +1,11 @@
 import _ from "lodash";
 import makeEta from "simple-eta";
-import * as Config from "../config.js";
 import * as EthPrices from "../eth_prices.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
-import { addBlock } from "./new_head.js";
+import { addBlock, rollbackTo } from "./new_head.js";
 
 const syncBlock = async (blockNumber: number): Promise<void> => {
   Log.debug(`sync block: ${blockNumber}`);
@@ -29,17 +28,23 @@ const syncBlock = async (blockNumber: number): Promise<void> => {
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 };
 
-export const syncBlocks = async (upToIncluding: number): Promise<void> => {
-  const lastStoredBlock = await Blocks.getLastStoredBlock();
+const rollbackToLastValidBlock = async () => {
+  let lastStoredBlock = await Blocks.getLastStoredBlock();
+  let block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
 
-  // Check no rollback happened while we were offline
-  const block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
-  // Currently blows up on production.
-  if (Config.getEnv() !== "prod" && block.hash !== lastStoredBlock.hash) {
-    throw new Error(
-      "last known block has been rolled back while we were offline",
+  while (lastStoredBlock.hash !== block.hash) {
+    Log.warn(
+      `on-start last known block does not match chain, rolling back ${block.number}`,
     );
+    await rollbackTo(lastStoredBlock.number - 1);
+    lastStoredBlock = await Blocks.getLastStoredBlock();
+    block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
   }
+};
+
+export const syncBlocks = async (upToIncluding: number): Promise<void> => {
+  // If a rollback happened while we were offline, rollback to the last valid block.
+  await rollbackToLastValidBlock();
 
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
 
