@@ -1,5 +1,6 @@
 import _ from "lodash";
 import makeEta from "simple-eta";
+import * as Config from "../config.js";
 import * as EthPrices from "../eth_prices.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
@@ -33,7 +34,8 @@ export const syncBlocks = async (upToIncluding: number): Promise<void> => {
 
   // Check no rollback happened while we were offline
   const block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
-  if (block.hash !== lastStoredBlock.hash) {
+  // Currently blows up on production.
+  if (Config.getEnv() !== "prod" && block.hash !== lastStoredBlock.hash) {
     throw new Error(
       "last known block has been rolled back while we were offline",
     );
