@@ -23,6 +23,7 @@ import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market_caps.js";
 import * as Scarcity from "../scarcity/scarcity.js";
+// import * as SupplyProjection from "../supply-projection/supply_projection.js";
 
 if (Config.getEnv() !== "dev") {
   Sentry.init({
@@ -49,8 +50,6 @@ let cache: Cache = {
   number: undefined,
   leaderboards: undefined,
 };
-
-let scarcityCache: string | undefined = undefined;
 
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
@@ -239,17 +238,8 @@ const handleGetMarketCaps: Middleware = async (ctx) =>
     }),
   )();
 
-const intervalIterator = setInterval(Duration.millisFromMinutes(1), Date.now());
-
-const continuouslyUpdateScarcity = async () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for await (const _ of intervalIterator) {
-    scarcityCache = await Scarcity.getLatestScarcity();
-  }
-};
-
-Scarcity.getLatestScarcity();
-continuouslyUpdateScarcity();
+let scarcityCache: string | undefined = undefined;
+Scarcity.getLastStoredScarcity();
 
 const handleGetScarcity: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
@@ -258,10 +248,39 @@ const handleGetScarcity: Middleware = async (ctx) => {
   return undefined;
 };
 
-const updateCachesForBlockNumber = async (
-  blockNumber: number,
-): Promise<void> => {
-  return pipe(
+// let supplyProjectionCache: string | undefined = undefined;
+// SupplyProjection.getLatestInputs();
+
+const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
+  ctx.set("Content-Type", "application/json");
+  // ctx.body = supplyProjectionCache;
+  return undefined;
+};
+
+const everyMinuteIterator = setInterval(
+  Duration.millisFromMinutes(1),
+  Date.now(),
+);
+
+const updateCachesEveryMinute = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for await (const _ of everyMinuteIterator) {
+    const [latestScarcity /* latestSupplyProjectionInputs */] =
+      await Promise.all([
+        Scarcity.getLastStoredScarcity(),
+        // SupplyProjection.getLatestInputs(),
+      ]);
+
+    scarcityCache = latestScarcity;
+    // supplyProjectionCache = latestSupplyProjectionInputs;
+  }
+};
+
+updateCachesEveryMinute();
+
+const updateCachesForBlockNumber = (blockNumber: number) =>
+  pipe(
     TAlt.seqSParT({
       derivedBlockStats: () =>
         DerivedBlockStats.getDerivedBlockStats(blockNumber),
@@ -278,15 +297,13 @@ const updateCachesForBlockNumber = async (
         number: blockNumber,
       };
     }),
-    T.map(() => undefined),
-  )();
-};
+  );
 
 sql.listen("new-derived-stats", (payload) => {
   Canary.resetCanary("block");
   const latestBlock: NewBlockPayload = JSON.parse(payload!);
   Log.debug(`derived stats available for block: ${latestBlock.number}`);
-  updateCachesForBlockNumber(latestBlock.number);
+  updateCachesForBlockNumber(latestBlock.number)();
 });
 
 const port = process.env.PORT || 8080;
@@ -338,6 +355,7 @@ router.get("/fees/set-contract-category", handleSetContractCategory);
 router.get("/fees/average-eth-price", handleAverageEthPrice);
 router.get("/fees/market-caps", handleGetMarketCaps);
 router.get("/fees/scarcity", handleGetScarcity);
+router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 
 app.use(bodyParser());
 app.use(router.routes());
@@ -352,10 +370,10 @@ const serveFees = async () => {
     `.then((rows) => rows[0]?.blockNumber);
 
     if (blockNumber === undefined) {
-      throw new Error("missing derived block stats");
+      throw new Error("no derived block stats, can't serve fees");
     }
 
-    await updateCachesForBlockNumber(blockNumber);
+    await updateCachesForBlockNumber(blockNumber)();
 
     await new Promise((resolve) => {
       app.listen(port, () => {
