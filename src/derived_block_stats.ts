@@ -3,15 +3,19 @@ import * as T from "fp-ts/lib/Task.js";
 import { FeesBurnedT } from "./base_fee_sums.js";
 // import { BurnRecordsT } from "./burn-records/burn_records.js";
 import { BurnRatesT } from "./burn_rates.js";
-import { sql } from "./db.js";
+import { sql, sqlT } from "./db.js";
+import { A, TE } from "./fp.js";
+import { serializeBigInt } from "./json.js";
 import { LeaderboardEntries } from "./leaderboards.js";
+import { Scarcity } from "./scarcity/scarcity.js";
 
 export type DerivedBlockStats = {
-  blockNumber: number;
-  burnRates: BurnRatesT | null;
   // burnRecords: BurnRecordsT;
-  feesBurned: FeesBurnedT | null;
-  leaderboards: LeaderboardEntries | null;
+  blockNumber: number;
+  burnRates: BurnRatesT;
+  feesBurned: FeesBurnedT;
+  leaderboards: LeaderboardEntries;
+  scarcity: Scarcity;
 };
 
 export type DerivedBlockStatsSerialized = {
@@ -53,35 +57,38 @@ export const getDerivedBlockStats = async (
   return rows[0];
 };
 
-export const storeDerivedBlockStats = ({
-  blockNumber,
-  burnRates,
-  // burnRecords,
-  feesBurned,
-  leaderboards,
-}: DerivedBlockStats): T.Task<void> => {
-  return pipe(
-    () => sql`
-      INSERT INTO derived_block_stats (
-        block_number,
-        burn_rates,
-        fees_burned,
-        leaderboards
-      )
-      VALUES (
-        ${blockNumber},
-        ${sql.json(burnRates)},
-        ${sql.json(feesBurned)},
-        ${sql.json(leaderboards)}
-      )
-      ON CONFLICT (block_number) DO UPDATE SET
-        burn_rates = ${sql.json(burnRates)},
-        fees_burned = ${sql.json(feesBurned)},
-        leaderboards = ${sql.json(leaderboards)}
-    `,
-    T.map(() => undefined),
-  );
+type InsertableDerivedStats = {
+  block_number: number;
+  burn_rates: string;
+  fees_burned: string;
+  leaderboards: string;
+  scarcity: string;
 };
+
+const insertableFromDerivedStats = (
+  stats: DerivedBlockStats,
+): InsertableDerivedStats => ({
+  block_number: stats.blockNumber,
+  burn_rates: JSON.stringify(stats.burnRates),
+  fees_burned: JSON.stringify(stats.feesBurned),
+  leaderboards: JSON.stringify(stats.leaderboards),
+  scarcity: JSON.stringify(stats.scarcity, serializeBigInt),
+});
+
+export const storeDerivedBlockStats = (stats: DerivedBlockStats) =>
+  pipe(
+    stats,
+    insertableFromDerivedStats,
+    (insertable) => sqlT`
+      INSERT INTO derived_block_stats
+        ${sql(insertable)}
+      ON CONFLICT (block_number) DO UPDATE SET
+      burn_rates = excluded.burn_rates,
+      fees_burned = excluded.fees_burned,
+      leaderboards = excluded.leaderboards,
+      scarcity = excluded.scarcity
+    `,
+  );
 
 export const deleteOldDerivedStats = (): T.Task<void> =>
   pipe(
@@ -94,4 +101,22 @@ export const deleteOldDerivedStats = (): T.Task<void> =>
       )
     `,
     T.map(() => undefined),
+  );
+
+class NoDerivedStatsError extends Error {}
+
+export const getLatestLeaderboards = (): TE.TaskEither<
+  NoDerivedStatsError,
+  { blockNumber: number; leaderboards: LeaderboardEntries }
+> =>
+  pipe(
+    () => sql<{ blockNumber: number; leaderboards: LeaderboardEntries }[]>`
+      SELECT block_number, leaderboards FROM derived_block_stats
+      WHERE block_number = (
+        SELECT MAX(block_number) FROM derived_block_stats
+        WHERE leaderboards IS NOT NULL
+      )
+    `,
+    T.map(A.head),
+    TE.fromTaskOption(() => new NoDerivedStatsError()),
   );
