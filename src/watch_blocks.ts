@@ -65,7 +65,6 @@ try {
   BlocksNewBlock.newBlockQueue.start();
   Log.info("started analyzing new blocks from queue");
 } catch (error) {
-  Log.error("error analyzing blocks", error);
   EthNode.closeConnection();
   sql.end();
   throw error;
