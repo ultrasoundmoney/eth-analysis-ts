@@ -6,7 +6,7 @@ import * as Log from "../log.js";
 import * as EthLocked from "./eth_locked.js";
 import * as EthStaked from "./eth_staked.js";
 import * as EthSupply from "./eth_supply.js";
-import { Scarcity } from "./scarcity.js";
+import { Scarcity, updateScarcity } from "./scarcity.js";
 
 export const onNewBlock = async (block: BlockDb) => {
   const ethBurned = FeeBurn.getAllFeesBurned().eth;
@@ -77,7 +77,7 @@ export const onNewBlock = async (block: BlockDb) => {
     number: block.number,
   };
 
-  Log.debug("done updating scarcity");
+  updateScarcity(scarcity);
 
-  return scarcity;
+  Log.debug("done updating scarcity");
 };
