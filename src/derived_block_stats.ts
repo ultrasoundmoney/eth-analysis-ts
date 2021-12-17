@@ -7,7 +7,7 @@ import { sql, sqlT } from "./db.js";
 import { A, TE } from "./fp.js";
 import { serializeBigInt } from "./json.js";
 import { LeaderboardEntries } from "./leaderboards.js";
-import { Scarcity } from "./scarcity/scarcity.js";
+import { ScarcityT } from "./scarcity/scarcity.js";
 
 export type DerivedBlockStats = {
   // burnRecords: BurnRecordsT;
@@ -15,7 +15,7 @@ export type DerivedBlockStats = {
   burnRates: BurnRatesT;
   feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
-  scarcity: Scarcity;
+  scarcity: ScarcityT;
 };
 
 export type DerivedBlockStatsSerialized = {
