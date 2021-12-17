@@ -56,6 +56,7 @@ export const getFtxPrices = async (
   const res = await ftxApiQueue.add(() => fetch(url));
 
   if (res.status !== 200) {
+    Log.error("failed to fetch ftx price", await res.json());
     throw new Error(`failed to fetch ftx prices, status: ${res.status}`);
   }
 
