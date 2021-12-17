@@ -23,6 +23,7 @@ import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market_caps.js";
 import * as Scarcity from "../scarcity/scarcity.js";
+import { ScarcityT } from "../scarcity/scarcity.js";
 // import * as SupplyProjection from "../supply-projection/supply_projection.js";
 
 if (Config.getEnv() !== "dev") {
@@ -238,7 +239,7 @@ const handleGetMarketCaps: Middleware = async (ctx) =>
     }),
   )();
 
-let scarcityCache: string | undefined = undefined;
+let scarcityCache: ScarcityT | undefined = undefined;
 Scarcity.getLastStoredScarcity();
 
 const handleGetScarcity: Middleware = async (ctx) => {

@@ -6,7 +6,7 @@ import * as Log from "../log.js";
 import * as EthLocked from "./eth_locked.js";
 import * as EthStaked from "./eth_staked.js";
 import * as EthSupply from "./eth_supply.js";
-import { Scarcity, updateScarcity } from "./scarcity.js";
+import { ScarcityT, updateScarcity } from "./scarcity.js";
 
 export const onNewBlock = async (block: BlockDb) => {
   const ethBurned = FeeBurn.getAllFeesBurned().eth;
@@ -55,7 +55,7 @@ export const onNewBlock = async (block: BlockDb) => {
     Log.error("eth supply update too old to calculate scarcity");
   }
 
-  const scarcity: Scarcity = {
+  const scarcity: ScarcityT = {
     engines: {
       burned: {
         amount: ethBurned,
