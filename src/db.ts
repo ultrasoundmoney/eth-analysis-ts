@@ -1,7 +1,13 @@
 import { camelCase } from "change-case";
-import { pipe } from "fp-ts/lib/function.js";
+import { Lazy, pipe } from "fp-ts/lib/function.js";
 import O from "fp-ts/lib/Option.js";
-import postgres, { TransactionSql } from "postgres";
+import postgres, {
+  AsRowList,
+  PendingQuery,
+  Row,
+  SerializableParameter,
+  TransactionSql,
+} from "postgres";
 import * as Config from "./config.js";
 
 const port = pipe(
@@ -28,6 +34,16 @@ export const sql = postgres({
     application_name: Config.getName(),
   },
 });
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export const sqlT =
+  <A extends any[] = Row[]>(
+    template: TemplateStringsArray,
+    ...args: SerializableParameter[]
+  ): Lazy<PendingQuery<AsRowList<A>>> =>
+  () =>
+    sql(template, ...args);
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export type SqlArg =
   | typeof sql
