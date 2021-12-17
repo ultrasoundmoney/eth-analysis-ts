@@ -6,6 +6,7 @@ import { JsTimestamp } from "./date_fns_alt.js";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import { EthPrice } from "./etherscan.js";
+import { BlockLondon } from "./eth_node.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
 import { E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
@@ -91,7 +92,7 @@ const getPriceForOlderBlockWithCache = async (
 export const getOldPriceSeqQueue = new PQueue({ concurrency: 1 });
 
 // Execute these sequentially for maximum cache hits.
-export const getPriceForOldBlock = (block: BlockForPrice): Promise<EthPrice> =>
+export const getPriceForOldBlock = (block: BlockLondon): Promise<EthPrice> =>
   getOldPriceSeqQueue.add(() => getPriceForOlderBlockWithCache(block));
 
 // Odds are the price we're looking for was recently stored. Because of this we keep a cache.

@@ -8,7 +8,7 @@ import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
 import { BlockLondon, Head } from "../eth_node.js";
-import { getPriceForOldBlock } from "../eth_prices.js";
+import * as EthPrices from "../eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
 import { O, pipe, T, TAlt } from "../fp.js";
 import * as Leaderboards from "../leaderboards.js";
@@ -88,7 +88,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const [txrs, ethPrice] = await Promise.all([
     getTxrsWithRetry(block),
-    getPriceForOldBlock(block),
+    EthPrices.getPriceForOldBlock(block),
   ]);
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 

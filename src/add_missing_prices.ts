@@ -27,7 +27,8 @@ for (const block of blocks) {
     number: block.number,
   };
 
-  const ethPrice = await EthPrices.getPriceForOldBlock(fauxBlock);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ethPrice = await EthPrices.getPriceForOldBlock(fauxBlock as any);
 
   Log.debug(
     `found price: ${ethPrice.ethusd}, timestamp: ${DateFns.formatISO(
