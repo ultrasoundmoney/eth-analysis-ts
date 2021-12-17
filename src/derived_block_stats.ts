@@ -110,11 +110,10 @@ export const getLatestLeaderboards = (): TE.TaskEither<
   { blockNumber: number; leaderboards: LeaderboardEntries }
 > =>
   pipe(
-    () => sql<{ blockNumber: number; leaderboards: LeaderboardEntries }[]>`
+    sqlT<{ blockNumber: number; leaderboards: LeaderboardEntries }[]>`
       SELECT block_number, leaderboards FROM derived_block_stats
       WHERE block_number = (
         SELECT MAX(block_number) FROM derived_block_stats
-        WHERE leaderboards IS NOT NULL
       )
     `,
     T.map(A.head),
