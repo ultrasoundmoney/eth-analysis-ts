@@ -5,7 +5,7 @@ import { delay } from "./delay.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import { pipe } from "./fp.js";
+import { O, pipe, T, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 const main = async () => {
@@ -18,8 +18,11 @@ const main = async () => {
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const latestStats =
-        await DerivedBlockStats.getLatestDerivedBlockStats()();
+      const latestStats = await pipe(
+        DerivedBlockStats.getLatestLeaderboards(),
+        TEAlt.getOrThrow,
+      )();
+
       if (lastSeenStats.blockNumber === latestStats.blockNumber) {
         // Already added these stats to the queue.
         Log.debug(
