@@ -39,7 +39,7 @@ const logLevel = pipe(
   (level) => level.toUpperCase() as Severity,
 );
 
-const logMap: Record<Severity, (message: string) => void> = {
+const logMap: Record<Severity, (...data: unknown[]) => void> = {
   DEFAULT: console.log,
   DEBUG: console.info,
   INFO: console.info,
@@ -66,7 +66,7 @@ export const log = (
     logFn(prettySeverity + message);
 
     if (meta !== undefined) {
-      console.debug(meta);
+      logFn(meta);
     }
 
     return undefined;
