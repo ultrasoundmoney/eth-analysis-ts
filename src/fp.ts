@@ -16,6 +16,7 @@ export * as NEA from "fp-ts/lib/NonEmptyArray.js";
 export * as Num from "fp-ts/lib/number.js";
 export * as O from "fp-ts/lib/Option.js";
 export { Ord } from "fp-ts/lib/Ord.js";
+export * as OrdM from "fp-ts/lib/Ord.js";
 export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as RA from "fp-ts/lib/ReadonlyArray.js";
 export * as T from "fp-ts/lib/Task.js";
