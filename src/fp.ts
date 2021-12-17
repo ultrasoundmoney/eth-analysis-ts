@@ -1,6 +1,7 @@
 import * as Apply from "fp-ts/lib/Apply.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as Mo from "fp-ts/lib/Monoid.js";
+import * as O from "fp-ts/lib/Option.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import * as Void from "fp-ts/lib/void.js";
@@ -15,7 +16,6 @@ export * as NEA from "fp-ts/lib/NonEmptyArray.js";
 export * as Num from "fp-ts/lib/number.js";
 export * as O from "fp-ts/lib/Option.js";
 export { Ord } from "fp-ts/lib/Ord.js";
-export * as OrdM from "fp-ts/lib/Ord.js";
 export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as RA from "fp-ts/lib/ReadonlyArray.js";
 export * as T from "fp-ts/lib/Task.js";
@@ -69,4 +69,11 @@ export const TEAlt = {
 
     return new Error(String(e));
   },
+};
+
+export const OAlt = {
+  getOrThrow: (message: string) =>
+    O.getOrElseW(() => {
+      throw new Error(message);
+    }),
 };
