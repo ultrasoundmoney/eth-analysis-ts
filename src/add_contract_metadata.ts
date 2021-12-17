@@ -5,7 +5,7 @@ import { delay } from "./delay.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import { O, pipe, T, T, TE, TEAlt } from "./fp.js";
+import { pipe, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 const main = async () => {
@@ -13,8 +13,10 @@ const main = async () => {
   try {
     await EthNode.connect();
 
-    let lastSeenStats =
-      await DerivedBlockStats.getLatestStatsWithLeaderboards();
+    let lastSeenStats = await pipe(
+      DerivedBlockStats.getLatestLeaderboards(),
+      TEAlt.getOrThrow,
+    )();
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
