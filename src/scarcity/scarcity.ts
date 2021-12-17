@@ -8,6 +8,7 @@ export const getLatestScarcity = async (): Promise<ScarcityJson> => {
     WHERE block_number = (
       SELECT MAX(block_number) FROM derived_block_stats
     )
+    AND scarcity IS NOT NULL
   `;
 
   return rows[0]?.scarcity;
