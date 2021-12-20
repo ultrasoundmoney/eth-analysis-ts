@@ -1,7 +1,7 @@
-import * as Blocks from "./blocks/blocks.js";
 import { BlockDb } from "./blocks/blocks.js";
-import { sql } from "./db.js";
+import { sqlT } from "./db.js";
 import { WeiBI } from "./eth_units.js";
+import { B, pipe, T, TAlt } from "./fp.js";
 import * as Log from "./log.js";
 import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
@@ -12,44 +12,46 @@ type PreciseBaseFeeSum = {
   usd: Usd;
 };
 
-export const getInitSumForTimeFrame = async (
-  timeFrame: TimeFrame,
-): Promise<PreciseBaseFeeSum> => {
-  const lastStoredBlock = await Blocks.getLastStoredBlock();
-
-  const getFromForTimeFrame = async (timeFrame: LimitedTimeFrame) => {
-    const fromBlock = await Blocks.getPastBlock(
-      lastStoredBlock,
-      // Postgres gives an error when using milliseconds.
-      `${TimeFrames.timeFrameMillisMap[timeFrame] / 1000} seconds`,
-    );
-    return fromBlock.number;
-  };
-
-  const from =
-    timeFrame === "all"
-      ? Blocks.londonHardForkBlockNumber
-      : await getFromForTimeFrame(timeFrame);
-
-  const rows = await sql<{ eth: string; usd: number }[]>`
-    SELECT
-      SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
-      SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 10e18) AS usd
-    FROM blocks
-    WHERE number >= ${from}
-  `;
-
-  Log.debug(
-    `got precise fee burn for ${timeFrame}, eth: ${
-      Number(rows[0]?.eth) / 10 ** 18
-    }`,
+const getSumForAll = () =>
+  pipe(
+    sqlT<{ eth: string; usd: number }[]>`
+      SELECT
+        SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
+        SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 10e18) AS usd
+      FROM blocks
+    `,
   );
 
-  return {
-    eth: BigInt(rows[0].eth),
-    usd: rows[0].usd,
-  };
-};
+const getSumForInterval = (timeFrame: LimitedTimeFrame) =>
+  pipe(
+    TimeFrames.intervalSqlMap[timeFrame],
+    (interval) => sqlT<{ eth: string; usd: number }[]>`
+      SELECT
+      SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
+      SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 10e18) AS usd
+      FROM blocks
+      WHERE mined_at >= (SELECT MAX(mined_at) FROM blocks) - ${interval}::interval
+    `,
+  );
+
+export const getInitSumForTimeFrame = (
+  timeFrame: TimeFrame,
+): T.Task<PreciseBaseFeeSum> =>
+  pipe(
+    timeFrame === "all",
+    B.match(
+      () => getSumForInterval(timeFrame as LimitedTimeFrame),
+      () => getSumForAll(),
+    ),
+    T.map((rows) => ({ eth: BigInt(rows[0].eth), usd: rows[0].usd })),
+    T.chainFirstIOK((baseFeeSum) => () => {
+      Log.debug(
+        `got precise fee burn for ${timeFrame}, eth: ${
+          Number(baseFeeSum.eth) / 10 ** 18
+        }`,
+      );
+    }),
+  );
 
 type BaseFeeSums = Record<TimeFrame, PreciseBaseFeeSum>;
 const currentBurned: Record<TimeFrame, PreciseBaseFeeSum | undefined> = {
@@ -71,15 +73,18 @@ const addToCurrent = (timeFrame: TimeFrame, sum: PreciseBaseFeeSum) => {
   };
 };
 
-export const init = async (): Promise<void> => {
-  Log.debug("init precise fee burn");
-  const tasks = TimeFrames.timeFrames.map(async (timeFrame) => {
-    const sum = await getInitSumForTimeFrame(timeFrame);
-    addToCurrent(timeFrame, sum);
-  });
-  await Promise.all(tasks);
-  console.log(currentBurned);
-};
+export const init = (): T.Task<void> =>
+  pipe(
+    Log.debug("init precise fee burn"),
+    () => TimeFrames.timeFrames,
+    T.traverseArray((timeFrame) =>
+      pipe(
+        getInitSumForTimeFrame(timeFrame),
+        T.chain((sum) => T.fromIO(() => addToCurrent(timeFrame, sum))),
+      ),
+    ),
+    TAlt.concatAllVoid,
+  );
 
 export const onNewBlock = (block: BlockDb): void => {
   for (const timeFrame of TimeFrames.timeFrames) {

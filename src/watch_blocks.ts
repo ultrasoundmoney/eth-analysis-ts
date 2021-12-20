@@ -56,7 +56,7 @@ try {
     initLeaderboardLimitedTimeframes(),
     // BurnRecordsSync.init(),
     syncLeaderboardAll(),
-    FeeBurns.init(),
+    FeeBurns.init()(),
     EthLocked.init(),
     EthStaked.init(),
     EthSupply.init(),
