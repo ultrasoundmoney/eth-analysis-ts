@@ -352,50 +352,22 @@ const getTimeframeAverageTask = (timeframe: LimitedTimeFrame): T.Task<number> =>
     T.map((rows) => rows[0]?.ethPriceAverage ?? 0),
   );
 
-// Workaround as passing maxAge on .set is broken.
-const averagePriceCacheMap: Record<TimeFrame, QuickLRU<string, number>> = {
-  "5m": new QuickLRU<string, number>({
-    maxSize: 1,
-    maxAge: Duration.millisFromSeconds(3),
-  }),
-  "1h": new QuickLRU<string, number>({
-    maxSize: 1,
-    maxAge: Duration.millisFromMinutes(2),
-  }),
-  "24h": new QuickLRU<string, number>({
-    maxSize: 1,
-    maxAge: Duration.millisFromMinutes(30),
-  }),
-  "7d": new QuickLRU<string, number>({
-    maxSize: 1,
-    maxAge: Duration.millisFromMinutes(30),
-  }),
-  "30d": new QuickLRU<string, number>({
-    maxSize: 1,
-    maxAge: Duration.millisFromMinutes(30),
-  }),
-  all: new QuickLRU<string, number>({
-    maxSize: 1,
-    maxAge: Duration.millisFromMinutes(30),
-  }),
+const averagePriceCache = new QuickLRU<TimeFrame, number>({
+  maxSize: 6,
+});
+
+const timeFrameMaxAgeMap: Record<TimeFrame, number> = {
+  "5m": Duration.millisFromSeconds(3),
+  "1h": Duration.millisFromMinutes(2),
+  "24h": Duration.millisFromMinutes(30),
+  "7d": Duration.millisFromMinutes(30),
+  "30d": Duration.millisFromMinutes(30),
+  all: Duration.millisFromMinutes(30),
 };
-
-// const averagePriceCache = new QuickLRU<Timeframe, number>({
-//   maxSize: 6,
-// });
-
-// const timeFrameCacheDurationMap: Record<Timeframe, number> = {
-//   "5m": Duration.milisFromSeconds(3),
-//   "1h": Duration.milisFromMinutes(2),
-//   "24h": Duration.milisFromMinutes(30),
-//   "7d": Duration.milisFromMinutes(30),
-//   "30d": Duration.milisFromMinutes(30),
-//   all: Duration.milisFromMinutes(30),
-// };
 
 const getTimeFrameAverageWithCache = (timeframe: TimeFrame): T.Task<number> =>
   pipe(
-    averagePriceCacheMap[timeframe].get(timeframe),
+    averagePriceCache.get(timeframe),
     O.fromNullable,
     O.match(
       () =>
@@ -407,7 +379,8 @@ const getTimeFrameAverageWithCache = (timeframe: TimeFrame): T.Task<number> =>
             Log.debug(
               `get eth average price for time frame: ${timeframe} cache miss`,
             );
-            averagePriceCacheMap[timeframe].set(timeframe, value);
+            const maxAge = timeFrameMaxAgeMap[timeframe];
+            averagePriceCache.set(timeframe, value, { maxAge: maxAge });
           }),
         ),
       (cValue) =>
