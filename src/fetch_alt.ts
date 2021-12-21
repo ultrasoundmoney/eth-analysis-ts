@@ -5,7 +5,7 @@ import * as Log from "./log.js";
 export const withRetry = (
   limit = 3,
   delayMillis = 2000,
-  useBinaryExponentialBackoff = false,
+  useBinaryExponentialBackoff = true,
 ) => {
   let attempt = 1;
   return async (url: RequestInfo, init?: RequestInit): Promise<Response> => {
