@@ -77,7 +77,7 @@ export const fetchWithRetry = (
             `fetch ${url} failed, status: ${res.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms, retrying`,
           );
 
-          return TE.left(new Error("bad response"));
+          return TE.left(new Error(`fetch ${url}, got ${res.status}`));
         }),
       ),
     E.isLeft,
