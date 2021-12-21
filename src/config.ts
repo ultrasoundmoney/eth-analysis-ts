@@ -59,3 +59,6 @@ export const ensureCriticalBlockAnalysisConfig = (): void => {
 
 export const getOpenseaApiKey = (): string =>
   parseSimpleEnvVar("OPENSEA_API_KEY");
+
+export const getGlassnodeApiKey = (): string =>
+  parseSimpleEnvVar("GLASSNODE_API_KEY");
