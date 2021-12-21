@@ -1,6 +1,6 @@
 import { camelCase } from "change-case";
-import { Lazy, pipe } from "fp-ts/lib/function.js";
-import O from "fp-ts/lib/Option.js";
+import { Lazy } from "fp-ts/lib/function";
+import * as Ley from "ley";
 import postgres, {
   AsRowList,
   PendingQuery,
@@ -10,19 +10,7 @@ import postgres, {
 } from "postgres";
 import * as Config from "./config.js";
 
-const port = pipe(
-  process.env.PGPORT,
-  O.fromNullable,
-  O.map(Number),
-  O.getOrElse(() => 5432),
-);
-
-export const sql = postgres({
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
-  username: process.env.PGUSER,
-  port,
+const config = {
   ssl: "prefer",
   transform: { column: camelCase },
   max: Config.getEnv() === "staging" ? 2 : 6,
@@ -33,7 +21,9 @@ export const sql = postgres({
   connection: {
     application_name: Config.getName(),
   },
-});
+} as const;
+
+export const sql = postgres(config);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const sqlT =
@@ -50,3 +40,8 @@ export type SqlArg =
   | TransactionSql<{
       bigint: (number: bigint) => string;
     }>;
+
+await Ley.up({
+  dir: "migrations",
+  config: config,
+});
