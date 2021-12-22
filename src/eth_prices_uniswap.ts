@@ -1,10 +1,10 @@
 import BigNumber from "bignumber.js";
 import * as DateFns from "date-fns";
 import * as Blocks from "./blocks/blocks.js";
-import * as Etherscan from "./etherscan.js";
+import * as ContractsWeb3 from "./contracts_web3.js";
+import * as Errors from "./errors.js";
 import { EthPrice } from "./etherscan.js";
-import * as EthNode from "./eth_node.js";
-import { O, pipe, T, TAlt } from "./fp.js";
+import { pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 // TODO: slot0 seems slow to update, observations seem to update more regularly.
@@ -61,27 +61,18 @@ const getUniPoolSqrtPriceX96 = (
   blockHeight?: number,
 ): T.Task<BigNumber> =>
   pipe(
-    () => Etherscan.getAbiWithCache(uniPoolAddress),
-    T.chain((abi) => {
-      return pipe(
-        O.fromNullable(abi),
-        O.match(
-          () => {
-            throw new Error("failed to fetch usdc/eth pool abi");
-          },
-          (abi) => {
-            return pipe(
-              EthNode.makeContract(uniPoolAddress, abi),
-              (contract) => () =>
-                contract.methods.slot0().call({
-                  defaultBlock: blockHeight ?? "latest",
-                }) as Promise<Slot0>,
-              T.map((slot0) => new BigNumber(slot0.sqrtPriceX96)),
-            );
-          },
-        ),
-      );
-    }),
+    ContractsWeb3.getContract(uniPoolAddress),
+    TE.chain((contract) =>
+      TE.tryCatch(
+        () =>
+          contract.methods.slot0().call({
+            defaultBlock: blockHeight ?? "latest",
+          }) as Promise<Slot0>,
+        Errors.errorFromUnknown,
+      ),
+    ),
+    TE.map((slot0) => new BigNumber(slot0.sqrtPriceX96)),
+    TEAlt.getOrThrow,
   );
 
 const calcMedian = (values: number[]) => {

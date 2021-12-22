@@ -1,21 +1,32 @@
+import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
 import * as Etherscan from "./etherscan.js";
 import * as EthNode from "./eth_node.js";
-import { pipe, T } from "./fp.js";
+import { O, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 
-export const getWeb3Contract = (
-  address: string,
-): T.Task<Contract | undefined> =>
-  pipe(
-    () => Etherscan.getAbiWithCache(address),
-    T.map((abi) => {
-      if (abi === undefined) {
-        return undefined;
-      }
+const contractsCache = new QuickLRU<string, Contract>({
+  maxSize: 1000,
+});
 
-      return EthNode.makeContract(address, abi);
+const getCachedContract = (address: string) =>
+  pipe(contractsCache.get(address), O.fromNullable);
+
+const fetchAndCacheContract = (address: string) =>
+  pipe(
+    Etherscan.getAbi(address),
+    TE.map((abi) => EthNode.makeContract(address, abi)),
+    TE.chainFirstIOK((contract) => () => {
+      contractsCache.set(address, contract);
     }),
+  );
+
+export const getContract = (
+  address: string,
+): TE.TaskEither<Etherscan.FetchAbiError, Contract> =>
+  pipe(
+    getCachedContract(address),
+    O.match(() => fetchAndCacheContract(address), TE.right),
   );
 
 export const getName = async (
