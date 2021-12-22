@@ -141,6 +141,8 @@ export const storeBestPrice = async (): Promise<void> => {
     return undefined;
   }
 
+  Log.warn("uniswap price too old, falling back to FTX");
+
   const ftxEthPrice = await EthPricesFtx.getNearestFtxPrice(
     maxPriceAge,
     new Date(),
