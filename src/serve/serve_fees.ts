@@ -24,7 +24,7 @@ import * as Log from "../log.js";
 import * as MarketCaps from "../market_caps.js";
 import * as Scarcity from "../scarcity/scarcity.js";
 import { ScarcityT } from "../scarcity/scarcity.js";
-// import * as SupplyProjection from "../supply-projection/supply_projection.js";
+import * as SupplyProjection from "../supply-projection/supply_projection.js";
 
 if (Config.getEnv() !== "dev") {
   Sentry.init({
@@ -240,7 +240,7 @@ const handleGetMarketCaps: Middleware = async (ctx) =>
   )();
 
 let scarcityCache: ScarcityT | undefined = undefined;
-Scarcity.getLastStoredScarcity();
+await Scarcity.getLastStoredScarcity();
 
 const handleGetScarcity: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
@@ -249,14 +249,21 @@ const handleGetScarcity: Middleware = async (ctx) => {
   return undefined;
 };
 
-// let supplyProjectionCache: string | undefined = undefined;
-// SupplyProjection.getLatestInputs();
-
 const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
-  ctx.set("Content-Type", "application/json");
-  // ctx.body = supplyProjectionCache;
-  return undefined;
+  await pipe(
+    SupplyProjection.getInputs(),
+    TE.match(
+      (e) => {
+        Log.error(e);
+        ctx.status = 500;
+      },
+      (inputs) => {
+        ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = inputs;
+      },
+    ),
+  )();
 };
 
 const everyMinuteIterator = setInterval(
@@ -267,14 +274,8 @@ const everyMinuteIterator = setInterval(
 const updateCachesEveryMinute = async () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for await (const _ of everyMinuteIterator) {
-    const [latestScarcity /* latestSupplyProjectionInputs */] =
-      await Promise.all([
-        Scarcity.getLastStoredScarcity(),
-        // SupplyProjection.getLatestInputs(),
-      ]);
-
-    scarcityCache = latestScarcity;
-    // supplyProjectionCache = latestSupplyProjectionInputs;
+    const lastScarcity = await Scarcity.getLastStoredScarcity();
+    scarcityCache = lastScarcity;
   }
 };
 
