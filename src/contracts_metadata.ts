@@ -6,7 +6,7 @@ import { sql } from "./db.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
-import { A, O, pipe, T, TAlt } from "./fp.js";
+import { A, E, O, pipe, T, TAlt } from "./fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
 import * as Log from "./log.js";
 import * as OpenSea from "./opensea.js";
@@ -69,13 +69,22 @@ export const addWeb3Metadata = async (
     return undefined;
   }
 
-  const contract = await web3Queue.add(() =>
-    ContractsWeb3.getWeb3Contract(address)(),
+  const contractE = await web3Queue.add(() =>
+    ContractsWeb3.getContract(address)(),
   );
 
-  if (contract === undefined) {
+  if (E.isLeft(contractE)) {
+    if (contractE.left instanceof Etherscan.AbiNotVerifiedError) {
+      // Not all contracts we see are verified, that's okay.
+      return undefined;
+    }
+
+    // Something else went wrong!
+    Log.error(contractE.left);
     return undefined;
   }
+
+  const contract = contractE.right;
 
   web3LastAttemptMap[address] = new Date();
 
