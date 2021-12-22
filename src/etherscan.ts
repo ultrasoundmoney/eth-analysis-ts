@@ -9,171 +9,122 @@ import urlcatM from "urlcat";
 import type { AbiItem } from "web3-utils";
 import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
-import { delay } from "./delay.js";
 import * as Duration from "./duration.js";
+import * as Errors from "./errors.js";
 import * as FetchAlt from "./fetch_alt.js";
-import { E, O, pipe, TE } from "./fp.js";
+import { E, O, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
+export const apiQueue = new PQueue({
+  concurrency: 4,
+  interval: Duration.millisFromSeconds(1),
+  intervalCap: 5,
+});
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const queueApiCall =
+  <A>(task: T.Task<A>): T.Task<A> =>
+  () =>
+    apiQueue.add(task);
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 type AbiResponse = { status: "0" | "1"; result: string; message: string };
 
-type BadGateway = { _tag: "bad-gateway" };
-type ServiceUnavailable = { _tag: "service-unavailable" };
-type UnknownError = { _tag: "unknown"; error: Error };
-type EtherscanBadResponse = { _tag: "bad-response"; statusCode: number };
-type EtherscanApiError = { _tag: "api-error"; message: string };
-type JsonDecodeError = { _tag: "json-decode" };
-type AbiNotFound = { _tag: "abi-not-found" };
-type GetAbiError =
-  | AbiNotFound
-  | BadGateway
-  | EtherscanApiError
-  | EtherscanBadResponse
-  | JsonDecodeError
-  | ServiceUnavailable
-  | UnknownError;
+export class AbiApiError extends Error {}
+export class AbiNotVerifiedError extends Error {}
+
+export type FetchAbiError = AbiApiError | AbiNotVerifiedError | Error;
+
+const makeAbiUrl = (address: string) =>
+  urlcat("https://api.etherscan.io/api", {
+    module: "contract",
+    action: "getabi",
+    address,
+    apiKey: getEtherscanToken(),
+  });
 
 export const fetchAbi = (
   address: string,
-): TE.TaskEither<GetAbiError, AbiItem[]> =>
+): TE.TaskEither<FetchAbiError, AbiItem[]> =>
   pipe(
-    TE.tryCatch(
-      () =>
-        fetch(
-          `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${getEtherscanToken()}`,
-        ),
-      (e) => ({ _tag: "unknown" as const, error: e as Error }),
+    FetchAlt.fetchWithRetry(makeAbiUrl(address)),
+    queueApiCall,
+    TE.chain((res) =>
+      TE.tryCatch(
+        () => res.json() as Promise<AbiResponse>,
+        Errors.errorFromUnknown,
+      ),
     ),
-    TE.chain((res): TE.TaskEither<GetAbiError, AbiItem[]> => {
-      if (res.status === 502) {
-        return TE.left({
-          _tag: "bad-gateway",
-        });
+    TE.chain((abiRaw): TE.TaskEither<Error, AbiItem[]> => {
+      if (abiRaw.status === "1") {
+        return TE.right(JSON.parse(abiRaw.result));
       }
 
-      if (res.status === 503) {
-        return TE.left({
-          _tag: "service-unavailable",
-        });
+      if (abiRaw.status === "0") {
+        if (abiRaw.result === "Contract source code not verified") {
+          return TE.left(
+            new AbiNotVerifiedError("Contract source code not verified"),
+          );
+        }
+
+        return TE.left(new AbiApiError(abiRaw.result));
       }
 
-      if (res.status !== 200) {
-        return TE.left({
-          _tag: "bad-response",
-          statusCode: res.status,
-        });
-      }
-
-      return pipe(
-        TE.tryCatch(
-          () => res.json() as Promise<AbiResponse>,
-          () => ({ _tag: "json-decode" as const }),
-        ),
-        TE.chain(
-          (abiRaw): TE.TaskEither<GetAbiError, AbiItem[]> =>
-            abiRaw.status === "1"
-              ? TE.right(JSON.parse(abiRaw.result))
-              : abiRaw.status === "0"
-              ? TE.left({
-                  _tag: "abi-not-found",
-                  message: `${abiRaw.message} - ${abiRaw.result}`,
-                })
-              : TE.left({ _tag: "api-error", message: abiRaw.result }),
-        ),
-      );
+      return TE.left(new Error(abiRaw.result));
     }),
   );
 
-const fetchAbiWithRetry = (
-  address: string,
-): TE.TaskEither<GetAbiError, AbiItem[]> =>
-  retrying(
-    Monoid.concat(constantDelay(1000), limitRetries(3)),
-    () => fetchAbi(address),
-    E.isLeft,
-  );
-
-// We want to not be pulling ABIs constantly, at the same time they may get updated sometimes.
+// We want to not be pulling ABIs every time, at the same time they may get updated sometimes.
 const abiCache = new QuickLRU<string, AbiItem[]>({
   maxSize: 300,
-  maxAge: Duration.millisFromHours(3),
+  maxAge: Duration.millisFromHours(12),
 });
 
-export const getAbiWithCache = (
-  address: string,
-): Promise<AbiItem[] | undefined> =>
+const getCachedAbi = (address: string) =>
+  pipe(abiCache.get(address), O.fromNullable);
+
+const fetchAndCacheAbi = (address: string) =>
   pipe(
-    abiCache.get(address),
-    O.fromNullable,
-    O.match(
-      () => fetchAbiWithRetry(address),
-      (abi) => TE.of(abi),
-    ),
-    TE.match(
-      (e) => {
-        // This is acceptable, probably want to handle this with Option instead.
-        if (e._tag === "abi-not-found") {
-          return undefined;
-        }
+    fetchAbi(address),
+    TE.chainFirstIOK((abi) => () => {
+      abiCache.set(address, abi);
+    }),
+  );
 
-        Log.error("get ABI failed", {
-          address,
-          message: "message" in e ? e.message : undefined,
-          type: e._tag,
-        });
-
-        return undefined;
-      },
-      (abi) => {
-        abiCache.set(address, abi);
-        return abi;
-      },
-    ),
-  )();
+export const getAbi = (address: string): TE.TaskEither<Error, AbiItem[]> =>
+  pipe(
+    getCachedAbi(address),
+    O.match(() => fetchAndCacheAbi(address), TE.right),
+  );
 
 export const getNameTag = async (
   address: string,
-  attempt = 0,
-): Promise<string | undefined> => {
-  const res = await fetch(`https://blockscan.com/address/${address}`);
+): Promise<string | undefined> =>
+  pipe(
+    FetchAlt.fetchWithRetry(`https://blockscan.com/address/${address}`),
+    queueApiCall,
+    TE.chain((res) => TE.tryCatch(() => res.text(), Errors.errorFromUnknown)),
+    TE.map((text) => {
+      const { document } = parseHTML(text);
+      const etherscanPublicName = document.querySelector(
+        ".badge-secondary",
+      ) as {
+        innerText: string;
+      } | null;
 
-  // Cloudflare timeout
-  if (res.status === 522 && attempt < 2) {
-    Log.warn(
-      `fetch etherscan name for ${address}, cloudflare 522, attempt: ${attempt}, waiting and retrying`,
-    );
-    await delay(Duration.millisFromSeconds(3));
-    return getNameTag(address, attempt + 1);
-  }
-
-  // Cloudflare unknown error
-  if (res.status === 520 && attempt < 2) {
-    Log.warn(
-      `fetch etherscan name for ${address}, cloudflare 520, attempt: ${attempt}, waiting and retrying`,
-    );
-    await delay(Duration.millisFromSeconds(3));
-    return getNameTag(address, attempt + 1);
-  }
-
-  if (res.status !== 200) {
-    Log.error(
-      `fetch etherscan name for ${address}, bad response ${res.status}`,
-    );
-    return undefined;
-  }
-
-  const html = await res.text();
-
-  const { document } = parseHTML(html);
-  const etherscanPublicName = document.querySelector(".badge-secondary") as {
-    innerText: string;
-  } | null;
-
-  return etherscanPublicName?.innerText;
-};
+      return etherscanPublicName?.innerText;
+    }),
+    TE.match(
+      (e) => {
+        Log.error(e);
+        return undefined;
+      },
+      (v) => v,
+    ),
+  )();
 
 export const fetchTokenTitleQueue = new PQueue({
   interval: Duration.millisFromSeconds(8),
@@ -262,14 +213,6 @@ export const getTokenTitle = async (
   return tokenTicker === undefined ? tokenName : `${tokenName}: ${tokenTicker}`;
 };
 
-export const apiQueue = new PQueue({
-  concurrency: 5,
-  interval: Duration.millisFromSeconds(1),
-  intervalCap: 5,
-  throwOnTimeout: true,
-  timeout: Duration.millisFromSeconds(60),
-});
-
 type UnixTimestampStr = string;
 
 type EthPriceResponse =
@@ -336,28 +279,23 @@ type EthSupplyResponse = {
   result: string;
 };
 
-export const getEthSupply = async (): Promise<bigint> => {
-  const url = urlcat("https://api.etherscan.io/api", {
+const makeEthSupplyUrl = () =>
+  urlcat("https://api.etherscan.io/api", {
     module: "stats",
     action: "ethsupply",
     apiKey: Config.getEtherscanToken(),
   });
 
-  const fetch = FetchAlt.withRetry();
-  const res = await apiQueue.add(() => fetch(url));
-
-  if (res.status !== 200) {
-    try {
-      const errBody = await res.json();
-      Log.error("fetch etherscan eth supply, bad response", errBody);
-    } catch (error) {
-      // nothing
-    }
-    throw new Error(
-      `fetch etherscan eth supply, bad response, status: ${res.status}`,
-    );
-  }
-
-  const body = (await res.json()) as EthSupplyResponse;
-  return BigInt(body.result);
-};
+export const getEthSupply = (): Promise<bigint> =>
+  pipe(
+    FetchAlt.fetchWithRetry(makeEthSupplyUrl()),
+    queueApiCall,
+    TE.chain((res) => {
+      return TE.tryCatch(
+        () => res.json() as Promise<EthSupplyResponse>,
+        Errors.errorFromUnknown,
+      );
+    }),
+    TE.map((body) => BigInt(body.result)),
+    TEAlt.getOrThrow,
+  )();

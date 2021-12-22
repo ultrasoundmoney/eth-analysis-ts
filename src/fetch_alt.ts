@@ -53,7 +53,7 @@ export class FetchError extends Error {}
 export const fetchWithRetry = (
   url: RequestInfo,
   init?: RequestInit,
-): TE.TaskEither<Error, Response> =>
+): TE.TaskEither<FetchError | Error, Response> =>
   retrying(
     Retry.Monoid.concat(Retry.exponentialBackoff(2000), Retry.limitRetries(3)),
     (status) =>
