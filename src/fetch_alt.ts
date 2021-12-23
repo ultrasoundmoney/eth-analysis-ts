@@ -49,6 +49,13 @@ export const withRetry = (
 };
 
 export class FetchError extends Error {}
+export class BadResponseError extends Error {
+  public status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 export const fetchWithRetry = (
   url: RequestInfo,
@@ -77,7 +84,9 @@ export const fetchWithRetry = (
             `fetch ${url} failed, status: ${res.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms, retrying`,
           );
 
-          return TE.left(new Error(`fetch ${url}, got ${res.status}`));
+          return TE.left(
+            new BadResponseError(`fetch ${url}, got ${res.status}`, res.status),
+          );
         }),
       ),
     E.isLeft,
