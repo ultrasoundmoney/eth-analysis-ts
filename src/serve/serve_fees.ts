@@ -247,6 +247,12 @@ let scarcityCache: ScarcityT | undefined = undefined;
 await Scarcity.getLastStoredScarcity();
 
 const handleGetScarcity: Middleware = async (ctx) => {
+  if (scarcityCache === undefined) {
+    Log.error("scarcity was undefined, but should never be");
+    ctx.body = 500;
+    return undefined;
+  }
+
   ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
   ctx.set("Content-Type", "application/json");
   ctx.body = scarcityCache;
