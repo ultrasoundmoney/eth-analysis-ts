@@ -9,5 +9,5 @@ data:
   PGHOST: "anton-do-user-9707990-0.b.db.ondigitalocean.com"
   PGPORT: "25060"
   PGUSER: "doadmin"
-  PRETTY_LOG: "true"
+  PRETTY_LOG: "false"
   NODE_IP: "64.227.73.122"
