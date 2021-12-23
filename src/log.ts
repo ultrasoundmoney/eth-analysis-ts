@@ -48,6 +48,10 @@ const logMap: Record<Severity, (...data: unknown[]) => void> = {
   ALERT: console.error,
 };
 
+const isPrettyLogEnabled =
+  typeof process.env.PRETTY_LOG === "string" &&
+  process.env.PRETTY_LOG !== "false";
+
 export const log = (
   severity = "DEFAULT" as Severity,
   message: unknown,
@@ -60,7 +64,7 @@ export const log = (
   const logFn = logMap[severity];
 
   // Log to console during dev.
-  if (process.env.ENV === "dev" || process.env.PRETTY_LOG) {
+  if (process.env.ENV === "dev" || isPrettyLogEnabled) {
     const prettySeverity = prettySeverityMap[severity];
 
     logFn(prettySeverity + message);
