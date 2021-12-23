@@ -41,7 +41,8 @@ export type SqlArg =
       bigint: (number: bigint) => string;
     }>;
 
-await Ley.up({
-  dir: "migrations",
-  config: config,
-});
+export const runMigrations = () =>
+  Ley.up({
+    dir: "migrations",
+    config: config,
+  });

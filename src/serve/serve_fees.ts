@@ -12,7 +12,7 @@ import { BurnRatesT } from "../burn_rates.js";
 import * as Canary from "../canary.js";
 import * as Config from "../config.js";
 import * as Contracts from "../contracts.js";
-import { sql } from "../db.js";
+import { runMigrations, sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
@@ -32,6 +32,10 @@ if (Config.getEnv() !== "dev") {
     environment: Config.getEnv(),
   });
 }
+
+process.on("unhandledRejection", (error) => {
+  throw error;
+});
 
 type Cache = {
   baseFeePerGas?: number;
@@ -363,36 +367,30 @@ app.use(bodyParser());
 app.use(router.routes());
 app.use(router.allowedMethods());
 
-const serveFees = async () => {
-  try {
-    const blockNumber = await sql<{ blockNumber: number }[]>`
+try {
+  await runMigrations();
+
+  const blockNumber = await sql<{ blockNumber: number }[]>`
       SELECT block_number FROM derived_block_stats
       ORDER BY block_number DESC
       LIMIT 1
     `.then((rows) => rows[0]?.blockNumber);
 
-    if (blockNumber === undefined) {
-      throw new Error("no derived block stats, can't serve fees");
-    }
-
-    await updateCachesForBlockNumber(blockNumber)();
-
-    await new Promise((resolve) => {
-      app.listen(port, () => {
-        resolve(undefined);
-      });
-    });
-    Log.info(`listening on ${port}`);
-    Canary.releaseCanary("block");
-  } catch (error) {
-    Log.error("serve fees top level error", { error });
-    sql.end();
-    throw error;
+  if (blockNumber === undefined) {
+    throw new Error("no derived block stats, can't serve fees");
   }
-};
 
-serveFees();
+  await updateCachesForBlockNumber(blockNumber)();
 
-process.on("unhandledRejection", (error) => {
+  await new Promise((resolve) => {
+    app.listen(port, () => {
+      resolve(undefined);
+    });
+  });
+  Log.info(`listening on ${port}`);
+  Canary.releaseCanary("block");
+} catch (error) {
+  Log.error("serve fees top level error", { error });
+  sql.end();
   throw error;
-});
+}
