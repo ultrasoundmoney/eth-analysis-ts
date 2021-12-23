@@ -21,7 +21,7 @@ import { pipe, T, TAlt, TE } from "../fp.js";
 import * as LatestBlockFees from "../latest_block_fees.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
-import * as MarketCaps from "../market_caps.js";
+import * as MarketCaps from "../market-caps/market_caps.js";
 import * as Scarcity from "../scarcity/scarcity.js";
 import { ScarcityT } from "../scarcity/scarcity.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
@@ -235,7 +235,7 @@ const handleAverageEthPrice: Middleware = async (ctx) => {
 
 const handleGetMarketCaps: Middleware = async (ctx) =>
   pipe(
-    () => MarketCaps.getMarketCaps(),
+    () => MarketCaps.getStoredMarketCaps(),
     T.map((marketCaps) => {
       ctx.set("Cache-Control", "max-age=30, stale-while-revalidate=600");
       ctx.set("Content-Type", "application/json");
