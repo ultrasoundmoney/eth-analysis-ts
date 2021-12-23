@@ -9,4 +9,4 @@ data:
   PGHOST: "lilly-do-user-9707990-0.b.db.ondigitalocean.com"
   PGPORT: "25060"
   PGUSER: "doadmin"
-  PRETTY_LOG: "true"
+  PRETTY_LOG: "false"
