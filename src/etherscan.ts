@@ -11,6 +11,7 @@ import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
 import * as Duration from "./duration.js";
 import * as Errors from "./errors.js";
+import { EthPrice } from "./eth_prices.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { E, O, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
@@ -227,11 +228,6 @@ type EthPriceResponse =
         ethusd_timestamp: UnixTimestampStr;
       };
     };
-
-export type EthPrice = {
-  timestamp: Date;
-  ethusd: number;
-};
 
 const fetchEthPrice = (): TE.TaskEither<string, EthPrice> => {
   const url = urlcat("https://api.etherscan.io/api", {

@@ -5,13 +5,17 @@ import * as DateFnsAlt from "./date_fns_alt.js";
 import { JsTimestamp } from "./date_fns_alt.js";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
-import { EthPrice } from "./etherscan.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
 import { E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 import { intervalSqlMap, LimitedTimeFrame, TimeFrame } from "./time_frames.js";
+
+export type EthPrice = {
+  timestamp: Date;
+  ethusd: number;
+};
 
 export type BlockForPrice = {
   timestamp: number;

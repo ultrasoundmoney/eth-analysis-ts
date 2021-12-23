@@ -3,7 +3,7 @@ import * as DateFns from "date-fns";
 import * as Blocks from "./blocks/blocks.js";
 import * as ContractsWeb3 from "./contracts_web3.js";
 import * as Errors from "./errors.js";
-import { EthPrice } from "./etherscan.js";
+import { EthPrice } from "./eth_prices.js";
 import { pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
