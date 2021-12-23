@@ -15,7 +15,7 @@ export type DerivedBlockStats = {
   burnRates: BurnRatesT;
   feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
-  scarcity: ScarcityT;
+  scarcity: ScarcityT | null;
 };
 
 export type DerivedBlockStatsSerialized = {
