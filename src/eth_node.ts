@@ -518,7 +518,12 @@ export const getLatestBlockNumber = async (): Promise<number> => {
 
 export const makeContract = (address: string, abi: AbiItem[]): Contract => {
   const Contract = getWeb3().eth.Contract;
-  return new Contract(abi, address);
+  const contract = new Contract(abi, address);
+  // NOTE: possible workaround as web3 leaks memory.
+  // See: https://github.com/ChainSafe/web3.js/issues/3042#issuecomment-663622882
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (contract as any).setProvider(getWeb3().currentProvider);
+  return contract;
 };
 
 export const getBalance = (address: string): Promise<string> => {
