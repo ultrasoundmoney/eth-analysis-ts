@@ -10,15 +10,15 @@ import * as DerivedBlockStats from "../derived_block_stats.js";
 import { BlockLondon, Head } from "../eth_node.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
-import { OAlt, pipe, T, TAlt } from "../fp.js";
+import { pipe, T, TAlt } from "../fp.js";
 import * as Leaderboards from "../leaderboards.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
-import * as ScarcityNewHead from "../scarcity/new_head.js";
-import * as Scarcity from "../scarcity/scarcity.js";
+// import * as ScarcityNewHead from "../scarcity/new_head.js";
+// import * as Scarcity from "../scarcity/scarcity.js";
 import { getTxrsWithRetry } from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
@@ -122,7 +122,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
     // BurnRecordsOnNewBlock,
-    ScarcityNewHead.onNewBlock(blockDb),
+    // ScarcityNewHead.onNewBlock(blockDb),
   ]);
 
   Performance.logPerf("second order analyze block", tStartAnalyze);
@@ -172,10 +172,10 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   );
 
   // const burnRecords = BurnRecords.getRecords();
-  const scarcity = pipe(
-    Scarcity.getLastScarcity(),
-    OAlt.getOrThrow("storing derived stats, missing scarcity"),
-  );
+  // const scarcity = pipe(
+  //   Scarcity.getLastScarcity(),
+  //   OAlt.getOrThrow("storing derived stats, missing scarcity"),
+  // );
 
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
     TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAllTask),
@@ -198,7 +198,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
         burnRates,
         feesBurned,
         leaderboards,
-        scarcity,
+        // scarcity,
       }),
     ),
     T.chainFirstIOK(() => () => {
