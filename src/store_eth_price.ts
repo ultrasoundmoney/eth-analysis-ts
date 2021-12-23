@@ -1,22 +1,18 @@
-import * as EthPrices from "./eth_prices.js";
 import * as DateFns from "date-fns";
 import { setInterval } from "timers/promises";
 import * as Duration from "./duration.js";
+import * as EthPrices from "./eth_prices.js";
 import * as Log from "./log.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
 });
 
-const warnWatermark = 30;
-const criticalWatermark = 60;
-
-const storePriceAbortController = new AbortController();
+const watermark = 30;
 
 const intervalIterator = setInterval(
   Duration.millisFromSeconds(10),
   Date.now(),
-  { signal: storePriceAbortController.signal },
 );
 
 let lastRun = new Date();
@@ -25,13 +21,7 @@ let lastRun = new Date();
 for await (const _ of intervalIterator) {
   const secondsSinceLastRun = DateFns.differenceInSeconds(new Date(), lastRun);
 
-  if (secondsSinceLastRun >= warnWatermark) {
-    Log.warn(
-      `store price not keeping up, ${secondsSinceLastRun}s since last price fetch`,
-    );
-  }
-
-  if (secondsSinceLastRun >= criticalWatermark) {
+  if (secondsSinceLastRun >= watermark) {
     Log.error(
       `store price not keeping up, ${secondsSinceLastRun}s since last price fetch`,
     );
@@ -39,5 +29,9 @@ for await (const _ of intervalIterator) {
 
   lastRun = new Date();
 
-  await EthPrices.storeBestPrice();
+  try {
+    await EthPrices.storeBestPrice();
+  } catch (error) {
+    Log.alert(error);
+  }
 }
