@@ -1,12 +1,10 @@
-import fetch from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
-import { exponentialBackoff, limitRetries, Monoid } from "retry-ts";
-import { retrying } from "retry-ts/lib/Task.js";
 import urlcatM from "urlcat";
 import * as Duration from "./duration.js";
 import { HistoricPrice } from "./eth_prices.js";
-import { E, O, pipe, TE } from "./fp.js";
+import * as FetchAlt from "./fetch_alt.js";
+import { O, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -32,63 +30,54 @@ export type PriceResponse = {
   };
 };
 
-type BadResponse = { _tag: "bad-response"; error: Error; status: number };
-type FetchError = { _tag: "fetch-error"; error: Error };
-type UnknownError = { _tag: "unknown-error"; error: Error };
-type Timeout = { _tag: "timeout"; error: Error };
-type RateLimit = { _tag: "rate-limit"; error: Error };
-type CoinGeckoApiError = BadResponse | FetchError | Timeout | RateLimit;
+class BadResponseError extends Error {
+  public status: number;
 
-export type MarketDataError = CoinGeckoApiError | UnknownError;
+  constructor(message: string | undefined, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+class FetchError extends Error {}
+export class Timeout extends Error {}
+export class RateLimit extends Error {}
+export type CoinGeckoApiError =
+  | BadResponseError
+  | FetchError
+  | Timeout
+  | RateLimit;
 
 // CoinGecko API has a 50 requests per minute rate-limit. Use up half the capacity as instances may run on the same machine and rates are limited by IP.
 export const apiQueue = new PQueue({
   concurrency: 2,
   interval: Duration.millisFromSeconds(8),
   intervalCap: 3,
-  timeout: Duration.millisFromSeconds(8),
 });
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const queueApiFetch =
+  <A>(task: T.Task<A>): T.Task<A> =>
+  () =>
+    apiQueue.add(task);
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
   pipe(
-    TE.tryCatch(
-      () => apiQueue.add(() => fetch(url)),
-      (error) =>
-        ({ _tag: "fetch-error", error: error as Error } as CoinGeckoApiError),
-    ),
+    FetchAlt.fetchWithRetry(url),
+    queueApiFetch,
     TE.chain((res) => {
-      if (res === undefined) {
-        return TE.left({
-          _tag: "timeout",
-          error: new Error("hit coingecko api request timeout"),
-        });
-      }
-
-      if (res.status === 429) {
-        return TE.left({
-          _tag: "rate-limit",
-          error: new Error("hit coingecko api rate-limit, slow down"),
-        });
-      }
-
       if (res.status !== 200) {
-        return TE.left({
-          _tag: "bad-response",
-          error: new Error(
+        return TE.left(
+          new BadResponseError(
             `fetch coingecko bad response status: ${res.status}, url: ${url}`,
+            res.status,
           ),
-        } as CoinGeckoApiError);
+        );
       }
 
       return TE.fromTask(() => res.json() as Promise<A>);
     }),
-  );
-
-const fetchWithRetry = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
-  retrying(
-    Monoid.concat(exponentialBackoff(1000), limitRetries(3)),
-    () => fetchCoinGecko(url),
-    E.isLeft,
   );
 
 const priceCache = new QuickLRU<string, PriceResponse>({
@@ -106,7 +95,8 @@ const fetchWithCache = <A>(
     O.match(
       () =>
         pipe(
-          fetchWithRetry<A>(url),
+          fetchCoinGecko<A>(url),
+          queueApiFetch,
           TE.chainFirstIOK((value) => () => {
             Log.debug("coingecko fetch cache miss");
             cache.set(url, value);
@@ -114,7 +104,7 @@ const fetchWithCache = <A>(
         ),
       (cValue) =>
         pipe(
-          TE.of(cValue),
+          TE.right(cValue),
           TE.chainFirstIOK(() => () => {
             Log.debug("coingecko fetch cache hit");
           }),
@@ -127,7 +117,7 @@ const pricesQueue = new PQueue({
 });
 
 export const getSimpleCoins = (): TE.TaskEither<
-  MarketDataError,
+  CoinGeckoApiError,
   PriceResponse
 > => {
   const url = urlcat("https://api.coingecko.com/api/v3/simple/price", {
