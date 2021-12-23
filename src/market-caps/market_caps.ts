@@ -1,9 +1,9 @@
-import * as Coingecko from "./coingecko.js";
-import { sql } from "./db.js";
-import * as Duration from "./duration.js";
-import * as EthPrices from "./eth_prices.js";
-import { E, pipe, T, TE, TEAlt } from "./fp.js";
-import * as Log from "./log.js";
+import * as Coingecko from "../coingecko.js";
+import { sql } from "../db.js";
+import * as Duration from "../duration.js";
+import * as EthPrices from "../eth_prices.js";
+import { E, pipe, T, TE, TEAlt } from "../fp.js";
+import * as Log from "../log.js";
 
 export type MarketCaps = {
   btcMarketCap: number;
