@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: store-market-cap
+  name: store-market-caps
   labels:
-    app: store-market-cap
+    app: store-market-caps
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: store-market-cap
+      app: store-market-caps
   template:
     metadata:
       labels:
-        app: store-market-cap
+        app: store-market-caps
     spec:
       containers:
-        - name: store-market-cap
+        - name: store-market-caps
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/store_market_cap.js"]
+          command: ["node", "src/market-caps/store_market_caps.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
