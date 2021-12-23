@@ -1,70 +1,61 @@
 import * as DateFns from "date-fns";
-import fetch, { RequestInfo } from "node-fetch";
+import { RequestInfo } from "node-fetch";
 import urlcatM from "urlcat";
 import * as Config from "./config.js";
-import { E, pipe, T, TE } from "./fp.js";
+import * as Errors from "./errors.js";
+import * as FetchAlt from "./fetch_alt.js";
+import { pipe, TE } from "./fp.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
-const stakedUrl = urlcat(
+const stakedDataUrl = urlcat(
   "https://api.glassnode.com/v1/metrics/eth2/staking_total_volume_sum",
   {
     a: "ETH",
+    api_key: Config.getGlassnodeApiKey(),
+    c: "NATIVE",
+    f: "JSON",
+    i: "24h",
     s: DateFns.getUnixTime(new Date("2020-11-03T00:00:00Z")),
     u: DateFns.getUnixTime(new Date()),
-    i: "24h",
-    f: "JSON",
-    c: "NATIVE",
   },
 );
-
-export class BadResponseError extends Error {}
 
 const fetchData = (url: RequestInfo): TE.TaskEither<Error, unknown> =>
   pipe(
-    () =>
-      fetch(url, {
-        headers: { "X-Api-Key": Config.getGlassnodeApiKey() },
-      }),
-    T.chain((res) => {
-      if (res.status !== 200) {
-        return TE.left(
-          new BadResponseError(
-            `glassnode api fetch, bad response: ${res.status}, url: ${url}`,
-          ),
-        );
-      }
-
-      return pipe(() => res.json(), T.map(E.right));
-    }),
+    FetchAlt.fetchWithRetry(url),
+    TE.chain((res) => TE.tryCatch(() => res.json(), Errors.errorFromUnknown)),
   );
 
-export const getStakedData = () => fetchData(stakedUrl);
+export const getStakedData = () => fetchData(stakedDataUrl);
 
-const circulatingSupplyUrl = urlcat(
+const circulatingSupplyDataUrl = urlcat(
   "https://api.glassnode.com/v1/metrics/supply/current",
   {
     a: "ETH",
+    api_key: Config.getGlassnodeApiKey(),
+    c: "NATIVE",
+    f: "JSON",
+    i: "24h",
     s: DateFns.getUnixTime(new Date("2015-07-30T00:00:00Z")),
     u: DateFns.getUnixTime(new Date()),
-    i: "24h",
-    f: "JSON",
-    c: "NATIVE",
   },
 );
 
-export const getCirculatingSupplyData = () => fetchData(circulatingSupplyUrl);
+export const getCirculatingSupplyData = () =>
+  fetchData(circulatingSupplyDataUrl);
 
-const ethInSmartContractsPercentUrl = urlcat(
+const ethInSmartContractsDataUrl = urlcat(
   "https://api.glassnode.com/v1/metrics/distribution/supply_contracts",
   {
     a: "ETH",
+    api_key: Config.getGlassnodeApiKey(),
+    f: "JSON",
+    i: "24h",
     s: DateFns.getUnixTime(new Date("2015-08-07T00:00:00Z")),
     u: DateFns.getUnixTime(new Date()),
-    i: "24h",
-    f: "JSON",
   },
 );
 
-export const getLockedEthData = () => fetchData(ethInSmartContractsPercentUrl);
+export const getLockedEthData = () => fetchData(ethInSmartContractsDataUrl);
