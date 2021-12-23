@@ -44,6 +44,8 @@ spec:
                 name: twitter-usm
             - secretRef:
                 name: etherscan-token-alextes
+            - secretRef:
+                name: glassnode-api-key
           env:
             - name: NAME
               valueFrom:
