@@ -10,7 +10,7 @@ import * as DerivedBlockStats from "../derived_block_stats.js";
 import { BlockLondon, Head } from "../eth_node.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
-import { O, OAlt, pipe, T, TAlt } from "../fp.js";
+import { O, pipe, T, TAlt } from "../fp.js";
 import * as Leaderboards from "../leaderboards.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
@@ -122,7 +122,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
     // BurnRecordsOnNewBlock,
-    // ScarcityNewHead.onNewBlock(blockDb),
+    ScarcityNewHead.onNewBlock(blockDb),
   ]);
 
   Performance.logPerf("second order analyze block", tStartAnalyze);
