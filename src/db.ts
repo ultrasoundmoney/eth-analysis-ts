@@ -43,6 +43,6 @@ export type SqlArg =
 
 export const runMigrations = () =>
   Ley.up({
-    dir: "src/migrations",
+    dir: "migrations",
     config: config,
   });
