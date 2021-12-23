@@ -74,9 +74,11 @@ export const addBlock = async (head: Head): Promise<void> => {
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
   if (!isParentKnown) {
-    // TODO: should never happen anymore, remove this if no alert shows up.
-    // We're missing the parent hash, update the previous block.
-    Log.alert("got new head, parent hash not found, storing parent again");
+    // NOTE: sometimes a new head has a parent never seen before. In this case we rollback to the last known parent, roll back to that block, then roll forwards to the current block.
+    Log.warn(
+      "new head's parent is not in our DB, rollback one block and try to add the parent",
+    );
+    await rollbackTo(head.number - 1);
     const previousBlock = await Blocks.getBlockWithRetry(head.number - 1);
     await addBlock(previousBlock);
   }
