@@ -35,9 +35,14 @@ type MarketData = {
 };
 
 // Uses 5 API credits per call, we have 2000 per month.
-const getEthLocked = async (): Promise<number> => {
+const getEthLocked = async (): Promise<number | undefined> => {
   Log.debug("getting ETH locked from DefiPulse");
   const res = await fetchWithRetry(marketDataEndpoint);
+
+  if (res.status === 429) {
+    Log.error("defi pulse get eth locked 429");
+    return undefined;
+  }
 
   if (res.status !== 200) {
     throw new Error(`bad response from defi pulse ${res.status}`);
@@ -59,6 +64,10 @@ export const init = async () => {
   // As we don't have many API credits for this endpoint and services may restart many times during dev, we don't fetch a fresh number during dev.
   if (Config.getEnv() === "prod" || Config.getEnv() === "staging") {
     const ethLocked = await getEthLocked();
+    if (ethLocked === undefined) {
+      Log.error("failed to store defi pulse eth locked");
+      return;
+    }
     storeEthLocked(ethLocked);
   } else {
     storeEthLocked(9499823.32579059);
@@ -71,6 +80,10 @@ const continuouslyUpdate = async () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for await (const _ of intervalIterator) {
     const ethLocked = await getEthLocked();
+    if (ethLocked === undefined) {
+      Log.error("failed to store defi pulse eth locked");
+      return;
+    }
     storeEthLocked(ethLocked);
   }
 };
