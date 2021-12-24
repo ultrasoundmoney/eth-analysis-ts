@@ -81,7 +81,7 @@ const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
     EthPrices.getEthStats(),
     TE.match(
       (e) => {
-        Log.error(e);
+        Log.error("unhandled get eth price error", e);
         ctx.status = 500;
         return;
       },
@@ -264,7 +264,7 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
     SupplyProjection.getInputs(),
     TE.match(
       (e) => {
-        Log.error(e);
+        Log.error("unhandled get supply projection inputs error", e);
         ctx.status = 500;
       },
       (inputs) => {
@@ -323,7 +323,7 @@ const port = process.env.PORT || 8080;
 const app = new Koa();
 
 app.on("error", (err, ctx) => {
-  Log.error(err);
+  Log.error("unhandled serve fees error", err);
   Sentry.withScope((scope) => {
     scope.addEventProcessor((event) => {
       return Sentry.Handlers.parseRequest(event, ctx.request);

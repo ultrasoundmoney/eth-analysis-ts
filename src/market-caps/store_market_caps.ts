@@ -24,14 +24,14 @@ for await (const _ of everyMinuteIterator) {
           e instanceof Coingecko.Timeout ||
           e instanceof Coingecko.RateLimit
         ) {
-          Log.warn(e);
+          Log.warn("hit rate-limit storing market caps", e);
           return;
         }
 
-        Log.error(e);
+        Log.error("error storing market caps", e);
       }),
     )();
   } catch (error) {
-    Log.alert("unhandled exception when storing metrics");
+    Log.alert("unhandled error storing market caps", error);
   }
 }

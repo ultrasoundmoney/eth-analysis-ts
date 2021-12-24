@@ -120,7 +120,7 @@ export const getNameTag = async (
     }),
     TE.match(
       (e) => {
-        Log.error(e);
+        Log.error("error fetching etherscan name tag through blockscan", e);
         return undefined;
       },
       (v) => v,
