@@ -60,9 +60,14 @@ export class BadResponseError extends Error {
 export const fetchWithRetry = (
   url: RequestInfo,
   init?: RequestInit,
+  acceptStatuses = [200, 201, 202, 204, 206],
+  retryPolicy = Retry.Monoid.concat(
+    Retry.exponentialBackoff(2000),
+    Retry.limitRetries(3),
+  ),
 ): TE.TaskEither<FetchError | Error, Response> =>
   retrying(
-    Retry.Monoid.concat(Retry.exponentialBackoff(2000), Retry.limitRetries(3)),
+    retryPolicy,
     (status) =>
       pipe(
         TE.tryCatch(
@@ -76,7 +81,7 @@ export const fetchWithRetry = (
           },
         ),
         TE.chain((res) => {
-          if (res.status >= 200 && res.status < 300) {
+          if (acceptStatuses.includes(res.status)) {
             return TE.right(res);
           }
 

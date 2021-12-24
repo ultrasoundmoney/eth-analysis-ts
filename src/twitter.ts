@@ -1,9 +1,10 @@
-import fetch from "node-fetch";
 import PQueue from "p-queue";
 import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
+import * as FetchAlt from "./fetch_alt.js";
+import { E } from "./fp.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -43,13 +44,24 @@ export const fetchProfileQueue = new PQueue({
 export const getProfileByHandle = async (
   handle: string,
 ): Promise<UserTwitterApiRaw | undefined> => {
-  const res = await fetchProfileQueue.add(() =>
-    fetch(makeProfileByUsernameUrl(handle), {
-      headers: {
-        Authorization: `Bearer ${getTwitterToken()}`,
+  const resE = await fetchProfileQueue.add(
+    FetchAlt.fetchWithRetry(
+      makeProfileByUsernameUrl(handle),
+      {
+        headers: {
+          Authorization: `Bearer ${getTwitterToken()}`,
+        },
       },
-    }),
+      [200, 404],
+    ),
   );
+
+  if (E.isLeft(resE)) {
+    Log.error(`fetch twitter profile ${handle} error`, resE.left);
+    return undefined;
+  }
+
+  const res = resE.right;
 
   // If a handle invalid chars twitter will return a 404 without a body.
   if (res.status === 404) {
