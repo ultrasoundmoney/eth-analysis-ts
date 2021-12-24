@@ -73,6 +73,11 @@ export const addWeb3Metadata = async (
     ContractsWeb3.getContract(address)(),
   );
 
+  // Queue has a timeout and returns undefined when hit.
+  if (contractE === undefined) {
+    return undefined;
+  }
+
   if (E.isLeft(contractE)) {
     if (contractE.left instanceof Etherscan.AbiNotVerifiedError) {
       // Not all contracts we see are verified, that's okay.
