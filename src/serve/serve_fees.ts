@@ -243,8 +243,7 @@ const handleGetMarketCaps: Middleware = async (ctx) =>
     }),
   )();
 
-let scarcityCache: ScarcityT | undefined = undefined;
-await Scarcity.getLastStoredScarcity();
+let scarcityCache: ScarcityT = await Scarcity.getLastStoredScarcity();
 
 const handleGetScarcity: Middleware = async (ctx) => {
   if (scarcityCache === undefined) {
