@@ -80,7 +80,7 @@ export const fetchAbi = (
 
 // We want to not be pulling ABIs every time, at the same time they may get updated sometimes.
 const abiCache = new QuickLRU<string, AbiItem[]>({
-  maxSize: 300,
+  maxSize: 1000,
   maxAge: Duration.millisFromHours(12),
 });
 
