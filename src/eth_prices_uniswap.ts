@@ -2,7 +2,6 @@ import BigNumber from "bignumber.js";
 import * as DateFns from "date-fns";
 import * as Blocks from "./blocks/blocks.js";
 import * as ContractsWeb3 from "./contracts_web3.js";
-import * as Errors from "./errors.js";
 import { EthPrice } from "./eth_prices.js";
 import { pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
@@ -68,7 +67,7 @@ const getUniPoolSqrtPriceX96 = (
           contract.methods.slot0().call({
             defaultBlock: blockHeight ?? "latest",
           }) as Promise<Slot0>,
-        Errors.errorFromUnknown,
+        TEAlt.errorFromUnknown,
       ),
     ),
     TE.map((slot0) => new BigNumber(slot0.sqrtPriceX96)),

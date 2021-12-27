@@ -2,9 +2,8 @@ import * as DateFns from "date-fns";
 import { RequestInfo } from "node-fetch";
 import urlcatM from "urlcat";
 import * as Config from "./config.js";
-import * as Errors from "./errors.js";
 import * as FetchAlt from "./fetch_alt.js";
-import { pipe, TE } from "./fp.js";
+import { pipe, TE, TEAlt } from "./fp.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -25,7 +24,7 @@ const stakedDataUrl = urlcat(
 const fetchData = (url: RequestInfo): TE.TaskEither<Error, unknown> =>
   pipe(
     FetchAlt.fetchWithRetry(url),
-    TE.chain((res) => TE.tryCatch(() => res.json(), Errors.errorFromUnknown)),
+    TE.chain((res) => TE.tryCatch(() => res.json(), TEAlt.errorFromUnknown)),
   );
 
 export const getStakedData = () => fetchData(stakedDataUrl);
