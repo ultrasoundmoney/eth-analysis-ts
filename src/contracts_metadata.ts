@@ -85,7 +85,7 @@ export const addWeb3Metadata = async (
     }
 
     // Something else went wrong!
-    Log.error(contractE.left);
+    Log.error("get web3 contract for metadata error", contractE.left);
     return undefined;
   }
 
@@ -93,11 +93,25 @@ export const addWeb3Metadata = async (
 
   web3LastAttemptMap[address] = new Date();
 
-  const [supportsErc_721, supportsErc_1155, name] = await Promise.all([
+  const [supportsErc_721, supportsErc_1155, nameE] = await Promise.all([
     ContractsWeb3.getSupportedInterface(contract, "ERC721"),
     ContractsWeb3.getSupportedInterface(contract, "ERC1155"),
-    ContractsWeb3.getName(contract),
+    ContractsWeb3.getName(contract)(),
   ]);
+
+  let name = null;
+
+  if (E.isLeft(nameE)) {
+    if (nameE.left instanceof ContractsWeb3.NoNameMethodError) {
+      // Not all contracts will have a name method.
+    } else {
+      Log.error("get web3 contract name error", nameE.left);
+    }
+  }
+
+  if (E.isRight(nameE)) {
+    name = nameE.right;
+  }
 
   // Contracts may have a NUL byte in their name, which is not safe to store in postgres. We should find a way to store this safely.
   const safeName = name?.replaceAll("\x00", "");

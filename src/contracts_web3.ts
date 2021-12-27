@@ -30,22 +30,21 @@ export const getContract = (
     O.match(() => fetchAndCacheContract(address), TE.right),
   );
 
-export const getName = async (
+export class NoNameMethodError extends Error {}
+
+export const getName = (
   contract: Contract,
-): Promise<string | undefined> => {
+): TE.TaskEither<NoNameMethodError | Error, string> => {
   const hasNameMethod = contract.methods["name"] !== undefined;
 
   if (!hasNameMethod) {
-    return undefined;
+    return TE.left(new NoNameMethodError());
   }
 
-  try {
-    const name = await contract.methods.name().call();
-    return name;
-  } catch (error) {
-    Log.error(String(error), error);
-    return undefined;
-  }
+  return TE.tryCatch(
+    () => contract.methods.name().call(),
+    TEAlt.errorFromUnknown,
+  );
 };
 
 type InterfaceId = "ERC721" | "ERC1155";
