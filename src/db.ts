@@ -1,5 +1,5 @@
 import { camelCase } from "change-case";
-import { Lazy } from "fp-ts/lib/function";
+import { Lazy } from "fp-ts/lib/function.js";
 import * as Ley from "ley";
 import postgres, {
   AsRowList,
@@ -9,6 +9,7 @@ import postgres, {
   TransactionSql,
 } from "postgres";
 import * as Config from "./config.js";
+import { A, O, pipe } from "./fp.js";
 
 const config = {
   ssl: "prefer",
@@ -46,3 +47,23 @@ export const runMigrations = () =>
     dir: "migrations",
     config: config,
   });
+
+export const readOptionalFromFirstRow =
+  <A>(field: keyof A) =>
+  (rows: A[]) =>
+    pipe(
+      rows,
+      A.head,
+      O.map((row) => row[field]),
+      O.map(O.fromNullable),
+      O.flatten,
+    );
+
+export const readFromFirstRow =
+  <A>(field: keyof A) =>
+  (rows: A[]) =>
+    pipe(
+      rows,
+      A.head,
+      O.map((row) => row[field]),
+    );

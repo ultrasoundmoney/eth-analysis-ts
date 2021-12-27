@@ -72,6 +72,6 @@ export const logQueueSizes = () => {
     );
     Log.debug(`coingecko api queue size: ${Coingecko.apiQueue.size}`);
     Log.debug(`etherscan api queue size: ${Etherscan.apiQueue.size}`);
-    Log.debug(`ftx api queue size: ${EthPricesFtx.ftxApiQueue}`);
+    Log.debug(`ftx api queue size: ${EthPricesFtx.ftxApiQueue.size}`);
   }
 };

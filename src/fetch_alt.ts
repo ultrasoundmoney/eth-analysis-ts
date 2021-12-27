@@ -74,13 +74,7 @@ export const fetchWithRetry = (
       pipe(
         TE.tryCatch(
           () => fetch(url, init),
-          (e) => {
-            if (e instanceof Error) {
-              return e;
-            }
-
-            return new FetchError(String(e));
-          },
+          (e) => (e instanceof Error ? e : new FetchError(String(e))),
         ),
         TE.chain((res) => {
           if (acceptStatuses.includes(res.status)) {

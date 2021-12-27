@@ -21,6 +21,7 @@ export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as RA from "fp-ts/lib/ReadonlyArray.js";
 export * as T from "fp-ts/lib/Task.js";
 export * as TE from "fp-ts/lib/TaskEither.js";
+export * as TO from "fp-ts/lib/TaskOption.js";
 export * as Void from "fp-ts/lib/void.js";
 export * as D from "io-ts/lib/Decoder.js";
 

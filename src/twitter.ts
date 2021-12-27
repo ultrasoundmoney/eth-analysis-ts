@@ -1,10 +1,11 @@
 import PQueue from "p-queue";
+import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
 import * as Duration from "./duration.js";
-import * as Log from "./log.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { E } from "./fp.js";
+import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -53,6 +54,10 @@ export const getProfileByHandle = async (
         },
       },
       [200, 404],
+      Retry.Monoid.concat(
+        Retry.exponentialBackoff(2000),
+        Retry.limitRetries(5),
+      ),
     ),
   );
 

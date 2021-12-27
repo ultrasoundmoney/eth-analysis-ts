@@ -1,15 +1,16 @@
-import * as Config from "./config.js";
-import * as FetchAlt from "./fetch_alt.js";
-import * as Log from "./log.js";
+import * as DateFns from "date-fns";
 import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
-import { E, pipe, T, TE } from "./fp.js";
-import { sql } from "./db.js";
+import * as Config from "./config.js";
+import { readOptionalFromFirstRow, sqlT } from "./db.js";
+import * as FetchAlt from "./fetch_alt.js";
+import { A, E, flow, O, pipe, T, TE, TO } from "./fp.js";
+import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
-type OpenseaContract = {
+export type OpenseaContract = {
   address: string;
   collection: {
     twitter_username: string | null;
@@ -47,7 +48,7 @@ export const getContract = (
       // Unsure about Opensea API rate-limit. Could experiment with lowering this and figuring out the exact codes we should and shouldn't retry.
       Retry.Monoid.concat(
         Retry.exponentialBackoff(2000),
-        Retry.limitRetries(3),
+        Retry.limitRetries(5),
       ),
     ),
     TE.chainW((res) => {
@@ -133,28 +134,77 @@ export const getSchemaName = (
 };
 
 export const checkSchemaImpliesNft = (schemaName: unknown): boolean =>
-  typeof schemaName === "string" &&
-  (schemaName === "ERC721" || schemaName === "ERC1155");
+  (typeof schemaName === "string" && schemaName === "ERC721") ||
+  schemaName === "ERC1155";
 
-export const getContractLastFetch = async (
-  address: string,
-): Promise<Date | undefined> => {
-  const rows = await sql<{ openseaContractLastFetch: Date | null }[]>`
-    SELECT opensea_contract_last_fetch
-    FROM contracts
-    WHERE address = ${address}
-  `;
+export const getContractLastFetch = (address: string): TO.TaskOption<Date> =>
+  pipe(
+    sqlT<{ openseaContractLastFetch: Date | null }[]>`
+      SELECT opensea_contract_last_fetch
+      FROM contracts
+      WHERE address = ${address}
+    `,
+    T.map(
+      flow(
+        A.head,
+        O.chain(flow((row) => row.openseaContractLastFetch, O.fromNullable)),
+      ),
+    ),
+  );
 
-  return rows[0]?.openseaContractLastFetch ?? undefined;
-};
-
-export const setContractLastFetchNow = async (
-  address: string,
-): Promise<void> => {
-  await sql`
+export const setContractLastFetchNow = (address: string): T.Task<void> =>
+  pipe(
+    sqlT`
     UPDATE contracts
     SET opensea_contract_last_fetch = ${new Date()}
     WHERE address = ${address}
-  `;
-  return undefined;
-};
+  `,
+    T.map(() => undefined),
+  );
+
+export const getIsRecentlyFetched = (address: string): T.Task<boolean> =>
+  pipe(
+    getContractLastFetch(address),
+    TO.map((lastFetch) => DateFns.differenceInHours(new Date(), lastFetch) < 6),
+    TO.getOrElseW(() => T.of(false)),
+  );
+
+const getExistingOpenseaSchemaName = (
+  address: string,
+): T.Task<O.Option<string>> =>
+  pipe(
+    sqlT<{ openseaSchemaName: string | null }[]>`
+      SELECT opensea_schema_name
+      FROM contracts
+      WHERE address = ${address}
+    `,
+    T.map(
+      flow(
+        A.head,
+        O.map((row) => row.openseaSchemaName),
+        O.map(O.fromNullable),
+        O.flatten,
+      ),
+    ),
+  );
+
+export const getSchemaImpliesNft = (address: string): T.Task<boolean> =>
+  pipe(
+    getExistingOpenseaSchemaName(address),
+    T.map(
+      flow(
+        O.map((existingOpenseaSchemaName) =>
+          checkSchemaImpliesNft(existingOpenseaSchemaName),
+        ),
+        O.getOrElseW(() => false),
+      ),
+    ),
+  );
+
+export const getExistingCategory = (address: string) =>
+  pipe(
+    sqlT<{ category: string | null }[]>`
+      SELECT category FROM contracts WHERE address = ${address}
+    `,
+    T.map(readOptionalFromFirstRow("category")),
+  );

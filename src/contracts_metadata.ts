@@ -6,7 +6,7 @@ import { sql } from "./db.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
-import { A, E, O, pipe, T, TAlt, TE } from "./fp.js";
+import { A, B, E, O, pipe, T, TAlt, TE, TO } from "./fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
 import * as Log from "./log.js";
 import * as Opensea from "./opensea.js";
@@ -145,7 +145,7 @@ const addMetadataFromSimilar = async (
   nameStartsWith: string,
 ): Promise<void> => {
   Log.debug(
-    `adding metadata from similar contract for ${nameStartsWith} - ${address}`,
+    `attempting to add similar metadata for ${nameStartsWith} - ${address}`,
   );
   const nameStartsWithPlusWildcard = `${nameStartsWith}%`;
   const similarContracts = await sql<SimilarContract[]>`
@@ -158,8 +158,7 @@ const addMetadataFromSimilar = async (
   }
 
   Log.debug(
-    "found similar contracts",
-    similarContracts.map((contract) => contract.name),
+    `found ${similarContracts.length} similar contracts, starting with ${nameStartsWith}`,
   );
 
   const getFirstKey = (key: keyof SimilarContract): string | undefined =>
@@ -286,6 +285,13 @@ export const addTwitterMetadata = async (
         profile.description,
       ),
     ),
+    T.chainFirstIOK(() => () => {
+      Log.debug("updating twitter metadata", {
+        name: profile.name,
+        description: profile.description,
+        imageUrl: profile.profile_image_url,
+      });
+    }),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   )();
 };
@@ -313,89 +319,129 @@ const queueOpenseaFetch = <E, A>(task: TE.TaskEither<E, A>) =>
     }),
   );
 
-const addOpenseaMetadata = async (
+const getShouldFetchOpenseaMetadata = (
+  address: string,
+  forceRefetch: boolean,
+): T.Task<boolean> => {
+  if (forceRefetch) {
+    return T.of(true);
+  }
+
+  // NOTE: OpenSea API is slow, we skip previously fetched contracts OpenSea said were not NFTs.
+  const shouldSkipSchemaNotNft = pipe(
+    Opensea.getSchemaImpliesNft(address),
+    // If we've fetched the contract before and OpenSea told us they feel it is not an NFT contract, then skip it.
+    T.map((schemaImpliesNft) => !schemaImpliesNft),
+  );
+
+  // If we've fetched the contract recently, skip it, don't fetch.
+  const shouldSkipRecentlyFetched = Opensea.getIsRecentlyFetched(address);
+
+  const shouldSkipNotNft = pipe(
+    Opensea.getExistingCategory(address),
+    TO.match(
+      () => false,
+      (category) => (category === "nft" ? false : true),
+    ),
+  );
+
+  const shouldSkip = pipe(
+    shouldSkipSchemaNotNft,
+    T.chain((skip) => (skip ? T.of(true) : shouldSkipRecentlyFetched)),
+    T.chain((skip) => (skip ? T.of(true) : shouldSkipNotNft)),
+  );
+
+  return pipe(
+    shouldSkip,
+    T.chain((shouldSkip) => (shouldSkip ? T.of(false) : T.of(true))),
+  );
+};
+
+const updateOpenseaMetadataFromContract = (
+  address: string,
+  contract: Opensea.OpenseaContract,
+) =>
+  pipe(
+    TAlt.seqTParT(
+      Contracts.setSimpleTextColumn(
+        "opensea_twitter_handle",
+        address,
+        Opensea.getTwitterHandle(contract) ?? null,
+      ),
+      Contracts.setSimpleTextColumn(
+        "opensea_schema_name",
+        address,
+        Opensea.getSchemaName(contract) ?? null,
+      ),
+      Contracts.setSimpleTextColumn(
+        "opensea_image_url",
+        address,
+        contract.image_url,
+      ),
+      Contracts.setSimpleTextColumn("opensea_name", address, contract.name),
+    ),
+    T.chainFirstIOK(() => () => {
+      const twitterHandle = Opensea.getTwitterHandle(contract) ?? null;
+      const schemaName = Opensea.getSchemaName(contract) ?? null;
+      Log.debug("adding opensea metadata", {
+        name: contract.name,
+        twitter: twitterHandle,
+        schemaName: schemaName,
+        imageUrl: contract.image_url,
+      });
+    }),
+    TAlt.concatAllVoid,
+  );
+
+const addOpenseaMetadata = (
   address: string,
   forceRefetch = false,
-): Promise<void> => {
-  // Because the OpenSea API is slow, we store the last fetched in the DB instead of memory to make sure we don't repeat ourselves on restarts.
-  const lastAttempted = await Opensea.getContractLastFetch(address);
-  if (
-    forceRefetch === false &&
-    lastAttempted !== undefined &&
-    DateFns.differenceInHours(new Date(), lastAttempted) < 6
-  ) {
-    return undefined;
-  }
+): T.Task<void> =>
+  pipe(
+    getShouldFetchOpenseaMetadata(address, forceRefetch),
+    T.chain(
+      B.match(
+        () => T.of(undefined),
+        () =>
+          pipe(
+            Opensea.getContract(address),
+            queueOpenseaFetch,
+            TE.chainW((contract) =>
+              pipe(
+                updateOpenseaMetadataFromContract(address, contract),
+                T.map(E.right),
+              ),
+            ),
+            TE.match(
+              (error) => {
+                if (error instanceof TimeoutError) {
+                  // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
+                  return undefined;
+                }
 
-  // OpenSea API is slow, we attempt to shorten the request queue by skipping what we can.
-  const [existingOpenseaSchemaName] = await sql<
-    { openseaSchemaName: string | null }[]
-  >`
-    SELECT opensea_schema_name
-    FROM contracts
-    WHERE address = ${address}
-  `;
+                if (error instanceof Opensea.MissingStandardError) {
+                  // Opensea returns a 406 for some contracts. Not clear why this isn't a 200. We do nothing as a result.
+                  return undefined;
+                }
 
-  if (
-    existingOpenseaSchemaName !== null &&
-    Opensea.checkSchemaImpliesNft(existingOpenseaSchemaName)
-  ) {
-    // OpenSea knows about this contract, and feels its not an NFT contract. We assume they're unlikely to add new information for it.
-    return undefined;
-  }
-
-  const existingCategory = await sql<{ category: string | null }[]>`
-    SELECT category FROM contracts WHERE address = ${address}
-  `.then((rows) => rows[0]?.category ?? undefined);
-
-  if (existingCategory !== null && existingCategory !== "nft") {
-    // We think this category not to be nft, we assume OpenSea will not have information on it and we skip.
-    return undefined;
-  }
-
-  const contractE = await pipe(
-    Opensea.getContract(address),
-    queueOpenseaFetch,
-  )();
-
-  await Opensea.setContractLastFetchNow(address);
-
-  if (E.isLeft(contractE)) {
-    if (contractE.left instanceof TimeoutError) {
-      // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
-      return undefined;
-    }
-
-    if (contractE.left instanceof Opensea.MissingStandardError) {
-      // Opensea returns a 406 for some contracts. Not clear why this isn't a 200. We do nothing as a result.
-      return undefined;
-    }
-
-    Log.error(contractE.left);
-    return undefined;
-  }
-
-  const contract = contractE.right;
-  const twitterHandle = Opensea.getTwitterHandle(contract) ?? null;
-  const schemaName = Opensea.getSchemaName(contract) ?? null;
-
-  await TAlt.seqTParT(
-    Contracts.setSimpleTextColumn(
-      "opensea_twitter_handle",
-      address,
-      twitterHandle,
+                Log.error(error);
+                return undefined;
+              },
+              () => undefined,
+            ),
+            T.chain(() =>
+              pipe(
+                TAlt.seqTParT(
+                  Contracts.updatePreferredMetadata(address),
+                  Opensea.setContractLastFetchNow(address),
+                ),
+                TAlt.concatAllVoid,
+              ),
+            ),
+          ),
+      ),
     ),
-    Contracts.setSimpleTextColumn("opensea_schema_name", address, schemaName),
-    Contracts.setSimpleTextColumn(
-      "opensea_image_url",
-      address,
-      contract.image_url,
-    ),
-    Contracts.setSimpleTextColumn("opensea_name", address, contract.name),
-  )();
-
-  await Contracts.updatePreferredMetadata(address)();
-};
+  );
 
 const addDefiLlamaMetadata = async (address: string): Promise<void> => {
   // Doing this is fast. We can cache the response for 1h. We therefore do not need a queue.
@@ -423,23 +469,20 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
       protocol.twitter ?? null,
     ),
   )();
+
+  Log.debug(
+    `updated defi llama metadata, category: ${protocol.category}, twitterHandle: ${protocol.twitter}`,
+  );
+
   await Contracts.updatePreferredMetadata(address)();
 };
 
-type Metadata = {
-  name: string | null;
-  category: string | null;
-  twitterHandle: string | null;
-  imageUrl: string | null;
-  supportsErc_721: boolean | null;
-  supportsErc_1155: boolean | null;
-};
 const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     TAlt.seqTParT(
       () => addWeb3Metadata(address, forceRefetch),
       () => addEtherscanNameTag(address, forceRefetch),
-      () => addOpenseaMetadata(address, forceRefetch),
+      addOpenseaMetadata(address, forceRefetch),
       () => addDefiLlamaMetadata(address),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
@@ -454,22 +497,6 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
           )
         : T.of(undefined),
     ),
-    T.chainFirst(() => {
-      return async () => {
-        const [metadata] = await sql<Metadata[]>`
-          SELECT * FROM contracts WHERE address = ${address}
-        `;
-        Log.debug("new metadata", {
-          address: address,
-          name: metadata.name,
-          category: metadata.category,
-          twitterHandle: metadata.twitterHandle,
-          imageUrl: metadata.imageUrl,
-          ERC721: metadata.supportsErc_721,
-          ERC1155: metadata.supportsErc_1155,
-        });
-      };
-    }),
     T.chainFirstIOK(() => () => {
       PerformanceMetrics.logQueueSizes();
     }),
