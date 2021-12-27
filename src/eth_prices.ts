@@ -237,9 +237,8 @@ export const getEthPrice = (
   );
 };
 
-class PostgresError extends Error {}
-class MissingPriceError extends Error {}
-type Get24hAgoPriceError = PostgresError | MissingPriceError;
+export class MissingPriceError extends Error {}
+export type Get24hAgoPriceError = MissingPriceError | Error;
 
 export const get24hAgoPrice = (): TE.TaskEither<Get24hAgoPriceError, number> =>
   pipe(
