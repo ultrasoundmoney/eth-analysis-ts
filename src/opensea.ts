@@ -22,7 +22,7 @@ type OpenseaContract = {
 const makeContractUrl = (address: string): string =>
   urlcat("https://api.opensea.io/api/v1/asset_contract/:address", { address });
 
-class MissingStandardError extends Error {
+export class MissingStandardError extends Error {
   address: string;
   constructor(address: string, message: string | undefined) {
     super(message);
@@ -30,7 +30,9 @@ class MissingStandardError extends Error {
   }
 }
 
-type GetContractError = MissingStandardError | FetchAlt.FetchWithRetryError;
+export type GetContractError =
+  | MissingStandardError
+  | FetchAlt.FetchWithRetryError;
 
 export const getContract = (
   address: string,

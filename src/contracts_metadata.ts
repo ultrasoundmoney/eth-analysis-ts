@@ -365,6 +365,12 @@ const addOpenseaMetadata = async (
       // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
       return undefined;
     }
+
+    if (contractE.left instanceof Opensea.MissingStandardError) {
+      // Opensea returns a 406 for some contracts. Not clear why this isn't a 200. We do nothing as a result.
+      return undefined;
+    }
+
     Log.error(contractE.left);
     return undefined;
   }
