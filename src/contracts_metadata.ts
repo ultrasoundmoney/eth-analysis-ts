@@ -6,10 +6,10 @@ import { sql } from "./db.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
-import { A, E, O, pipe, T, TAlt } from "./fp.js";
+import { A, E, O, pipe, T, TAlt, TE } from "./fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
 import * as Log from "./log.js";
-import * as OpenSea from "./opensea.js";
+import * as Opensea from "./opensea.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 import * as Twitter from "./twitter.js";
 
@@ -157,7 +157,10 @@ const addMetadataFromSimilar = async (
     return;
   }
 
-  Log.debug("found similar contracts", { contracts: similarContracts });
+  Log.debug(
+    "found similar contracts",
+    similarContracts.map((contract) => contract.name),
+  );
 
   const getFirstKey = (key: keyof SimilarContract): string | undefined =>
     pipe(
@@ -196,7 +199,7 @@ const addMetadataFromSimilar = async (
 
   return pipe(
     TAlt.seqTParT(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
-    T.map(() => undefined),
+    TAlt.concatAllVoid,
   )();
 };
 
@@ -290,14 +293,32 @@ export const addTwitterMetadata = async (
 export const openseaContractQueue = new PQueue({
   concurrency: 2,
   timeout: Duration.millisFromSeconds(120),
+  throwOnTimeout: true,
 });
+
+class TimeoutError extends Error {}
+
+const queueOpenseaFetch = <E, A>(task: TE.TaskEither<E, A>) =>
+  pipe(
+    TE.tryCatch(
+      () => openseaContractQueue.add(task),
+      () => new TimeoutError(),
+    ),
+    TE.chainW((e) => {
+      if (E.isLeft(e)) {
+        return TE.left(e.left);
+      }
+
+      return TE.right(e.right);
+    }),
+  );
 
 const addOpenseaMetadata = async (
   address: string,
   forceRefetch = false,
 ): Promise<void> => {
   // Because the OpenSea API is slow, we store the last fetched in the DB instead of memory to make sure we don't repeat ourselves on restarts.
-  const lastAttempted = await OpenSea.getContractLastFetch(address);
+  const lastAttempted = await Opensea.getContractLastFetch(address);
   if (
     forceRefetch === false &&
     lastAttempted !== undefined &&
@@ -306,7 +327,7 @@ const addOpenseaMetadata = async (
     return undefined;
   }
 
-  // The OpenSea API is mighty slow, we attempt to shorten the request queue by skipping what we can.
+  // OpenSea API is slow, we attempt to shorten the request queue by skipping what we can.
   const [existingOpenseaSchemaName] = await sql<
     { openseaSchemaName: string | null }[]
   >`
@@ -317,7 +338,7 @@ const addOpenseaMetadata = async (
 
   if (
     existingOpenseaSchemaName !== null &&
-    OpenSea.checkSchemaImpliesNft(existingOpenseaSchemaName)
+    Opensea.checkSchemaImpliesNft(existingOpenseaSchemaName)
   ) {
     // OpenSea knows about this contract, and feels its not an NFT contract. We assume they're unlikely to add new information for it.
     return undefined;
@@ -332,19 +353,25 @@ const addOpenseaMetadata = async (
     return undefined;
   }
 
-  const openseaContract = await openseaContractQueue.add(() =>
-    OpenSea.getContract(address),
-  );
+  const contractE = await pipe(
+    Opensea.getContract(address),
+    queueOpenseaFetch,
+  )();
 
-  await OpenSea.setContractLastFetchNow(address);
+  await Opensea.setContractLastFetchNow(address);
 
-  if (openseaContract === undefined) {
+  if (E.isLeft(contractE)) {
+    if (contractE.left instanceof TimeoutError) {
+      // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
+      return undefined;
+    }
+    Log.error(contractE.left);
     return undefined;
   }
 
-  const twitterHandle = OpenSea.getTwitterHandle(openseaContract) ?? null;
-
-  const schemaName = OpenSea.getSchemaName(openseaContract) ?? null;
+  const contract = contractE.right;
+  const twitterHandle = Opensea.getTwitterHandle(contract) ?? null;
+  const schemaName = Opensea.getSchemaName(contract) ?? null;
 
   await TAlt.seqTParT(
     Contracts.setSimpleTextColumn(
@@ -356,14 +383,11 @@ const addOpenseaMetadata = async (
     Contracts.setSimpleTextColumn(
       "opensea_image_url",
       address,
-      openseaContract.image_url,
+      contract.image_url,
     ),
-    Contracts.setSimpleTextColumn(
-      "opensea_name",
-      address,
-      openseaContract.name,
-    ),
+    Contracts.setSimpleTextColumn("opensea_name", address, contract.name),
   )();
+
   await Contracts.updatePreferredMetadata(address)();
 };
 
@@ -390,7 +414,7 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
     Contracts.setSimpleTextColumn(
       "defi_llama_twitter_handle",
       address,
-      protocol.twitter,
+      protocol.twitter ?? null,
     ),
   )();
   await Contracts.updatePreferredMetadata(address)();
