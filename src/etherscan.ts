@@ -20,7 +20,7 @@ const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 export const apiQueue = new PQueue({
   concurrency: 4,
-  interval: Duration.millisFromSeconds(1),
+  interval: Duration.millisFromSeconds(2),
   intervalCap: 5,
 });
 
@@ -104,7 +104,7 @@ export const getNameTag = async (
   pipe(
     FetchAlt.fetchWithRetry(`https://blockscan.com/address/${address}`),
     queueApiCall,
-    TE.chain((res) => TE.tryCatch(() => res.text(), Errors.errorFromUnknown)),
+    TE.chain((res) => TE.tryCatch(() => res.text(), TEAlt.errorFromUnknown)),
     TE.map((text) => {
       const { document } = parseHTML(text);
       const etherscanPublicName = document.querySelector(
