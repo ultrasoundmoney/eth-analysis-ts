@@ -1,10 +1,13 @@
-import fetch from "node-fetch";
-import PQueue from "p-queue";
 import * as Config from "./config.js";
-import { sql } from "./db.js";
-import { delay } from "./delay.js";
-import * as Duration from "./duration.js";
+import * as FetchAlt from "./fetch_alt.js";
 import * as Log from "./log.js";
+import * as Retry from "retry-ts";
+import urlcatM from "urlcat";
+import { E, pipe, T, TE } from "./fp.js";
+import { sql } from "./db.js";
+
+// NOTE: import is broken somehow, "urlcat is not a function" without.
+const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 type OpenseaContract = {
   address: string;
@@ -16,101 +19,52 @@ type OpenseaContract = {
   name: string | null;
 };
 
-export const fetchContractQueue = new PQueue({
-  concurrency: 2,
-  interval: Duration.millisFromSeconds(8),
-  intervalCap: 6,
-});
+const makeContractUrl = (address: string): string =>
+  urlcat("https://api.opensea.io/api/v1/asset_contract/:address", { address });
 
-export const getContract = async (
+class MissingStandardError extends Error {
+  address: string;
+  constructor(address: string, message: string | undefined) {
+    super(message);
+    this.address = address;
+  }
+}
+
+type GetContractError = MissingStandardError | FetchAlt.FetchWithRetryError;
+
+export const getContract = (
   address: string,
-  attempt = 0,
-): Promise<OpenseaContract | undefined> => {
-  const res = await fetchContractQueue.add(() =>
-    fetch(`https://api.opensea.io/api/v1/asset_contract/${address}`, {
-      headers: { "X-API-KEY": Config.getOpenseaApiKey() },
+): TE.TaskEither<GetContractError, OpenseaContract> =>
+  pipe(
+    FetchAlt.fetchWithRetry(
+      makeContractUrl(address),
+      {
+        headers: { "X-API-KEY": Config.getOpenseaApiKey() },
+      },
+      [200, 406],
+      // Unsure about Opensea API rate-limit. Could experiment with lowering this and figuring out the exact codes we should and shouldn't retry.
+      Retry.Monoid.concat(
+        Retry.exponentialBackoff(2000),
+        Retry.limitRetries(3),
+      ),
+    ),
+    TE.chainW((res) => {
+      // For some contracts OpenSea can't figure out the contract standard and returns a 406.
+      if (res.status === 406) {
+        return pipe(
+          () => res.json() as Promise<{ detail: string }>,
+          T.map((body) => {
+            Log.debug(
+              `fetch opensea contract 406, address: ${address}, body detail: ${body.detail}`,
+            );
+            return E.left(new MissingStandardError(address, body.detail));
+          }),
+        );
+      }
+
+      return pipe(() => res.json() as Promise<OpenseaContract>, T.map(E.right));
     }),
   );
-
-  if (res === undefined) {
-    Log.debug(
-      "hit timeout for opensea contract fetch on queue, returning undefined",
-    );
-    return undefined;
-  }
-
-  const retryDelay = Duration.millisFromSeconds(16);
-
-  if (res.status === 504 && attempt < 3) {
-    Log.warn(
-      `fetch opensea contract 504, attempt ${attempt}, waiting and retrying`,
-      { address },
-    );
-
-    await delay(retryDelay);
-    return getContract(address, attempt + 1);
-  }
-
-  if (res.status === 504 && attempt > 2) {
-    Log.warn(
-      `fetch opensea contract 504, attempt ${attempt}, hit limit, returning undefined`,
-    );
-    return undefined;
-  }
-
-  if (res.status === 429 && attempt < 3) {
-    Log.warn(
-      `fetch opensea contract 429, attempt ${attempt}, waiting and retrying`,
-      { address },
-    );
-    await delay(retryDelay);
-    return getContract(address, attempt + 1);
-  }
-
-  if (res.status === 429 && attempt > 2) {
-    Log.error(
-      `fetch opensea contract 429, attempt ${attempt}, hit limit, slow request rate! returning undefined`,
-      { address },
-    );
-    return undefined;
-  }
-
-  if (res.status === 503 && attempt < 3) {
-    Log.warn(
-      `fetch opensea contract 503, attempt ${attempt}, waiting and retrying`,
-      { address },
-    );
-
-    await delay(retryDelay);
-    return getContract(address, attempt + 1);
-  }
-
-  if (res.status === 503 && attempt > 2) {
-    Log.warn(
-      `fetch opensea contract 503, attempt ${attempt}, hit limit, returning undefined`,
-    );
-    return undefined;
-  }
-
-  if (res.status === 404) {
-    return undefined;
-  }
-
-  // For some contracts OpenSea can't figure out the contract standard and returns a 406.
-  if (res.status === 406) {
-    return undefined;
-  }
-
-  if (res.status !== 200) {
-    throw new Error(
-      `fetch opensea contract ${address}, attempt: ${attempt}, bad response: ${res.status}`,
-    );
-  }
-
-  const body = (await res.json()) as OpenseaContract;
-
-  return body;
-};
 
 export const getTwitterHandle = (
   contract: OpenseaContract,

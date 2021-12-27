@@ -5,7 +5,6 @@ import * as DefiLlama from "./defi_llama.js";
 import * as Etherscan from "./etherscan.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as Log from "./log.js";
-import * as OpenSea from "./opensea.js";
 import * as Transactions from "./transactions.js";
 import * as Twitter from "./twitter.js";
 
@@ -54,9 +53,6 @@ export const logQueueSizes = () => {
     lastLogQueueSizeTimestamp = new Date();
     Log.debug(
       `fetch twitter profile queue size: ${Twitter.fetchProfileQueue.size}`,
-    );
-    Log.debug(
-      `fetch opensea contract queue size: ${OpenSea.fetchContractQueue.size}`,
     );
     Log.debug(
       `fetch etherscan token title queue size: ${Etherscan.fetchTokenTitleQueue.size}`,
