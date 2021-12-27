@@ -57,6 +57,8 @@ export class BadResponseError extends Error {
   }
 }
 
+export type FetchWithRetryError = FetchError | BadResponseError | Error;
+
 export const fetchWithRetry = (
   url: RequestInfo,
   init?: RequestInit,
@@ -65,7 +67,7 @@ export const fetchWithRetry = (
     Retry.exponentialBackoff(2000),
     Retry.limitRetries(3),
   ),
-): TE.TaskEither<FetchError | Error, Response> =>
+): TE.TaskEither<FetchWithRetryError, Response> =>
   retrying(
     retryPolicy,
     (status) =>
