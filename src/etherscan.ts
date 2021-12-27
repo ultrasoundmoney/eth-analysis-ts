@@ -25,12 +25,10 @@ export const apiQueue = new PQueue({
   intervalCap: 5,
 });
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const queueApiCall =
   <A>(task: T.Task<A>): T.Task<A> =>
   () =>
     apiQueue.add(task);
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 type AbiResponse = { status: "0" | "1"; result: string; message: string };
 

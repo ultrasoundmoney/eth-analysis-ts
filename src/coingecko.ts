@@ -55,12 +55,10 @@ export const apiQueue = new PQueue({
   intervalCap: 3,
 });
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const queueApiFetch =
   <A>(task: T.Task<A>): T.Task<A> =>
   () =>
     apiQueue.add(task);
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const fetchCoinGecko = <A>(url: string): TE.TaskEither<CoinGeckoApiError, A> =>
   pipe(

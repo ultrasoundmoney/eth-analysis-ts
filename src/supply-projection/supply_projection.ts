@@ -16,12 +16,10 @@ const inputsQueue = new PQueue({
   concurrency: 1,
 });
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const addT =
   <A>(task: T.Task<A>): T.Task<A> =>
   () =>
     inputsQueue.add(task);
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const getCachedInputs = () => pipe(inputsCache.get(inputsKey), O.fromNullable);
 
