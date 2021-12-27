@@ -64,13 +64,8 @@ export const TEAlt = {
   seqSSeqTE: Apply.sequenceS(TE.ApplySeq),
   seqTParTE: Apply.sequenceT(TE.ApplyPar),
   seqTSeqTE: Apply.sequenceT(TE.ApplySeq),
-  unknownToError: (e: unknown): Error => {
-    if (e instanceof Error) {
-      return e;
-    }
-
-    return new Error(String(e));
-  },
+  errorFromUnknown: (e: unknown): Error =>
+    e instanceof Error ? e : new Error(String(e)),
 };
 
 export const OAlt = {

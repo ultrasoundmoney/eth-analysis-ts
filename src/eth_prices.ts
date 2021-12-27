@@ -249,13 +249,7 @@ export const get24hAgoPrice = (): TE.TaskEither<Get24hAgoPriceError, number> =>
         ORDER BY ABS(EXTRACT(epoch FROM (timestamp - '1 days'::interval)))
         LIMIT 1
       `,
-      (e) => {
-        if (e instanceof Error) {
-          return e as PostgresError;
-        }
-
-        return new PostgresError(String(e));
-      },
+      TEAlt.errorFromUnknown,
     ),
     TE.chain((rows) =>
       pipe(

@@ -10,7 +10,6 @@ import type { AbiItem } from "web3-utils";
 import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
 import * as Duration from "./duration.js";
-import * as Errors from "./errors.js";
 import { EthPrice } from "./eth_prices.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { E, O, pipe, T, TE, TEAlt } from "./fp.js";
@@ -54,7 +53,7 @@ export const fetchAbi = (
     TE.chain((res) =>
       TE.tryCatch(
         () => res.json() as Promise<AbiResponse>,
-        Errors.errorFromUnknown,
+        TEAlt.errorFromUnknown,
       ),
     ),
     TE.chain((abiRaw): TE.TaskEither<Error, AbiItem[]> => {
@@ -287,7 +286,7 @@ export const getEthSupply = (): Promise<bigint> =>
     TE.chain((res) => {
       return TE.tryCatch(
         () => res.json() as Promise<EthSupplyResponse>,
-        Errors.errorFromUnknown,
+        TEAlt.errorFromUnknown,
       );
     }),
     TE.map((body) => BigInt(body.result)),
