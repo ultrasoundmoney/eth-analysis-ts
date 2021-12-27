@@ -11,7 +11,6 @@ const DefiLlamaProtocol = pipe(
     name: D.string,
     address: D.nullable(D.string),
     category: D.nullable(D.string),
-    twitter: D.nullable(D.string),
   }),
   D.intersect(
     D.partial({
@@ -35,6 +34,7 @@ const DefiLlamaProtocol = pipe(
       slug: D.nullable(D.string),
       symbol: D.nullable(D.string),
       tvl: D.nullable(D.number),
+      twitter: D.nullable(D.string),
       url: D.nullable(D.string),
     }),
   ),
