@@ -202,11 +202,10 @@ export const storeBlock = async (
 
   const isParentKnown = await getBlockHashIsKnown(block.parentHash);
 
+  // Right before we store a block we check it is not breaking the logical chain. Every block should have a known parent in our DB. We have a check earlier on to store any missing parents that should take care of this. Remove this condition if it reliably does.
   if (!isParentKnown) {
-    // TODO: should never happen anymore, remove this if no alert shows up.
-    // We're missing the parent hash, update the previous block.
-    Log.alert("sync block, parent hash not found, storing parent again");
-    throw new Error("tried to store a block out of order");
+    Log.alert("tried to store a block with no known parent");
+    throw new Error("tried to store a block with no known parent");
   }
 
   await Promise.all([storeContracts(addresses), storeBlockTask()]);

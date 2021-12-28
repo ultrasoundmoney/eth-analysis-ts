@@ -219,14 +219,14 @@ export const onRollback = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
-  TimeFrame.limitedTimeFrames.forEach((timeFrame) => {
+  for (const timeFrame of TimeFrame.limitedTimeFrames) {
     const includedBlocks = blocksInTimeframe[timeFrame];
     const indexOfBlockToRollbackToBefore = includedBlocks.findIndex(
       (block) => block.number === blockNumber,
     );
 
     if (indexOfBlockToRollbackToBefore === -1) {
-      Log.warn(
+      Log.debug(
         `received rollback but no blocks in timeframe ${timeFrame} matched block number: ${blockNumber}, doing nothing`,
       );
       return undefined;
@@ -245,7 +245,7 @@ export const onRollback = (
     );
 
     return undefined;
-  });
+  }
 };
 
 const removeExpiredBlocks = (timeFrame: LimitedTimeFrame): T.Task<void> => {

@@ -5,19 +5,20 @@ import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
-import { addBlock, rollbackTo } from "./new_head.js";
+import { rollbackToBefore } from "./new_head.js";
 
 const syncBlock = async (blockNumber: number): Promise<void> => {
-  Log.debug(`sync block: ${blockNumber}`);
   const block = await Blocks.getBlockWithRetry(blockNumber);
+
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
-  if (!isParentKnown) {
-    // TODO: should never happen anymore, remove this if no alert shows up.
-    // We're missing the parent hash, update the previous block.
-    Log.alert("sync block, parent hash not found, storing parent again");
-    const previousBlock = await Blocks.getBlockWithRetry(blockNumber - 1);
-    await addBlock(previousBlock);
+  // A rollback happened, before or during syncing. Roll back to the last known parent, sync up to the current block, and continue.
+  if (!isParentKnown && !(blockNumber === Blocks.londonHardForkBlockNumber)) {
+    Log.warn(
+      "sync block parent is not in our DB, rolling back one block and trying again",
+    );
+    await rollbackToBefore(blockNumber - 1);
+    await syncBlock(blockNumber - 1);
   }
 
   const [txrs, ethPrice] = await Promise.all([
@@ -36,7 +37,7 @@ const rollbackToLastValidBlock = async () => {
     Log.warn(
       `on-start last known block does not match chain, rolling back ${block.number}`,
     );
-    await rollbackTo(lastStoredBlock.number - 1);
+    await rollbackToBefore(lastStoredBlock.number - 1);
     lastStoredBlock = await Blocks.getLastStoredBlock();
     block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
   }

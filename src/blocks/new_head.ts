@@ -28,7 +28,7 @@ export const newBlockQueue = new PQueue({
   autoStart: false,
 });
 
-export const rollbackTo = async (blockNumber: number): Promise<void> => {
+export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
   Log.info(`rolling back to and including: ${blockNumber}`);
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
 
@@ -78,14 +78,14 @@ export const addBlock = async (head: Head): Promise<void> => {
     Log.warn(
       "new head's parent is not in our DB, rollback one block and try to add the parent",
     );
-    await rollbackTo(head.number - 1);
+    await rollbackToBefore(head.number - 1);
     const previousBlock = await Blocks.getBlockWithRetry(head.number - 1);
     await addBlock(previousBlock);
   }
 
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
-    await rollbackTo(block.number);
+    await rollbackToBefore(block.number);
   }
 
   const [txrs, ethPrice] = await Promise.all([
