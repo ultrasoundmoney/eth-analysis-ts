@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/node";
 import * as DateFns from "date-fns";
 import {
   calcBlockBaseFeeSum,
@@ -131,11 +130,7 @@ export const getBlockWithRetry = async (
     }
 
     if (tries === 10) {
-      Sentry.captureException(
-        new Error(
-          `stuck fetching block, for more than ${tries * delaySeconds}s`,
-        ),
-      );
+      Log.alert(`stuck fetching block, for more than ${tries * delaySeconds}s`);
     }
 
     if (tries > 20) {
