@@ -78,7 +78,7 @@ export const syncBlocks = async (upToIncluding: number): Promise<void> => {
   for (const blockNumber of blocksToSync) {
     await syncBlock(blockNumber);
     blocksDone = blocksDone + 1;
-    logEta;
+    logEta();
   }
 
   PerformanceMetrics.setShouldLogBlockFetchRate(false);
