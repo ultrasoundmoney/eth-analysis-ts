@@ -5,8 +5,6 @@ import {
   calcBlockTips,
   FeeBreakdown,
 } from "../base_fees.js";
-import * as BurnRecords from "../burn-records/burn_records.js";
-import { Granularity } from "../burn-records/burn_records.js";
 import { setContractsMinedAt, storeContracts } from "../contracts.js";
 import { sql } from "../db.js";
 import { delay } from "../delay.js";
@@ -16,8 +14,10 @@ import { BlockLondon } from "../eth_node.js";
 import { A, O, pipe, T } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
-import { usdToScaled } from "../usd_scaling.js";
+import * as TimeFrames from "../time_frames.js";
+import { TimeFrame } from "../time_frames.js";
 import { segmentTxrs, TxRWeb3London } from "../transactions.js";
+import { usdToScaled } from "../usd_scaling.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -240,15 +240,6 @@ export const deleteContractBaseFees = async (
   `;
 };
 
-export const getIsKnownBlock = (blockNumber: number): T.Task<boolean> =>
-  pipe(
-    () =>
-      sql<
-        { isKnown: boolean }[]
-      >`SELECT EXISTS(SELECT number FROM blocks WHERE number = ${blockNumber}) AS is_known`,
-    T.map((rows) => rows[0]?.isKnown ?? false),
-  );
-
 export const getSyncedBlockHeight = async (): Promise<number> => {
   const rows = await sql<{ max: number }[]>`
     SELECT MAX(number) FROM blocks
@@ -256,35 +247,6 @@ export const getSyncedBlockHeight = async (): Promise<number> => {
 
   return rows[0].max;
 };
-
-export const getKnownBlocks = (): T.Task<Set<number>> =>
-  pipe(
-    () => sql<{ number: number }[]>`SELECT number FROM blocks`,
-    T.map((rows) =>
-      pipe(
-        rows,
-        A.map((row) => row.number),
-        (numbers) => new Set(numbers),
-      ),
-    ),
-  );
-
-export const getLastNKnownBlocks = (count: number): T.Task<Set<number>> =>
-  pipe(
-    () => sql<{ number: number }[]>`
-      SELECT number
-      FROM blocks
-      ORDER BY number DESC
-      LIMIT ${count}
-    `,
-    T.map((rows) =>
-      pipe(
-        rows,
-        A.map((row) => row.number),
-        (numbers) => new Set(numbers),
-      ),
-    ),
-  );
 
 export const getBaseFeesPerGas = (
   blockNumber: number,
@@ -380,38 +342,6 @@ export const getBlocks = async (
   `;
 
   return rows.map(blockDbFromRow);
-};
-
-export const getPastBlock = async (
-  referenceBlock: BlockDb,
-  interval: string,
-): Promise<BlockDb> => {
-  const [row] = await sql<BlockDbRow[]>`
-    SELECT
-      base_fee_per_gas,
-      contract_creation_sum,
-      eth_price,
-      eth_transfer_sum,
-      gas_used,
-      hash,
-      mined_at,
-      number,
-      tips
-    FROM blocks
-    ORDER BY ABS(EXTRACT(epoch FROM (${referenceBlock.minedAt} - ${interval}::interval )))
-    LIMIT 1
-  `;
-
-  return blockDbFromRow(row);
-};
-
-export const getBlocksForGranularity = async (
-  granularity: Granularity,
-  referenceBlock: BlockDb,
-): Promise<FeeBlockRow[]> => {
-  const interval = BurnRecords.granularitySqlMap[granularity];
-  const pastBlock = await getPastBlock(referenceBlock, interval);
-  return getFeeBlocks(pastBlock.number, referenceBlock.number);
 };
 
 // These blocks are minimized to only carry the information needed to calculate a record.
