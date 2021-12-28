@@ -253,6 +253,16 @@ export const setContractsMinedAt = async (
   `;
 };
 
+export const setContractMinedAtNull = async (address: string) => {
+  await sql`
+    UPDATE contracts
+    SET
+      mined_at = NULL,
+      mined_at_block = NULL
+    WHERE address = ${address}
+  `;
+};
+
 export const deleteContractsMinedAt = async (
   blockNumber: number,
 ): Promise<void> => {
