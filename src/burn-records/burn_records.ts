@@ -80,7 +80,7 @@ export const getIsGranularityEnabledForTimeFrame = (
   }
 
   const granularityMillis = granularityMillisMap[granularity];
-  const timeFrameMillis = TimeFrames.timeFrameMillisMap[timeFrame];
+  const timeFrameMillis = TimeFrames.limitedTimeFrameMillisMap[timeFrame];
 
   if (timeFrameMillis > granularityMillis) {
     return true;
@@ -417,7 +417,7 @@ export const addBlockToState = (
     timeFrame === "all"
       ? (sum: Sum) => DateFns.isAfter(sum.endMinedAt, nowSubRollback)
       : getIsSumWithinMaxAgeWithMaxAge(
-          TimeFrames.timeFrameMillisMap[timeFrame],
+          TimeFrames.limitedTimeFrameMillisMap[timeFrame],
           feeBlockToAdd,
         );
 
@@ -532,7 +532,7 @@ export const rollbackBlock = (
     timeFrame === "all"
       ? () => true
       : getIsSumWithinMaxAgeWithMaxAge(
-          TimeFrames.timeFrameMillisMap[timeFrame],
+          TimeFrames.limitedTimeFrameMillisMap[timeFrame],
           recordState.feeBlocks.peekBack()!,
         );
 

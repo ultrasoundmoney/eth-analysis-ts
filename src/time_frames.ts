@@ -20,11 +20,3 @@ export const limitedTimeFrameMillisMap: Record<LimitedTimeFrame, number> = {
   "7d": TimeFrames.millisFromDays(7),
   "30d": TimeFrames.millisFromDays(30),
 };
-
-export const timeFrameMillisMap: Record<LimitedTimeFrame, number> = {
-  "5m": TimeFrames.millisFromMinutes(5),
-  "1h": TimeFrames.millisFromHours(1),
-  "24h": TimeFrames.millisFromHours(24),
-  "7d": TimeFrames.millisFromDays(7),
-  "30d": TimeFrames.millisFromDays(30),
-};
