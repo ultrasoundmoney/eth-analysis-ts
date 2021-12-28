@@ -77,13 +77,24 @@ export const log = (
   }
 
   // Log json to stdout during non-dev.
-  console.log(
-    JSON.stringify({
-      meta,
-      severity,
-      message: String(message),
-    }),
-  );
+  if (meta instanceof Error) {
+    console.log(
+      JSON.stringify({
+        message: meta.message,
+        name: meta.name,
+        severity,
+        stack: meta.stack,
+      }),
+    );
+  } else {
+    console.log(
+      JSON.stringify({
+        message: String(message),
+        meta,
+        severity,
+      }),
+    );
+  }
 };
 
 export const debug = (message: unknown, meta?: unknown) =>
