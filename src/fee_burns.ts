@@ -6,6 +6,7 @@ import * as Log from "./log.js";
 import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 import { Usd } from "./usd_scaling.js";
+import * as Blocks from "./blocks/blocks.js";
 
 type PreciseBaseFeeSum = {
   eth: WeiBI;
@@ -99,6 +100,15 @@ export const onNewBlock = (block: BlockDb): void => {
 
 export const onRollback = (block: BlockDb): void => {
   for (const timeFrame of TimeFrames.timeFrames) {
+    const isBlockWithinTimeFrame = Blocks.getIsBlockWithinTimeFrame(
+      block.number,
+      timeFrame,
+    );
+
+    if (!isBlockWithinTimeFrame) {
+      return;
+    }
+
     addToCurrent(timeFrame, {
       eth: block.baseFeePerGas * block.gasUsed * -1n,
       usd:
