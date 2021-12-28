@@ -391,3 +391,24 @@ export const getLastStoredBlock = async (): Promise<BlockDb> => {
 
   return block;
 };
+
+export const getIsBlockWithinTimeFrame = async (
+  blockNumber: number,
+  timeFrame: TimeFrame,
+) => {
+  if (timeFrame === "all") {
+    return true;
+  }
+
+  const interval = TimeFrames.intervalSqlMap[timeFrame];
+
+  const [exists] = await sql<{ exists: boolean }[]>`
+    SELECT (
+      SELECT mined_at FROM blocks WHERE number = ${blockNumber}
+    ) >= (
+      (SELECT MAX(mined_at) FROM blocks) - ${interval}::INTERVAL
+    ) AS "exists"
+  `;
+
+  return exists;
+};
