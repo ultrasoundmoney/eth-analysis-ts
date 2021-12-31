@@ -379,15 +379,15 @@ export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
     .reverse();
 
 export const getLastStoredBlock = async (): Promise<BlockDb> => {
-  const rows = await sql<{ number: number }[]>`
-    SELECT MAX(number) AS number FROM blocks
+  const rows = await sql<{ max: number }[]>`
+    SELECT MAX(number) FROM blocks
   `;
 
   if (rows.length === 0) {
     throw new Error("can't get last stored block from empty table");
   }
 
-  const [block] = await getBlocks(rows[0].number, rows[0].number);
+  const [block] = await getBlocks(rows[0].max, rows[0].max);
 
   return block;
 };
