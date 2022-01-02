@@ -245,7 +245,7 @@ export const get24hAgoPrice = (): TE.TaskEither<Get24hAgoPriceError, number> =>
     TE.tryCatch(
       () => sql<{ ethusd: number }[]>`
         SELECT ethusd FROM eth_prices
-        ORDER BY ABS(EXTRACT(epoch FROM (timestamp - '1 days'::interval)))
+        ORDER BY ABS(EXTRACT(epoch FROM (timestamp - '1 days'::INTERVAL))) DESC
         LIMIT 1
       `,
       TEAlt.errorFromUnknown,
