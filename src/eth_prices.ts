@@ -8,7 +8,7 @@ import * as Duration from "./duration.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
-import { E, flow, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
+import { E, flow, O, pipe, T, TAlt, TE } from "./fp.js";
 import * as Log from "./log.js";
 import { intervalSqlMap, LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
@@ -238,26 +238,37 @@ export const getEthPrice = (
 };
 
 export class MissingPriceError extends Error {}
-export type Get24hAgoPriceError = MissingPriceError | Error;
+export type Get24hAgoPriceError = MissingPriceError;
 
-export const get24hAgoPrice = (): TE.TaskEither<Get24hAgoPriceError, number> =>
+export const get24hAgoPrice = () =>
   pipe(
-    TE.tryCatch(
-      sqlT<{ ethusd: number }[]>`
-        SELECT ethusd FROM eth_prices
-        ORDER BY ABS(EXTRACT(epoch FROM (timestamp - '1 days'::INTERVAL))) DESC
+    sqlT<{ ethusd: number }[]>`
+        WITH with_diff AS (
+          SELECT
+          timestamp,
+          ethusd,
+          ABS(
+            EXTRACT(
+              epoch FROM (
+                timestamp - (NOW() - '1 days'::INTERVAL)
+              )
+            )
+          ) AS time_diff
+          FROM eth_prices
+        )
+        SELECT ethusd FROM with_diff
+        WHERE time_diff < 3600
+        ORDER BY time_diff
         LIMIT 1
       `,
-      TEAlt.errorFromUnknown,
-    ),
-    TE.chain(
+    T.chain(
       flow(
         (rows) => rows[0]?.ethusd,
         O.fromNullable,
         TE.fromOption(
           () =>
             new MissingPriceError(
-              "can't return 24h price, no price in the last 24h",
+              "no price within 1h range on either side of now - 1 day ago",
             ),
         ),
       ),
@@ -294,15 +305,15 @@ export const getEthStats = (): TE.TaskEither<GetEthStatsError, EthStats> => {
   );
 
   const makeEthStats = pipe(
-    getEthPrice(new Date()),
-    TE.chain((latestEthPrice) =>
-      TEAlt.seqTParTE(
-        TE.of<Error, EthPrice>(latestEthPrice),
-        get24hChange(latestEthPrice),
-      ),
+    TE.Do,
+    TE.bind("currentEthPrice", () =>
+      getEthPrice(new Date(), Duration.millisFromHours(1)),
     ),
-    TE.map(([latestPrice, price24Change]) => ({
-      usd: latestPrice.ethusd,
+    TE.bind("price24Change", ({ currentEthPrice }) =>
+      get24hChange(currentEthPrice),
+    ),
+    TE.map(({ currentEthPrice, price24Change }) => ({
+      usd: currentEthPrice.ethusd,
       usd24hChange: price24Change,
     })),
     TE.chainFirstIOK((ethStats) => () => {
