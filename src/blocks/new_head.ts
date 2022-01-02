@@ -19,7 +19,7 @@ import * as Log from "../log.js";
 import * as Performance from "../performance.js";
 import * as ScarcityNewHead from "../scarcity/new_head.js";
 import * as Scarcity from "../scarcity/scarcity.js";
-import { getTxrsWithRetry } from "../transactions.js";
+import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
 
@@ -89,7 +89,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   }
 
   const [txrs, ethPrice] = await Promise.all([
-    getTxrsWithRetry(block),
+    Transactions.getTxrsWithRetry(block),
     EthPrices.getPriceForOldBlock(block),
   ]);
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
