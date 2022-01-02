@@ -6,7 +6,7 @@ import {
   FeeBreakdown,
 } from "../base_fees.js";
 import { setContractsMinedAt, storeContracts } from "../contracts.js";
-import { sql } from "../db.js";
+import { sql, sqlT } from "../db.js";
 import { delay } from "../delay.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
@@ -412,3 +412,15 @@ export const getIsBlockWithinTimeFrame = async (
 
   return exists;
 };
+
+export const getEarliestBlockInTimeFrame = (timeFrame: TimeFrame) =>
+  timeFrame === "all"
+    ? T.of(londonHardForkBlockNumber)
+    : pipe(
+        TimeFrames.intervalSqlMap[timeFrame],
+        (interval) => sqlT<{ min: number }[]>`
+          SELECT MIN(number) FROM blocks
+          WHERE mined_at >= NOW() - ${interval}::interval
+        `,
+        T.map((rows) => rows[0].min),
+      );
