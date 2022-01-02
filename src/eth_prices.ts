@@ -294,17 +294,10 @@ const ethStatsCache = new QuickLRU<string, EthStats>({
   maxAge: Duration.millisFromSeconds(16),
 });
 
-class CacheMissError extends Error {}
-type GetEthStatsError = Get24hAgoPriceError | CacheMissError;
+const getCachedEthStats = pipe(ethStatsCache.get("eth-stats"), O.fromNullable);
 
-export const getEthStats = (): TE.TaskEither<GetEthStatsError, EthStats> => {
-  const getCachedPrice = pipe(
-    ethStatsCache.get("eth-stats"),
-    O.fromNullable,
-    TE.fromOption(() => new CacheMissError("no eth stats in cache")),
-  );
-
-  const makeEthStats = pipe(
+const makeEthStats = () =>
+  pipe(
     TE.Do,
     TE.bind("currentEthPrice", () =>
       getEthPrice(new Date(), Duration.millisFromHours(1)),
@@ -321,11 +314,11 @@ export const getEthStats = (): TE.TaskEither<GetEthStatsError, EthStats> => {
     }),
   );
 
-  return pipe(
-    getCachedPrice,
-    TE.alt(() => makeEthStats),
-  );
-};
+class CacheMissError extends Error {}
+type GetEthStatsError = Get24hAgoPriceError | CacheMissError;
+
+export const getEthStats = (): TE.TaskEither<GetEthStatsError, EthStats> =>
+  pipe(getCachedEthStats, O.map(TE.right), O.getOrElse(makeEthStats));
 
 type AverageEthPrice = {
   m5: number;
