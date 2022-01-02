@@ -3,12 +3,12 @@ import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import { JsTimestamp } from "./date_fns_alt.js";
-import { sql } from "./db.js";
+import { sql, sqlT } from "./db.js";
 import * as Duration from "./duration.js";
 import { BlockLondon } from "./eth_node.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
-import { E, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
+import { E, flow, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 import { intervalSqlMap, LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
@@ -243,18 +243,17 @@ export type Get24hAgoPriceError = MissingPriceError | Error;
 export const get24hAgoPrice = (): TE.TaskEither<Get24hAgoPriceError, number> =>
   pipe(
     TE.tryCatch(
-      () => sql<{ ethusd: number }[]>`
+      sqlT<{ ethusd: number }[]>`
         SELECT ethusd FROM eth_prices
         ORDER BY ABS(EXTRACT(epoch FROM (timestamp - '1 days'::INTERVAL))) DESC
         LIMIT 1
       `,
       TEAlt.errorFromUnknown,
     ),
-    TE.chain((rows) =>
-      pipe(
-        rows[0],
+    TE.chain(
+      flow(
+        (rows) => rows[0]?.ethusd,
         O.fromNullable,
-        O.map((row) => row.ethusd),
         TE.fromOption(
           () =>
             new MissingPriceError(
@@ -265,9 +264,7 @@ export const get24hAgoPrice = (): TE.TaskEither<Get24hAgoPriceError, number> =>
     ),
   );
 
-const get24hChange = (
-  currentPrice: EthPrice,
-): TE.TaskEither<Get24hAgoPriceError, number> =>
+const get24hChange = (currentPrice: EthPrice) =>
   pipe(
     get24hAgoPrice(),
     TE.map(
