@@ -58,7 +58,7 @@ try {
     // BurnRecordsSync.init(),
     syncLeaderboardAll(),
     FeeBurns.init()(),
-    EthLocked.init(),
+    EthLocked.init()(),
     EthStaked.init(),
     EthSupply.init(),
   ]);

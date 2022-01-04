@@ -1,89 +1,87 @@
+import * as DateFns from "date-fns";
 import { setInterval } from "timers/promises";
+import * as DateFnsAlt from "../date_fns_alt.js";
+import { sql, sqlT } from "../db.js";
+import * as DefiPulse from "../defi_pulse.js";
 import * as Duration from "../duration.js";
-import * as FetchAlt from "../fetch_alt.js";
-import * as Log from "../log.js";
-import * as Config from "../config.js";
-
-const fetchWithRetry = FetchAlt.withRetry(5, 2000, true);
-
-const marketDataEndpoint = `https://data-api.defipulse.com/api/v1/defipulse/api/MarketData?api-key=${process.env.DEFI_PULSE_API_KEY}`;
+import { B, flow, O, pipe, T, TE, TO } from "../fp.js";
 
 type LastEthLocked = {
   timestamp: Date;
   ethLocked: number;
 };
 
-let lastEthLocked: LastEthLocked | undefined = undefined;
+const intervalIterator = setInterval(Duration.millisFromHours(1), Date.now());
 
-const storeEthLocked = (ethLocked: number) => {
-  lastEthLocked = {
-    timestamp: new Date(),
-    ethLocked,
-  };
-};
+const ethLockedKey = "eth-locked";
 
-type MarketData = {
-  All: {
-    value: {
-      total: {
-        ETH: {
-          value: number;
-        };
-      };
-    };
-  };
-};
+export const getLastEthLocked = () =>
+  pipe(
+    sqlT<{ value: { timestamp: number; ethLocked: number } }[]>`
+      SELECT value FROM key_value_store
+      WHERE key = ${ethLockedKey}
+    `,
+    T.map(
+      flow(
+        (rows) => rows[0],
+        O.fromNullable,
+        O.map((row) => ({
+          timestamp: DateFns.fromUnixTime(row.value.timestamp),
+          ethLocked: row.value.ethLocked,
+        })),
+      ),
+    ),
+  );
 
-// Uses 5 API credits per call, we have 2000 per month.
-const getEthLocked = async (): Promise<number | undefined> => {
-  Log.debug("getting ETH locked from DefiPulse");
-  const res = await fetchWithRetry(marketDataEndpoint);
+const storeEthLocked = (ethLocked: number) =>
+  sqlT`
+    INSERT INTO key_value_store (
+      key,
+      value
+    ) VALUES (
+      ${ethLockedKey},
+      ${sql.json({
+        timestamp: DateFns.getUnixTime(new Date()),
+        ethLocked,
+      })}
+    )
+  `;
 
-  if (res.status === 429) {
-    Log.error("defi pulse get eth locked 429");
-    return undefined;
-  }
+const updateEthLocked = () =>
+  pipe(
+    DefiPulse.getEthLocked(),
+    TE.chainTaskK(storeEthLocked),
+    TE.map(() => undefined),
+  );
 
-  if (res.status !== 200) {
-    throw new Error(`bad response from defi pulse ${res.status}`);
-  }
+const maxAge = Duration.millisFromDays(2);
 
-  const marketData = (await res.json()) as MarketData;
-  const ethLocked = marketData.All.value.total.ETH.value;
+const getIsEthLockedFresh = (lastEthLocked: LastEthLocked) =>
+  DateFnsAlt.millisecondsBetweenAbs(lastEthLocked.timestamp, new Date()) <=
+  maxAge;
 
-  Log.debug(`got eth locked from defi pulse: ${ethLocked} ETH`);
-
-  return ethLocked;
-};
-
-export const getLastEthLocked = () => lastEthLocked;
-
-const intervalIterator = setInterval(Duration.millisFromHours(12), Date.now());
-
-export const init = async () => {
-  // As we don't have many API credits for this endpoint and services may restart many times during dev, we don't fetch a fresh number during dev.
-  if (Config.getEnv() === "prod" || Config.getEnv() === "staging") {
-    const ethLocked = await getEthLocked();
-    if (ethLocked === undefined) {
-      Log.error("failed to store defi pulse eth locked");
-      return;
-    }
-    storeEthLocked(ethLocked);
-  } else {
-    storeEthLocked(9499823.32579059);
-  }
-
-  continuouslyUpdate();
-};
+const refreshEthLocked = () =>
+  pipe(
+    getLastEthLocked(),
+    TO.matchE(
+      () => updateEthLocked(),
+      (lastStored) =>
+        pipe(
+          getIsEthLockedFresh(lastStored),
+          B.match(
+            () => updateEthLocked(),
+            () => TE.of(undefined),
+          ),
+        ),
+    ),
+  );
 
 const continuouslyUpdate = async () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for await (const _ of intervalIterator) {
-    const ethLocked = await getEthLocked();
-    if (ethLocked === undefined) {
-      Log.error("failed to store defi pulse eth locked");
-      return;
-    }
-    storeEthLocked(ethLocked);
+    await refreshEthLocked()();
   }
 };
+
+export const init = () =>
+  pipe(refreshEthLocked(), T.apFirst(continuouslyUpdate));

@@ -2,6 +2,7 @@ import { BlockDb } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
 import * as Duration from "../duration.js";
 import * as FeeBurn from "../fee_burns.js";
+import { pipe, T, TO } from "../fp.js";
 import * as Log from "../log.js";
 import * as EthLocked from "./eth_locked.js";
 import * as EthStaked from "./eth_staked.js";
@@ -10,7 +11,10 @@ import { ScarcityT, updateScarcity } from "./scarcity.js";
 
 export const onNewBlock = async (block: BlockDb) => {
   const ethBurned = FeeBurn.getAllFeesBurned().eth;
-  const ethLocked = EthLocked.getLastEthLocked();
+  const ethLocked = await pipe(
+    EthLocked.getLastEthLocked(),
+    TO.getOrElseW(() => T.of(undefined)),
+  )();
   const ethStaked = EthStaked.getLastEthStaked();
   const ethSupply = EthSupply.getLastEthSupply();
 
@@ -35,15 +39,6 @@ export const onNewBlock = async (block: BlockDb) => {
   );
   if (ethStakedAge > Duration.millisFromMinutes(10)) {
     Log.error("eth staked update too old");
-    return;
-  }
-
-  const ethLockedAge = DateFnsAlt.millisecondsBetweenAbs(
-    new Date(),
-    ethLocked.timestamp,
-  );
-  if (ethLockedAge > Duration.millisFromDays(1)) {
-    Log.error("eth locked update too old");
     return;
   }
 
