@@ -84,4 +84,9 @@ const continuouslyUpdate = async () => {
 };
 
 export const init = () =>
-  pipe(refreshEthLocked(), T.apFirst(continuouslyUpdate));
+  pipe(
+    refreshEthLocked(),
+    TE.chainFirstIOK(() => () => {
+      continuouslyUpdate();
+    }),
+  );
