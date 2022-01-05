@@ -1,65 +1,36 @@
-import * as Blocks from "../blocks/blocks.js";
-import * as Log from "../log.js";
+import { BlockDb } from "../blocks/blocks.js";
+import { pipe, T, TAlt } from "../fp.js";
 import * as TimeFrames from "../time_frames.js";
-import {
-  addBlockToState,
-  getRecordStatesByTimeFrame,
-  recordStates,
-  rollbackBlock,
-} from "./burn_records.js";
+import * as BurnRecords from "./burn_records.js";
 
-export const onNewBlock = async (block: Blocks.BlockDb): Promise<void> => {
-  for (const timeFrame of TimeFrames.limitedTimeFrames) {
-    const timeFrameRecordStates = getRecordStatesByTimeFrame(
-      recordStates,
-      timeFrame,
-    );
-    const tasks = timeFrameRecordStates.map((recordState) =>
-      addBlockToState(recordState, block),
-    );
-    await Promise.all(tasks);
-  }
-};
-
-export const onRollback = async (
-  rollbackToAndIncluding: number,
-): Promise<void> => {
-  Log.debug(
-    `burn records rollback to and including block: ${rollbackToAndIncluding}`,
+export const onNewBlock = (block: BlockDb) =>
+  pipe(
+    TimeFrames.timeFrames,
+    T.traverseArray((timeFrame) =>
+      pipe(
+        TAlt.seqTParT(
+          BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
+          BurnRecords.addRecordsFromBlockAndIncluding(timeFrame, block.number),
+        ),
+        T.chain(() =>
+          BurnRecords.pruneRecordsBeyondRank(timeFrame, BurnRecords.maxRank),
+        ),
+        T.chain(() => BurnRecords.setLastIncludedBlock(block.number)),
+      ),
+    ),
+    TAlt.concatAllVoid,
   );
 
-  const latestIncludedBlock = recordStates[0].feeBlocks.peekBack();
-
-  if (latestIncludedBlock === undefined) {
-    Log.warn("tried to rollback burn records but no block in fee set sum");
-    return undefined;
-  }
-
-  if (latestIncludedBlock.number < rollbackToAndIncluding) {
-    Log.debug(
-      `rollback to ${rollbackToAndIncluding}, but burn records at ${latestIncludedBlock.number}`,
-    );
-    return undefined;
-  }
-
-  const blocksToRollback = Blocks.getBlockRange(
-    rollbackToAndIncluding,
-    latestIncludedBlock.number,
-  ).reverse();
-
-  for (const timeFrame of TimeFrames.limitedTimeFrames) {
-    const timeFrameRecordStates = getRecordStatesByTimeFrame(
-      recordStates,
-      timeFrame,
-    );
-
-    const tasks = timeFrameRecordStates.map(async (recordState) => {
-      for (const blockNumber of blocksToRollback) {
-        const [block] = await Blocks.getBlocks(blockNumber, blockNumber);
-        rollbackBlock(recordState, block);
-      }
-    });
-
-    await Promise.all(tasks);
-  }
-};
+export const onRollback = (rollbackToAndIncluding: number) =>
+  pipe(
+    TimeFrames.timeFrames,
+    T.traverseArray(() =>
+      pipe(
+        BurnRecords.expireRecordsFromAndIncluding(rollbackToAndIncluding),
+        T.chain(() =>
+          BurnRecords.setLastIncludedBlock(rollbackToAndIncluding - 1),
+        ),
+      ),
+    ),
+    TAlt.concatAllVoid,
+  );

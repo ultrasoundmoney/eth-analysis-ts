@@ -1,66 +1,73 @@
-import _ from "lodash";
-import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
-import { BlockDb } from "../blocks/blocks.js";
-import * as Log from "../log.js";
-import { logPerf } from "../performance.js";
+import { O, pipe, T, TAlt } from "../fp.js";
 import * as TimeFrames from "../time_frames.js";
-import {
-  addBlockToState,
-  getIsBlockWithinReferenceMaxAge,
-  getRecordStatesByTimeFrame,
-  recordStates,
-} from "./burn_records.js";
+import { TimeFrame } from "../time_frames.js";
+import * as BurnRecords from "./burn_records.js";
 
-export const init = async (lastStoredBlock: BlockDb) => {
-  Log.debug("init burn records limited time frames");
-  const tGetAllBlocks = performance.now();
-  const allBlocks = await Blocks.getFeeBlocks(
-    Blocks.londonHardForkBlockNumber,
-    lastStoredBlock.number,
+const getEarliestBlockToAddAll = (lastIncludedBlock: O.Option<number>) =>
+  pipe(
+    lastIncludedBlock,
+    O.match(
+      () => Blocks.londonHardForkBlockNumber,
+      (lastIncludedBlock) => lastIncludedBlock + 1,
+    ),
   );
-  logPerf("init burn records, reading all blocks", tGetAllBlocks);
 
-  const tInitAllState = performance.now();
-  for (const timeFrame of TimeFrames.timeFrames) {
-    const tFilterBlocks = performance.now();
-    const getIsBlockWithinTimeFrame =
-      timeFrame === "all"
-        ? () => true
-        : getIsBlockWithinReferenceMaxAge(
-            TimeFrames.limitedTimeFrameMillisMap[timeFrame],
-            lastStoredBlock,
-          );
+const getEarliestBlockToAddLimitedTimeFrames = (
+  earliestBlockInTimeFrame: number,
+  lastIncludedBlock: O.Option<number>,
+) =>
+  pipe(
+    lastIncludedBlock,
+    O.match(
+      () => earliestBlockInTimeFrame,
+      (lastIncludedBlock) =>
+        lastIncludedBlock > earliestBlockInTimeFrame
+          ? lastIncludedBlock + 1
+          : earliestBlockInTimeFrame,
+    ),
+  );
 
-    const blocksInTimeFrame = _.dropWhile(allBlocks, getIsBlockWithinTimeFrame);
-    const blocksOldToNew = blocksInTimeFrame.reverse();
-    logPerf(
-      `init burn records, filter time frame ${timeFrame}, ${blocksInTimeFrame.length} blocks`,
-      tFilterBlocks,
-    );
-    const timeFrameRecordStates = getRecordStatesByTimeFrame(
-      recordStates,
-      timeFrame,
-    );
+const getFirstBlockToInclude = (
+  timeFrame: TimeFrame,
+  lastIncludedBlock: O.Option<number>,
+) =>
+  timeFrame === "all"
+    ? T.of(getEarliestBlockToAddAll(lastIncludedBlock))
+    : pipe(
+        Blocks.getEarliestBlockInTimeFrame(timeFrame),
+        T.map((earliestBlockInTimeFrame) =>
+          getEarliestBlockToAddLimitedTimeFrames(
+            earliestBlockInTimeFrame,
+            lastIncludedBlock,
+          ),
+        ),
+      );
 
-    for (const recordState of timeFrameRecordStates) {
-      const eta = makeEta({ max: blocksInTimeFrame.length });
-      let blocksDone = 0;
-      const logEta = _.throttle((block) => {
-        Log.debug(
-          `burn records init, time frame: ${timeFrame}, granularity: ${
-            recordState.granularity
-          }, eta: ${eta.estimate()}s, last block: ${block.number}`,
-        );
-      }, 2000);
+const initTimeFrame = (timeFrame: TimeFrame) =>
+  pipe(
+    TAlt.seqTParT(BurnRecords.getLastIncludedBlock(), () =>
+      Blocks.getLastStoredBlock(),
+    ),
+    T.chain(([lastIncludedBlock]) =>
+      TAlt.seqTParT(
+        BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
+        pipe(
+          getFirstBlockToInclude(timeFrame, lastIncludedBlock),
+          T.chain((firstBlockToInclude) =>
+            BurnRecords.addRecordsFromBlockAndIncluding(
+              timeFrame,
+              firstBlockToInclude,
+            ),
+          ),
+        ),
+      ),
+    ),
+    T.chain(() =>
+      BurnRecords.pruneRecordsBeyondRank(timeFrame, BurnRecords.maxRank),
+    ),
+    T.chain(() => BurnRecords.setLastIncludedBlockIsLatest()),
+  );
 
-      for (const block of blocksOldToNew) {
-        addBlockToState(recordState, block);
-        blocksDone = blocksDone + 1;
-        eta.report(blocksDone);
-        logEta(block);
-      }
-    }
-  }
-  logPerf("init burn records, adding blocks to time frames", tInitAllState);
-};
+export const init = () =>
+  pipe(TimeFrames.timeFrames, T.traverseArray(initTimeFrame));
