@@ -9,7 +9,7 @@ const main = async () => {
     await EthNode.connect();
 
     await ContractsMetadata.addMetadataForLeaderboards(
-      ["0x4fabb145d64652a948d72533023f6e7a623c7c53"],
+      ["0x59c0e4b889f4c036dd0d6d759c7b37cf91f3ec01"],
       new Set(),
     )();
   } catch (error) {
