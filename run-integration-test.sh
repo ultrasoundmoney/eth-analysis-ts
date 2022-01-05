@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 TIMESTAMP=$(date +%s)
 
 export PGHOST=localhost
@@ -14,8 +12,10 @@ psql --quiet --command "CREATE DATABASE test_$TIMESTAMP"
 
 export PGDATABASE="test_$TIMESTAMP"
 
-psql --quiet --file init.sql
+node --loader ts-node/esm src/integration-test/blocks.test.ts
 
-node --loader ts-node/esm src/integration-test/analyze_blocks.test.ts
+node --loader ts-node/esm src/integration-test/burn_records.test.ts
+
+export PGDATABASE=postgres
 
 psql --quiet --command "DROP DATABASE test_$TIMESTAMP"
