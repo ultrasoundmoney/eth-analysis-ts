@@ -188,15 +188,14 @@ const getExistingOpenseaSchemaName = (
     ),
   );
 
-export const getSchemaImpliesNft = (address: string): T.Task<boolean> =>
+export const getSchemaImpliesNft = (
+  address: string,
+): T.Task<O.Option<boolean>> =>
   pipe(
     getExistingOpenseaSchemaName(address),
     T.map(
-      flow(
-        O.map((existingOpenseaSchemaName) =>
-          checkSchemaImpliesNft(existingOpenseaSchemaName),
-        ),
-        O.getOrElseW(() => false),
+      O.map((existingOpenseaSchemaName) =>
+        checkSchemaImpliesNft(existingOpenseaSchemaName),
       ),
     ),
   );

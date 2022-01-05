@@ -6,7 +6,7 @@ import { sql } from "./db.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Duration from "./duration.js";
 import * as Etherscan from "./etherscan.js";
-import { A, B, E, O, pipe, T, TAlt, TE, TO } from "./fp.js";
+import { A, B, E, flow, O, pipe, T, TAlt, TE, TO } from "./fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "./leaderboards.js";
 import * as Log from "./log.js";
 import * as Opensea from "./opensea.js";
@@ -338,6 +338,7 @@ const getShouldFetchOpenseaMetadata = (
   forceRefetch: boolean,
 ): T.Task<boolean> => {
   if (forceRefetch) {
+    Log.debug(`opensea metadata, force refetch: true, address: ${address}`);
     return T.of(true);
   }
 
@@ -345,7 +346,13 @@ const getShouldFetchOpenseaMetadata = (
   const shouldSkipSchemaNotNft = pipe(
     Opensea.getSchemaImpliesNft(address),
     // If we've fetched the contract before and OpenSea told us they feel it is not an NFT contract, then skip it.
-    T.map((schemaImpliesNft) => !schemaImpliesNft),
+    T.map(
+      flow(
+        O.map((schemaImpliesNft) => !schemaImpliesNft),
+        // We don't know the OpenSea schema, we can't skip.
+        O.getOrElse(() => false),
+      ),
+    ),
   );
 
   // If we've fetched the contract recently, skip it, don't fetch.
@@ -367,6 +374,11 @@ const getShouldFetchOpenseaMetadata = (
 
   return pipe(
     shouldSkip,
+    T.chainFirstIOK((shouldSkip) => () => {
+      if (shouldSkip) {
+        Log.debug(`opensea metadata, skipping ${address}`);
+      }
+    }),
     T.chain((shouldSkip) => (shouldSkip ? T.of(false) : T.of(true))),
   );
 };
@@ -376,24 +388,26 @@ const updateOpenseaMetadataFromContract = (
   contract: Opensea.OpenseaContract,
 ) =>
   pipe(
-    TAlt.seqTParT(
-      Contracts.setSimpleTextColumn(
-        "opensea_twitter_handle",
-        address,
-        Opensea.getTwitterHandle(contract) ?? null,
+    Log.debug(`updating opensea metadata for ${address}`),
+    () =>
+      TAlt.seqTParT(
+        Contracts.setSimpleTextColumn(
+          "opensea_twitter_handle",
+          address,
+          Opensea.getTwitterHandle(contract) ?? null,
+        ),
+        Contracts.setSimpleTextColumn(
+          "opensea_schema_name",
+          address,
+          Opensea.getSchemaName(contract) ?? null,
+        ),
+        Contracts.setSimpleTextColumn(
+          "opensea_image_url",
+          address,
+          contract.image_url,
+        ),
+        Contracts.setSimpleTextColumn("opensea_name", address, contract.name),
       ),
-      Contracts.setSimpleTextColumn(
-        "opensea_schema_name",
-        address,
-        Opensea.getSchemaName(contract) ?? null,
-      ),
-      Contracts.setSimpleTextColumn(
-        "opensea_image_url",
-        address,
-        contract.image_url,
-      ),
-      Contracts.setSimpleTextColumn("opensea_name", address, contract.name),
-    ),
     T.chainFirstIOK(() => () => {
       const twitterHandle = Opensea.getTwitterHandle(contract) ?? null;
       const schemaName = Opensea.getSchemaName(contract) ?? null;
