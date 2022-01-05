@@ -1,4 +1,5 @@
 import { performance } from "perf_hooks";
+import { pipe, T } from "./fp.js";
 import * as Log from "./log.js";
 
 export const logPerf = (name: string, t0: number): void => {
@@ -27,3 +28,14 @@ export function withPerfLogAsync<A, B, C>(
     return result;
   };
 }
+
+export const withPerfLogT = <A>(msg: string, task: T.Task<A>) =>
+  pipe(
+    T.Do,
+    T.bind("t0", () => T.of(performance.now())),
+    T.bind("result", () => task),
+    T.map(({ t0, result }) => {
+      logPerf(msg, t0);
+      return result;
+    }),
+  );
