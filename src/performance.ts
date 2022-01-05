@@ -29,13 +29,30 @@ export function withPerfLogAsync<A, B, C>(
   };
 }
 
-export const withPerfLogT = <A>(msg: string, task: T.Task<A>) =>
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export const withPerfLogT =
+  <A extends any[], B>(msg: string, fn: (...args: A) => T.Task<B>) =>
+  (...args: A) =>
+    pipe(
+      T.Do,
+      T.bind("t0", () => T.of(performance.now())),
+      T.bind("result", () => fn(...args)),
+      T.chainFirstIOK(({ t0 }) => () => {
+        logPerf(msg, t0);
+      }),
+      T.map(({ result }) => result),
+    );
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+export const measureTaskPerf = <A>(msg: string, task: T.Task<A>) =>
   pipe(
     T.Do,
     T.bind("t0", () => T.of(performance.now())),
     T.bind("result", () => task),
-    T.map(({ t0, result }) => {
+    T.chainFirstIOK(({ t0 }) => () => {
       logPerf(msg, t0);
+    }),
+    T.map(({ result }) => {
       return result;
     }),
   );
