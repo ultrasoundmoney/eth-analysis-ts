@@ -68,6 +68,8 @@ export const addRecordsFromBlockAndIncluding = (
     WITH new_records AS (
       SELECT number, base_fee_sum FROM blocks
       WHERE number >= ${blockNumber}
+      ORDER BY base_fee_sum DESC
+      LIMIT ${maxRank}
     )
     INSERT INTO burn_records
       (time_frame, block_number, base_fee_sum)
