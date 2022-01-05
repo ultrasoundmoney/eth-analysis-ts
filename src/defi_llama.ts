@@ -89,8 +89,10 @@ const getProtocolsWithCache = async (): Promise<
       (protocols) =>
         pipe(
           protocols,
+          A.filter((protocol) => typeof protocol.address === "string"),
           A.reduce(new Map(), (map, protocol) =>
-            map.set(protocol.address, protocol),
+            // We filter out protocols without an address above.
+            map.set(protocol.address!.toLowerCase(), protocol),
           ),
         ),
     ),
