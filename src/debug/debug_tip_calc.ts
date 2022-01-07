@@ -1,9 +1,9 @@
-import * as BaseFees from "./base_fees.js";
-import * as Blocks from "./blocks/blocks.js";
-import { weiToEth, weiToGwei } from "./convert_unit.js";
-import * as EthNode from "./eth_node";
-import { hexToNumber } from "./hexadecimal.js";
-import * as Log from "./log";
+import * as BaseFees from "../base_fees.js";
+import * as Blocks from "../blocks/blocks.js";
+import { weiToEth, weiToGwei } from "../convert_unit.js";
+import * as EthNode from "../eth_node";
+import { hexToNumber } from "../hexadecimal.js";
+import * as Log from "../log";
 
 const main = async () => {
   await EthNode.connect();
