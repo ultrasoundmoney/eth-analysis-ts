@@ -49,7 +49,7 @@ export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
     await Promise.all([
       LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
       LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
-      BurnRecordsNewHead.onRollback(blockNumber),
+      BurnRecordsNewHead.onRollback(blockNumber)(),
     ]);
 
     await Contracts.deleteContractsMinedAt(blockNumber);
