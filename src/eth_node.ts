@@ -427,15 +427,18 @@ export const subscribeNewHeads = (
     const rawHead: RawHead = JSON.parse(data.toString()).params.result;
     const head = translateHead(rawHead);
 
-    const receivedAt = new Date().toISOString();
-    const minedAt = new Date(Number(head.timestamp) * 1000).toISOString();
-    Log.debug("new head", {
-      number: head.number,
-      hash: head.hash,
-      parentHash: head.parentHash,
-      receivedAt,
-      minedAt,
-    });
+    // const receivedAt = new Date().toISOString();
+    // const minedAt = new Date(Number(head.timestamp) * 1000).toISOString();
+    // Log.debug("new head", {
+    //   number: head.number,
+    //   hash: head.hash,
+    //   parentHash: head.parentHash,
+    //   receivedAt,
+    //   minedAt,
+    // });
+    Log.debug(
+      `new head, number: ${head.number}, hash: ${head.hash}, parent: ${head.parentHash}`,
+    );
     handleNewHead(head);
     return undefined;
   });
