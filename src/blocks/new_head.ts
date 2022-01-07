@@ -115,15 +115,15 @@ export const addBlock = async (head: Head): Promise<void> => {
       feeBreakdown.contract_use_fees_usd!,
     );
 
-  const addBlockToBurnRecords = Performance.withPerfLogT(
-    "add block to burn record all",
-    BurnRecordsNewHead.onNewBlock,
-  );
+  // const addBlockToBurnRecords = Performance.withPerfLogT(
+  //   "add block to burn record all",
+  //   BurnRecordsNewHead.onNewBlock,
+  // );
 
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
-    addBlockToBurnRecords(blockDb),
+    // addBlockToBurnRecords(blockDb),
     ScarcityNewHead.onNewBlock(blockDb),
   ]);
 
