@@ -175,7 +175,12 @@ const fetchMetaTitleWithSpecialRetry = (address: string) =>
     E.isLeft,
   );
 
-export const getMetaTitle = (address: string): TE.TaskEither<Error, string> =>
+export class NoMeaningfulTitleError extends Error {}
+type GetMetaTitleError = NoMeaningfulTitleError | Error;
+
+export const getMetaTitle = (
+  address: string,
+): TE.TaskEither<GetMetaTitleError, string> =>
   pipe(
     fetchMetaTitleWithSpecialRetry(address),
     TE.chainEitherK((html) => {
@@ -210,14 +215,21 @@ export const getMetaTitle = (address: string): TE.TaskEither<Error, string> =>
         O.fromNullable,
         O.map((matches) => matches[0]),
         O.map((rawName) => rawName.trimEnd()),
-        O.chain((name) =>
-          name === "Contract Address" ? O.none : O.some(name),
-        ),
-        E.fromOption(
+        O.match(
           () =>
-            new Error(
-              `found etherscan token page, but failed to parse meta for ${address}`,
+            E.left(
+              new Error(
+                `found etherscan token page, but failed to parse meta for ${address}`,
+              ),
             ),
+          (name) =>
+            name === "Contract Address"
+              ? E.left(
+                  new NoMeaningfulTitleError(
+                    "meta title is not contract specific but generic",
+                  ),
+                )
+              : E.right(name),
         ),
       );
     }),

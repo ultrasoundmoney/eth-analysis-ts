@@ -288,6 +288,10 @@ const addEtherscanMetaTitle = async (
       return;
     }
 
+    if (name.left instanceof Etherscan.NoMeaningfulTitleError) {
+      return;
+    }
+
     Log.error("etherscan meta title fetch failed", name.left);
     return;
   }
