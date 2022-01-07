@@ -55,10 +55,10 @@ export const logQueueSizes = () => {
       `fetch twitter profile queue size: ${Twitter.fetchProfileQueue.size}`,
     );
     Log.debug(
-      `fetch etherscan token title queue size: ${Etherscan.fetchTokenTitleQueue.size}`,
+      `fetch defi llama protocols queue size: ${DefiLlama.fetchProtocolsQueue.size}`,
     );
     Log.debug(
-      `fetch defi llama protocols queue size: ${DefiLlama.fetchProtocolsQueue.size}`,
+      `etherscan meta title queue size: ${ContractsMetadata.etherscanMetaTitleQueue.size}`,
     );
     Log.debug(
       `opensea metadata queue size: ${ContractsMetadata.openseaContractQueue.size}`,

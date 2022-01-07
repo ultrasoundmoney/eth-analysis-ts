@@ -139,13 +139,6 @@ export const addWeb3Metadata = async (
   await Contracts.updatePreferredMetadata(address)();
 };
 
-const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
-
-export const etherscanNameTagQueue = new PQueue({
-  concurrency: 4,
-  timeout: Duration.millisFromSeconds(60),
-});
-
 type SimilarContract = {
   address: string;
   category: string | null;
@@ -216,6 +209,13 @@ const addMetadataFromSimilar = async (
   )();
 };
 
+const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
+
+export const etherscanNameTagQueue = new PQueue({
+  concurrency: 4,
+  timeout: Duration.millisFromSeconds(60),
+});
+
 const addEtherscanNameTag = async (
   address: string,
   forceRefetch = false,
@@ -247,6 +247,66 @@ const addEtherscanNameTag = async (
   }
 
   await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
+  await Contracts.updatePreferredMetadata(address)();
+};
+
+const etherscanMetaTitleLastAttemptMap: Record<string, Date | undefined> = {};
+
+export const etherscanMetaTitleQueue = new PQueue({
+  concurrency: 2,
+  throwOnTimeout: true,
+  timeout: Duration.millisFromSeconds(60),
+});
+
+const queueMetaTitleFetch = <E, A>(task: TE.TaskEither<E, A>) =>
+  pipe(
+    TE.tryCatch(
+      () => etherscanMetaTitleQueue.add(task),
+      () => new TimeoutError(),
+    ),
+    TE.chainW((e) => (E.isLeft(e) ? TE.left(e.left) : TE.right(e.right))),
+  );
+
+const addEtherscanMetaTitle = async (
+  address: string,
+  forceRefetch = false,
+): Promise<void> => {
+  const lastAttempted = etherscanMetaTitleLastAttemptMap[address];
+
+  if (
+    forceRefetch === false &&
+    lastAttempted !== undefined &&
+    DateFns.differenceInHours(new Date(), lastAttempted) < 12
+  ) {
+    return undefined;
+  }
+
+  const name = await queueMetaTitleFetch(Etherscan.getMetaTitle(address))();
+
+  if (E.isLeft(name)) {
+    if (name.left instanceof TimeoutError) {
+      return;
+    }
+
+    Log.error("etherscan meta title fetch failed", name.left);
+    return;
+  }
+
+  Log.debug(`found etherscan meta title: ${name.right}, address: ${address}`);
+
+  etherscanMetaTitleLastAttemptMap[address] = new Date();
+
+  // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
+  if (name.right.indexOf(":") !== -1) {
+    const nameStartsWith = name.right.split(":")[0];
+    await addMetadataFromSimilar(address, nameStartsWith);
+  }
+
+  await Contracts.setSimpleTextColumn(
+    "etherscan_name_token",
+    address,
+    name.right,
+  )();
   await Contracts.updatePreferredMetadata(address)();
 };
 
@@ -502,10 +562,11 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
 const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     TAlt.seqTParT(
-      () => addWeb3Metadata(address, forceRefetch),
-      () => addEtherscanNameTag(address, forceRefetch),
-      addOpenseaMetadata(address, forceRefetch),
       () => addDefiLlamaMetadata(address),
+      () => addEtherscanMetaTitle(address, forceRefetch),
+      () => addEtherscanNameTag(address, forceRefetch),
+      () => addWeb3Metadata(address, forceRefetch),
+      addOpenseaMetadata(address, forceRefetch),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
     // Subtly, the updatePreferredMetadata call may uncover a manually set twitter handle.

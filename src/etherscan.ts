@@ -3,6 +3,7 @@ import { parseHTML } from "linkedom";
 import fetch from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
+import * as Retry from "retry-ts";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 import urlcatM from "urlcat";
@@ -12,6 +13,7 @@ import { getEtherscanToken } from "./config.js";
 import * as Duration from "./duration.js";
 import { EthPrice } from "./eth_prices.js";
 import * as FetchAlt from "./fetch_alt.js";
+import { BadResponseError, FetchError } from "./fetch_alt.js";
 import { E, O, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -124,92 +126,102 @@ export const getNameTag = async (
     ),
   )();
 
-export const fetchTokenTitleQueue = new PQueue({
-  interval: Duration.millisFromSeconds(8),
-  intervalCap: 2,
-});
-
-const browserUA =
-  "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Mobile Safari/537.36";
-
 // Etherscan is behind cloudflare. Locally cloudflare seems fine with our scraping requests, but from the digital ocean IPs it appears we get refused with a 403, perhaps failing some challenge.
-export const getTokenTitle = async (
-  address: string,
-): Promise<string | undefined> => {
-  const html = await fetchTokenTitleQueue
-    .add(() =>
-      fetch(`https://etherscan.io/token/${address}`, {
-        compress: true,
-        highWaterMark: 1024 * 1024,
-        headers: {
-          Accept: "*/*",
-          UserAgent: browserUA,
-        },
-      }),
-    )
-    .then((res) => {
-      if (res === undefined) {
-        Log.debug(`fetch token page for ${address} timed out`);
-        // Queue works with a timeout that returns undefined when hit.
-        return undefined;
-      }
 
-      // Etherscan seems to 403 when we request too much.
-      if (res.status === 403) {
-        Log.warn(`fetch etherscan token page for ${address}, 403 - forbidden`, {
-          address,
-        });
-        return undefined;
-      }
+const etherscanScrapeRetryPolicy = Retry.Monoid.concat(
+  Retry.exponentialBackoff(2000),
+  Retry.limitRetries(5),
+);
 
-      if (res.status !== 200) {
-        throw new Error(
-          `fetch etherscan token page, bad response ${res.status}`,
-        );
-      }
-      return res.text();
-    });
+// This fetch is a special version of our normal retry fetch, it also parses the response html to check if etherscan is replying 200, but telling us to slow down.
+const fetchMetaTitleWithSpecialRetry = (address: string) =>
+  retrying(
+    etherscanScrapeRetryPolicy,
+    (status) =>
+      pipe(
+        TE.tryCatch(
+          () => fetch(`https://etherscan.io/address/${address}`),
+          (e) => (e instanceof Error ? e : new FetchError(String(e))),
+        ),
+        TE.chain((res) => {
+          // On a 200 response its still possible we hit an etherscan rate-limit. We parse the html to find out.
+          if (res.status === 200) {
+            return pipe(
+              TE.tryCatch(() => res.text(), TEAlt.errorFromUnknown),
+              TE.chain((html) =>
+                html.includes(
+                  "amounts of traffic coming from your network, please try again later",
+                )
+                  ? TE.left(
+                      new Error("fetch teherscan meta title, hit rate-limit"),
+                    )
+                  : TE.right(html),
+              ),
+            );
+          }
 
-  if (html === undefined) {
-    Log.debug(
-      "hit timeout on etherscan token title page fetch, returning undefined",
-    );
-    return undefined;
-  }
+          Log.debug(
+            `fetch etherscan meta title failed, status: ${res.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms, retrying`,
+          );
 
-  const { document } = parseHTML(html);
-  const etherscanTokenName = document.querySelector(
-    "meta[property='og:title']",
+          return TE.left(
+            new BadResponseError(
+              `fetch etherscan meta title, got ${res.status}`,
+              res.status,
+            ),
+          );
+        }),
+      ),
+    E.isLeft,
   );
 
-  if (
-    etherscanTokenName === null ||
-    etherscanTokenName.getAttribute === undefined
-  ) {
-    return undefined;
-  }
+export const getMetaTitle = (address: string): TE.TaskEither<Error, string> =>
+  pipe(
+    fetchMetaTitleWithSpecialRetry(address),
+    TE.chainEitherK((html) => {
+      const { document } = parseHTML(html);
+      const etherscanTokenName = document.querySelector(
+        "meta[property='og:title']",
+      );
 
-  const rawTokenName = etherscanTokenName.getAttribute("content");
-  if (rawTokenName === null) {
-    return undefined;
-  }
+      if (
+        etherscanTokenName === null ||
+        etherscanTokenName.getAttribute === undefined
+      ) {
+        console.log(html);
 
-  // Examples:
-  // SHIBA INU (SHIB) Token Tracker | Etherscan
-  // Tether USD (USDT) Token Tracker | Etherscan
-  // USD Coin | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
-  const tokenRegex = new RegExp(/^(.+)\s\((.+)\)/);
-  const matches = tokenRegex.exec(rawTokenName);
+        return E.left(new Error('no meta element with property="og-title"'));
+      }
 
-  if (matches === null) {
-    return undefined;
-  }
+      const rawTokenName = etherscanTokenName.getAttribute("content");
+      if (rawTokenName === null) {
+        return E.left(new Error("no attribute 'content' in meta element"));
+      }
 
-  const tokenName = matches[1];
-  const tokenTicker = matches[2];
+      // Examples:
+      // SHIBA INU (SHIB) Token Tracker | Etherscan
+      // Tether USD (USDT) Token Tracker | Etherscan
+      // USD Coin | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+      // Contract address 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+      const nameRegex = /^(\w+\s?){1,2}(:\s(\w+\s?){1,2})?/;
 
-  return tokenTicker === undefined ? tokenName : `${tokenName}: ${tokenTicker}`;
-};
+      return pipe(
+        rawTokenName.match(nameRegex),
+        O.fromNullable,
+        O.map((matches) => matches[0]),
+        O.map((rawName) => rawName.trimEnd()),
+        O.chain((name) =>
+          name === "Contract Address" ? O.none : O.some(name),
+        ),
+        E.fromOption(
+          () =>
+            new Error(
+              `found etherscan token page, but failed to parse meta for ${address}`,
+            ),
+        ),
+      );
+    }),
+  );
 
 type UnixTimestampStr = string;
 
