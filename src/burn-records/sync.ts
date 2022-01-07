@@ -67,7 +67,12 @@ const initTimeFrame = (timeFrame: TimeFrame) =>
       BurnRecords.pruneRecordsBeyondRank(timeFrame, BurnRecords.maxRank),
     ),
     T.chain(() => BurnRecords.setLastIncludedBlockIsLatest()),
+    T.map(() => undefined),
   );
 
 export const init = () =>
-  pipe(TimeFrames.timeFrames, T.traverseArray(initTimeFrame));
+  pipe(
+    TimeFrames.timeFrames,
+    T.traverseArray(initTimeFrame),
+    TAlt.concatAllVoid,
+  );

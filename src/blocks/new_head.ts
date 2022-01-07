@@ -1,8 +1,7 @@
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import { calcBaseFeeSums } from "../base_fee_sums.js";
-// import * as BurnRecords from "../burn-records/burn_records.js";
-// import * as BurnRecordsNewHead from "../burn-records/new_head.js";
+import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import { calcBurnRates } from "../burn_rates.js";
 import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
@@ -50,7 +49,7 @@ export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
     await Promise.all([
       LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
       LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
-      // BurnRecordsNewHead.onRollback(blockNumber),
+      BurnRecordsNewHead.onRollback(blockNumber),
     ]);
 
     await Contracts.deleteContractsMinedAt(blockNumber);
@@ -115,15 +114,15 @@ export const addBlock = async (head: Head): Promise<void> => {
       feeBreakdown.contract_use_fees_usd!,
     );
 
-  // const addBlockToBurnRecords = Performance.withPerfLogT(
-  //   "add block to burn record all",
-  //   BurnRecordsNewHead.onNewBlock,
-  // );
+  const addBlockToBurnRecords = Performance.withPerfLogT(
+    "add block to burn record all",
+    BurnRecordsNewHead.onNewBlock,
+  );
 
   await Promise.all([
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
-    // addBlockToBurnRecords(blockDb),
+    addBlockToBurnRecords(blockDb)(),
     ScarcityNewHead.onNewBlock(blockDb),
   ]);
 
@@ -173,7 +172,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     ),
   );
 
-  // const burnRecords = BurnRecords.getRecords();
+  // const burnRecords = BurnRecords.getBurnRecords();
   const scarcity = pipe(Scarcity.getLastScarcity(), O.toNullable);
 
   const leaderboards: T.Task<LeaderboardEntries> = pipe(

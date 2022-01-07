@@ -5,7 +5,7 @@ import * as BlocksSync from "./blocks/sync.js";
 import * as Config from "./config.js";
 import { runMigrations, sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
-// import * as BurnRecordsSync from "./burn-records/sync.js";
+import * as BurnRecordsSync from "./burn-records/sync.js";
 import * as FeeBurns from "./fee_burns.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
@@ -14,6 +14,7 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 import * as EthLocked from "./scarcity/eth_locked.js";
 import * as EthStaked from "./scarcity/eth_staked.js";
 import * as EthSupply from "./scarcity/eth_supply.js";
+import * as Performance from "./performance.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -53,14 +54,19 @@ try {
   await BlocksSync.syncBlocks(chainHeadOnStart);
   Log.info("fast-sync blocks done");
 
+  const burnRecordsInit = Performance.withPerfLogT(
+    "burn records init",
+    BurnRecordsSync.init,
+  );
+
   await Promise.all([
-    initLeaderboardLimitedTimeframes(),
-    // BurnRecordsSync.init(),
-    syncLeaderboardAll(),
-    FeeBurns.init()(),
+    burnRecordsInit()(),
     EthLocked.init()(),
     EthStaked.init(),
     EthSupply.init(),
+    FeeBurns.init()(),
+    initLeaderboardLimitedTimeframes(),
+    syncLeaderboardAll(),
   ]);
 
   BlocksNewBlock.newBlockQueue.start();
