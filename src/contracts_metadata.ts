@@ -324,13 +324,7 @@ const queueOpenseaFetch = <E, A>(task: TE.TaskEither<E, A>) =>
       () => openseaContractQueue.add(task),
       () => new TimeoutError(),
     ),
-    TE.chainW((e) => {
-      if (E.isLeft(e)) {
-        return TE.left(e.left);
-      }
-
-      return TE.right(e.right);
-    }),
+    TE.chainW((e) => (E.isLeft(e) ? TE.left(e.left) : TE.right(e.right))),
   );
 
 const getShouldFetchOpenseaMetadata = (
