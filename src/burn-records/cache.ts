@@ -31,7 +31,7 @@ export const updateRecordsCache = (blockNumber: number) =>
               number: blockNumber,
               records: burnRecords,
             })}
-          ) ON CONFLICT key DO UPDATE SET
+          ) ON CONFLICT (key) DO UPDATE SET
             value = excluded.value
         `,
     ),

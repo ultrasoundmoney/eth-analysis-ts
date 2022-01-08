@@ -242,7 +242,7 @@ const handleGetMarketCaps: Middleware = async (ctx) =>
     }),
   )();
 
-const handleGetScarcity: Middleware = async (ctx) => {
+const handleGetScarcity: Middleware = (ctx) => {
   pipe(
     scarcityCache,
     O.match(

@@ -1,9 +1,9 @@
 import { BlockDb } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
-import { sql, sqlNotifyT, sqlT } from "../db.js";
+import { sqlNotifyT, sqlT } from "../db.js";
 import * as Duration from "../duration.js";
 import * as FeeBurn from "../fee_burns.js";
-import { A, flow, O, OAlt, pipe, T, TO } from "../fp.js";
+import { flow, O, pipe, T, TO } from "../fp.js";
 import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";
 import * as EthLocked from "./eth_locked.js";
@@ -105,7 +105,7 @@ export const updateScarcityCache = async (block: BlockDb) => {
       ) VALUES (
         ${scarcityCacheKey},
         ${JSON.stringify(scarcity, serializeBigInt)}::json
-      ) ON CONFLICT key DO UPDATE SET
+      ) ON CONFLICT (key) DO UPDATE SET
         value = excluded.value
     `,
     T.chain(() =>
