@@ -81,8 +81,8 @@ export const pruneRecordsBeyondRank = (
   rank: number,
 ) => sqlT`
   DELETE FROM burn_records
-  WHERE burn_record_id IN (
-    SELECT burn_record_id FROM burn_records
+  WHERE number IN (
+    SELECT number FROM burn_records
     WHERE time_frame = ${timeFrame}
     ORDER BY base_fee_sum DESC
     OFFSET ${rank}
