@@ -250,69 +250,69 @@ const addEtherscanNameTag = async (
   await Contracts.updatePreferredMetadata(address)();
 };
 
-const etherscanMetaTitleLastAttemptMap: Record<string, Date | undefined> = {};
+// const etherscanMetaTitleLastAttemptMap: Record<string, Date | undefined> = {};
 
-export const etherscanMetaTitleQueue = new PQueue({
-  concurrency: 2,
-  throwOnTimeout: true,
-  timeout: Duration.millisFromSeconds(60),
-});
+// export const etherscanMetaTitleQueue = new PQueue({
+//   concurrency: 2,
+//   throwOnTimeout: true,
+//   timeout: Duration.millisFromSeconds(60),
+// });
 
-const queueMetaTitleFetch = <E, A>(task: TE.TaskEither<E, A>) =>
-  pipe(
-    TE.tryCatch(
-      () => etherscanMetaTitleQueue.add(task),
-      () => new TimeoutError(),
-    ),
-    TE.chainW((e) => (E.isLeft(e) ? TE.left(e.left) : TE.right(e.right))),
-  );
+// const queueMetaTitleFetch = <E, A>(task: TE.TaskEither<E, A>) =>
+//   pipe(
+//     TE.tryCatch(
+//       () => etherscanMetaTitleQueue.add(task),
+//       () => new TimeoutError(),
+//     ),
+//     TE.chainW((e) => (E.isLeft(e) ? TE.left(e.left) : TE.right(e.right))),
+//   );
 
-const addEtherscanMetaTitle = async (
-  address: string,
-  forceRefetch = false,
-): Promise<void> => {
-  const lastAttempted = etherscanMetaTitleLastAttemptMap[address];
+// const addEtherscanMetaTitle = async (
+//   address: string,
+//   forceRefetch = false,
+// ): Promise<void> => {
+//   const lastAttempted = etherscanMetaTitleLastAttemptMap[address];
 
-  if (
-    forceRefetch === false &&
-    lastAttempted !== undefined &&
-    DateFns.differenceInHours(new Date(), lastAttempted) < 12
-  ) {
-    return undefined;
-  }
+//   if (
+//     forceRefetch === false &&
+//     lastAttempted !== undefined &&
+//     DateFns.differenceInHours(new Date(), lastAttempted) < 12
+//   ) {
+//     return undefined;
+//   }
 
-  const name = await queueMetaTitleFetch(Etherscan.getMetaTitle(address))();
+//   const name = await queueMetaTitleFetch(Etherscan.getMetaTitle(address))();
 
-  if (E.isLeft(name)) {
-    if (name.left instanceof TimeoutError) {
-      return;
-    }
+//   if (E.isLeft(name)) {
+//     if (name.left instanceof TimeoutError) {
+//       return;
+//     }
 
-    if (name.left instanceof Etherscan.NoMeaningfulTitleError) {
-      return;
-    }
+//     if (name.left instanceof Etherscan.NoMeaningfulTitleError) {
+//       return;
+//     }
 
-    Log.error("etherscan meta title fetch failed", name.left);
-    return;
-  }
+//     Log.error("etherscan meta title fetch failed", name.left);
+//     return;
+//   }
 
-  Log.debug(`found etherscan meta title: ${name.right}, address: ${address}`);
+//   Log.debug(`found etherscan meta title: ${name.right}, address: ${address}`);
 
-  etherscanMetaTitleLastAttemptMap[address] = new Date();
+//   etherscanMetaTitleLastAttemptMap[address] = new Date();
 
-  // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
-  if (name.right.indexOf(":") !== -1) {
-    const nameStartsWith = name.right.split(":")[0];
-    await addMetadataFromSimilar(address, nameStartsWith);
-  }
+//   // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
+//   if (name.right.indexOf(":") !== -1) {
+//     const nameStartsWith = name.right.split(":")[0];
+//     await addMetadataFromSimilar(address, nameStartsWith);
+//   }
 
-  await Contracts.setSimpleTextColumn(
-    "etherscan_name_token",
-    address,
-    name.right,
-  )();
-  await Contracts.updatePreferredMetadata(address)();
-};
+//   await Contracts.setSimpleTextColumn(
+//     "etherscan_name_token",
+//     address,
+//     name.right,
+//   )();
+//   await Contracts.updatePreferredMetadata(address)();
+// };
 
 const twitterProfileLastAttemptMap: Record<string, Date | undefined> = {};
 
@@ -567,7 +567,7 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     TAlt.seqTParT(
       () => addDefiLlamaMetadata(address),
-      () => addEtherscanMetaTitle(address, forceRefetch),
+      // () => addEtherscanMetaTitle(address, forceRefetch),
       () => addEtherscanNameTag(address, forceRefetch),
       () => addWeb3Metadata(address, forceRefetch),
       addOpenseaMetadata(address, forceRefetch),

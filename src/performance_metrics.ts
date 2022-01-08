@@ -57,9 +57,9 @@ export const logQueueSizes = () => {
     Log.debug(
       `fetch defi llama protocols queue size: ${DefiLlama.fetchProtocolsQueue.size}`,
     );
-    Log.debug(
-      `etherscan meta title queue size: ${ContractsMetadata.etherscanMetaTitleQueue.size}`,
-    );
+    // Log.debug(
+    //   `etherscan meta title queue size: ${ContractsMetadata.etherscanMetaTitleQueue.size}`,
+    // );
     Log.debug(
       `opensea metadata queue size: ${ContractsMetadata.openseaContractQueue.size}`,
     );
