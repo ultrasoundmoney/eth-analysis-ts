@@ -88,6 +88,7 @@ export const pruneRecordsBeyondRank = (
     ORDER BY base_fee_sum DESC
     OFFSET ${rank}
   )
+  AND time_frame = ${timeFrame}
 `;
 
 export type BurnRecord = {
