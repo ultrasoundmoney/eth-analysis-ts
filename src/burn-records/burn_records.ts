@@ -74,6 +74,7 @@ export const addRecordsFromBlockAndIncluding = (
     INSERT INTO burn_records
       (time_frame, block_number, base_fee_sum)
       SELECT ${timeFrame}, number, base_fee_sum FROM new_records
+    ON CONFLICT DO NOTHING
   `;
 
 export const pruneRecordsBeyondRank = (
