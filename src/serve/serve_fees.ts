@@ -247,7 +247,7 @@ const handleGetScarcity: Middleware = (ctx) => {
     scarcityCache,
     O.match(
       () => {
-        ctx.body = 503;
+        ctx.status = 503;
       },
       (scarcity) => {
         ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
