@@ -8,7 +8,7 @@ import { setInterval } from "timers/promises";
 import { FeesBurnedT } from "../base_fee_sums.js";
 import * as Blocks from "../blocks/blocks.js";
 import { NewBlockPayload } from "../blocks/blocks.js";
-import * as BurnRecords from "../burn-records/burn_records.js";
+import * as BurnRecordsCache from "../burn-records/cache.js";
 import { BurnRatesT } from "../burn_rates.js";
 import * as Canary from "../canary.js";
 import * as Config from "../config.js";
@@ -18,7 +18,7 @@ import * as DerivedBlockStats from "../derived_block_stats.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeesBurnedPerInterval from "../fees_burned_per_interval.js";
-import { pipe, T, TAlt, TE } from "../fp.js";
+import { O, pipe, T, TAlt, TE } from "../fp.js";
 import * as LatestBlockFees from "../latest_block_fees.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
@@ -277,9 +277,19 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
 };
 
 const handleGetBurnRecords: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
-  ctx.set("Content-Type", "application/json");
-  ctx.body = burnRecordsCache;
+  pipe(
+    burnRecordsCache,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (burnRecords) => {
+        ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = burnRecords;
+      },
+    ),
+  );
 };
 
 const everyMinuteIterator = setInterval(
@@ -317,10 +327,6 @@ const updateCachesForBlockNumber = (blockNumber: number) =>
     }),
   );
 
-const updateBurnRecordsCache = async () => {
-  burnRecordsCache = await BurnRecords.getRecordsCache()();
-};
-
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -329,8 +335,8 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
-  if (payload === BurnRecords.burnRecordsCacheKey) {
-    updateBurnRecordsCache();
+  if (payload === BurnRecordsCache.burnRecordsCacheKey) {
+    burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
     return;
   }
 
@@ -413,7 +419,7 @@ if (blockNumberOnStart === undefined) {
 }
 
 await updateCachesForBlockNumber(blockNumberOnStart)();
-let burnRecordsCache = await BurnRecords.getRecordsCache()();
+let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
 
 await new Promise((resolve) => {
   app.listen(port, () => {

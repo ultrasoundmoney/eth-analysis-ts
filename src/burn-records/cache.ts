@@ -1,5 +1,5 @@
 import { sql, sqlNotifyT, sqlT } from "../db.js";
-import { pipe, T, TAlt } from "../fp.js";
+import { flow, O, pipe, T, TAlt } from "../fp.js";
 import { TimeFrameNext } from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
 
@@ -41,9 +41,9 @@ export const updateRecordsCache = (blockNumber: number) =>
 
 export const getRecordsCache = () =>
   pipe(
-    sqlT<BurnRecordsCache[]>`
+    sqlT<{ value: BurnRecordsCache }[]>`
       SELECT value FROM key_value_store
       WHERE key = ${burnRecordsCacheKey}
     `,
-    T.map((rows) => rows[0]),
+    T.map(flow((rows) => rows[0]?.value, O.fromNullable)),
   );
