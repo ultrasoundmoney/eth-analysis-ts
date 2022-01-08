@@ -6,7 +6,7 @@ import { calcBurnRates } from "../burn_rates.js";
 import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
-import * as BurnRecords from "../burn-records/burn_records.js";
+import * as BurnRecordsCache from "../burn-records/cache.js";
 import { BlockLondon, Head } from "../eth_node.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
@@ -173,7 +173,7 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     ),
   );
 
-  BurnRecords.updateRecordsCache(block.number);
+  BurnRecordsCache.updateRecordsCache(block.number);
 
   const scarcity = pipe(Scarcity.getLastScarcity(), O.toNullable);
 
