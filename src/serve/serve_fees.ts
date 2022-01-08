@@ -322,6 +322,8 @@ const updateBurnRecordsCache = async () => {
 };
 
 sql.listen("cache-update", async (payload) => {
+  Log.debug(`DB notify cache-update, cache key: ${payload}`);
+
   if (payload === undefined) {
     Log.error("DB cache-update with no payload, skipping");
     return;
