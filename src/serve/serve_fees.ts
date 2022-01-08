@@ -8,6 +8,7 @@ import { setInterval } from "timers/promises";
 import { FeesBurnedT } from "../base_fee_sums.js";
 import * as Blocks from "../blocks/blocks.js";
 import { NewBlockPayload } from "../blocks/blocks.js";
+import * as BurnRecords from "../burn-records/burn_records.js";
 import { BurnRatesT } from "../burn_rates.js";
 import * as Canary from "../canary.js";
 import * as Config from "../config.js";
@@ -275,6 +276,12 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
   )();
 };
 
+const handleGetBurnRecords: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = burnRecordsCache;
+};
+
 const everyMinuteIterator = setInterval(
   Duration.millisFromMinutes(1),
   Date.now(),
@@ -309,6 +316,24 @@ const updateCachesForBlockNumber = (blockNumber: number) =>
       };
     }),
   );
+
+const updateBurnRecordsCache = async () => {
+  burnRecordsCache = await BurnRecords.getRecordsCache()();
+};
+
+sql.listen("cache-update", async (payload) => {
+  if (payload === undefined) {
+    Log.error("DB cache-update with no payload, skipping");
+    return;
+  }
+
+  if (payload === BurnRecords.burnRecordsCacheKey) {
+    updateBurnRecordsCache();
+    return;
+  }
+
+  Log.error(`DB cache-update but did not recognize key ${payload}`);
+});
 
 sql.listen("new-derived-stats", (payload) => {
   Canary.resetCanary("block");
@@ -367,35 +392,32 @@ router.get("/fees/average-eth-price", handleAverageEthPrice);
 router.get("/fees/market-caps", handleGetMarketCaps);
 router.get("/fees/scarcity", handleGetScarcity);
 router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
+router.get("/fees/burn-records", handleGetBurnRecords);
 
 app.use(bodyParser());
 app.use(router.routes());
 app.use(router.allowedMethods());
 
-try {
-  await runMigrations();
+await runMigrations();
 
-  const blockNumber = await sql<{ blockNumber: number }[]>`
+const blockNumberOnStart = await sql<{ blockNumber: number }[]>`
       SELECT block_number FROM derived_block_stats
       ORDER BY block_number DESC
       LIMIT 1
     `.then((rows) => rows[0]?.blockNumber);
 
-  if (blockNumber === undefined) {
-    throw new Error("no derived block stats, can't serve fees");
-  }
-
-  await updateCachesForBlockNumber(blockNumber)();
-
-  await new Promise((resolve) => {
-    app.listen(port, () => {
-      resolve(undefined);
-    });
-  });
-  Log.info(`listening on ${port}`);
-  Canary.releaseCanary("block");
-} catch (error) {
-  Log.error("serve fees top level error", { error });
-  sql.end();
-  throw error;
+if (blockNumberOnStart === undefined) {
+  throw new Error("no derived block stats, can't serve fees");
 }
+
+await updateCachesForBlockNumber(blockNumberOnStart)();
+let burnRecordsCache = await BurnRecords.getRecordsCache()();
+
+await new Promise((resolve) => {
+  app.listen(port, () => {
+    resolve(undefined);
+  });
+});
+
+Log.info(`listening on ${port}`);
+Canary.releaseCanary("block");

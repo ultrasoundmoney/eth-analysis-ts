@@ -5,6 +5,11 @@ export type LimitedTimeFrame = typeof limitedTimeFrames[number];
 export const timeFrames = [...limitedTimeFrames, "all"] as const;
 export type TimeFrame = typeof timeFrames[number];
 
+export const limitedTimeFramesNext = ["m5", "h1", "d1", "d7", "d30"] as const;
+export type LimitedTimeFrameNext = typeof limitedTimeFrames[number];
+export const timeFramesNext = [...limitedTimeFramesNext, "all"] as const;
+export type TimeFrameNext = typeof timeFramesNext[number];
+
 export const intervalSqlMap: Record<LimitedTimeFrame, string> = {
   "5m": "5 minutes",
   "1h": "1 hours",

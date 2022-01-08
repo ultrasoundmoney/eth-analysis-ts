@@ -1,7 +1,7 @@
 import * as Blocks from "../blocks/blocks.js";
-import { sqlT } from "../db.js";
-import { flow, O, pipe, T } from "../fp.js";
-import { LimitedTimeFrame, TimeFrame } from "../time_frames.js";
+import { sql, sqlNotifyT, sqlT } from "../db.js";
+import { flow, O, pipe, T, TAlt } from "../fp.js";
+import { LimitedTimeFrame, TimeFrame, TimeFrameNext } from "../time_frames.js";
 
 export const maxRank = 100;
 
@@ -90,12 +90,14 @@ export const pruneRecordsBeyondRank = (
   )
 `;
 
-export const getBurnRecords = (timeFrame: TimeFrame) => sqlT<
-  {
-    blockNumber: number;
-    baseFeeSum: number;
-  }[]
->`
+export type BurnRecord = {
+  blockNumber: number;
+  baseFeeSum: number;
+};
+
+export const getBurnRecords = (
+  timeFrame: TimeFrame,
+): T.Task<BurnRecord[]> => sqlT<BurnRecord[]>`
   SELECT block_number, base_fee_sum FROM burn_records
   WHERE time_frame = ${timeFrame}
   ORDER BY base_fee_sum DESC
@@ -106,3 +108,48 @@ export const expireRecordsFromAndIncluding = (blockNumber: number) =>
     DELETE FROM burn_records
     WHERE block_number >= ${blockNumber}
   `;
+
+export const burnRecordsCacheKey = "burn-records-cache";
+
+export type BurnRecordsCache = {
+  number: number;
+  records: Record<TimeFrameNext, BurnRecord[]>;
+};
+
+export const updateRecordsCache = (blockNumber: number) =>
+  pipe(
+    TAlt.seqSParT({
+      m5: getBurnRecords("5m"),
+      h1: getBurnRecords("1h"),
+      d1: getBurnRecords("24h"),
+      d7: getBurnRecords("7d"),
+      d30: getBurnRecords("30d"),
+      all: getBurnRecords("all"),
+    }),
+    T.chain(
+      (burnRecords) =>
+        sqlT`
+          INSERT INTO key_value_store (
+            key, value
+          ) VALUES (
+            ${burnRecordsCacheKey},
+            ${sql.json({
+              number: blockNumber,
+              records: burnRecords,
+            })}
+          ) ON CONFLICT key DO UPDATE SET
+            value = excluded.value
+        `,
+    ),
+    T.chain(() => sqlNotifyT("cache-update", burnRecordsCacheKey)),
+    T.map(() => undefined),
+  );
+
+export const getRecordsCache = () =>
+  pipe(
+    sqlT<BurnRecordsCache[]>`
+      SELECT value FROM key_value_store
+      WHERE key = ${burnRecordsCacheKey}
+    `,
+    T.map((rows) => rows[0]),
+  );
