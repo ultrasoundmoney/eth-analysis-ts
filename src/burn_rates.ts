@@ -1,5 +1,5 @@
+import { BlockDb } from "./blocks/blocks.js";
 import { sql } from "./db.js";
-import { BlockLondon } from "./eth_node.js";
 import { pipe, T, TAlt } from "./fp.js";
 import { LimitedTimeFrame } from "./time_frames.js";
 
@@ -33,10 +33,7 @@ const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
   "30d": 30 * 24 * 60,
 };
 
-const getTimeframeBurnRate = (
-  block: BlockLondon,
-  timeframe: LimitedTimeFrame,
-) =>
+const getTimeframeBurnRate = (block: BlockDb, timeframe: LimitedTimeFrame) =>
   pipe(
     () => sql<BurnRate[]>`
       SELECT
@@ -49,7 +46,7 @@ const getTimeframeBurnRate = (
     T.map((rows) => ({ eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 })),
   );
 
-const getBurnRate = (block: BlockLondon) =>
+const getBurnRate = (block: BlockDb) =>
   pipe(
     () => sql`
       SELECT
@@ -65,7 +62,7 @@ const getBurnRate = (block: BlockLondon) =>
     T.map((rows) => ({ eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 })),
   );
 
-export const calcBurnRates = (block: BlockLondon): T.Task<BurnRatesT> => {
+export const calcBurnRates = (block: BlockDb): T.Task<BurnRatesT> => {
   return pipe(
     TAlt.seqSParT({
       burnRate5m: getTimeframeBurnRate(block, "5m"),

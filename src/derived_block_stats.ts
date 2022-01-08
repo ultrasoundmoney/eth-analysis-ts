@@ -1,21 +1,16 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import { FeesBurnedT } from "./base_fee_sums.js";
-// import { BurnRecordsT } from "./burn-records/burn_records.js";
 import { BurnRatesT } from "./burn_rates.js";
 import { sql, sqlT } from "./db.js";
 import { A, TE } from "./fp.js";
-import { serializeBigInt } from "./json.js";
 import { LeaderboardEntries } from "./leaderboards.js";
-import { ScarcityT } from "./scarcity/scarcity.js";
 
 export type DerivedBlockStats = {
-  // burnRecords: BurnRecordsT;
   blockNumber: number;
   burnRates: BurnRatesT;
   feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
-  scarcity: ScarcityT | null;
 };
 
 export type DerivedBlockStatsSerialized = {
@@ -62,7 +57,6 @@ type InsertableDerivedStats = {
   burn_rates: string;
   fees_burned: string;
   leaderboards: string;
-  scarcity: string | null;
 };
 
 const insertableFromDerivedStats = (
@@ -72,10 +66,6 @@ const insertableFromDerivedStats = (
   burn_rates: JSON.stringify(stats.burnRates),
   fees_burned: JSON.stringify(stats.feesBurned),
   leaderboards: JSON.stringify(stats.leaderboards),
-  scarcity:
-    stats.scarcity === undefined
-      ? null
-      : JSON.stringify(stats.scarcity, serializeBigInt),
 });
 
 export const storeDerivedBlockStats = (stats: DerivedBlockStats) =>
@@ -88,8 +78,7 @@ export const storeDerivedBlockStats = (stats: DerivedBlockStats) =>
       ON CONFLICT (block_number) DO UPDATE SET
       burn_rates = excluded.burn_rates,
       fees_burned = excluded.fees_burned,
-      leaderboards = excluded.leaderboards,
-      scarcity = excluded.scarcity
+      leaderboards = excluded.leaderboards
     `,
   );
 

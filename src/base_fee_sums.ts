@@ -1,6 +1,6 @@
 import { pipe } from "fp-ts/lib/function.js";
+import { BlockDb } from "./blocks/blocks.js";
 import { sql } from "./db.js";
-import { BlockLondon } from "./eth_node.js";
 import { T, TAlt } from "./fp.js";
 import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrame } from "./time_frames.js";
@@ -26,7 +26,7 @@ type BaseFeeSum = {
 };
 
 const getTimeframeBaseFeeSum = (
-  block: BlockLondon,
+  block: BlockDb,
   timeframe: LimitedTimeFrame,
 ): T.Task<BaseFeeSum> =>
   pipe(
@@ -44,7 +44,7 @@ const getTimeframeBaseFeeSum = (
     })),
   );
 
-const getBaseFeeSum = (block: BlockLondon): T.Task<BaseFeeSum> =>
+const getBaseFeeSum = (block: BlockDb): T.Task<BaseFeeSum> =>
   pipe(
     () => sql<BaseFeeSum[]>`
       SELECT
@@ -59,7 +59,7 @@ const getBaseFeeSum = (block: BlockLondon): T.Task<BaseFeeSum> =>
     })),
   );
 
-export const calcBaseFeeSums = (block: BlockLondon): T.Task<FeesBurnedT> =>
+export const calcBaseFeeSums = (block: BlockDb): T.Task<FeesBurnedT> =>
   pipe(
     TAlt.seqSParT({
       feesBurned5m: getTimeframeBaseFeeSum(block, "5m"),

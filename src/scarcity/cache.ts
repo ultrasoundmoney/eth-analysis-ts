@@ -1,15 +1,40 @@
 import { BlockDb } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
+import { sql, sqlNotifyT, sqlT } from "../db.js";
 import * as Duration from "../duration.js";
 import * as FeeBurn from "../fee_burns.js";
-import { pipe, T, TO } from "../fp.js";
+import { A, flow, O, OAlt, pipe, T, TO } from "../fp.js";
+import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";
 import * as EthLocked from "./eth_locked.js";
 import * as EthStaked from "./eth_staked.js";
 import * as EthSupply from "./eth_supply.js";
-import { ScarcityT, updateScarcity } from "./scarcity.js";
 
-export const onNewBlock = async (block: BlockDb) => {
+export type ScarcityCache = {
+  engines: {
+    burned: {
+      amount: bigint;
+      name: string;
+      startedOn: Date;
+    };
+    locked: {
+      amount: number;
+      name: string;
+      startedOn: Date;
+    };
+    staked: {
+      amount: bigint;
+      name: string;
+      startedOn: Date;
+    };
+  };
+  ethSupply: bigint;
+  number: number;
+};
+
+export const scarcityCacheKey = "scarcity-cache-key";
+
+export const updateScarcityCache = async (block: BlockDb) => {
   const ethBurned = FeeBurn.getAllFeesBurned().eth;
   const ethLocked = await pipe(
     EthLocked.getLastEthLocked(),
@@ -48,9 +73,10 @@ export const onNewBlock = async (block: BlockDb) => {
   );
   if (ethSupplyAge > Duration.millisFromMinutes(10)) {
     Log.error("eth supply update too old to calculate scarcity");
+    return;
   }
 
-  const scarcity: ScarcityT = {
+  const scarcity: ScarcityCache = {
     engines: {
       burned: {
         amount: ethBurned,
@@ -72,7 +98,30 @@ export const onNewBlock = async (block: BlockDb) => {
     number: block.number,
   };
 
-  updateScarcity(scarcity);
-
-  Log.debug("done updating scarcity");
+  return pipe(
+    sqlT`
+      INSERT INTO key_value_store (
+        key, value
+      ) VALUES (
+        ${scarcityCacheKey},
+        ${JSON.stringify(scarcity, serializeBigInt)}::json
+      ) ON CONFLICT key DO UPDATE SET
+        value = excluded.value
+    `,
+    T.chain(() =>
+      // Update scarcity caches about once every 10 blocks
+      block.number % 10 === 0
+        ? sqlNotifyT("cache-update", scarcityCacheKey)
+        : T.of(undefined),
+    ),
+  )();
 };
+
+export const getScarcityCache = () =>
+  pipe(
+    sqlT<{ value: ScarcityCache }[]>`
+      SELECT value FROM key_value_store
+      WHERE key = ${scarcityCacheKey}
+    `,
+    T.map(flow((rows) => rows[0]?.value, O.fromNullable)),
+  );

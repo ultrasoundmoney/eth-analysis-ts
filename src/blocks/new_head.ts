@@ -1,24 +1,23 @@
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import { calcBaseFeeSums } from "../base_fee_sums.js";
+import * as BurnRecordsCache from "../burn-records/cache.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import { calcBurnRates } from "../burn_rates.js";
 import * as Contracts from "../contracts.js";
 import { sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
-import * as BurnRecordsCache from "../burn-records/cache.js";
 import { BlockLondon, Head } from "../eth_node.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
-import { O, pipe, T, TAlt } from "../fp.js";
+import { pipe, T, TAlt } from "../fp.js";
 import * as Leaderboards from "../leaderboards.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
-import * as ScarcityNewHead from "../scarcity/new_head.js";
-import * as Scarcity from "../scarcity/scarcity.js";
+import * as ScarcityCache from "../scarcity/cache.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { NewBlockPayload } from "./blocks.js";
@@ -124,7 +123,6 @@ export const addBlock = async (head: Head): Promise<void> => {
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
     addToLeaderboardAllTask(),
     addBlockToBurnRecords(blockDb)(),
-    ScarcityNewHead.onNewBlock(blockDb),
   ]);
 
   Performance.logPerf("second order analyze block", tStartAnalyze);
@@ -136,7 +134,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     newBlockQueue.pending <= 1;
 
   if (allBlocksProcessed) {
-    await updateDerivedBlockStats(block)();
+    await updateDerivedBlockStats(blockDb)();
     await notifyNewDerivedStats(block)();
   } else {
     Log.debug("blocks left to process, skipping computation of derived stats");
@@ -146,7 +144,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 export const onNewBlock = async (head: Head): Promise<void> =>
   newBlockQueue.add(() => addBlock(head));
 
-const updateDerivedBlockStats = (block: BlockLondon) => {
+const updateDerivedBlockStats = (block: Blocks.BlockDb) => {
   Log.debug("updating derived stats");
   const t0 = performance.now();
 
@@ -173,10 +171,6 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
     ),
   );
 
-  BurnRecordsCache.updateRecordsCache(block.number);
-
-  const scarcity = pipe(Scarcity.getLastScarcity(), O.toNullable);
-
   const leaderboards: T.Task<LeaderboardEntries> = pipe(
     TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAllTask),
     T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
@@ -190,15 +184,19 @@ const updateDerivedBlockStats = (block: BlockLondon) => {
   );
 
   return pipe(
-    TAlt.seqSParT({ burnRates, feesBurned, leaderboards }),
+    TAlt.seqSParT({
+      burnRates,
+      feesBurned,
+      leaderboards,
+      updateBurnRecords: BurnRecordsCache.updateRecordsCache(block.number),
+      updateScarcity: () => ScarcityCache.updateScarcityCache(block),
+    }),
     T.chain(({ burnRates, feesBurned, leaderboards }) =>
       DerivedBlockStats.storeDerivedBlockStats({
-        // burnRecords,
         blockNumber: block.number,
         burnRates,
         feesBurned,
         leaderboards,
-        scarcity,
       }),
     ),
     T.chainFirstIOK(() => () => {

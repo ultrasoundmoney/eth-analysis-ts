@@ -4,7 +4,6 @@ import Koa, { Middleware } from "koa";
 import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
-import { setInterval } from "timers/promises";
 import { FeesBurnedT } from "../base_fee_sums.js";
 import * as Blocks from "../blocks/blocks.js";
 import { NewBlockPayload } from "../blocks/blocks.js";
@@ -23,8 +22,7 @@ import * as LatestBlockFees from "../latest_block_fees.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
-import * as Scarcity from "../scarcity/scarcity.js";
-import { ScarcityT } from "../scarcity/scarcity.js";
+import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 
 if (Config.getEnv() !== "dev") {
@@ -244,19 +242,20 @@ const handleGetMarketCaps: Middleware = async (ctx) =>
     }),
   )();
 
-let scarcityCache: ScarcityT = await Scarcity.getLastStoredScarcity();
-
 const handleGetScarcity: Middleware = async (ctx) => {
-  if (scarcityCache === undefined) {
-    Log.error("scarcity was undefined, but should never be");
-    ctx.body = 500;
-    return undefined;
-  }
-
-  ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
-  ctx.set("Content-Type", "application/json");
-  ctx.body = scarcityCache;
-  return undefined;
+  pipe(
+    scarcityCache,
+    O.match(
+      () => {
+        ctx.body = 503;
+      },
+      (scarcity) => {
+        ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = scarcity;
+      },
+    ),
+  );
 };
 
 const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
@@ -292,21 +291,6 @@ const handleGetBurnRecords: Middleware = async (ctx) => {
   );
 };
 
-const everyMinuteIterator = setInterval(
-  Duration.millisFromMinutes(1),
-  Date.now(),
-);
-
-const updateCachesEveryMinute = async () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for await (const _ of everyMinuteIterator) {
-    const lastScarcity = await Scarcity.getLastStoredScarcity();
-    scarcityCache = lastScarcity;
-  }
-};
-
-updateCachesEveryMinute();
-
 const updateCachesForBlockNumber = (blockNumber: number) =>
   pipe(
     TAlt.seqSParT({
@@ -337,6 +321,11 @@ sql.listen("cache-update", async (payload) => {
 
   if (payload === BurnRecordsCache.burnRecordsCacheKey) {
     burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
+    return;
+  }
+
+  if (payload === ScarcityCache.scarcityCacheKey) {
+    scarcityCache = await ScarcityCache.getScarcityCache()();
     return;
   }
 
@@ -420,6 +409,7 @@ if (blockNumberOnStart === undefined) {
 
 await updateCachesForBlockNumber(blockNumberOnStart)();
 let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
+let scarcityCache = await ScarcityCache.getScarcityCache()();
 
 await new Promise((resolve) => {
   app.listen(port, () => {
