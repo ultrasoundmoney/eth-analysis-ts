@@ -232,7 +232,7 @@ export const buildLeaderboard = (
     fees: contractCreationBaseFees.eth,
     feesUsd: contractCreationBaseFees.usd,
     id: "contract-creations",
-    name: "Contract creations",
+    name: "new contracts",
     type: "contract-creations",
   };
   const ethTransfersEntry: EthTransfersEntry = {
