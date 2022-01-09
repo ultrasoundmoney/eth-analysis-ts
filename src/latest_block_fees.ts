@@ -1,4 +1,4 @@
-import { sql } from "./db.js";
+import { sqlT } from "./db.js";
 import { A, pipe, T } from "./fp.js";
 
 export type LatestBlock = {
@@ -21,13 +21,13 @@ export const getLatestBlockFees = (
   blockNumber: number,
 ): T.Task<LatestBlockFees> =>
   pipe(
-    () => sql<LatestBlockFeesRow[]>`
+    sqlT<LatestBlockFeesRow[]>`
       SELECT
-      number,
-      base_fee_sum,
-      (base_fee_sum * eth_price / 1e18) AS base_fee_sum_usd,
-      base_fee_per_gas,
-      mined_at
+        number,
+        base_fee_sum,
+        (base_fee_sum * eth_price / 1e18) AS base_fee_sum_usd,
+        base_fee_per_gas,
+        mined_at
       FROM blocks
       WHERE number <= ${blockNumber}
       ORDER BY (number) DESC
