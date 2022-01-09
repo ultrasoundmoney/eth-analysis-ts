@@ -9,7 +9,7 @@ export const getLastIncludedBlock = () =>
   pipe(
     sqlT<{ lastAnalyzedBlock: number | null }[]>`
       SELECT last_analyzed_block FROM analysis_state
-      WHERE key = 'leaderboards'
+      WHERE key = 'burn_records'
     `,
     T.map(flow((rows) => rows[0]?.lastAnalyzedBlock, O.fromNullable)),
   );
