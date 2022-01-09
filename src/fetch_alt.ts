@@ -59,36 +59,61 @@ export class BadResponseError extends Error {
 
 export type FetchWithRetryError = FetchError | BadResponseError | Error;
 
-export const fetchWithRetry = (
-  url: RequestInfo,
-  init?: RequestInit,
-  acceptStatuses = [200, 201, 202, 204, 206],
-  retryPolicy = Retry.Monoid.concat(
+type RetryOptions = {
+  acceptStatuses?: number[];
+  retryPolicy?: Retry.RetryPolicy;
+  noRetryStatuses?: number[];
+};
+
+const defaultRetryOptions = {
+  acceptStatuses: [200, 201, 202, 204, 206],
+  retryPolicy: Retry.Monoid.concat(
     Retry.exponentialBackoff(2000),
     Retry.limitRetries(3),
   ),
+  noRetryStatuses: [400, 403, 404],
+};
+
+export const fetchWithRetry = (
+  url: RequestInfo,
+  init?: RequestInit,
+  options: RetryOptions = {},
 ): TE.TaskEither<FetchWithRetryError, Response> =>
-  retrying(
-    retryPolicy,
-    (status) =>
-      pipe(
-        TE.tryCatch(
-          () => fetch(url, init),
-          (e) => (e instanceof Error ? e : new FetchError(String(e))),
+  pipe({ ...defaultRetryOptions, ...options }, (options) =>
+    retrying(
+      options.retryPolicy,
+      (status) =>
+        pipe(
+          TE.tryCatch(
+            () => fetch(url, init),
+            (e) => (e instanceof Error ? e : new FetchError(String(e))),
+          ),
+          TE.chain((res) => {
+            if (options.acceptStatuses.includes(res.status)) {
+              return TE.right(res);
+            }
+
+            Log.debug(
+              `fetch ${url} failed, status: ${res.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms, retrying`,
+            );
+
+            return TE.left(
+              new BadResponseError(
+                `fetch ${url}, got ${res.status}`,
+                res.status,
+              ),
+            );
+          }),
         ),
-        TE.chain((res) => {
-          if (acceptStatuses.includes(res.status)) {
-            return TE.right(res);
-          }
-
-          Log.debug(
-            `fetch ${url} failed, status: ${res.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms, retrying`,
-          );
-
-          return TE.left(
-            new BadResponseError(`fetch ${url}, got ${res.status}`, res.status),
-          );
-        }),
-      ),
-    E.isLeft,
+      (eRes) =>
+        pipe(
+          eRes,
+          E.match(
+            (e) =>
+              e instanceof BadResponseError &&
+              options.noRetryStatuses.includes(e.status),
+            () => true,
+          ),
+        ),
+    ),
   );

@@ -44,12 +44,14 @@ export const getContract = (
       {
         headers: { "X-API-KEY": Config.getOpenseaApiKey() },
       },
-      [200, 406],
-      // Unsure about Opensea API rate-limit. Could experiment with lowering this and figuring out the exact codes we should and shouldn't retry.
-      Retry.Monoid.concat(
-        Retry.exponentialBackoff(2000),
-        Retry.limitRetries(5),
-      ),
+      {
+        acceptStatuses: [200, 406],
+        // Unsure about Opensea API rate-limit. Could experiment with lowering this and figuring out the exact codes we should and shouldn't retry.
+        retryPolicy: Retry.Monoid.concat(
+          Retry.exponentialBackoff(2000),
+          Retry.limitRetries(5),
+        ),
+      },
     ),
     TE.chainW((res) => {
       // For some contracts OpenSea can't figure out the contract standard and returns a 406.

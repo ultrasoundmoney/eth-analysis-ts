@@ -53,11 +53,13 @@ export const getProfileByHandle = async (
           Authorization: `Bearer ${getTwitterToken()}`,
         },
       },
-      [200, 404],
-      Retry.Monoid.concat(
-        Retry.exponentialBackoff(2000),
-        Retry.limitRetries(5),
-      ),
+      {
+        acceptStatuses: [200, 404],
+        retryPolicy: Retry.Monoid.concat(
+          Retry.exponentialBackoff(2000),
+          Retry.limitRetries(5),
+        ),
+      },
     ),
   );
 
