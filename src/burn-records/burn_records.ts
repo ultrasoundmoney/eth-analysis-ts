@@ -20,7 +20,7 @@ export const setLastIncludedBlock = (blockNumber: number) =>
       INSERT INTO analysis_state
         (key, last_analyzed_block)
       VALUES
-        ('leaderboards', ${blockNumber})
+        ('burn_records', ${blockNumber})
       ON CONFLICT (key) DO UPDATE SET
         last_analyzed_block = excluded.last_analyzed_block
     `,
@@ -31,7 +31,7 @@ export const setLastIncludedBlockIsLatest = () =>
   sqlT`
     INSERT INTO analysis_state
       (key, last_analyzed_block)
-    SELECT 'leaderboards', MAX(number) FROM blocks
+    SELECT 'burn_records', MAX(number) FROM blocks
     ON CONFLICT (key) DO UPDATE SET
       last_analyzed_block = excluded.last_analyzed_block
   `;
