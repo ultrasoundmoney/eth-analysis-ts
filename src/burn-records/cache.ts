@@ -3,6 +3,8 @@ import { flow, O, pipe, T, TAlt } from "../fp.js";
 import { TimeFrameNext } from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
 
+const maxRecordCount = 10;
+
 export const burnRecordsCacheKey = "burn-records-cache";
 
 export type BurnRecordsCache = {
@@ -13,12 +15,12 @@ export type BurnRecordsCache = {
 export const updateRecordsCache = (blockNumber: number) =>
   pipe(
     TAlt.seqSParT({
-      m5: BurnRecords.getBurnRecords("5m"),
-      h1: BurnRecords.getBurnRecords("1h"),
-      d1: BurnRecords.getBurnRecords("24h"),
-      d7: BurnRecords.getBurnRecords("7d"),
-      d30: BurnRecords.getBurnRecords("30d"),
-      all: BurnRecords.getBurnRecords("all"),
+      m5: BurnRecords.getBurnRecords("5m", maxRecordCount),
+      h1: BurnRecords.getBurnRecords("1h", maxRecordCount),
+      d1: BurnRecords.getBurnRecords("24h", maxRecordCount),
+      d7: BurnRecords.getBurnRecords("7d", maxRecordCount),
+      d30: BurnRecords.getBurnRecords("30d", maxRecordCount),
+      all: BurnRecords.getBurnRecords("all", maxRecordCount),
     }),
     T.chain(
       (burnRecords) =>

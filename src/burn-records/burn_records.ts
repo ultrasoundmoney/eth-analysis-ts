@@ -99,6 +99,7 @@ export type BurnRecord = {
 
 export const getBurnRecords = (
   timeFrame: TimeFrame,
+  count = 100,
 ): T.Task<BurnRecord[]> => sqlT<BurnRecord[]>`
   SELECT
     block_number,
@@ -108,6 +109,7 @@ export const getBurnRecords = (
   JOIN blocks ON number = block_number
   WHERE time_frame = ${timeFrame}
   ORDER BY base_fee_sum DESC
+  LIMIT ${count}
 `;
 
 export const expireRecordsFromAndIncluding = (blockNumber: number) =>
