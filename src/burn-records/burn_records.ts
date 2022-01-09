@@ -94,12 +94,18 @@ export const pruneRecordsBeyondRank = (
 export type BurnRecord = {
   blockNumber: number;
   baseFeeSum: number;
+  minedAt: Date;
 };
 
 export const getBurnRecords = (
   timeFrame: TimeFrame,
 ): T.Task<BurnRecord[]> => sqlT<BurnRecord[]>`
-  SELECT block_number, base_fee_sum FROM burn_records
+  SELECT
+    block_number,
+    burn_records.base_fee_sum,
+    mined_at
+  FROM burn_records
+  JOIN blocks ON number = block_number
   WHERE time_frame = ${timeFrame}
   ORDER BY base_fee_sum DESC
 `;
