@@ -199,7 +199,7 @@ const getTopBaseFeeContracts = () =>
       A.map((row) => ({
         ...row,
         detail: row.name === null ? null : row.name.split(":")[1] ?? null,
-        name: row.name === null ? null : row.name.split(":")[0],
+        name: row.name === null ? null : row.name,
       })),
     ),
   );
