@@ -10,7 +10,11 @@ import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as EthPricesUniswap from "./eth_prices_uniswap.js";
 import { E, flow, O, pipe, T, TAlt, TE } from "./fp.js";
 import * as Log from "./log.js";
-import { intervalSqlMap, LimitedTimeFrame, TimeFrame } from "./time_frames.js";
+import {
+  intervalSqlMapNext,
+  LimitedTimeFrameNext,
+  TimeFrameNext,
+} from "./time_frames.js";
 
 export type EthPrice = {
   timestamp: Date;
@@ -323,7 +327,9 @@ export const getEthStats = (): TE.TaskEither<GetEthStatsError, EthStats> =>
 type AverageEthPrice = {
   m5: number;
   h1: number;
+  // @deprecated remove when frontend is switched to d1
   h24: number;
+  d1: number;
   d7: number;
   d30: number;
   all: number;
@@ -340,32 +346,36 @@ const getAllAveragePriceTask = (): T.Task<number> =>
     T.map((rows) => rows[0]?.ethPriceAverage ?? 0),
   );
 
-const getTimeframeAverageTask = (timeframe: LimitedTimeFrame): T.Task<number> =>
+const getTimeframeAverageTask = (
+  timeframe: LimitedTimeFrameNext,
+): T.Task<number> =>
   pipe(
     () => sql<AveragePrice[]>`
         SELECT
           AVG(eth_price) AS eth_price_average
         FROM blocks
-        WHERE mined_at >= now() - ${intervalSqlMap[timeframe]}::interval
+        WHERE mined_at >= now() - ${intervalSqlMapNext[timeframe]}::interval
         AND number >= 12965000
       `,
     T.map((rows) => rows[0]?.ethPriceAverage ?? 0),
   );
 
-const averagePriceCache = new QuickLRU<TimeFrame, number>({
+const averagePriceCache = new QuickLRU<TimeFrameNext, number>({
   maxSize: 6,
 });
 
-const timeFrameMaxAgeMap: Record<TimeFrame, number> = {
-  "5m": Duration.millisFromSeconds(3),
-  "1h": Duration.millisFromMinutes(2),
-  "24h": Duration.millisFromMinutes(30),
-  "7d": Duration.millisFromMinutes(30),
-  "30d": Duration.millisFromMinutes(30),
+const timeFrameMaxAgeMap: Record<TimeFrameNext, number> = {
+  m5: Duration.millisFromSeconds(3),
+  h1: Duration.millisFromMinutes(2),
+  d1: Duration.millisFromMinutes(30),
+  d7: Duration.millisFromMinutes(30),
+  d30: Duration.millisFromMinutes(30),
   all: Duration.millisFromMinutes(30),
 };
 
-const getTimeFrameAverageWithCache = (timeframe: TimeFrame): T.Task<number> =>
+const getTimeFrameAverageWithCache = (
+  timeframe: TimeFrameNext,
+): T.Task<number> =>
   pipe(
     averagePriceCache.get(timeframe),
     O.fromNullable,
@@ -397,10 +407,11 @@ const getTimeFrameAverageWithCache = (timeframe: TimeFrame): T.Task<number> =>
 
 export const getAveragePrice = (): T.Task<AverageEthPrice> =>
   TAlt.seqSParT({
-    m5: getTimeFrameAverageWithCache("5m"),
-    h1: getTimeFrameAverageWithCache("1h"),
-    h24: getTimeFrameAverageWithCache("24h"),
-    d7: getTimeFrameAverageWithCache("7d"),
-    d30: getTimeFrameAverageWithCache("30d"),
+    m5: getTimeFrameAverageWithCache("m5"),
+    h1: getTimeFrameAverageWithCache("h1"),
+    h24: getTimeFrameAverageWithCache("d1"),
+    d1: getTimeFrameAverageWithCache("d1"),
+    d7: getTimeFrameAverageWithCache("d7"),
+    d30: getTimeFrameAverageWithCache("d30"),
     all: getTimeFrameAverageWithCache("all"),
   });

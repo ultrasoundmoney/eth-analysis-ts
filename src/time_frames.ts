@@ -6,7 +6,7 @@ export const timeFrames = [...limitedTimeFrames, "all"] as const;
 export type TimeFrame = typeof timeFrames[number];
 
 export const limitedTimeFramesNext = ["m5", "h1", "d1", "d7", "d30"] as const;
-export type LimitedTimeFrameNext = typeof limitedTimeFrames[number];
+export type LimitedTimeFrameNext = typeof limitedTimeFramesNext[number];
 export const timeFramesNext = [...limitedTimeFramesNext, "all"] as const;
 export type TimeFrameNext = typeof timeFramesNext[number];
 
@@ -16,6 +16,14 @@ export const intervalSqlMap: Record<LimitedTimeFrame, string> = {
   "24h": "24 hours",
   "7d": "7 days",
   "30d": "30 days",
+};
+
+export const intervalSqlMapNext: Record<LimitedTimeFrameNext, string> = {
+  m5: "5 minutes",
+  h1: "1 hours",
+  d1: "1 days",
+  d7: "7 days",
+  d30: "30 days",
 };
 
 export const limitedTimeFrameMillisMap: Record<LimitedTimeFrame, number> = {
