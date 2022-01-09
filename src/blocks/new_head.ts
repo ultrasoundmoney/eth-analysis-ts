@@ -62,6 +62,7 @@ export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
 };
 
 export const addBlock = async (head: Head): Promise<void> => {
+  const t0 = performance.now();
   Log.debug(`add block from new head ${head.number}`);
   const block = await Blocks.getBlockWithRetry(head.number);
 
@@ -139,6 +140,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   } else {
     Log.debug("blocks left to process, skipping computation of derived stats");
   }
+  Performance.logPerf("add block", t0);
 };
 
 export const onNewBlock = async (head: Head): Promise<void> =>
