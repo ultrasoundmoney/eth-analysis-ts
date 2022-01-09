@@ -1,7 +1,7 @@
 import * as DateFns from "date-fns";
 import { performance } from "perf_hooks";
 import { BlockDb } from "./blocks/blocks.js";
-import { sql } from "./db.js";
+import { sql, sqlT } from "./db.js";
 import { A, O, Ord, pipe, RA, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
@@ -298,11 +298,13 @@ export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
 
 type ContractRow = {
   address: string;
-  name: string;
-  isBot: boolean;
-  imageUrl: string | null;
-  twitterHandle: string | null;
   category: string | null;
+  imageUrl: string | null;
+  isBot: boolean;
+  name: string;
+  twitterDescription: string | null;
+  twitterHandle: string | null;
+  twitterName: string | null;
 };
 
 const getTopBaseFeeContracts = (
@@ -326,28 +328,32 @@ const getTopBaseFeeContracts = (
   }
 
   return pipe(
-    () =>
-      sql<ContractRow[]>`
-        SELECT
-          address,
-          category,
-          image_url,
-          is_bot,
-          name,
-          twitter_handle
-        FROM contracts
-        WHERE address IN (${topAddresses})
-      `,
+    sqlT<ContractRow[]>`
+      SELECT
+        address,
+        category,
+        image_url,
+        is_bot,
+        name,
+        twitter_handle,
+        twitter_name,
+        twitter_description
+      FROM contracts
+      WHERE address IN (${topAddresses})
+    `,
     T.map(
       A.map((row) => ({
         baseFees: contractSums.get(row.address)!,
         baseFeesUsd: contractSumsUsd.get(row.address)!,
         category: row.category,
         contractAddress: row.address,
+        detail: row.name === null ? null : row.name.split(":")[1] ?? null,
         imageUrl: row.imageUrl,
         isBot: row.isBot,
-        name: row.name,
+        name: row.name === null ? null : row.name.split(":")[0],
         twitterHandle: row.twitterHandle,
+        twitterDescription: row.twitterDescription,
+        twitterName: row.twitterName,
       })),
     ),
   );

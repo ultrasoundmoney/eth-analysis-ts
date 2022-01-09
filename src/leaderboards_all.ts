@@ -1,12 +1,11 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as Blocks from "./blocks/blocks.js";
-import { sql } from "./db.js";
-import { A } from "./fp.js";
+import { sql, sqlT } from "./db.js";
+import { A, T } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeeSums,
   ContractSums,
-  LeaderboardEntry,
   LeaderboardRow,
 } from "./leaderboards.js";
 import * as Log from "./log.js";
@@ -170,47 +169,66 @@ export const addMissingBlocks = async (): Promise<void> => {
   await setNewestIncludedBlockNumber(lastStoredBlock.number);
 };
 
-const getTopBaseFeeContracts = async (): Promise<LeaderboardRow[]> => sql<
-  LeaderboardRow[]
->`
-  WITH top_base_fee_contracts AS (
-    SELECT
-    contract_address,
-    base_fee_sum,
-    base_fee_sum_usd
-    FROM contract_base_fee_sums
-    ORDER BY base_fee_sum DESC
-    LIMIT 100
-  )
-  SELECT
-    base_fee_sum AS base_fees,
-    base_fee_sum_usd AS base_fees_usd,
-    category,
-    contract_address,
-    image_url,
-    is_bot,
-    name,
-    twitter_handle
-  FROM top_base_fee_contracts
-  JOIN contracts ON address = contract_address
-`;
-
-export const calcLeaderboardAll = async (): Promise<LeaderboardEntry[]> => {
-  const getTopContracts = async () => {
-    const topBaseFeeContracts = await getTopBaseFeeContracts();
-    return Leaderboards.extendRowsWithFamDetails(topBaseFeeContracts)();
-  };
-
-  const [ethTransferBaseFees, contractCreationBaseFees, topBaseFeeContracts] =
-    await Promise.all([
-      Leaderboards.getEthTransferFeesForTimeframe("all"),
-      Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
-      getTopContracts(),
-    ]);
-
-  return Leaderboards.buildLeaderboard(
-    topBaseFeeContracts,
-    ethTransferBaseFees,
-    contractCreationBaseFees,
+const getTopBaseFeeContracts = () =>
+  pipe(
+    sqlT<LeaderboardRow[]>`
+      WITH top_base_fee_contracts AS (
+        SELECT
+          contract_address,
+          base_fee_sum,
+          base_fee_sum_usd
+        FROM contract_base_fee_sums
+        ORDER BY base_fee_sum DESC
+        LIMIT 100
+      )
+      SELECT
+        base_fee_sum AS base_fees,
+        base_fee_sum_usd AS base_fees_usd,
+        category,
+        contract_address,
+        image_url,
+        is_bot,
+        name,
+        twitter_handle,
+        twitter_name,
+        twitter_description
+      FROM top_base_fee_contracts
+      JOIN contracts ON address = contract_address
+    `,
+    T.map(
+      A.map((row) => ({
+        ...row,
+        detail: row.name === null ? null : row.name.split(":")[1] ?? null,
+        name: row.name === null ? null : row.name.split(":")[0],
+      })),
+    ),
   );
-};
+
+export const calcLeaderboardAll = () =>
+  pipe(
+    T.Do,
+    T.bind("topBaseFeeContracts", () =>
+      pipe(
+        getTopBaseFeeContracts(),
+        T.chain(Leaderboards.extendRowsWithFamDetails),
+      ),
+    ),
+    T.apS("ethTransferBaseFees", () =>
+      Leaderboards.getEthTransferFeesForTimeframe("all"),
+    ),
+    T.apS("contractCreationBaseFees", () =>
+      Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
+    ),
+    T.map(
+      ({
+        topBaseFeeContracts,
+        ethTransferBaseFees,
+        contractCreationBaseFees,
+      }) =>
+        Leaderboards.buildLeaderboard(
+          topBaseFeeContracts,
+          ethTransferBaseFees,
+          contractCreationBaseFees,
+        ),
+    ),
+  );

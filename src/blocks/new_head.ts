@@ -161,7 +161,7 @@ const updateDerivedBlockStats = (block: Blocks.BlockDb) => {
   );
 
   const leaderboardAllTask = async () => {
-    const leaderboardAll = await LeaderboardsAll.calcLeaderboardAll();
+    const leaderboardAll = await LeaderboardsAll.calcLeaderboardAll()();
     Performance.logPerfT("calc leaderboard all", t0);
     return leaderboardAll;
   };

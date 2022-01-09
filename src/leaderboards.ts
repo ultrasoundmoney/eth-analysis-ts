@@ -8,42 +8,49 @@ import { O } from "./fp.js";
 import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
 export type LeaderboardRow = {
-  contractAddress: string;
-  name: string;
-  isBot: boolean;
   baseFees: number;
   baseFeesUsd: number;
-  imageUrl: string | null;
-  twitterHandle: string | null;
   category: string | null;
+  contractAddress: string;
+  detail: string | null;
+  imageUrl: string | null;
+  isBot: boolean;
+  name: string | null;
+  twitterDescription: string | null;
+  twitterHandle: string | null;
+  twitterName: string | null;
 };
 
 export type LeaderboardRowWithFamDetails = {
   baseFees: BaseFees;
-  bio: string | null;
   category: string | null;
   contractAddress: string;
+  detail: string | null;
   famFollowerCount: number | null;
   followersCount: number | null;
   imageUrl: string | null;
   isBot: boolean;
-  name: string;
+  name: string | null;
+  twitterDescription: string | null;
   twitterHandle: string | null;
   twitterName: string | null;
 };
 
 type ContractEntry = {
-  type: "contract";
-  name: string | null;
-  image: string | null;
-  fees: number;
-  feesUsd: number;
   address: string;
   category: string | null;
-  isBot: boolean;
-  twitterHandle: string | null;
-  /* deprecated */
+  detail: string | null;
+  fees: number;
+  feesUsd: number;
+  /**
+   * @deprecated
+   */
   id: string;
+  image: string | null;
+  isBot: boolean;
+  name: string | null;
+  type: "contract";
+  twitterHandle: string | null;
 };
 
 type EthTransfersEntry = {
@@ -51,7 +58,9 @@ type EthTransfersEntry = {
   name: string;
   fees: number;
   feesUsd: number;
-  /* deprecated */
+  /**
+   * @deprecated
+   */
   id: string;
 };
 
@@ -60,7 +69,9 @@ type ContractCreationsEntry = {
   name: string;
   fees: number;
   feesUsd: number;
-  /* deprecated */
+  /**
+   * @deprecated
+   */
   id: string;
 };
 
@@ -213,21 +224,23 @@ export const buildLeaderboard = (
   contractCreationBaseFees: BaseFees,
 ): LeaderboardEntry[] => {
   const contractEntries: ContractEntry[] = contractRows.map((row) => ({
+    address: row.contractAddress,
+    category: row.category,
+    detail: row.detail,
+    famFollowerCount: row.famFollowerCount,
     fees: Number(row.baseFees.eth),
     feesUsd: Number(row.baseFees.usd),
-    id: row.contractAddress,
-    name: row.name || row.contractAddress,
-    image: row.imageUrl,
-    type: "contract",
-    address: row.contractAddress,
-    isBot: row.isBot,
-    category: row.category,
-    twitterHandle: row.twitterHandle,
-    bio: row.bio,
     followersCount: row.followersCount,
-    famFollowerCount: row.famFollowerCount,
+    id: row.contractAddress,
+    image: row.imageUrl,
+    isBot: row.isBot,
+    name: row.name || row.contractAddress,
+    twitterDescription: row.twitterDescription,
+    twitterHandle: row.twitterHandle,
     twitterName: row.twitterName,
+    type: "contract",
   }));
+
   const contractCreationEntry: ContractCreationsEntry = {
     fees: contractCreationBaseFees.eth,
     feesUsd: contractCreationBaseFees.usd,
@@ -235,6 +248,7 @@ export const buildLeaderboard = (
     name: "new contracts",
     type: "contract-creations",
   };
+
   const ethTransfersEntry: EthTransfersEntry = {
     fees: ethTransferBaseFees.eth,
     feesUsd: ethTransferBaseFees.usd,
@@ -265,12 +279,13 @@ export const extendRowsWithFamDetails = (
     (list) => new Set(list),
     (set) => Array.from(set),
     FamService.getDetails,
-    T.map((famDetails) => {
-      const map = new Map<string, FamDetails>();
-      famDetails.forEach((famDetail) => {
-        map.set(famDetail.handle, famDetail);
-      });
-      return pipe(
+    T.map(
+      A.reduce(new Map<string, FamDetails>(), (map, details) =>
+        map.set(details.handle, details),
+      ),
+    ),
+    T.map((famDetails) =>
+      pipe(
         leaderboardRows,
         A.map((row) => {
           if (row.twitterHandle === null) {
@@ -280,14 +295,12 @@ export const extendRowsWithFamDetails = (
                 eth: row.baseFees,
                 usd: row.baseFeesUsd,
               },
-              bio: null,
               followersCount: null,
               famFollowerCount: null,
-              twitterName: null,
             };
           }
 
-          const detail = map.get(row.twitterHandle);
+          const detail = famDetails.get(row.twitterHandle);
           if (detail === undefined) {
             // Fam service did not have details for this twitter handle.
             return {
@@ -296,10 +309,8 @@ export const extendRowsWithFamDetails = (
                 eth: row.baseFees,
                 usd: row.baseFeesUsd,
               },
-              bio: null,
-              followersCount: null,
               famFollowerCount: null,
-              twitterName: null,
+              followersCount: null,
             };
           }
 
@@ -309,14 +320,12 @@ export const extendRowsWithFamDetails = (
               eth: row.baseFees,
               usd: row.baseFeesUsd,
             },
-            bio: detail.bio,
-            followersCount: detail.followersCount,
             famFollowerCount: detail.famFollowerCount,
-            twitterName: detail.name,
+            followersCount: detail.followersCount,
           };
         }),
-      );
-    }),
+      ),
+    ),
   );
 
 export type ContractAddress = string;
