@@ -31,9 +31,12 @@ export class MissingStandardError extends Error {
   }
 }
 
+export class NotFoundError extends Error {}
+
 export type GetContractError =
+  | FetchAlt.FetchWithRetryError
   | MissingStandardError
-  | FetchAlt.FetchWithRetryError;
+  | NotFoundError;
 
 export const getContract = (
   address: string,
@@ -45,7 +48,7 @@ export const getContract = (
         headers: { "X-API-KEY": Config.getOpenseaApiKey() },
       },
       {
-        acceptStatuses: [200, 406],
+        acceptStatuses: [200, 404, 406],
         // Unsure about Opensea API rate-limit. Could experiment with lowering this and figuring out the exact codes we should and shouldn't retry.
         retryPolicy: Retry.Monoid.concat(
           Retry.exponentialBackoff(2000),
@@ -64,6 +67,12 @@ export const getContract = (
             );
             return E.left(new MissingStandardError(address, body.detail));
           }),
+        );
+      }
+
+      if (res.status === 404) {
+        return TE.left(
+          new NotFoundError("fetch opensea metadata, contract not found"),
         );
       }
 

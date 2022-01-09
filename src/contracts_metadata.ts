@@ -510,6 +510,11 @@ const addOpenseaMetadata = (
                   return undefined;
                 }
 
+                if (error instanceof Opensea.NotFoundError) {
+                  // Opensea doesn't know all contracts.
+                  return undefined;
+                }
+
                 Log.error(error);
                 return undefined;
               },
