@@ -1,7 +1,7 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as Blocks from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
-import { A, T } from "./fp.js";
+import { A, O, T } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeeSums,
@@ -198,8 +198,15 @@ const getTopBaseFeeContracts = () =>
     T.map(
       A.map((row) => ({
         ...row,
-        detail: row.name === null ? null : row.name.split(":")[1] ?? null,
-        name: row.name === null ? null : row.name,
+        detail: pipe(
+          row.name,
+          O.fromNullable,
+          O.map((name) => name.split(":")[1]),
+          O.map(O.fromNullable),
+          O.flatten,
+          O.map((detail) => detail.trimStart()),
+          O.toNullable,
+        ),
       })),
     ),
   );

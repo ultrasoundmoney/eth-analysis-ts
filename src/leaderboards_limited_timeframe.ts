@@ -358,7 +358,7 @@ const getTopBaseFeeContracts = (
         ),
         imageUrl: row.imageUrl,
         isBot: row.isBot,
-        name: row.name === null ? null : row.name,
+        name: row.name,
         twitterHandle: row.twitterHandle,
         twitterDescription: row.twitterDescription,
         twitterName: row.twitterName,
