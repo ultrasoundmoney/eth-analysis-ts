@@ -1,5 +1,5 @@
 import { camelCase } from "change-case";
-import { Lazy } from "fp-ts/lib/function.js";
+import { flow, Lazy } from "fp-ts/lib/function.js";
 import * as Ley from "ley";
 import postgres, {
   AsRowList,
@@ -9,7 +9,7 @@ import postgres, {
   TransactionSql,
 } from "postgres";
 import * as Config from "./config.js";
-import { A, O, pipe } from "./fp.js";
+import { A, O, pipe, T } from "./fp.js";
 
 const config = {
   ssl: "prefer",
@@ -35,6 +35,11 @@ export const sqlT =
   () =>
     sql(template, ...args);
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+export const sqlTVoid = flow(
+  sqlT,
+  T.map(() => undefined),
+);
 
 export type SqlArg =
   | typeof sql
