@@ -303,7 +303,7 @@ const makeEthSupplyUrl = () =>
     apiKey: Config.getEtherscanToken(),
   });
 
-export const getEthSupply = (): Promise<bigint> =>
+export const getEthSupply = () =>
   pipe(
     FetchAlt.fetchWithRetry(makeEthSupplyUrl()),
     queueApiCall,
@@ -314,5 +314,4 @@ export const getEthSupply = (): Promise<bigint> =>
       );
     }),
     TE.map((body) => BigInt(body.result)),
-    TEAlt.getOrThrow,
-  )();
+  );
