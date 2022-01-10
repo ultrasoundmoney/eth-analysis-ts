@@ -8,7 +8,7 @@ import { millisecondsBetweenAbs } from "../date_fns_alt.js";
 import { Denomination, denominations } from "../denominations.js";
 import * as Duration from "../duration.js";
 import { millisFromHours, millisFromMinutes } from "../duration.js";
-import { Ord, OrdM } from "../fp.js";
+import { Ord } from "../fp.js";
 import * as __ from "../lodash_alt.js";
 import * as Log from "../log.js";
 import * as TimeFrames from "../time_frames.js";
@@ -128,21 +128,21 @@ export const feeBlockFromBlock = (block: FeeBlockRow): FeeBlock => {
 
 export const topSumOrderingMap: Record<
   Denomination,
-  Record<Sorting, Ord<Sum>>
+  Record<Sorting, Ord.Ord<Sum>>
 > = {
   eth: {
-    min: OrdM.fromCompare((first, second) =>
+    min: Ord.fromCompare((first, second) =>
       first.sumEth > second.sumEth ? -1 : first.sumEth < second.sumEth ? 1 : 0,
     ),
-    max: OrdM.fromCompare((first, second) =>
+    max: Ord.fromCompare((first, second) =>
       first.sumEth < second.sumEth ? -1 : first.sumEth > second.sumEth ? 1 : 0,
     ),
   },
   usd: {
-    min: OrdM.fromCompare((first, second) =>
+    min: Ord.fromCompare((first, second) =>
       first.sumUsd > second.sumUsd ? -1 : first.sumUsd < second.sumUsd ? 1 : 0,
     ),
-    max: OrdM.fromCompare((first, second) =>
+    max: Ord.fromCompare((first, second) =>
       first.sumUsd < second.sumUsd ? -1 : first.sumUsd > second.sumUsd ? 1 : 0,
     ),
   },
@@ -236,7 +236,7 @@ export const mergeCandidate2 = (
   topSums: Sum[],
   sum: Sum,
 ): Sum[] => {
-  const sumGreaterThan = OrdM.gt(topSumOrderingMap[denomination][sorting]);
+  const sumGreaterThan = Ord.gt(topSumOrderingMap[denomination][sorting]);
   const sumEqualTo = topSumOrderingMap[denomination][sorting].equals;
 
   // Find the index the candidate would rank at.
@@ -334,7 +334,7 @@ export const getMatchingSumIndexFromRight = (
     return undefined;
   }
 
-  const lt = OrdM.lt(topSumOrderingMap[denomination][sorting]);
+  const lt = Ord.lt(topSumOrderingMap[denomination][sorting]);
   for (let i = topSums.length - 1; i >= 0; i--) {
     const candidate = topSums[i];
 
