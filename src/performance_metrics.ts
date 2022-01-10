@@ -6,7 +6,6 @@ import * as Etherscan from "./etherscan.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
-import * as Twitter from "./twitter.js";
 
 const start = new Date();
 let lastReport = new Date();
@@ -51,9 +50,6 @@ export const logQueueSizes = () => {
 
   if (secondsSinceLastReport >= 30) {
     lastLogQueueSizeTimestamp = new Date();
-    Log.debug(
-      `fetch twitter profile queue size: ${Twitter.fetchProfileQueue.size}`,
-    );
     Log.debug(
       `fetch defi llama protocols queue size: ${DefiLlama.fetchProtocolsQueue.size}`,
     );
