@@ -115,10 +115,9 @@ const subtractFromSums = (
     }),
   );
 
-const blockForTotalOrd: Ord<BlockForTotal> = {
-  equals: (x, y) => x.number === y.number,
-  compare: (x, y) => (x.number < y.number ? -1 : x.number === y.number ? 0 : 1),
-};
+const blockForTotalOrd = Ord.fromCompare<BlockForTotal>((x, y) =>
+  x.number < y.number ? -1 : x.number === y.number ? 0 : 1,
+);
 
 export const addAllBlocksForAllTimeframes = (): T.Task<void> =>
   pipe(
