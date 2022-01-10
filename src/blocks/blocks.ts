@@ -311,12 +311,12 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
   );
 
 type BlockDbRow = {
-  baseFeePerGas: bigint;
+  baseFeePerGas: string;
   contractCreationSum: number;
   ethPrice: number;
-  ethPriceCents: bigint;
+  ethPriceCents: string;
   ethTransferSum: number;
-  gasUsed: bigint;
+  gasUsed: string;
   hash: string;
   minedAt: Date;
   number: number;
@@ -324,14 +324,14 @@ type BlockDbRow = {
 };
 
 const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
-  baseFeePerGas: row.baseFeePerGas,
-  baseFeeSum: row.baseFeePerGas * row.gasUsed,
+  baseFeePerGas: BigInt(row.baseFeePerGas),
+  baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
   contractCreationSum: row.contractCreationSum,
   ethPrice: row.ethPrice,
   // TODO: should be scaled going in, read the scaled value.
-  ethPriceCents: row.ethPriceCents,
+  ethPriceCents: BigInt(row.ethPriceCents),
   ethTransferSum: row.ethTransferSum,
-  gasUsed: row.gasUsed,
+  gasUsed: BigInt(row.gasUsed),
   hash: row.hash,
   minedAt: row.minedAt,
   number: row.number,
@@ -365,6 +365,16 @@ export const getBlocks = async (
 
 // These blocks are minimized to only carry the information needed to calculate a record.
 export type FeeBlockRow = {
+  baseFeePerGas: string;
+  ethPrice: number;
+  // TODO: should be scaled going in, read the scaled value.
+  ethPriceCents: string;
+  gasUsed: string;
+  minedAt: Date;
+  number: number;
+};
+
+export type FeeBlockDb = {
   baseFeePerGas: bigint;
   ethPrice: number;
   // TODO: should be scaled going in, read the scaled value.
@@ -374,22 +384,32 @@ export type FeeBlockRow = {
   number: number;
 };
 
-export const getFeeBlocks = async (
-  from: number,
-  upToIncluding: number,
-): Promise<FeeBlockRow[]> => sql<FeeBlockRow[]>`
-  SELECT
-    base_fee_per_gas,
-    eth_price,
-    (eth_price * 100)::bigint AS eth_price_cents,
-    gas_used,
-    mined_at,
-    number
-  FROM blocks
-  WHERE number >= ${from}
-  AND number <= ${upToIncluding}
-  ORDER BY number DESC
-`;
+const feeBlockDbFromRow = (row: FeeBlockRow): FeeBlockDb => ({
+  baseFeePerGas: BigInt(row.baseFeePerGas),
+  ethPrice: row.ethPrice,
+  ethPriceCents: BigInt(row.ethPriceCents),
+  gasUsed: BigInt(row.gasUsed),
+  minedAt: row.minedAt,
+  number: row.number,
+});
+
+export const getFeeBlocks = (from: number, upToIncluding: number) =>
+  pipe(
+    sqlT<FeeBlockRow[]>`
+      SELECT
+        base_fee_per_gas,
+        eth_price,
+        (eth_price * 100)::bigint AS eth_price_cents,
+        gas_used,
+        mined_at,
+        number
+      FROM blocks
+      WHERE number >= ${from}
+      AND number <= ${upToIncluding}
+      ORDER BY number DESC
+    `,
+    T.map(A.map(feeBlockDbFromRow)),
+  );
 
 export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
   new Array(toAndIncluding - from + 1)

@@ -1,7 +1,7 @@
 import * as DateFns from "date-fns";
 import Denque from "denque";
 import _ from "lodash";
-import { BlockDb, FeeBlockRow } from "../blocks/blocks.js";
+import { BlockDb, FeeBlockDb } from "../blocks/blocks.js";
 import * as Cartesian from "../cartesian.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
 import { millisecondsBetweenAbs } from "../date_fns_alt.js";
@@ -116,7 +116,7 @@ export const sumFeeBlocks = (
     0n,
   );
 
-export const feeBlockFromBlock = (block: FeeBlockRow): FeeBlock => {
+export const feeBlockFromBlock = (block: FeeBlockDb): FeeBlock => {
   const feesWei = block.gasUsed * block.baseFeePerGas;
   return {
     number: block.number,
@@ -171,7 +171,7 @@ export type RecordState = {
 
 const getBlockFees = (
   denomination: Denomination,
-  block: FeeBlockRow,
+  block: FeeBlockDb,
 ): bigint => {
   const feesWei = block.gasUsed * block.baseFeePerGas;
   return denomination === "eth"
@@ -181,7 +181,7 @@ const getBlockFees = (
 
 export const makeNewSum = (
   lastSum: Sum | undefined,
-  block: FeeBlockRow,
+  block: FeeBlockDb,
 ): Sum => {
   if (lastSum === undefined) {
     return {
@@ -356,7 +356,7 @@ export const getMatchingSumIndexFromRight = (
 
 export const addBlockToState = (
   recordState: RecordState,
-  block: FeeBlockRow,
+  block: FeeBlockDb,
 ): RecordState => {
   const { timeFrame, granularity } = recordState;
 

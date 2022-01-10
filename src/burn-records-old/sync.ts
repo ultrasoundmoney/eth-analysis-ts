@@ -18,7 +18,7 @@ export const init = async (lastStoredBlock: BlockDb) => {
   const allBlocks = await Blocks.getFeeBlocks(
     Blocks.londonHardForkBlockNumber,
     lastStoredBlock.number,
-  );
+  )();
   logPerf("init burn records, reading all blocks", tGetAllBlocks);
 
   const tInitAllState = performance.now();

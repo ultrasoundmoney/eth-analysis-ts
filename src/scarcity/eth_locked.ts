@@ -47,8 +47,6 @@ const storeEthLocked = (ethLocked: number) =>
     )
     ON CONFLICT (key) DO UPDATE SET
       value = excluded.value
-    WHERE
-      key_value_store.key = ${ethLockedKey}
   `;
 
 const updateEthLocked = () =>
