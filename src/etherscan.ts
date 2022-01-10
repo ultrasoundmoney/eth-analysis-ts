@@ -290,11 +290,13 @@ export const getEthPrice = () =>
     E.isLeft,
   );
 
-type EthSupplyResponse = {
-  status: "0" | "1";
-  message: string;
-  result: string;
-};
+type EthSupplyResponse =
+  | { status: "0"; message: string }
+  | {
+      status: "1";
+      message: string;
+      result: string;
+    };
 
 const makeEthSupplyUrl = () =>
   urlcat("https://api.etherscan.io/api", {
@@ -307,11 +309,23 @@ export const getEthSupply = () =>
   pipe(
     FetchAlt.fetchWithRetry(makeEthSupplyUrl()),
     queueApiCall,
-    TE.chain((res) => {
-      return TE.tryCatch(
+    TE.chain((res) =>
+      TE.tryCatch(
         () => res.json() as Promise<EthSupplyResponse>,
         TEAlt.errorFromUnknown,
-      );
+      ),
+    ),
+    TE.chainEitherK((body) => {
+      if (body.status === "1") {
+        return E.right(BigInt(body.result));
+      }
+
+      if (body.status === "0") {
+        Log.error("get etherescan eth supply error", body);
+        return E.left(new Error(body.message));
+      }
+
+      Log.error("get etherscan eth supply unexpected response", body);
+      return E.left(new Error("get etherscan eth supply, unexpected response"));
     }),
-    TE.map((body) => BigInt(body.result)),
   );
