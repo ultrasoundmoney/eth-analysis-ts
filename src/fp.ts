@@ -50,6 +50,7 @@ const getOrThrow = <A>(
 
 export const TAlt = {
   concatAllVoid: T.map(Mo.concatAll(Void.Monoid)),
+  constVoid: () => T.of(undefined),
   seqSParT: Apply.sequenceS(T.ApplyPar),
   seqSSeqT: Apply.sequenceS(T.ApplySeq),
   seqTParT: Apply.sequenceT(T.ApplyPar),
@@ -58,13 +59,13 @@ export const TAlt = {
 
 export const TEAlt = {
   concatAllVoid: TE.map(Mo.concatAll(Void.Monoid)),
+  errorFromUnknown: (e: unknown): Error =>
+    e instanceof Error ? e : new Error(String(e)),
   getOrThrow,
   seqSParTE: Apply.sequenceS(TE.ApplyPar),
   seqSSeqTE: Apply.sequenceS(TE.ApplySeq),
   seqTParTE: Apply.sequenceT(TE.ApplyPar),
   seqTSeqTE: Apply.sequenceT(TE.ApplySeq),
-  errorFromUnknown: (e: unknown): Error =>
-    e instanceof Error ? e : new Error(String(e)),
 };
 
 export const OAlt = {
