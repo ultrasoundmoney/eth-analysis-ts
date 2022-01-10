@@ -1,22 +1,18 @@
 import A from "fp-ts/lib/Array.js";
-import * as ContractsMetadata from "./metadata.js";
-import { sql } from "../db.js";
-import { O, pipe, T } from "../fp.js";
+import { sql, sqlTVoid } from "../db.js";
+import { flow, NEA, O, pipe, T } from "../fp.js";
 import * as OpenSea from "../opensea.js";
+import * as ContractsMetadata from "./metadata.js";
 
-export const storeContracts = async (addresses: string[]): Promise<void> => {
-  if (addresses.length === 0) {
-    return;
-  }
-
-  const rows = addresses.map((address) => ({ address }));
-
-  await sql`
-    INSERT INTO contracts
-    ${sql(rows)}
-    ON CONFLICT DO NOTHING
-  `;
-};
+export const storeContracts = flow(
+  NEA.map((address) => ({ address })),
+  (insertables) =>
+    sqlTVoid`
+      INSERT INTO contracts
+      ${sql(insertables)}
+      ON CONFLICT DO NOTHING
+    `,
+);
 
 export type SimpleTextColumn =
   | "category"
@@ -235,23 +231,18 @@ export const setLastLeaderboardEntryToNow = async (
   `;
 };
 
-export const setContractsMinedAt = async (
-  addresses: string[],
+export const setContractsMinedAt = (
+  addresses: NEA.NonEmptyArray<string>,
   blockNumber: number,
   date: Date,
-): Promise<void> => {
-  if (addresses.length === 0) {
-    return;
-  }
-
-  await sql`
+) =>
+  sqlTVoid`
     UPDATE contracts
     SET
       mined_at = ${date},
       mined_at_block = ${blockNumber}
     WHERE address IN (${addresses})
   `;
-};
 
 export const setContractMinedAtNull = async (address: string) => {
   await sql`

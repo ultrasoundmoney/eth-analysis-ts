@@ -5,13 +5,13 @@ import {
   calcBlockTips,
   FeeBreakdown,
 } from "../base_fees.js";
-import { setContractsMinedAt, storeContracts } from "../contracts/contracts.js";
-import { sql, sqlT } from "../db.js";
+import * as Contracts from "../contracts/contracts.js";
+import { sql, sqlT, sqlTVoid } from "../db.js";
 import { delay } from "../delay.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
 import { BlockLondon } from "../eth_node.js";
-import { A, O, pipe, T } from "../fp.js";
+import { A, NEA, O, pipe, T, TAlt, TO } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
@@ -79,20 +79,7 @@ type ContractBaseFeesRow = {
   block_number: number;
 };
 
-const getContractRows = (
-  block: BlockLondon,
-  feeBreakdown: FeeBreakdown,
-): ContractBaseFeesRow[] =>
-  pipe(
-    Array.from(feeBreakdown.contract_use_fees.entries()),
-    A.map(([address, baseFees]) => ({
-      base_fees: baseFees,
-      block_number: block.number,
-      contract_address: address,
-    })),
-  );
-
-const getNewContractsFromBlock = (txrs: TxRWeb3London[]): string[] =>
+const getNewContractsFromBlock = (txrs: TxRWeb3London[]) =>
   pipe(
     txrs,
     segmentTxrs,
@@ -100,6 +87,7 @@ const getNewContractsFromBlock = (txrs: TxRWeb3London[]): string[] =>
     A.map((txr) => txr.contractAddress),
     A.map(O.fromNullable),
     A.compact,
+    NEA.fromArray,
   );
 
 export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
@@ -167,6 +155,31 @@ export const blockDbFromBlock = (
   };
 };
 
+const storeContractsBaseFeesTask = (
+  block: BlockLondon,
+  feeBreakdown: FeeBreakdown,
+) =>
+  pipe(
+    Array.from(feeBreakdown.contract_use_fees.entries()),
+    NEA.fromArray,
+    O.map(
+      A.map(
+        ([address, baseFees]): ContractBaseFeesRow => ({
+          base_fees: baseFees,
+          block_number: block.number,
+          contract_address: address,
+        }),
+      ),
+    ),
+    O.match(
+      TAlt.constVoid,
+      (insertables) =>
+        sqlTVoid`
+            INSERT INTO contract_base_fees ${sql(insertables)}
+          `,
+    ),
+  );
+
 export const storeBlock = async (
   block: BlockLondon,
   txrs: TxRWeb3London[],
@@ -175,30 +188,34 @@ export const storeBlock = async (
   const blockDb = blockDbFromBlock(block, txrs, ethPrice);
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
   const tips = calcBlockTips(block, txrs);
-  const contractBaseFeesRows = getContractRows(block, feeBreakdown);
   const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
 
-  const addresses = contractBaseFeesRows.map(
-    (contractBurnRow) => contractBurnRow.contract_address,
+  Log.debug(`storing block: ${block.number}, ${block.hash}`);
+  const storeBlockTask = sqlT`INSERT INTO blocks ${sql(blockRow)}`;
+
+  const updateContractsMinedAtTask = pipe(
+    getNewContractsFromBlock(txrs),
+    TO.fromOption,
+    TO.chainTaskK((addresses) =>
+      Contracts.setContractsMinedAt(
+        addresses,
+        block.number,
+        DateFns.fromUnixTime(block.timestamp),
+      ),
+    ),
+    TO.getOrElse(TAlt.constVoid),
   );
 
-  Log.debug(`storing block: ${block.number}, ${block.hash}`);
-  const storeBlockTask = () => sql`INSERT INTO blocks ${sql(blockRow)}`;
-
-  const storeContractsBaseFeesTask =
-    contractBaseFeesRows.length !== 0
-      ? async () =>
-          sql`INSERT INTO contract_base_fees ${sql(contractBaseFeesRows)}`
-      : () => undefined;
-
-  const updateContractsMinedAtTask = async () => {
-    const addresses = getNewContractsFromBlock(txrs);
-    return setContractsMinedAt(
-      addresses,
-      block.number,
-      DateFns.fromUnixTime(block.timestamp),
-    );
-  };
+  const storeContractsTask = pipe(
+    feeBreakdown.contract_use_fees,
+    (map) => map.keys(),
+    Array.from,
+    NEA.fromArray,
+    O.match(
+      () => T.of(undefined),
+      (addresses) => Contracts.storeContracts(addresses),
+    ),
+  );
 
   const isParentKnown = await getBlockHashIsKnown(block.parentHash);
 
@@ -208,11 +225,13 @@ export const storeBlock = async (
     throw new Error("tried to store a block with no known parent");
   }
 
-  await Promise.all([storeContracts(addresses), storeBlockTask()]);
-  await Promise.all([
-    storeContractsBaseFeesTask(),
-    updateContractsMinedAtTask(),
-  ]);
+  await TAlt.seqTSeqT(
+    TAlt.seqTParT(storeContractsTask, storeBlockTask),
+    TAlt.seqTParT(
+      storeContractsBaseFeesTask(block, feeBreakdown),
+      updateContractsMinedAtTask,
+    ),
+  )();
 };
 
 export const deleteDerivedBlockStats = async (
