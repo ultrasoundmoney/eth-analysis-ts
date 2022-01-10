@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js";
 import * as DateFns from "date-fns";
 import * as Blocks from "./blocks/blocks.js";
-import * as ContractsWeb3 from "./contracts_web3.js";
+import * as ContractsWeb3 from "./contracts/web3.js";
 import { EthPrice } from "./eth_prices.js";
 import { pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";

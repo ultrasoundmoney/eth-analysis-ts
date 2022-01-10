@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import * as Coingecko from "./coingecko.js";
-import * as ContractsMetadata from "./contracts_metadata.js";
+import * as ContractsMetadata from "./contracts/metadata.js";
 import * as DefiLlama from "./defi_llama.js";
 import * as Etherscan from "./etherscan.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";

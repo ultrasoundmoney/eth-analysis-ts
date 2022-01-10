@@ -11,7 +11,7 @@ import * as BurnRecordsCache from "../burn-records/cache.js";
 import { BurnRatesT } from "../burn_rates.js";
 import * as Canary from "../canary.js";
 import * as Config from "../config.js";
-import * as Contracts from "../contracts.js";
+import * as Contracts from "../contracts/contracts.js";
 import { runMigrations, sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
 import * as Duration from "../duration.js";

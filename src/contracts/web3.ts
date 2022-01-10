@@ -1,9 +1,9 @@
 import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
-import * as Etherscan from "./etherscan.js";
-import * as EthNode from "./eth_node.js";
-import { O, pipe, TE, TEAlt } from "./fp.js";
-import * as Log from "./log.js";
+import * as Etherscan from "../etherscan.js";
+import * as EthNode from "../eth_node.js";
+import { O, pipe, TE, TEAlt } from "../fp.js";
+import * as Log from "../log.js";
 
 // NOTE: We already cache ABIs and creating contracts is cheap, but it turns out web3js leaks memory when creating new contracts. There's a _years_ old issue describing the problem here: https://github.com/ChainSafe/web3.js/issues/3042 . We'd like to switch to ethers-js for this and various other reasons. Until then, we cache contracts to alleviate the problem a little.
 const contractsCache = new QuickLRU<string, Contract>({

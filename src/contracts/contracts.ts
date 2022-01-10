@@ -1,8 +1,8 @@
 import A from "fp-ts/lib/Array.js";
-import * as ContractsMetadata from "./contracts_metadata.js";
-import { sql } from "./db.js";
-import { O, pipe, T } from "./fp.js";
-import * as OpenSea from "./opensea.js";
+import * as ContractsMetadata from "./metadata.js";
+import { sql } from "../db.js";
+import { O, pipe, T } from "../fp.js";
+import * as OpenSea from "../opensea.js";
 
 export const storeContracts = async (addresses: string[]): Promise<void> => {
   if (addresses.length === 0) {

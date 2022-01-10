@@ -4,7 +4,7 @@ import { calcBaseFeeSums } from "../base_fee_sums.js";
 import * as BurnRecordsCache from "../burn-records/cache.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import { calcBurnRates } from "../burn_rates.js";
-import * as Contracts from "../contracts.js";
+import * as Contracts from "../contracts/contracts.js";
 import { sql } from "../db.js";
 import * as DerivedBlockStats from "../derived_block_stats.js";
 import { BlockLondon, Head } from "../eth_node.js";

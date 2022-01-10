@@ -1,5 +1,5 @@
-import * as Contracts from "./contracts.js";
-import * as ContractsMetadata from "./contracts_metadata.js";
+import * as Contracts from "./contracts/contracts.js";
+import * as ContractsMetadata from "./contracts/metadata.js";
 import { sql } from "./db.js";
 import { delay } from "./delay.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";

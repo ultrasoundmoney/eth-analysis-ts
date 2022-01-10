@@ -5,7 +5,7 @@ import {
   calcBlockTips,
   FeeBreakdown,
 } from "../base_fees.js";
-import { setContractsMinedAt, storeContracts } from "../contracts.js";
+import { setContractsMinedAt, storeContracts } from "../contracts/contracts.js";
 import { sql, sqlT } from "../db.js";
 import { delay } from "../delay.js";
 import { millisFromSeconds } from "../duration.js";
