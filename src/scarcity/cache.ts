@@ -1,16 +1,16 @@
 import { BlockDb } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
-import { sqlNotifyT, sqlT } from "../db.js";
+import { sqlNotifyT, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as FeeBurn from "../fee_burns.js";
-import { flow, O, pipe, T, TO } from "../fp.js";
+import { E, flow, O, OAlt, pipe, T, TE } from "../fp.js";
 import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";
 import * as EthLocked from "./eth_locked.js";
 import * as EthStaked from "./eth_staked.js";
 import * as EthSupply from "./eth_supply.js";
 
-export type ScarcityCache = {
+export type Scarcity = {
   engines: {
     burned: {
       amount: bigint;
@@ -34,37 +34,20 @@ export type ScarcityCache = {
 
 export const scarcityCacheKey = "scarcity-cache-key";
 
-export const updateScarcityCache = async (block: BlockDb) => {
+const buildScarcity = (
+  block: BlockDb,
+  ethLocked: EthLocked.EthLocked,
+): E.Either<Error, Scarcity> => {
   const ethBurned = FeeBurn.getAllFeesBurned().eth;
-  const ethLocked = await pipe(
-    EthLocked.getLastEthLocked(),
-    TO.getOrElseW(() => T.of(undefined)),
-  )();
   const ethStaked = EthStaked.getLastEthStaked();
   const ethSupply = EthSupply.getLastEthSupply();
-
-  if (ethStaked === undefined) {
-    Log.error("can't store scarcity, missing eth staked");
-    return;
-  }
-
-  if (ethLocked === undefined) {
-    Log.error("can't store scarcity, missing eth locked");
-    return;
-  }
-
-  if (ethSupply === undefined) {
-    Log.error("can't store scarcity, missing eth supply");
-    return;
-  }
 
   const ethStakedAge = DateFnsAlt.millisecondsBetweenAbs(
     new Date(),
     ethStaked.timestamp,
   );
   if (ethStakedAge > Duration.millisFromMinutes(10)) {
-    Log.error("eth staked update too old");
-    return;
+    return E.left(new Error("eth staked update too old"));
   }
 
   const ethSupplyAge = DateFnsAlt.millisecondsBetweenAbs(
@@ -72,11 +55,10 @@ export const updateScarcityCache = async (block: BlockDb) => {
     ethSupply.timestamp,
   );
   if (ethSupplyAge > Duration.millisFromMinutes(10)) {
-    Log.error("eth supply update too old to calculate scarcity");
-    return;
+    return E.left(new Error("eth supply update too old to calculate scarcity"));
   }
 
-  const scarcity: ScarcityCache = {
+  return E.right({
     engines: {
       burned: {
         amount: ethBurned,
@@ -96,30 +78,41 @@ export const updateScarcityCache = async (block: BlockDb) => {
     },
     ethSupply: ethSupply.ethSupply,
     number: block.number,
-  };
+  });
+};
 
-  return pipe(
-    sqlT`
-      INSERT INTO key_value_store (
-        key, value
-      ) VALUES (
-        ${scarcityCacheKey},
-        ${JSON.stringify(scarcity, serializeBigInt)}::json
-      ) ON CONFLICT (key) DO UPDATE SET
-        value = excluded.value
-    `,
-    T.chain(() =>
+export const updateScarcityCache = (block: BlockDb): T.Task<void> =>
+  pipe(
+    EthLocked.getLastEthLocked(),
+    T.map(OAlt.getOrThrow("can't update scarcity, eth locked is missing")),
+    T.map((ethLocked) => buildScarcity(block, ethLocked)),
+    TE.chainTaskK(
+      (scarcity) =>
+        sqlTVoid`
+          INSERT INTO key_value_store (
+            key, value
+          ) VALUES (
+            ${scarcityCacheKey},
+            ${JSON.stringify(scarcity, serializeBigInt)}::json
+          ) ON CONFLICT (key) DO UPDATE SET
+          value = excluded.value
+        `,
+    ),
+    TE.chainTaskK(() =>
       // Update scarcity caches about once every 10 blocks
       block.number % 10 === 0
         ? sqlNotifyT("cache-update", scarcityCacheKey)
         : T.of(undefined),
     ),
-  )();
-};
+    TE.match(
+      (e) => Log.error("failed to update scarcity", e),
+      () => undefined,
+    ),
+  );
 
 export const getScarcityCache = () =>
   pipe(
-    sqlT<{ value: ScarcityCache }[]>`
+    sqlT<{ value: Scarcity }[]>`
       SELECT value FROM key_value_store
       WHERE key = ${scarcityCacheKey}
     `,

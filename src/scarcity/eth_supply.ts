@@ -1,15 +1,15 @@
 import { setInterval } from "timers/promises";
 import * as Duration from "../duration.js";
-import * as Log from "../log.js";
 import * as Etherscan from "../etherscan.js";
-import { pipe, TE } from "../fp.js";
+import { O, OAlt, pipe, TE } from "../fp.js";
+import * as Log from "../log.js";
 
-type LastEthSupply = {
+export type EthSupply = {
   timestamp: Date;
   ethSupply: bigint;
 };
 
-let lastEthSupply: LastEthSupply | undefined = undefined;
+let lastEthSupply: O.Option<EthSupply> = O.none;
 
 const updateEthSupply = () =>
   pipe(
@@ -22,13 +22,15 @@ const updateEthSupply = () =>
       ethSupply,
     })),
     TE.match(Log.error, (latestEthSupply) => {
-      lastEthSupply = latestEthSupply;
+      lastEthSupply = O.some(latestEthSupply);
     }),
   );
 
-export const getLastEthSupply = () => {
-  return lastEthSupply;
-};
+export const getLastEthSupply = () =>
+  pipe(
+    lastEthSupply,
+    OAlt.getOrThrow("can't store scarcity, eth supply is missing"),
+  );
 
 const intervalIterator = setInterval(Duration.millisFromMinutes(1), Date.now());
 
@@ -41,6 +43,5 @@ const continuouslyUpdate = async () => {
 
 export const init = async () => {
   await updateEthSupply()();
-
   continuouslyUpdate();
 };

@@ -6,7 +6,7 @@ import * as DefiPulse from "../defi_pulse.js";
 import * as Duration from "../duration.js";
 import { B, flow, O, pipe, T, TE, TO } from "../fp.js";
 
-type LastEthLocked = {
+export type EthLocked = {
   timestamp: Date;
   ethLocked: number;
 };
@@ -58,7 +58,7 @@ const updateEthLocked = () =>
 
 const maxAge = Duration.millisFromDays(2);
 
-const getIsEthLockedFresh = (lastEthLocked: LastEthLocked) =>
+const getIsEthLockedFresh = (lastEthLocked: EthLocked) =>
   DateFnsAlt.millisecondsBetweenAbs(lastEthLocked.timestamp, new Date()) <=
   maxAge;
 
