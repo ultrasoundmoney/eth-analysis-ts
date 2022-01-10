@@ -1,8 +1,6 @@
-import PQueue from "p-queue";
 import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
-import * as Duration from "./duration.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { E } from "./fp.js";
 import * as Log from "./log.js";
@@ -36,32 +34,30 @@ type ApiError = {
 };
 
 // Fetching profiles is on a 900 / 15min rate-limit, or 1/s.
-export const fetchProfileQueue = new PQueue({
-  concurrency: 2,
-  intervalCap: 10,
-  interval: Duration.millisFromSeconds(10),
-});
+// export const fetchProfileQueue = new PQueue({
+//   concurrency: 2,
+//   intervalCap: 10,
+//   interval: Duration.millisFromSeconds(10),
+// });
 
 export const getProfileByHandle = async (
   handle: string,
 ): Promise<UserTwitterApiRaw | undefined> => {
-  const resE = await fetchProfileQueue.add(
-    FetchAlt.fetchWithRetry(
-      makeProfileByUsernameUrl(handle),
-      {
-        headers: {
-          Authorization: `Bearer ${getTwitterToken()}`,
-        },
+  const resE = await FetchAlt.fetchWithRetry(
+    makeProfileByUsernameUrl(handle),
+    {
+      headers: {
+        Authorization: `Bearer ${getTwitterToken()}`,
       },
-      {
-        acceptStatuses: [200, 404],
-        retryPolicy: Retry.Monoid.concat(
-          Retry.exponentialBackoff(2000),
-          Retry.limitRetries(5),
-        ),
-      },
-    ),
-  );
+    },
+    {
+      acceptStatuses: [200, 404],
+      retryPolicy: Retry.Monoid.concat(
+        Retry.exponentialBackoff(2000),
+        Retry.limitRetries(5),
+      ),
+    },
+  )();
 
   if (E.isLeft(resE)) {
     Log.error(`fetch twitter profile ${handle} error`, resE.left);
