@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: watch-blocks
+  name: analyze-blocks
   labels:
-    app: watch-blocks
+    app: analyze-blocks
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: watch-blocks
+      app: analyze-blocks
   template:
     metadata:
       labels:
-        app: watch-blocks
+        app: analyze-blocks
       annotations:
         linkerd.io/inject: enabled
     spec:
       containers:
-        - name: watch-blocks
+        - name: analyze-blocks
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/watch_blocks.js"]
+          command: ["node", "src/analyze_blocks.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env

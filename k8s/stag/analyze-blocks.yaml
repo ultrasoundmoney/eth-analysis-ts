@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: watch-blocks-dev
+  name: analyze-blocks
   labels:
-    app: watch-blocks-dev
+    app: analyze-blocks
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: watch-blocks-dev
+      app: analyze-blocks
   template:
     metadata:
       labels:
-        app: watch-blocks-dev
+        app: analyze-blocks
     spec:
       containers:
-        - name: watch-blocks-dev
+        - name: analyze-blocks
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/watch_blocks.js"]
+          command: ["node", "src/analyze_blocks.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
@@ -38,10 +38,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: PGDATABASE
-              value: devdb
-            - name: LOG_LEVEL
-              value: debug
           resources:
             requests:
               cpu: 250m
