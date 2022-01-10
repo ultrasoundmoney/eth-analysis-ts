@@ -479,7 +479,45 @@ const updateOpenseaMetadataFromContract = (
     TAlt.concatAllVoid,
   );
 
-const addOpenseaMetadata = (
+const addOpenseaMetadata = (address: string) =>
+  pipe(
+    Opensea.getContract(address),
+    queueOpenseaFetch,
+    TE.chainW((contract) =>
+      TE.fromTaskK(updateOpenseaMetadataFromContract)(address, contract),
+    ),
+    TE.match(
+      (error) => {
+        if (error instanceof TimeoutError) {
+          // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
+          return undefined;
+        }
+
+        if (error instanceof Opensea.MissingStandardError) {
+          // Opensea returns a 406 for some contracts. Not clear why this isn't a 200. We do nothing as a result.
+          return undefined;
+        }
+
+        if (error instanceof Opensea.NotFoundError) {
+          // Opensea doesn't know all contracts.
+          return undefined;
+        }
+
+        Log.error(error);
+        return undefined;
+      },
+      () => undefined,
+    ),
+    T.chain(() =>
+      TAlt.seqTParT(
+        Contracts.updatePreferredMetadata(address),
+        Opensea.setContractLastFetchNow(address),
+      ),
+    ),
+    TAlt.concatAllVoid,
+  );
+
+const addOpenseaMetadataMaybe = (
   address: string,
   forceRefetch = false,
 ): T.Task<void> =>
@@ -488,48 +526,7 @@ const addOpenseaMetadata = (
     T.chain(
       B.match(
         () => T.of(undefined),
-        () =>
-          pipe(
-            Opensea.getContract(address),
-            queueOpenseaFetch,
-            TE.chainW((contract) =>
-              pipe(
-                updateOpenseaMetadataFromContract(address, contract),
-                T.map(E.right),
-              ),
-            ),
-            TE.match(
-              (error) => {
-                if (error instanceof TimeoutError) {
-                  // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
-                  return undefined;
-                }
-
-                if (error instanceof Opensea.MissingStandardError) {
-                  // Opensea returns a 406 for some contracts. Not clear why this isn't a 200. We do nothing as a result.
-                  return undefined;
-                }
-
-                if (error instanceof Opensea.NotFoundError) {
-                  // Opensea doesn't know all contracts.
-                  return undefined;
-                }
-
-                Log.error(error);
-                return undefined;
-              },
-              () => undefined,
-            ),
-            T.chain(() =>
-              pipe(
-                TAlt.seqTParT(
-                  Contracts.updatePreferredMetadata(address),
-                  Opensea.setContractLastFetchNow(address),
-                ),
-                TAlt.concatAllVoid,
-              ),
-            ),
-          ),
+        () => addOpenseaMetadata(address),
       ),
     ),
   );
