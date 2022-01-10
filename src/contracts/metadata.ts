@@ -569,10 +569,9 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     TAlt.seqTParT(
       () => addDefiLlamaMetadata(address),
-      // () => addEtherscanMetaTitle(address, forceRefetch),
       () => addEtherscanNameTag(address, forceRefetch),
       () => addWeb3Metadata(address, forceRefetch),
-      addOpenseaMetadata(address, forceRefetch),
+      addOpenseaMetadataMaybe(address, forceRefetch),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
     // Subtly, the updatePreferredMetadata call may uncover a manually set twitter handle.
