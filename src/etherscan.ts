@@ -193,8 +193,6 @@ export const getMetaTitle = (
         etherscanTokenName === null ||
         etherscanTokenName.getAttribute === undefined
       ) {
-        console.log(html);
-
         return E.left(new Error('no meta element with property="og-title"'));
       }
 
