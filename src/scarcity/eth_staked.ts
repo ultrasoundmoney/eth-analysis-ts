@@ -16,7 +16,7 @@ let lastEthStaked: O.Option<EthStaked> = O.none;
 const updateEthStaked = () =>
   pipe(
     EthNode.getBalance(eth2DepositAddress),
-    TAlt.logDebug("got eth staked from deposit contract, balance: "),
+    TAlt.logDebugStr("got eth staked from deposit contract, balance: "),
     T.map((balance) => {
       lastEthStaked = O.some({
         timestamp: new Date(),
