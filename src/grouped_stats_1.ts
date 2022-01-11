@@ -3,7 +3,7 @@ import * as Blocks from "./blocks/blocks.js";
 import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
-import { pipe, T, TAlt } from "./fp.js";
+import { A, flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
@@ -12,6 +12,7 @@ import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as ScarcityCache from "./scarcity/cache.js";
 import { serializeBigInt } from "./json.js";
+import { LeaderboardEntries } from "./leaderboards.js";
 
 export const groupedStats1Key = "grouped-stats-1";
 
@@ -109,4 +110,29 @@ export const updateGroupedStats1 = (block: Blocks.BlockDb) =>
       `,
     ),
     T.chain(() => sqlTNotify("cache-update", "grouped-stats-1")),
+  );
+
+export const getLatestLeaderboards = (): T.Task<{
+  blockNumber: number;
+  leaderboards: LeaderboardEntries;
+}> =>
+  pipe(
+    sqlT<
+      { value: { blockNumber: number; leaderboards: LeaderboardEntries } }[]
+    >`
+      SELECT value FROM key_value_store
+      WHERE key = 'grouped-stats-1'
+    `,
+    T.map(
+      flow(
+        A.head,
+        O.map((row) => ({
+          blockNumber: row.value.blockNumber,
+          leaderboards: row.value.leaderboards,
+        })),
+        OAlt.getOrThrow(
+          "empty derived block stats, can't return latest leaderboards",
+        ),
+      ),
+    ),
   );

@@ -1,10 +1,10 @@
 import { setInterval } from "timers/promises";
 import * as Contracts from "./contracts/contracts.js";
 import * as ContractsMetadata from "./contracts/crawl_metadata.js";
-import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import { pipe, T } from "./fp.js";
+import * as GroupedStats1 from "./grouped_stats_1.js";
 import * as Log from "./log.js";
 
 process.on("unhandledRejection", (error) => {
@@ -16,13 +16,13 @@ const intervalIterator = setInterval(Duration.millisFromSeconds(4), Date.now());
 await EthNode.connect();
 
 let lastAnalyzed = await pipe(
-  DerivedBlockStats.getLatestLeaderboards(),
+  GroupedStats1.getLatestLeaderboards(),
   T.map((stats) => stats.blockNumber),
 )();
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 for await (const _ of intervalIterator) {
-  const latestStats = await DerivedBlockStats.getLatestLeaderboards()();
+  const latestStats = await GroupedStats1.getLatestLeaderboards()();
 
   if (lastAnalyzed === latestStats.blockNumber) {
     Log.debug(
