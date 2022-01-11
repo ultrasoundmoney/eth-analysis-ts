@@ -195,28 +195,6 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
     ),
   );
 
-export const setTwitterHandle = (
-  address: string,
-  handle: string,
-): T.Task<void> =>
-  pipe(
-    setSimpleTextColumn("manual_twitter_handle", address, handle),
-    T.chain(() => () => ContractsMetadata.addTwitterMetadata(address)),
-    T.chain(() => updatePreferredMetadata(address)),
-  );
-
-export const setName = (address: string, name: string): T.Task<void> =>
-  pipe(
-    setSimpleTextColumn("manual_name", address, name),
-    T.chain(() => updatePreferredMetadata(address)),
-  );
-
-export const setCategory = (address: string, category: string): T.Task<void> =>
-  pipe(
-    setSimpleTextColumn("manual_category", address, category),
-    T.chain(() => updatePreferredMetadata(address)),
-  );
-
 export const setLastLeaderboardEntryToNow = async (
   addresses: string[],
 ): Promise<void> => {

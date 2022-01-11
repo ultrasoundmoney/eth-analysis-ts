@@ -138,7 +138,7 @@ const handleSetContractTwitterHandle: Middleware = async (ctx) => {
     return undefined;
   }
 
-  await Contracts.setTwitterHandle(address, handle)();
+  await ContractsAdmin.setTwitterHandle(address, handle)();
   ctx.status = 200;
   return undefined;
 };
@@ -171,7 +171,7 @@ const handleSetContractName: Middleware = async (ctx) => {
     return undefined;
   }
 
-  await Contracts.setName(address, name)();
+  await ContractsAdmin.setName(address, name)();
   ctx.status = 200;
   return undefined;
 };
@@ -205,7 +205,7 @@ const handleSetContractCategory: Middleware = async (ctx) => {
     return undefined;
   }
 
-  await Contracts.setCategory(address, category)();
+  await ContractsAdmin.setCategory(address, category)();
   ctx.status = 200;
   return undefined;
 };
