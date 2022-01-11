@@ -8,6 +8,7 @@ import WebSocket from "ws";
 import * as Blocks from "./blocks/blocks.js";
 import * as Config from "./config.js";
 import * as Duration from "./duration.js";
+import { pipe, T } from "./fp.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
 import * as Log from "./log.js";
 import { TxRWeb3London } from "./transactions.js";
@@ -529,6 +530,5 @@ export const makeContract = (address: string, abi: AbiItem[]): Contract => {
   return contract;
 };
 
-export const getBalance = (address: string): Promise<string> => {
-  return getWeb3().eth.getBalance(address);
-};
+export const getBalance = (address: string) =>
+  pipe(() => getWeb3().eth.getBalance(address), T.map(BigInt));
