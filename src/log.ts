@@ -84,6 +84,7 @@ export const log = (
         name: meta.name,
         severity,
         stack: meta.stack,
+        timestamp: new Date(),
       }),
     );
   } else {
@@ -92,6 +93,7 @@ export const log = (
         message: String(message),
         meta,
         severity,
+        timestamp: new Date(),
       }),
     );
   }
