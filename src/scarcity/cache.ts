@@ -1,6 +1,6 @@
 import { BlockDb } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
-import { sqlNotifyT, sqlT, sqlTVoid } from "../db.js";
+import { sqlTNotify, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as FeeBurn from "../fee_burns.js";
 import { E, flow, O, OAlt, pipe, T, TE } from "../fp.js";
@@ -101,7 +101,7 @@ export const updateScarcityCache = (block: BlockDb): T.Task<void> =>
     TE.chainTaskK(() =>
       // Update scarcity caches about once every 10 blocks
       block.number % 10 === 0
-        ? sqlNotifyT("cache-update", scarcityCacheKey)
+        ? sqlTNotify("cache-update", scarcityCacheKey)
         : T.of(undefined),
     ),
     TE.match(

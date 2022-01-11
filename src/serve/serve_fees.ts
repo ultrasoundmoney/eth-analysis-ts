@@ -4,21 +4,19 @@ import Koa, { Middleware } from "koa";
 import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
-import { FeesBurnedT } from "../base_fee_sums.js";
 import * as Blocks from "../blocks/blocks.js";
-import { NewBlockPayload } from "../blocks/blocks.js";
 import * as BurnRecordsCache from "../burn-records/cache.js";
 import { BurnRatesT } from "../burn_rates.js";
 import * as Canary from "../canary.js";
 import * as Config from "../config.js";
-import * as Contracts from "../contracts/contracts.js";
+import * as ContractsAdmin from "../contracts/admin.js";
 import { runMigrations, sql } from "../db.js";
-import * as DerivedBlockStats from "../derived_block_stats.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeesBurnedPerInterval from "../fees_burned_per_interval.js";
-import { O, pipe, T, TAlt, TE } from "../fp.js";
-import * as LatestBlockFees from "../latest_block_fees.js";
+import { FeesBurnedT } from "../fee_burns.js";
+import { O, pipe, T, TE } from "../fp.js";
+import * as GroupedStats1 from "../grouped_stats_1.js";
 import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
@@ -36,29 +34,13 @@ process.on("unhandledRejection", (error) => {
   throw error;
 });
 
-type Cache = {
-  baseFeePerGas?: number;
-  burnRates?: BurnRatesT;
-  feesBurned?: FeesBurnedT;
-  feesBurnedPerInterval?: Record<string, number>;
-  latestBlockFees?: { fees: number; number: number }[];
-  number?: number;
-  leaderboards?: LeaderboardEntries;
-};
-
-let cache: Cache = {
-  baseFeePerGas: undefined,
-  burnRates: undefined,
-  feesBurned: undefined,
-  latestBlockFees: undefined,
-  number: undefined,
-  leaderboards: undefined,
-};
-
 const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
   ctx.set("Content-Type", "application/json");
-  ctx.body = { number: cache.number, feesBurned: cache.feesBurned };
+  ctx.body = {
+    number: groupedStats1Cache.number,
+    feesBurned: groupedStats1Cache.feesBurned,
+  };
 };
 
 const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
@@ -96,13 +78,16 @@ const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
 const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = { burnRates: cache.burnRates, number: cache.number };
+  ctx.body = {
+    burnRates: groupedStats1Cache.burnRates,
+    number: groupedStats1Cache.number,
+  };
 };
 
 const handleGetLatestBlocks: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = cache.latestBlockFees;
+  ctx.body = groupedStats1Cache.latestBlockFees;
 };
 
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
@@ -115,13 +100,13 @@ const handleGetBaseFeePerGas: Middleware = async (ctx) => {
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = cache.leaderboards;
+  ctx.body = groupedStats1Cache.leaderboards;
 };
 
 const handleGetAll: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = cache;
+  ctx.body = groupedStats1Cache;
 };
 
 const handleSetContractTwitterHandle: Middleware = async (ctx) => {
@@ -276,40 +261,10 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
 };
 
 const handleGetBurnRecords: Middleware = async (ctx) => {
-  pipe(
-    burnRecordsCache,
-    O.match(
-      () => {
-        ctx.status = 503;
-      },
-      (burnRecords) => {
-        ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
-        ctx.set("Content-Type", "application/json");
-        ctx.body = burnRecords;
-      },
-    ),
-  );
+  ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = burnRecordsCache;
 };
-
-const updateCachesForBlockNumber = (blockNumber: number) =>
-  pipe(
-    TAlt.seqSParT({
-      derivedBlockStats: () =>
-        DerivedBlockStats.getDerivedBlockStats(blockNumber),
-      latestBlockFees: LatestBlockFees.getLatestBlockFees(blockNumber),
-      baseFeePerGas: Blocks.getBaseFeesPerGas(blockNumber),
-    }),
-    T.map(({ derivedBlockStats, latestBlockFees, baseFeePerGas }) => {
-      cache = {
-        baseFeePerGas,
-        burnRates: derivedBlockStats?.burnRates ?? undefined,
-        feesBurned: derivedBlockStats?.feesBurned ?? undefined,
-        latestBlockFees,
-        leaderboards: derivedBlockStats?.leaderboards ?? undefined,
-        number: blockNumber,
-      };
-    }),
-  );
 
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
@@ -329,14 +284,12 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
-  Log.error(`DB cache-update but did not recognize key ${payload}`);
-});
+  if (payload === GroupedStats1.groupedStats1Key) {
+    groupedStats1Cache = await GroupedStats1.getLatestStats()();
+    return;
+  }
 
-sql.listen("new-derived-stats", (payload) => {
-  Canary.resetCanary("block");
-  const latestBlock: NewBlockPayload = JSON.parse(payload!);
-  Log.debug(`derived stats available for block: ${latestBlock.number}`);
-  updateCachesForBlockNumber(latestBlock.number)();
+  Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
 const port = process.env.PORT || 8080;
@@ -407,9 +360,9 @@ if (blockNumberOnStart === undefined) {
   throw new Error("no derived block stats, can't serve fees");
 }
 
-await updateCachesForBlockNumber(blockNumberOnStart)();
 let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
 let scarcityCache = await ScarcityCache.getScarcityCache()();
+let groupedStats1Cache = await GroupedStats1.getLatestStats()();
 
 await new Promise((resolve) => {
   app.listen(port, () => {

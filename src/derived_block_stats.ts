@@ -1,9 +1,9 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
-import { FeesBurnedT } from "./base_fee_sums.js";
 import { BurnRatesT } from "./burn_rates.js";
 import { sql, sqlT } from "./db.js";
 import { A, TE } from "./fp.js";
+import { FeesBurnedT } from "./fee_burns.js";
 import { LeaderboardEntries } from "./leaderboards.js";
 
 export type DerivedBlockStats = {
@@ -17,7 +17,6 @@ export type DerivedBlockStatsSerialized = {
   blockNumber: number;
   burnRates: BurnRatesT;
   // burnRecords: BurnRecordsT;
-  feesBurned: FeesBurnedT;
   leaderboards: LeaderboardEntries;
 };
 

@@ -60,13 +60,6 @@ export const getInitSumForTimeFrame = (
       () => getSumForAll(),
     ),
     T.map((rows) => ({ eth: BigInt(rows[0].eth), usd: rows[0].usd })),
-    T.chainFirstIOK((baseFeeSum) => () => {
-      Log.debug(
-        `got precise fee burn for ${timeFrame}, eth: ${
-          Number(baseFeeSum.eth) / 10 ** 18
-        }`,
-      );
-    }),
   );
 
 type BaseFeeSums = Record<TimeFrameNext, PreciseBaseFeeSum>;
@@ -98,8 +91,7 @@ const addToCurrent = (
 
 export const init = (): T.Task<void> =>
   pipe(
-    Log.debug("init precise fee burn"),
-    () => TimeFrames.timeFramesNext,
+    TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
       pipe(
         getInitSumForTimeFrame(timeFrame),

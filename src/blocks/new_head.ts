@@ -1,26 +1,18 @@
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
-import { calcBaseFeeSums } from "../base_fee_sums.js";
-import * as BurnRecordsCache from "../burn-records/cache.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
-import { calcBurnRates } from "../burn_rates.js";
 import * as Contracts from "../contracts/contracts.js";
-import { sql } from "../db.js";
-import * as DerivedBlockStats from "../derived_block_stats.js";
-import { BlockLondon, Head } from "../eth_node.js";
+import { Head } from "../eth_node.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
-import { pipe, T, TAlt } from "../fp.js";
+import * as GroupedStats1 from "../grouped_stats_1.js";
 import * as Leaderboards from "../leaderboards.js";
-import { LeaderboardEntries } from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
-import * as ScarcityCache from "../scarcity/cache.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
-import { NewBlockPayload } from "./blocks.js";
 
 export const newBlockQueue = new PQueue({
   concurrency: 1,
@@ -135,85 +127,17 @@ export const addBlock = async (head: Head): Promise<void> => {
     newBlockQueue.pending <= 1;
 
   if (allBlocksProcessed) {
-    await updateDerivedBlockStats(blockDb)();
-    await notifyNewDerivedStats(block)();
+    await Performance.measureTaskPerf(
+      "update grouped stats 1",
+      GroupedStats1.updateGroupedStats1(blockDb),
+    )();
   } else {
-    Log.debug("blocks left to process, skipping computation of derived stats");
+    Log.debug(
+      "more than one block queued for analysis, skipping further computation",
+    );
   }
   Performance.logPerf("add block", t0);
 };
 
 export const onNewBlock = async (head: Head): Promise<void> =>
   newBlockQueue.add(() => addBlock(head));
-
-const updateDerivedBlockStats = (block: Blocks.BlockDb) => {
-  Log.debug("updating derived stats");
-  const t0 = performance.now();
-
-  const feesBurned = pipe(
-    calcBaseFeeSums(block),
-    T.chainFirstIOK(Performance.logPerfT("calc base fee sums", t0)),
-  );
-
-  const burnRates = pipe(
-    calcBurnRates(block),
-    T.chainFirstIOK(Performance.logPerfT("calc burn rates", t0)),
-  );
-
-  const leaderboardAllTask = async () => {
-    const leaderboardAll = await LeaderboardsAll.calcLeaderboardAll()();
-    Performance.logPerfT("calc leaderboard all", t0);
-    return leaderboardAll;
-  };
-
-  const leaderboardLimitedTimeframes = pipe(
-    LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
-    T.chainFirstIOK(
-      Performance.logPerfT("calc leaderboard limited timeframes", t0),
-    ),
-  );
-
-  const leaderboards: T.Task<LeaderboardEntries> = pipe(
-    TAlt.seqTParT(leaderboardLimitedTimeframes, leaderboardAllTask),
-    T.map(([leaderboardLimitedTimeframes, leaderboardAll]) => ({
-      leaderboard5m: leaderboardLimitedTimeframes["5m"],
-      leaderboard1h: leaderboardLimitedTimeframes["1h"],
-      leaderboard24h: leaderboardLimitedTimeframes["24h"],
-      leaderboard7d: leaderboardLimitedTimeframes["7d"],
-      leaderboard30d: leaderboardLimitedTimeframes["30d"],
-      leaderboardAll: leaderboardAll,
-    })),
-  );
-
-  return pipe(
-    TAlt.seqSParT({
-      burnRates,
-      feesBurned,
-      leaderboards,
-      updateBurnRecords: BurnRecordsCache.updateRecordsCache(block.number),
-      updateScarcity: () => ScarcityCache.updateScarcityCache(block),
-    }),
-    T.chain(({ burnRates, feesBurned, leaderboards }) =>
-      DerivedBlockStats.storeDerivedBlockStats({
-        blockNumber: block.number,
-        burnRates,
-        feesBurned,
-        leaderboards,
-      }),
-    ),
-    T.chainFirstIOK(() => () => {
-      DerivedBlockStats.deleteOldDerivedStats()();
-    }),
-  );
-};
-
-const notifyNewDerivedStats = (block: BlockLondon): T.Task<void> => {
-  const payload: NewBlockPayload = {
-    number: block.number,
-  };
-
-  return pipe(
-    () => sql.notify("new-derived-stats", JSON.stringify(payload)),
-    T.map(() => undefined),
-  );
-};

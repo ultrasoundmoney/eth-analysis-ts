@@ -368,8 +368,8 @@ const getTopBaseFeeContracts = (
 
 const calcLeaderboardForLimitedTimeframe = (
   timeFrame: LimitedTimeFrame,
-): T.Task<LeaderboardEntry[]> => {
-  return pipe(
+): T.Task<LeaderboardEntry[]> =>
+  pipe(
     TAlt.seqTParT(
       pipe(
         getTopBaseFeeContracts(timeFrame),
@@ -382,7 +382,6 @@ const calcLeaderboardForLimitedTimeframe = (
       Leaderboards.buildLeaderboard(contractUse, ethTransfer, contractCreation),
     ),
   );
-};
 
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
   Record<LimitedTimeFrame, LeaderboardEntry[]>

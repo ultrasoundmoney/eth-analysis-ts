@@ -1,5 +1,5 @@
-import { sql, sqlNotifyT, sqlT } from "../db.js";
-import { flow, O, pipe, T, TAlt } from "../fp.js";
+import { sql, sqlTNotify, sqlT } from "../db.js";
+import { flow, O, OAlt, pipe, T, TAlt } from "../fp.js";
 import { TimeFrameNext } from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
 
@@ -37,7 +37,7 @@ export const updateRecordsCache = (blockNumber: number) =>
             value = excluded.value
         `,
     ),
-    T.chain(() => sqlNotifyT("cache-update", burnRecordsCacheKey)),
+    T.chain(() => sqlTNotify("cache-update", burnRecordsCacheKey)),
     T.map(() => undefined),
   );
 
@@ -47,5 +47,11 @@ export const getRecordsCache = () =>
       SELECT value FROM key_value_store
       WHERE key = ${burnRecordsCacheKey}
     `,
-    T.map(flow((rows) => rows[0]?.value, O.fromNullable)),
+    T.map(
+      flow(
+        (rows) => rows[0]?.value,
+        O.fromNullable,
+        OAlt.getOrThrow("tried to get records cache before updating records"),
+      ),
+    ),
   );
