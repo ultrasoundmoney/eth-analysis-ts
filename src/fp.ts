@@ -5,7 +5,9 @@ import * as O from "fp-ts/lib/Option.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import * as Void from "fp-ts/lib/void.js";
+import * as Log from "./log.js";
 
+export * as Ap from "fp-ts/lib/Apply.js";
 export * as A from "fp-ts/lib/Array.js";
 export * as B from "fp-ts/lib/boolean.js";
 export * as E from "fp-ts/lib/Either.js";
@@ -55,6 +57,14 @@ export const TAlt = {
   seqSSeqT: Apply.sequenceS(T.ApplySeq),
   seqTParT: Apply.sequenceT(T.ApplyPar),
   seqTSeqT: Apply.sequenceT(T.ApplySeq),
+  logDebugStr: <A>(msg: string) =>
+    T.chainFirstIOK<A, void>((value) => () => {
+      Log.debug(msg + String(value));
+    }),
+  logDebug: <A>(msg: string) =>
+    T.chainFirstIOK<A, void>((value) => () => {
+      Log.debug(msg, value);
+    }),
 };
 
 export const TEAlt = {
