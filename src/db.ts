@@ -16,9 +16,6 @@ const config = {
   transform: { column: camelCase },
   max: Config.getEnv() === "staging" ? 2 : 6,
   no_prepare: Config.getEnv() === "staging",
-  types: {
-    bigint: postgres.BigInt,
-  },
   connection: {
     application_name: Config.getName(),
   },

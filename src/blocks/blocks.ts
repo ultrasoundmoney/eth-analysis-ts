@@ -15,7 +15,7 @@ import { A, NEA, O, pipe, T, TAlt, TO } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
-import { TimeFrame } from "../time_frames.js";
+import { TimeFrame, TimeFrameNext } from "../time_frames.js";
 import { segmentTxrs, TxRWeb3London } from "../transactions.js";
 import { usdToScaled } from "../usd_scaling.js";
 
@@ -34,8 +34,8 @@ export type BlockDbInsertable = {
   base_fee_sum_256: string;
   contract_creation_sum: number;
   eth_transfer_sum: number;
-  base_fee_per_gas: bigint;
-  gas_used: bigint;
+  base_fee_per_gas: string;
+  gas_used: string;
   eth_price?: number;
 };
 
@@ -61,12 +61,12 @@ const insertableFromBlock = (
   ethPrice: number,
 ): BlockDbInsertable => ({
   ...(typeof ethPrice === "number" ? { eth_price: ethPrice } : undefined),
-  base_fee_per_gas: block.baseFeePerGas,
+  base_fee_per_gas: block.baseFeePerGas.toString(),
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: block.baseFeeSum.toString(),
   contract_creation_sum: feeBreakdown.contract_creation_fees,
   eth_transfer_sum: feeBreakdown.transfers,
-  gas_used: block.gasUsed,
+  gas_used: block.gasUsed.toString(),
   hash: block.hash,
   mined_at: block.minedAt,
   number: block.number,
@@ -267,47 +267,33 @@ export const getSyncedBlockHeight = async (): Promise<number> => {
   return rows[0].max;
 };
 
-export const getBaseFeesPerGas = (
-  blockNumber: number,
-): T.Task<number | undefined> => {
-  return pipe(
-    () => sql<{ baseFeePerGas: number }[]>`
+export const getBaseFeesPerGas = (blockNumber: number): T.Task<number> =>
+  pipe(
+    sqlT<{ baseFeePerGas: number }[]>`
       SELECT base_fee_per_gas FROM blocks
       WHERE number = ${blockNumber}
     `,
-    T.map((rows) =>
-      typeof rows[0]?.baseFeePerGas === "bigint"
-        ? Number(rows[0].baseFeePerGas)
-        : undefined,
-    ),
+    T.map((rows) => Number(rows[0].baseFeePerGas)),
   );
-};
 
 export const setEthPrice = (
   blockNumber: number,
   ethPrice: number,
 ): T.Task<void> =>
-  pipe(
-    () => sql`
-      UPDATE blocks
-      SET eth_price = ${ethPrice}
-      WHERE number = ${blockNumber}
-    `,
-    T.map(() => undefined),
-  );
+  sqlTVoid`
+    UPDATE blocks
+    SET eth_price = ${ethPrice}
+    WHERE number = ${blockNumber}
+  `;
 
 export const getLatestBaseFeePerGas = (): T.Task<number> =>
   pipe(
-    () => sql<{ baseFeePerGas: number }[]>`
+    sqlT<{ baseFeePerGas: number }[]>`
       SELECT base_fee_per_gas FROM blocks
       ORDER BY number DESC
       LIMIT 1
     `,
-    T.map((rows) =>
-      typeof rows[0]?.baseFeePerGas === "bigint"
-        ? Number(rows[0].baseFeePerGas)
-        : 0,
-    ),
+    T.map((rows) => Number(rows[0].baseFeePerGas)),
   );
 
 type BlockDbRow = {
