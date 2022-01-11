@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "fs/promises";
 import * as Contracts from "./contracts/contracts.js";
-import { addWeb3Metadata } from "./contracts/metadata.js";
+import { addWeb3Metadata } from "./contracts/crawl_metadata.js";
 import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
 import * as Log from "./log.js";

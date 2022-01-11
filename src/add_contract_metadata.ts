@@ -1,6 +1,6 @@
 import * as Contracts from "./contracts/contracts.js";
-import * as ContractsMetadata from "./contracts/metadata.js";
 import { sql } from "./db.js";
+import * as ContractsMetadata from "./contracts/crawl_metadata.js";
 import * as DerivedBlockStats from "./derived_block_stats.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
