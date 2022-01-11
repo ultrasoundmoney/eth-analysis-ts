@@ -2,7 +2,6 @@ import A from "fp-ts/lib/Array.js";
 import { sql, sqlTVoid } from "../db.js";
 import { flow, NEA, O, pipe, T } from "../fp.js";
 import * as OpenSea from "../opensea.js";
-import * as ContractsMetadata from "./metadata.js";
 
 export const storeContracts = flow(
   NEA.map((address) => ({ address })),
