@@ -70,5 +70,5 @@ export const readFromFirstRow =
       O.map((row) => row[field]),
     );
 
-export const sqlNotifyT = (channel: string, payload: string) => () =>
+export const sqlTNotify = (channel: string, payload: string) => () =>
   sql.notify(channel, payload);
