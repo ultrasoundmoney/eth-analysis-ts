@@ -419,13 +419,13 @@ export const getLastStoredBlock = async (): Promise<BlockDb> => {
 
 export const getIsBlockWithinTimeFrame = async (
   blockNumber: number,
-  timeFrame: TimeFrame,
+  timeFrame: TimeFrameNext,
 ) => {
   if (timeFrame === "all") {
     return true;
   }
 
-  const interval = TimeFrames.intervalSqlMap[timeFrame];
+  const interval = TimeFrames.intervalSqlMapNext[timeFrame];
 
   const [exists] = await sql<{ exists: boolean }[]>`
     SELECT (
