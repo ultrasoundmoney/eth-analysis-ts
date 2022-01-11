@@ -1,7 +1,6 @@
 import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import * as Retry from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
-import { delay } from "./delay.js";
 import { E, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 

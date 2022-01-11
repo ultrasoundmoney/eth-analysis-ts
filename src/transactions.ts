@@ -1,8 +1,8 @@
 import * as Sentry from "@sentry/node";
 import PQueue from "p-queue";
+import { setTimeout } from "timers/promises";
 import type { TransactionReceipt as TxRWeb3 } from "web3-core";
 import * as Blocks from "./blocks/blocks.js";
-import { delay } from "./delay.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
 import { BlockLondon } from "./eth_node.js";
@@ -75,7 +75,7 @@ export const getTxrsWithRetry = async (
     Log.warn(
       `block ${tryBlock.number} contained null txrs, hash: ${tryBlock.hash}, waiting ${delaySeconds}s and trying again`,
     );
-    await delay(delayMilis);
+    await setTimeout(delayMilis);
 
     // Maybe the block got forked and that's why the receipts are null?  Refetch the block.
     tryBlock = await Blocks.getBlockWithRetry(block.number);

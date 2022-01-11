@@ -1,4 +1,5 @@
 import * as DateFns from "date-fns";
+import { setTimeout } from "timers/promises";
 import {
   calcBlockBaseFeeSum,
   calcBlockFeeBreakdown,
@@ -7,7 +8,6 @@ import {
 } from "../base_fees.js";
 import * as Contracts from "../contracts/contracts.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
-import { delay } from "../delay.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
 import { BlockLondon } from "../eth_node.js";
@@ -128,7 +128,7 @@ export const getBlockWithRetry = async (
     Log.warn(
       `asked for block ${blockNumber}, got null, waiting ${delaySeconds}s and trying again`,
     );
-    await delay(delayMilis);
+    await setTimeout(delayMilis);
   }
 };
 
