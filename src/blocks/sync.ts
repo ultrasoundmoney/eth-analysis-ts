@@ -1,6 +1,8 @@
+import * as DateFns from "date-fns";
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as EthPrices from "../eth-prices/eth_prices.js";
+import { pipe, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
@@ -23,7 +25,10 @@ const syncBlock = async (blockNumber: number): Promise<void> => {
 
   const [txrs, ethPrice] = await Promise.all([
     Transactions.getTxrsWithRetry(block),
-    EthPrices.getPriceForOldBlock(block),
+    pipe(
+      EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
+      TEAlt.getOrThrow,
+    )(),
   ]);
 
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
