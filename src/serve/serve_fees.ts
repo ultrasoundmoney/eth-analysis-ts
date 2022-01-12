@@ -10,7 +10,8 @@ import * as Config from "../config.js";
 import * as ContractsAdmin from "../contracts/admin.js";
 import { runMigrations, sql } from "../db.js";
 import * as Duration from "../duration.js";
-import * as EthPrices from "../eth_prices.js";
+import * as EthPricesAverages from "../eth-prices/averages.js";
+import * as EthPrices from "../eth-prices/eth_prices.js";
 import { O, pipe, T, TE } from "../fp.js";
 import * as GroupedStats1 from "../grouped_stats_1.js";
 import * as Log from "../log.js";
@@ -185,7 +186,7 @@ const handleSetContractCategory: Middleware = async (ctx) => {
 };
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
-  const averageEthPrice = await EthPrices.getAveragePrice()();
+  const averageEthPrice = await EthPricesAverages.getAveragePrice()();
   ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=16");
   ctx.body = averageEthPrice;
   return undefined;
