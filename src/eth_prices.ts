@@ -1,20 +1,19 @@
 import * as DateFns from "date-fns";
-import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import * as DateFnsAlt from "./date_fns_alt.js";
 import { JsTimestamp } from "./date_fns_alt.js";
-import { sql, sqlT } from "./db.js";
+import { sql, sqlT, sqlTVoid } from "./db.js";
 import * as Duration from "./duration.js";
-import { BlockLondon } from "./eth_node.js";
 import * as EthPricesFtx from "./eth_prices_ftx.js";
-import * as EthPricesUniswap from "./eth_prices_uniswap.js";
-import { E, flow, O, pipe, T, TAlt, TE } from "./fp.js";
+import { E, flow, O, pipe, T, TAlt, TE, TO, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
 import {
   intervalSqlMapNext,
   LimitedTimeFrameNext,
   TimeFrameNext,
 } from "./time_frames.js";
+
+// TODO: move eth_prices... into a folder
 
 export type EthPrice = {
   timestamp: Date;
@@ -26,90 +25,49 @@ export type BlockForPrice = {
   number: number;
 };
 
-/* ETH price in usd */
-type EthUsd = number;
+/**
+ * JS Date rounded to a past minute.
+ */
+type MinuteDate = Date;
 
-const priceByMinute = new QuickLRU<JsTimestamp, EthUsd>({ maxSize: 5760 });
+/**
+ * ETH price in usd
+ */
+export type EthUsd = number;
 
-// Can be simplified if we add historic prices to the eth_prices table.
-const getPriceForOlderBlockWithCache = async (
-  block: BlockForPrice,
-): Promise<EthPrice> => {
-  const blockMinedAt = DateFns.fromUnixTime(block.timestamp);
-  const roundedTimestamp = DateFns.startOfMinute(blockMinedAt);
-  const cPrice = priceByMinute.get(roundedTimestamp.getTime());
+const priceByMinute = new QuickLRU<JsTimestamp, EthUsd>({ maxSize: 4096 });
 
-  if (cPrice !== undefined) {
-    return {
-      timestamp: roundedTimestamp,
-      ethusd: cPrice,
-    };
-  }
-
-  Log.debug("ftx price cache miss, fetching 1500 more");
-  const prices = await EthPricesFtx.getFtxPrices(
-    1500,
-    DateFns.addMinutes(blockMinedAt, 1499),
+const getCachedPrice = (dt: Date) =>
+  pipe(
+    dt,
+    DateFns.startOfMinute,
+    (dt) => priceByMinute.get(DateFns.getTime(dt)),
+    O.fromNullable,
+    O.map((ethusd) => ({
+      timestamp: DateFns.startOfMinute(dt),
+      ethusd,
+    })),
   );
 
-  prices.forEach(([timestamp, price]) => {
-    priceByMinute.set(timestamp, price);
-  });
-
-  const exactPrice = priceByMinute.get(roundedTimestamp.getTime());
-  const earlierPrice = [1, 2, 3, 4, 5].reduce(
-    (price: undefined | number, offset) => {
-      return (
-        price || priceByMinute.get(roundedTimestamp.getTime() - offset * 60000)
+const getFreshPrice = (dt: Date) =>
+  pipe(
+    EthPricesFtx.getPriceByDate(dt),
+    TE.chainFirstIOK((historicPrice) => () => {
+      priceByMinute.set(
+        DateFns.getTime(historicPrice.timestamp),
+        historicPrice.ethusd,
       );
-    },
-    undefined,
+    }),
   );
-  const laterPrice = [1, 2, 3, 4, 5].reduce(
-    (price: undefined | number, offset) => {
-      return (
-        price || priceByMinute.get(roundedTimestamp.getTime() + offset * 60000)
-      );
-    },
-    undefined,
-  );
-
-  // Allow a slightly earlier or later price match too. Ftx doesn't return every minute but they return most.
-  const price = exactPrice || earlierPrice || laterPrice;
-
-  Log.debug(
-    `found eth price, block: ${
-      block.number
-    }, target timestamp: ${roundedTimestamp.toISOString()}, exact hit: ${priceByMinute.has(
-      roundedTimestamp.getTime(),
-    )}, price: ${price}`,
-  );
-
-  if (price === undefined) {
-    throw new Error(
-      "successfully fetched ftx prices but target timestamp not among them",
-    );
-  }
-
-  return {
-    timestamp: roundedTimestamp,
-    ethusd: price,
-  };
-};
-
-export const getOldPriceSeqQueue = new PQueue({ concurrency: 1 });
 
 // Execute these sequentially for maximum cache hits.
-export const getPriceForOldBlock = (block: BlockLondon): Promise<EthPrice> =>
-  getOldPriceSeqQueue.add(() => getPriceForOlderBlockWithCache(block));
-
-// Odds are the price we're looking for was recently stored. Because of this we keep a cache.
-const priceCache = new QuickLRU<number, EthPrice>({
-  maxSize: 256,
-});
-
-// JS Date rounded to minute precision.
-type MinuteDate = Date;
+export const getPriceByDate = (dt: Date) =>
+  pipe(
+    getCachedPrice(dt),
+    TE.fromOption(() => new Error("price not in cache")),
+    TE.alt(() => getDbEthPrice(dt)),
+    TE.alt(() => getFreshPrice(dt)),
+  );
 
 type PriceInsertable = {
   timestamp: MinuteDate;
@@ -121,66 +79,22 @@ const insertableFromPrice = (ethPrice: EthPrice): PriceInsertable => ({
   ethusd: ethPrice.ethusd,
 });
 
-const storePrice = async (ethPrice: EthPrice): Promise<void> => {
-  await sql`
+const storePrice = (ethPrice: EthPrice) =>
+  sqlTVoid`
     INSERT INTO eth_prices
       ${sql(insertableFromPrice(ethPrice))}
-    ON CONFLICT DO NOTHING
+    ON CONFLICT (timestamp) DO UPDATE SET
+      ethusd = excluded.ethusd
   `;
-  return undefined;
-};
 
-export const storeBestPrice = async (): Promise<void> => {
-  const ethPrice = await EthPricesUniswap.getMedianEthPrice()();
-  Log.debug(
-    `storing new eth/usdc timestamp: ${ethPrice.timestamp.toISOString()}, price: ${
-      ethPrice.ethusd
-    }`,
+export const storeCurrentEthPrice = () =>
+  pipe(
+    EthPricesFtx.getPriceByDate(DateFns.startOfMinute(new Date())),
+    TE.chainFirstIOK((price) => () => {
+      Log.debug(`stored price: ${price.ethusd}, date: ${price.timestamp}`);
+    }),
+    TE.chain((price) => TE.fromTask(storePrice(price))),
   );
-
-  // Prices can be at most 5 min old.
-  const maxPriceAge = Duration.millisFromMinutes(5);
-  const isEthPriceWithinLimit =
-    DateFnsAlt.millisecondsBetweenAbs(new Date(), ethPrice.timestamp) <=
-    maxPriceAge;
-
-  if (isEthPriceWithinLimit) {
-    await storePrice(ethPrice);
-    return undefined;
-  }
-
-  Log.warn("uniswap price too old, falling back to FTX");
-
-  const ftxEthPrice = await EthPricesFtx.getNearestFtxPrice(
-    maxPriceAge,
-    new Date(),
-  );
-
-  if (ftxEthPrice === undefined) {
-    Log.error(
-      "uniswap price too old, fell back to FTX but price was undefined, using uniswap price",
-    );
-    await storePrice(ethPrice);
-    return undefined;
-  }
-
-  const isWithinDistanceLimit =
-    DateFnsAlt.millisecondsBetweenAbs(new Date(), ftxEthPrice.timestamp) <=
-    maxPriceAge;
-
-  if (isWithinDistanceLimit) {
-    Log.debug(
-      `falling back to ftx eth price for:${ethPrice.timestamp.toISOString()}`,
-    );
-    await storePrice(ftxEthPrice);
-    return undefined;
-  }
-
-  Log.error(
-    `uniswap and ftx prices more than ${maxPriceAge}s old, failed to find recent price, storing an old price`,
-  );
-  await storePrice(ethPrice);
-};
 
 export type HistoricPrice = [JsTimestamp, number];
 
@@ -188,7 +102,7 @@ const getDbEthPrice = (
   timestamp: Date,
 ): TE.TaskEither<MissingPriceError, EthPrice> =>
   pipe(
-    () => sql<{ timestamp: Date; ethusd: number }[]>`
+    sqlT<{ timestamp: Date; ethusd: number }[]>`
       SELECT
         timestamp,
         ethusd
@@ -201,43 +115,46 @@ const getDbEthPrice = (
     TE.fromTaskOption(() => new MissingPriceError("eth price table empty")),
   );
 
+class PriceTooOldError extends Error {}
+
 export const getEthPrice = (
-  timestamp: Date,
+  dt: Date,
   maxAgeMillis: number | undefined = undefined,
 ): TE.TaskEither<Error, EthPrice> => {
-  const roundedTimestamp = pipe(timestamp, DateFns.startOfMinute);
-
-  const priceCachedO = pipe(
-    roundedTimestamp,
-    (dt) => dt.getTime(),
-    (jsTimestamp) => priceCache.get(jsTimestamp),
-    O.fromNullable,
-    TE.fromOption(() => new Error("no eth price in cache")),
-  );
+  const start = DateFns.startOfMinute(dt);
 
   return pipe(
-    priceCachedO,
-    TE.alt(() => getDbEthPrice(roundedTimestamp)),
+    getDbEthPrice(start),
     TE.chainEitherK((ethPrice) => {
-      if (maxAgeMillis === undefined) {
-        return E.right(ethPrice);
-      }
-
       const priceAge = DateFnsAlt.millisecondsBetweenAbs(
         new Date(),
         ethPrice.timestamp,
       );
 
+      if (maxAgeMillis === undefined) {
+        return E.right(ethPrice);
+      }
+
       if (priceAge > maxAgeMillis) {
         return E.left(
-          new Error(
-            `timestamp: ${timestamp.toISOString()} and closest eth price are more than ${maxAgeMillis} millis apart`,
+          new PriceTooOldError(
+            `timestamp: ${dt.toISOString()} and closest eth price are more than ${maxAgeMillis} millis apart`,
           ),
         );
       }
 
       return E.right(ethPrice);
     }),
+    TE.mapLeft((e) => {
+      if (e instanceof PriceTooOldError) {
+        Log.error(
+          "DB did not have a fresh enough eth price, falling back to FTX",
+        );
+      }
+
+      return e;
+    }),
+    TE.alt(() => getPriceByDate(dt)),
   );
 };
 
@@ -337,7 +254,7 @@ type AverageEthPrice = {
 
 type AveragePrice = { ethPriceAverage: number };
 
-const getAllAveragePriceTask = (): T.Task<number> =>
+const getAllAveragePrice = (): T.Task<number> =>
   pipe(
     () => sql<AveragePrice[]>`
       SELECT AVG(eth_price) AS eth_price_average FROM blocks
@@ -346,9 +263,7 @@ const getAllAveragePriceTask = (): T.Task<number> =>
     T.map((rows) => rows[0]?.ethPriceAverage ?? 0),
   );
 
-const getTimeframeAverageTask = (
-  timeframe: LimitedTimeFrameNext,
-): T.Task<number> =>
+const getTimeframeAverage = (timeframe: LimitedTimeFrameNext): T.Task<number> =>
   pipe(
     () => sql<AveragePrice[]>`
         SELECT
@@ -373,45 +288,45 @@ const timeFrameMaxAgeMap: Record<TimeFrameNext, number> = {
   all: Duration.millisFromMinutes(30),
 };
 
-const getTimeFrameAverageWithCache = (
-  timeframe: TimeFrameNext,
-): T.Task<number> =>
+const getCachedAveragePrice = (timeFrame: TimeFrameNext) =>
   pipe(
-    averagePriceCache.get(timeframe),
+    averagePriceCache.get(timeFrame),
     O.fromNullable,
-    O.match(
-      () =>
-        pipe(
-          timeframe === "all"
-            ? getAllAveragePriceTask()
-            : getTimeframeAverageTask(timeframe),
-          T.chainFirstIOK((value) => () => {
-            Log.debug(
-              `get eth average price for time frame: ${timeframe} cache miss`,
-            );
-            const maxAge = timeFrameMaxAgeMap[timeframe];
-            averagePriceCache.set(timeframe, value, { maxAge: maxAge });
-          }),
-        ),
-      (cValue) =>
-        pipe(
-          T.of(cValue),
-          T.chainFirstIOK(() => () => {
-            Log.debug(
-              `get eth average price for time frame: ${timeframe} cache hit`,
-            );
-          }),
-        ),
+    TO.fromOption,
+    TO.chainFirstIOK(() => () => {
+      Log.debug(`get eth average price for time frame: ${timeFrame} cache hit`);
+    }),
+  );
+
+const getFreshAveragePrice = (timeFrame: TimeFrameNext) =>
+  pipe(
+    timeFrame === "all" ? getAllAveragePrice() : getTimeframeAverage(timeFrame),
+    T.chainFirstIOK((value) => () => {
+      Log.debug(
+        `get eth average price for time frame: ${timeFrame} cache miss`,
+      );
+      const maxAge = timeFrameMaxAgeMap[timeFrame];
+      averagePriceCache.set(timeFrame, value, { maxAge: maxAge });
+    }),
+    T.map(O.some),
+  );
+
+const getTimeFrameAverage = (timeFrame: TimeFrameNext) =>
+  pipe(
+    getCachedAveragePrice(timeFrame),
+    TO.alt(() => getFreshAveragePrice(timeFrame)),
+    TOAlt.getOrThrow(
+      "expected getAverage to always return a number but got none",
     ),
   );
 
 export const getAveragePrice = (): T.Task<AverageEthPrice> =>
   TAlt.seqSParT({
-    m5: getTimeFrameAverageWithCache("m5"),
-    h1: getTimeFrameAverageWithCache("h1"),
-    h24: getTimeFrameAverageWithCache("d1"),
-    d1: getTimeFrameAverageWithCache("d1"),
-    d7: getTimeFrameAverageWithCache("d7"),
-    d30: getTimeFrameAverageWithCache("d30"),
-    all: getTimeFrameAverageWithCache("all"),
+    m5: getTimeFrameAverage("m5"),
+    h1: getTimeFrameAverage("h1"),
+    h24: getTimeFrameAverage("d1"),
+    d1: getTimeFrameAverage("d1"),
+    d7: getTimeFrameAverage("d7"),
+    d30: getTimeFrameAverage("d30"),
+    all: getTimeFrameAverage("all"),
   });
