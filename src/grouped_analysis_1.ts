@@ -15,9 +15,9 @@ import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as ScarcityCache from "./scarcity/cache.js";
 
-export const groupedStats1CacheKey = "grouped-stats-1";
+export const groupedAnalysis1CacheKey = "grouped-analysis-1";
 
-export type GroupedStats1 = {
+export type GroupedAnalysis1 = {
   baseFeePerGas: number;
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
@@ -28,11 +28,11 @@ export type GroupedStats1 = {
   number: number;
 };
 
-export const getLatestStats = () =>
+export const getLatestAnalysis = () =>
   pipe(
-    sqlT<{ value: GroupedStats1 }[]>`
+    sqlT<{ value: GroupedAnalysis1 }[]>`
       SELECT value FROM key_value_store
-      WHERE key = ${groupedStats1CacheKey}
+      WHERE key = ${groupedAnalysis1CacheKey}
     `,
     T.map((rows) => rows[0].value),
   );
@@ -59,12 +59,9 @@ const getLeaderboards = () =>
     })),
   );
 
-export const updateGroupedStats1 = (
-  block: Blocks.BlockDb,
-  ethPrice: EthPrice,
-) =>
+export const updateAnalysis = (block: Blocks.BlockDb, ethPrice: EthPrice) =>
   pipe(
-    Log.debug("computing grouped stats 1"),
+    Log.debug("computing grouped analysis 1"),
     () => T.Do,
     T.apS(
       "burnRates",
@@ -97,7 +94,7 @@ export const updateGroupedStats1 = (
         burnRecords,
         latestBlockFees,
         leaderboards,
-      }): GroupedStats1 => ({
+      }): GroupedAnalysis1 => ({
         baseFeePerGas: Number(block.baseFeePerGas),
         number: block.number,
         burnRates: burnRates,
@@ -108,9 +105,9 @@ export const updateGroupedStats1 = (
         feesBurned: FeeBurn.getFeeBurnsOld(),
       }),
     ),
-    T.map((groupedStats) => ({
-      key: "grouped-stats-1",
-      value: JSON.stringify(groupedStats, serializeBigInt),
+    T.map((groupedAnalysis1) => ({
+      key: groupedAnalysis1CacheKey,
+      value: JSON.stringify(groupedAnalysis1, serializeBigInt),
     })),
     T.chain(
       (insertable) => sqlTVoid`
@@ -120,7 +117,7 @@ export const updateGroupedStats1 = (
           value = excluded.value
       `,
     ),
-    T.chain(() => sqlTNotify("cache-update", "grouped-stats-1")),
+    T.chain(() => sqlTNotify("cache-update", groupedAnalysis1CacheKey)),
   );
 
 export const getLatestLeaderboards = (): T.Task<{
@@ -132,7 +129,7 @@ export const getLatestLeaderboards = (): T.Task<{
       { value: { blockNumber: number; leaderboards: LeaderboardEntries } }[]
     >`
       SELECT value FROM key_value_store
-      WHERE key = 'grouped-stats-1'
+      WHERE key = ${groupedAnalysis1CacheKey}
     `,
     T.map(
       flow(

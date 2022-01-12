@@ -8,7 +8,7 @@ import { Head } from "../eth_node.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
 import { pipe, TAlt, TEAlt } from "../fp.js";
-import * as GroupedStats1 from "../grouped_stats_1.js";
+import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Leaderboards from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
@@ -137,8 +137,8 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   if (allBlocksProcessed) {
     await Performance.measureTaskPerf(
-      "update grouped stats 1",
-      GroupedStats1.updateGroupedStats1(blockDb, ethPrice),
+      "update grouped analysis 1",
+      GroupedAnalysis1.updateAnalysis(blockDb, ethPrice),
     )();
   } else {
     Log.debug(

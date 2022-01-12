@@ -11,8 +11,8 @@ import * as ContractsAdmin from "../contracts/admin.js";
 import { runMigrations, sql } from "../db.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import { O, pipe, T, TE } from "../fp.js";
-import * as GroupedStats1 from "../grouped_stats_1.js";
+import { O, pipe, TE } from "../fp.js";
+import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
 import * as ScarcityCache from "../scarcity/cache.js";
@@ -26,8 +26,8 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
   ctx.set("Content-Type", "application/json");
   ctx.body = {
-    number: groupedStats1Cache.number,
-    feesBurned: groupedStats1Cache.feesBurned,
+    number: groupedAnalysis1Cache.number,
+    feesBurned: groupedAnalysis1Cache.feesBurned,
   };
 };
 
@@ -53,15 +53,15 @@ const handleGetBurnRate: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
   ctx.body = {
-    burnRates: groupedStats1Cache.burnRates,
-    number: groupedStats1Cache.number,
+    burnRates: groupedAnalysis1Cache.burnRates,
+    number: groupedAnalysis1Cache.number,
   };
 };
 
 const handleGetLatestBlocks: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = groupedStats1Cache.latestBlockFees;
+  ctx.body = groupedAnalysis1Cache.latestBlockFees;
 };
 
 const handleGetBaseFeePerGas: Middleware = async (ctx) => {
@@ -74,13 +74,13 @@ const handleGetBaseFeePerGas: Middleware = async (ctx) => {
 const handleGetBurnLeaderboard: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = groupedStats1Cache.leaderboards;
+  ctx.body = groupedAnalysis1Cache.leaderboards;
 };
 
-const handleGetGroupedStats1: Middleware = async (ctx) => {
+const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = groupedStats1Cache;
+  ctx.body = groupedAnalysis1Cache;
 };
 
 const handleSetContractTwitterHandle: Middleware = async (ctx) => {
@@ -254,8 +254,8 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
-  if (payload === GroupedStats1.groupedStats1CacheKey) {
-    groupedStats1Cache = await GroupedStats1.getLatestStats()();
+  if (payload === GroupedAnalysis1.groupedAnalysis1CacheKey) {
+    groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
     return;
   }
 
@@ -308,8 +308,8 @@ router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
-// deprecate as soon as frontend is switched over to /fees/grouped-stats-1
-router.get("/fees/all", handleGetGroupedStats1);
+// deprecate as soon as frontend is switched over to /fees/grouped-analysis-1
+router.get("/fees/all", handleGetGroupedAnalysis1);
 router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
 router.get("/fees/set-contract-name", handleSetContractName);
 router.get("/fees/set-contract-category", handleSetContractCategory);
@@ -318,7 +318,7 @@ router.get("/fees/market-caps", handleGetMarketCaps);
 router.get("/fees/scarcity", handleGetScarcity);
 router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 router.get("/fees/burn-records", handleGetBurnRecords);
-router.get("/fees/grouped-stats-1", handleGetGroupedStats1);
+router.get("/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
 
 app.use(bodyParser());
 app.use(router.routes());
@@ -338,7 +338,7 @@ if (blockNumberOnStart === undefined) {
 
 let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
 let scarcityCache = await ScarcityCache.getScarcityCache()();
-let groupedStats1Cache = await GroupedStats1.getLatestStats()();
+let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
 let marketCapsCache = await MarketCaps.getStoredMarketCaps()();
 
 await new Promise((resolve) => {
