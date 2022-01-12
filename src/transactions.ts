@@ -55,7 +55,8 @@ export const getTxrsWithRetry = async (
     const delayMilis = Duration.millisFromSeconds(3);
 
     if (tries === 10) {
-      Sentry.captureException(
+      Log.alert(
+        "failed to fetch transaction receipts",
         new Error(
           `stuck fetching transactions, for more than ${
             (tries * delayMilis) / 1000

@@ -271,14 +271,8 @@ const port = process.env.PORT || 8080;
 
 const app = new Koa();
 
-app.on("error", (err, ctx) => {
+app.on("error", (err) => {
   Log.error("unhandled serve fees error", err);
-  Sentry.withScope((scope) => {
-    scope.addEventProcessor((event) => {
-      return Sentry.Handlers.parseRequest(event, ctx.request);
-    });
-    Sentry.captureException(err);
-  });
 });
 
 app.use(async (ctx, next) => {
