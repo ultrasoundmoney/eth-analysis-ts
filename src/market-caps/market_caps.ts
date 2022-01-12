@@ -3,7 +3,7 @@ import * as Coingecko from "../coingecko.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import { E, flow, pipe, T, TE } from "../fp.js";
+import { E, flow, O, pipe, T, TE } from "../fp.js";
 import * as Log from "../log.js";
 
 export type MarketCaps = {
@@ -100,12 +100,13 @@ export const getStoredMarketCaps = () =>
     `,
     T.map(
       flow(
-        (rows) => rows[0].value,
-        (obj) => camelcaseKeys(obj),
-        (obj) => ({
+        (rows) => rows[0]?.value,
+        O.fromNullable,
+        O.map((obj) => camelcaseKeys(obj)),
+        O.map((obj) => ({
           ...obj,
           timestamp: new Date(obj.timestamp),
-        }),
+        })),
       ),
     ),
   );
