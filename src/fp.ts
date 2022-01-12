@@ -3,6 +3,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as Mo from "fp-ts/lib/Monoid.js";
 import * as O from "fp-ts/lib/Option.js";
 import * as T from "fp-ts/lib/Task.js";
+import * as TO from "fp-ts/lib/TaskOption.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import * as Void from "fp-ts/lib/void.js";
 import * as Log from "./log.js";
@@ -83,4 +84,16 @@ export const OAlt = {
     O.getOrElseW(() => {
       throw new Error(message);
     }),
+};
+
+export const TOAlt = {
+  getOrThrow:
+    (message: string) =>
+    <A>(taskOption: TO.TaskOption<A>) =>
+      pipe(
+        taskOption,
+        TO.getOrElseW<A>(() => {
+          throw new Error(message);
+        }),
+      ),
 };
