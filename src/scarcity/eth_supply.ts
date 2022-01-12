@@ -27,10 +27,7 @@ const updateEthSupply = () =>
   );
 
 export const getLastEthSupply = () =>
-  pipe(
-    lastEthSupply,
-    OAlt.getOrThrow("can't store scarcity, eth supply is missing"),
-  );
+  pipe(lastEthSupply, OAlt.getOrThrow("tried to get eth supply before init"));
 
 const intervalIterator = setInterval(Duration.millisFromMinutes(1), Date.now());
 
