@@ -503,7 +503,7 @@ const addOpenseaMetadata = (address: string) =>
           return undefined;
         }
 
-        Log.error(error);
+        Log.error("failed to get OpenSea metadata", error);
         return undefined;
       },
       () => undefined,
