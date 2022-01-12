@@ -1,5 +1,6 @@
 import * as Blocks from "../blocks/blocks.js";
 import { O, pipe, T, TAlt } from "../fp.js";
+import * as Performance from "../performance.js";
 import * as TimeFrames from "../time_frames.js";
 import { TimeFrame } from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
@@ -73,6 +74,11 @@ const initTimeFrame = (timeFrame: TimeFrame) =>
 export const init = () =>
   pipe(
     TimeFrames.timeFrames,
-    T.traverseArray(initTimeFrame),
+    T.traverseArray((timeFrame) =>
+      Performance.measureTaskPerf(
+        `init burn records time frame: ${timeFrame}`,
+        initTimeFrame(timeFrame),
+      ),
+    ),
     TAlt.concatAllVoid,
   );
