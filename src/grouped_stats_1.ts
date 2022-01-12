@@ -1,31 +1,31 @@
-import * as FeeBurn from "./fee_burns.js";
 import * as Blocks from "./blocks/blocks.js";
 import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
 import { EthPrice } from "./eth_prices.js";
+import * as FeeBurn from "./fee_burns.js";
 import { A, flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
+import { serializeBigInt } from "./json.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Leaderboards from "./leaderboards.js";
+import { LeaderboardEntries } from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as ScarcityCache from "./scarcity/cache.js";
-import { serializeBigInt } from "./json.js";
-import { LeaderboardEntries } from "./leaderboards.js";
 
 export const groupedStats1Key = "grouped-stats-1";
 
 export type GroupedStats1 = {
   baseFeePerGas: number;
-  number: number;
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   ethPrice: EthPrice;
   feesBurned: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
   leaderboards: Leaderboards.LeaderboardEntries;
+  number: number;
 };
 
 export const getLatestStats = () =>
