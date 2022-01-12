@@ -113,7 +113,7 @@ class PriceTooOldError extends Error {}
 export const getEthPrice = (
   dt: Date,
   maxAgeMillis: number | undefined = undefined,
-): TE.TaskEither<Error, EthPrice> => {
+) => {
   const start = DateFns.startOfMinute(dt);
 
   return pipe(
