@@ -2,6 +2,7 @@ import * as DateFns from "date-fns";
 import { setInterval } from "timers/promises";
 import * as Duration from "./duration.js";
 import * as EthPrices from "./eth_prices.js";
+import { pipe, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 process.on("unhandledRejection", (error) => {
@@ -29,9 +30,5 @@ for await (const _ of intervalIterator) {
 
   lastRun = new Date();
 
-  try {
-    await EthPrices.storeBestPrice();
-  } catch (error) {
-    Log.alert(error);
-  }
+  await pipe(EthPrices.storeCurrentEthPrice(), TEAlt.getOrThrow)();
 }
