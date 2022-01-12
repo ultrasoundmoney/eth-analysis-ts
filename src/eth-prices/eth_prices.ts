@@ -157,8 +157,8 @@ export type Get24hAgoPriceError = MissingPriceError;
 export const get24hAgoPrice = () =>
   pipe(
     sqlT<{ ethusd: number }[]>`
-        WITH with_diff AS (
-          SELECT
+      WITH with_diff AS (
+        SELECT
           timestamp,
           ethusd,
           ABS(
@@ -168,13 +168,13 @@ export const get24hAgoPrice = () =>
               )
             )
           ) AS time_diff
-          FROM eth_prices
-        )
-        SELECT ethusd FROM with_diff
-        WHERE time_diff < 3600
-        ORDER BY time_diff
-        LIMIT 1
-      `,
+        FROM eth_prices
+      )
+      SELECT ethusd FROM with_diff
+      WHERE time_diff < 3600
+      ORDER BY time_diff
+      LIMIT 1
+    `,
     T.chain(
       flow(
         (rows) => rows[0]?.ethusd,
