@@ -212,7 +212,7 @@ const handleSetContractCategory: Middleware = async (ctx) => {
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
   const averageEthPrice = await EthPrices.getAveragePrice()();
-  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=6");
+  ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=16");
   ctx.body = averageEthPrice;
   return undefined;
 };
