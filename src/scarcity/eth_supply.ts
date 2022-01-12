@@ -17,13 +17,18 @@ const updateEthSupply = () =>
     TE.chainFirstIOK((ethSupply) => () => {
       Log.debug(`got eth supply from etherscan: ${ethSupply / 10n ** 18n} ETH`);
     }),
-    TE.map((ethSupply) => ({
-      timestamp: new Date(),
-      ethSupply,
-    })),
-    TE.match(Log.error, (latestEthSupply) => {
-      lastEthSupply = O.some(latestEthSupply);
-    }),
+    TE.map(
+      (ethSupply): EthSupply => ({
+        timestamp: new Date(),
+        ethSupply,
+      }),
+    ),
+    TE.match(
+      (e) => Log.error("failed to update eth supply", e),
+      (latestEthSupply) => {
+        lastEthSupply = O.some(latestEthSupply);
+      },
+    ),
   );
 
 export const getLastEthSupply = () =>
