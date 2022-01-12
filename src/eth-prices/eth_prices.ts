@@ -84,7 +84,9 @@ export const storeCurrentEthPrice = () =>
   pipe(
     EthPricesFtx.getPriceByDate(DateFns.startOfMinute(new Date())),
     TE.chainFirstIOK((price) => () => {
-      Log.debug(`stored price: ${price.ethusd}, date: ${price.timestamp}`);
+      Log.debug(
+        `stored price: ${price.ethusd}, date: ${price.timestamp.toISOString()}`,
+      );
     }),
     TE.chain((price) => TE.fromTask(storePrice(price))),
   );
