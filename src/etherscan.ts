@@ -11,7 +11,7 @@ import type { AbiItem } from "web3-utils";
 import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
 import * as Duration from "./duration.js";
-import { EthPrice } from "./eth_prices.js";
+import { EthPrice } from "./eth-prices/eth_prices.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { BadResponseError, FetchError } from "./fetch_alt.js";
 import { E, O, pipe, T, TE, TEAlt } from "./fp.js";

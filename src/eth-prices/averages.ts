@@ -1,10 +1,10 @@
 import QuickLRU from "quick-lru";
-import { sql } from "./db.js";
-import * as Duration from "./duration.js";
-import { O, pipe, T, TAlt, TO, TOAlt } from "./fp.js";
-import * as Log from "./log.js";
-import { LimitedTimeFrameNext, TimeFrameNext } from "./time_frames.js";
-import * as TimeFrames from "./time_frames.js";
+import { sql } from "../db.js";
+import * as Duration from "../duration.js";
+import { O, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
+import * as Log from "../log.js";
+import { LimitedTimeFrameNext, TimeFrameNext } from "../time_frames.js";
+import * as TimeFrames from "../time_frames.js";
 
 type AverageEthPrice = {
   m5: number;
