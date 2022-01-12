@@ -2,10 +2,10 @@ import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
-import { JsTimestamp } from "./date_fns_alt.js";
-import * as Duration from "./duration.js";
-import * as FetchAlt from "./fetch_alt.js";
-import { A, E, O, pipe, T, TE } from "./fp.js";
+import { JsTimestamp } from "../date_fns_alt.js";
+import * as Duration from "../duration.js";
+import * as FetchAlt from "../fetch_alt.js";
+import { A, E, O, pipe, T, TE } from "../fp.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;

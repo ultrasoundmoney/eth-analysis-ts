@@ -1,12 +1,12 @@
 import * as DateFns from "date-fns";
 import QuickLRU from "quick-lru";
-import * as DateFnsAlt from "./date_fns_alt.js";
-import { JsTimestamp } from "./date_fns_alt.js";
-import { sql, sqlT, sqlTVoid } from "./db.js";
-import * as Duration from "./duration.js";
-import * as EthPricesFtx from "./eth_prices_ftx.js";
-import { E, flow, O, pipe, T, TE } from "./fp.js";
-import * as Log from "./log.js";
+import * as DateFnsAlt from "../date_fns_alt.js";
+import { JsTimestamp } from "../date_fns_alt.js";
+import { sql, sqlT, sqlTVoid } from "../db.js";
+import * as Duration from "../duration.js";
+import * as EthPricesFtx from "./ftx.js";
+import { E, flow, O, pipe, T, TE } from "../fp.js";
+import * as Log from "../log.js";
 
 export type EthPrice = {
   timestamp: Date;

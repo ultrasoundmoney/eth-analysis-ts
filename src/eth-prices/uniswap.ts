@@ -1,10 +1,10 @@
 import BigNumber from "bignumber.js";
 import * as DateFns from "date-fns";
-import * as Blocks from "./blocks/blocks.js";
-import * as ContractsWeb3 from "./contracts/web3.js";
+import * as Blocks from "../blocks/blocks.js";
+import * as ContractsWeb3 from "../contracts/web3.js";
 import { EthPrice } from "./eth_prices.js";
-import { pipe, T, TAlt, TE, TEAlt } from "./fp.js";
-import * as Log from "./log.js";
+import { pipe, T, TAlt, TE, TEAlt } from "../fp.js";
+import * as Log from "../log.js";
 
 // TODO: slot0 is slow to update, sometimes staying the same for ~10 blocks, observations seem to update more regularly.
 
