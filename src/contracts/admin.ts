@@ -1,3 +1,4 @@
+import { sqlTVoid } from "../db.js";
 import { pipe, T } from "../fp.js";
 import * as Contracts from "./contracts.js";
 import * as ContractsMetadata from "./crawl_metadata.js";
@@ -23,3 +24,12 @@ export const setCategory = (address: string, category: string): T.Task<void> =>
     Contracts.setSimpleTextColumn("manual_category", address, category),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   );
+
+export const setLastManuallyVerified = (address: string) =>
+  sqlTVoid`
+    UPDATE contracts
+    SET
+      last_manually_verified = ${new Date()}
+    WHERE
+      address = ${address}
+  `;

@@ -184,6 +184,33 @@ const handleSetContractCategory: Middleware = async (ctx) => {
   return undefined;
 };
 
+const handleSetContractLastManuallyVerified: Middleware = async (ctx) => {
+  const token = ctx.query.token;
+  if (typeof token !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing token param" };
+    return undefined;
+  }
+
+  if (token !== Config.getAdminToken()) {
+    ctx.status = 403;
+    ctx.body = { msg: "invalid token" };
+    return undefined;
+  }
+
+  const address = ctx.query.address;
+
+  if (typeof address !== "string") {
+    ctx.status = 400;
+    ctx.body = { msg: "missing address" };
+    return undefined;
+  }
+
+  await ContractsAdmin.setLastManuallyVerified(address)();
+  ctx.status = 200;
+  return undefined;
+};
+
 const handleAverageEthPrice: Middleware = async (ctx) => {
   const averageEthPrice = await EthPricesAverages.getAveragePrice()();
   ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=16");
@@ -317,6 +344,10 @@ router.get("/fees/all", handleGetGroupedAnalysis1);
 router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
 router.get("/fees/set-contract-name", handleSetContractName);
 router.get("/fees/set-contract-category", handleSetContractCategory);
+router.get(
+  "/fees/set-contract-last-manually-verified",
+  handleSetContractLastManuallyVerified,
+);
 router.get("/fees/average-eth-price", handleAverageEthPrice);
 router.get("/fees/market-caps", handleGetMarketCaps);
 router.get("/fees/scarcity", handleGetScarcity);
