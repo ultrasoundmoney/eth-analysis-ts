@@ -75,15 +75,13 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
       Performance.measureTaskPerf(
         "calc burn records",
         pipe(
-          // BurnRecordsCache.updateRecordsCache(block.number),
-          // T.chain(() =>
-          //   pipe(
-          //     BurnRecordsCache.getRecordsCache(),
-          //     T.map((cache) => cache.records),
-          //   ),
-          // ),
-          BurnRecordsCache.getRecordsCache(),
-          T.map((cache) => cache.records),
+          BurnRecordsCache.updateRecordsCache(block.number),
+          T.chain(() =>
+            pipe(
+              BurnRecordsCache.getRecordsCache(),
+              T.map((cache) => cache.records),
+            ),
+          ),
         ),
       ),
     ),
