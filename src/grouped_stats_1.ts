@@ -2,7 +2,7 @@ import * as Blocks from "./blocks/blocks.js";
 import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
-import { EthPrice } from "./eth_prices.js";
+import { EthPrice } from "./eth-prices/eth_prices.js";
 import * as FeeBurn from "./fee_burns.js";
 import { A, flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
 import { serializeBigInt } from "./json.js";

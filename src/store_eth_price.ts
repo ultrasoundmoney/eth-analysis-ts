@@ -1,7 +1,7 @@
 import * as DateFns from "date-fns";
 import { setInterval } from "timers/promises";
 import * as Duration from "./duration.js";
-import * as EthPrices from "./eth_prices.js";
+import * as EthPrices from "./eth-prices/eth_prices.js";
 import { pipe, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 

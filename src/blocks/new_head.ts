@@ -3,7 +3,7 @@ import { calcBlockFeeBreakdown } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
 import { Head } from "../eth_node.js";
-import * as EthPrices from "../eth_prices.js";
+import * as EthPrices from "../eth-prices/eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
 import * as GroupedStats1 from "../grouped_stats_1.js";
 import * as Leaderboards from "../leaderboards.js";

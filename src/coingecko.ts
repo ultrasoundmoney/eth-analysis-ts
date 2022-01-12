@@ -2,7 +2,7 @@ import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import urlcatM from "urlcat";
 import * as Duration from "./duration.js";
-import { HistoricPrice } from "./eth_prices.js";
+import { HistoricPrice } from "./eth-prices/eth_prices.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { O, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
