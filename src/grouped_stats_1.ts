@@ -21,7 +21,7 @@ export type GroupedStats1 = {
   baseFeePerGas: number;
   number: number;
   burnRates: BurnRates.BurnRatesT;
-  burnRecords: BurnRecordsCache.BurnRecordsCache;
+  burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   ethPrice: EthPrice;
   feesBurned: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
@@ -80,7 +80,12 @@ export const updateGroupedStats1 = (
         "calc burn records",
         pipe(
           BurnRecordsCache.updateRecordsCache(block.number),
-          T.chain(() => BurnRecordsCache.getRecordsCache()),
+          T.chain(() =>
+            pipe(
+              BurnRecordsCache.getRecordsCache(),
+              T.map((cache) => cache.records),
+            ),
+          ),
         ),
       ),
     ),
