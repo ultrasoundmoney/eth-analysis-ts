@@ -17,16 +17,16 @@ await EthNode.connect();
 
 let lastAnalyzed = await pipe(
   GroupedAnalysis1.getLatestLeaderboards(),
-  T.map((stats) => stats.blockNumber),
+  T.map((stats) => stats.number),
 )();
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 for await (const _ of intervalIterator) {
   const latestStats = await GroupedAnalysis1.getLatestLeaderboards()();
 
-  if (lastAnalyzed === latestStats.blockNumber) {
+  if (lastAnalyzed === latestStats.number) {
     Log.debug(
-      `leaderboard for block ${latestStats.blockNumber} already analyzed, waiting`,
+      `leaderboard for block ${latestStats.number} already analyzed, waiting`,
     );
     continue;
   }
@@ -41,7 +41,7 @@ for await (const _ of intervalIterator) {
   );
 
   Log.debug(
-    `adding metadata for ${addresses.length} addresses in leaderboard for block ${latestStats.blockNumber}`,
+    `adding metadata for ${addresses.length} addresses in leaderboard for block ${latestStats.number}`,
   );
 
   await ContractsMetadata.addMetadataForLeaderboards(
@@ -50,9 +50,9 @@ for await (const _ of intervalIterator) {
   )();
   await Contracts.setLastLeaderboardEntryToNow(addresses);
 
-  lastAnalyzed = latestStats.blockNumber;
+  lastAnalyzed = latestStats.number;
 
   Log.info(
-    `done adding metadata for leaderboard of block: ${latestStats.blockNumber}`,
+    `done adding metadata for leaderboard of block: ${latestStats.number}`,
   );
 }

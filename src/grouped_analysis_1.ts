@@ -133,13 +133,11 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
   );
 
 export const getLatestLeaderboards = (): T.Task<{
-  blockNumber: number;
+  number: number;
   leaderboards: LeaderboardEntries;
 }> =>
   pipe(
-    sqlT<
-      { value: { blockNumber: number; leaderboards: LeaderboardEntries } }[]
-    >`
+    sqlT<{ value: { number: number; leaderboards: LeaderboardEntries } }[]>`
       SELECT value FROM key_value_store
       WHERE key = ${groupedAnalysis1CacheKey}
     `,
@@ -147,7 +145,7 @@ export const getLatestLeaderboards = (): T.Task<{
       flow(
         A.head,
         O.map((row) => ({
-          blockNumber: row.value.blockNumber,
+          number: row.value.number,
           leaderboards: row.value.leaderboards,
         })),
         OAlt.getOrThrow(
