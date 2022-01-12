@@ -6,7 +6,6 @@ import conditional from "koa-conditional-get";
 import etag from "koa-etag";
 import * as Blocks from "../blocks/blocks.js";
 import * as BurnRecordsCache from "../burn-records/cache.js";
-import { BurnRatesT } from "../burn_rates.js";
 import * as Canary from "../canary.js";
 import * as Config from "../config.js";
 import * as ContractsAdmin from "../contracts/admin.js";
@@ -14,10 +13,8 @@ import { runMigrations, sql } from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
 import * as FeesBurnedPerInterval from "../fees_burned_per_interval.js";
-import { FeesBurnedT } from "../fee_burns.js";
 import { O, pipe, T, TE } from "../fp.js";
 import * as GroupedStats1 from "../grouped_stats_1.js";
-import { LeaderboardEntries } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
 import * as ScarcityCache from "../scarcity/cache.js";
@@ -103,7 +100,7 @@ const handleGetBurnLeaderboard: Middleware = async (ctx) => {
   ctx.body = groupedStats1Cache.leaderboards;
 };
 
-const handleGetAll: Middleware = async (ctx) => {
+const handleGetGroupedStats1: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
   ctx.body = groupedStats1Cache;
@@ -334,7 +331,8 @@ router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);
 router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
-router.get("/fees/all", handleGetAll);
+// deprecate as soon as frontend is switched over to /fees/grouped-stats-1
+router.get("/fees/all", handleGetGroupedStats1);
 router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
 router.get("/fees/set-contract-name", handleSetContractName);
 router.get("/fees/set-contract-category", handleSetContractCategory);
@@ -343,6 +341,7 @@ router.get("/fees/market-caps", handleGetMarketCaps);
 router.get("/fees/scarcity", handleGetScarcity);
 router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 router.get("/fees/burn-records", handleGetBurnRecords);
+router.get("/fees/grouped-stats-1", handleGetGroupedStats1);
 
 app.use(bodyParser());
 app.use(router.routes());
