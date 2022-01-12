@@ -3,6 +3,7 @@ import * as Blocks from "./blocks/blocks.js";
 import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
+import { EthPrice } from "./eth_prices.js";
 import { A, flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Leaderboards from "./leaderboards.js";
@@ -21,6 +22,7 @@ export type GroupedStats1 = {
   number: number;
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache;
+  ethPrice: EthPrice;
   feesBurned: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
   leaderboards: Leaderboards.LeaderboardEntries;
@@ -57,7 +59,10 @@ const getLeaderboards = () =>
     })),
   );
 
-export const updateGroupedStats1 = (block: Blocks.BlockDb) =>
+export const updateGroupedStats1 = (
+  block: Blocks.BlockDb,
+  ethPrice: EthPrice,
+) =>
   pipe(
     Log.debug("computing grouped stats 1"),
     () => T.Do,
@@ -92,6 +97,7 @@ export const updateGroupedStats1 = (block: Blocks.BlockDb) =>
         number: block.number,
         burnRates: burnRates,
         burnRecords,
+        ethPrice,
         latestBlockFees,
         leaderboards: leaderboards,
         feesBurned: FeeBurn.getFeeBurnsOld(),
