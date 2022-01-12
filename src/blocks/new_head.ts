@@ -138,7 +138,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   if (allBlocksProcessed) {
     await Performance.measureTaskPerf(
       "update grouped stats 1",
-      GroupedStats1.updateGroupedStats1(blockDb),
+      GroupedStats1.updateGroupedStats1(blockDb, ethPrice),
     )();
   } else {
     Log.debug(
