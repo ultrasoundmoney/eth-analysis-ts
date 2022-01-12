@@ -1,10 +1,9 @@
 import camelcaseKeys from "camelcase-keys";
-import { camelCase } from "change-case";
 import * as Coingecko from "../coingecko.js";
-import { sql, sqlT, sqlTVoid } from "../db.js";
+import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import { A, E, flow, pipe, T, TAlt, TE } from "../fp.js";
+import { E, flow, pipe, T, TE } from "../fp.js";
 import * as Log from "../log.js";
 
 export type MarketCaps = {
@@ -75,6 +74,7 @@ export const storeCurrentMarketCaps = () =>
     TE.chainW((marketCaps) =>
       pipe(storeMarketCaps(marketCaps), T.map(E.right)),
     ),
+    TE.chainFirstTaskK(() => sqlTNotify("cache-update", marketCapsCacheKey)),
     TE.chainFirstIOK(() => () => {
       Log.debug(`stored market caps at ${new Date().toISOString()}`);
     }),
