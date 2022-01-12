@@ -1,8 +1,10 @@
+import camelcaseKeys from "camelcase-keys";
+import { camelCase } from "change-case";
 import * as Coingecko from "../coingecko.js";
-import { sql } from "../db.js";
+import { sql, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
-import * as EthPrices from "../eth_prices.js";
-import { E, pipe, T, TE, TEAlt } from "../fp.js";
+import * as EthPrices from "../eth-prices/eth_prices.js";
+import { A, E, flow, pipe, T, TAlt, TE } from "../fp.js";
 import * as Log from "../log.js";
 
 export type MarketCaps = {
@@ -13,29 +15,15 @@ export type MarketCaps = {
   timestamp: Date;
 };
 
-const storeMarketCaps = (marketCaps: MarketCapRow): T.Task<void> =>
-  pipe(
-    () => sql`
-        INSERT INTO market_caps
-        ${sql(marketCaps)}
-      `,
-    T.map(() => undefined),
-  );
+export const marketCapsCacheKey = "market-caps";
 
-const trimMarketCapsTable = (): T.Task<void> =>
-  pipe(
-    () => sql`
-        DELETE FROM market_caps
-        WHERE timestamp IN (
-          SELECT timestamp FROM market_caps
-          ORDER BY timestamp DESC
-          OFFSET 1
-        )
-      `,
-    T.map(() => undefined),
-  );
+const storeMarketCaps = (marketCaps: MarketCapsInsertable) =>
+  sqlTVoid`
+    INSERT INTO key_value_store
+      ${sql({ key: marketCapsCacheKey, value: JSON.stringify(marketCaps) })}
+  `;
 
-type MarketCapRow = {
+type MarketCapsInsertable = {
   btc_market_cap: number;
   eth_market_cap: number;
   gold_market_cap: number;
@@ -46,7 +34,7 @@ type MarketCapRow = {
 const insertableFromCoinData = (
   coins: Coingecko.PriceResponse,
   ethPrice: EthPrices.EthPrice,
-): MarketCapRow => {
+): MarketCapsInsertable => {
   const btcMarketCap = coins.bitcoin.usd_market_cap;
   const coingeckoMarketCap = coins.ethereum.usd_market_cap;
   const coingeckoEthPrice = coins.ethereum.usd;
@@ -72,38 +60,50 @@ const insertableFromCoinData = (
   };
 };
 
-export const storeCurrentMarketCaps = (): TE.TaskEither<
-  Coingecko.CoinGeckoApiError,
-  void
-> =>
+export const storeCurrentMarketCaps = () =>
   pipe(
-    TEAlt.seqTParTE(
-      Coingecko.getSimpleCoins(),
+    TE.Do,
+    TE.apS("coins", Coingecko.getSimpleCoins()),
+    TE.apSW(
+      "ethPrice",
       EthPrices.getEthPrice(new Date(), Duration.millisFromMinutes(5)),
     ),
     TE.map(
-      ([coins, ethPrice]): MarketCapRow =>
+      ({ coins, ethPrice }): MarketCapsInsertable =>
         insertableFromCoinData(coins, ethPrice),
     ),
     TE.chainW((marketCaps) =>
       pipe(storeMarketCaps(marketCaps), T.map(E.right)),
     ),
-    // // Don't let the table grow too much.
-    TE.chainW(() => pipe(trimMarketCapsTable(), T.map(E.right))),
     TE.chainFirstIOK(() => () => {
       Log.debug(`stored market caps at ${new Date().toISOString()}`);
     }),
   );
 
-export const getStoredMarketCaps = async (): Promise<MarketCaps> =>
-  sql<MarketCaps[]>`
-    SELECT
-      btc_market_cap,
-      eth_market_cap,
-      gold_market_cap,
-      usd_m3_market_cap,
-      timestamp
-    FROM market_caps
-    ORDER BY timestamp DESC
-    LIMIT 1
-  `.then((rows) => rows[0]);
+type MarketCapsRow = {
+  btc_market_cap: number;
+  eth_market_cap: number;
+  gold_market_cap: number;
+  usd_m3_market_cap: number;
+  timestamp: string;
+};
+
+export const getStoredMarketCaps = () =>
+  pipe(
+    sqlT<{ value: MarketCapsRow }[]>`
+      SELECT
+        value
+      FROM key_value_store
+      WHERE key = ${marketCapsCacheKey}
+    `,
+    T.map(
+      flow(
+        (rows) => rows[0].value,
+        (obj) => camelcaseKeys(obj),
+        (obj) => ({
+          ...obj,
+          timestamp: new Date(obj.timestamp),
+        }),
+      ),
+    ),
+  );

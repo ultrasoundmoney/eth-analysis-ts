@@ -206,15 +206,11 @@ const handleAverageEthPrice: Middleware = async (ctx) => {
   return undefined;
 };
 
-const handleGetMarketCaps: Middleware = async (ctx) =>
-  pipe(
-    () => MarketCaps.getStoredMarketCaps(),
-    T.map((marketCaps) => {
-      ctx.set("Cache-Control", "max-age=30, stale-while-revalidate=600");
-      ctx.set("Content-Type", "application/json");
-      ctx.body = marketCaps;
-    }),
-  )();
+const handleGetMarketCaps: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=30, stale-while-revalidate=600");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = marketCapsCache;
+};
 
 const handleGetScarcity: Middleware = (ctx) => {
   pipe(
@@ -275,6 +271,11 @@ sql.listen("cache-update", async (payload) => {
 
   if (payload === GroupedStats1.groupedStats1Key) {
     groupedStats1Cache = await GroupedStats1.getLatestStats()();
+    return;
+  }
+
+  if (payload === MarketCaps.marketCapsCacheKey) {
+    marketCapsCache = await MarketCaps.getStoredMarketCaps()();
     return;
   }
 
@@ -354,6 +355,7 @@ if (blockNumberOnStart === undefined) {
 let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
 let scarcityCache = await ScarcityCache.getScarcityCache()();
 let groupedStats1Cache = await GroupedStats1.getLatestStats()();
+let marketCapsCache = await MarketCaps.getStoredMarketCaps()();
 
 await new Promise((resolve) => {
   app.listen(port, () => {
