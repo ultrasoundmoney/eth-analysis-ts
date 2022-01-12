@@ -59,9 +59,11 @@ export const syncBlocks = async (upToIncluding: number): Promise<void> => {
     return;
   }
 
+  // Happens sometimes when multiple instances of analyze-blocks are running.
   if (syncedBlockHeight > upToIncluding) {
-    Log.debug(`chain head: ${upToIncluding}, synced to: ${syncedBlockHeight}`);
-    throw new Error("chain head is behind blocks table?!");
+    throw new Error(
+      "blocks table has advanced since start, is there another analyze-blocks instance running?",
+    );
   }
 
   const blocksToSync = _.range(syncedBlockHeight + 1, upToIncluding + 1);
