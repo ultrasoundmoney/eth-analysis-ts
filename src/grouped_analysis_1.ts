@@ -2,7 +2,7 @@ import * as Blocks from "./blocks/blocks.js";
 import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
-import { EthPrice } from "./eth-prices/eth_prices.js";
+import * as EthPrices from "./eth-prices/eth_prices.js";
 import * as FeeBurn from "./fee_burns.js";
 import { A, flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
 import { serializeBigInt } from "./json.js";
@@ -21,7 +21,7 @@ export type GroupedAnalysis1 = {
   baseFeePerGas: number;
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
-  ethPrice: EthPrice;
+  ethPrice: EthPrices.EthStats | null;
   feesBurned: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
   leaderboards: Leaderboards.LeaderboardEntries;
@@ -59,7 +59,7 @@ const getLeaderboards = () =>
     })),
   );
 
-export const updateAnalysis = (block: Blocks.BlockDb, ethPrice: EthPrice) =>
+export const updateAnalysis = (block: Blocks.BlockDb) =>
   pipe(
     Log.debug("computing grouped analysis 1"),
     () => T.Do,
@@ -88,10 +88,24 @@ export const updateAnalysis = (block: Blocks.BlockDb, ethPrice: EthPrice) =>
     ),
     T.apS("scarcity", ScarcityCache.updateScarcityCache(block)),
     T.apS("latestBlockFees", LatestBlockFees.getLatestBlockFees(block.number)),
+    T.apS(
+      "ethPrice",
+      pipe(
+        EthPrices.getEthStats(),
+        TE.match(
+          (e) => {
+            Log.error("failed to compute eth stats", e);
+            return null;
+          },
+          (v) => v,
+        ),
+      ),
+    ),
     T.map(
       ({
         burnRates,
         burnRecords,
+        ethPrice,
         latestBlockFees,
         leaderboards,
       }): GroupedAnalysis1 => ({

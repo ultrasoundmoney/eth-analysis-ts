@@ -200,7 +200,7 @@ const get24hChange = (currentPrice: EthPrice) =>
     ),
   );
 
-type EthStats = {
+export type EthStats = {
   usd: number;
   usd24hChange: number;
 };
