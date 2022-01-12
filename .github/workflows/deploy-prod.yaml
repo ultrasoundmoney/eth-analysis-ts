@@ -97,12 +97,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
           command: set image deployment/store-eth-price store-eth-price=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
           command: rollout status deployment/store-eth-price
   deploy-store-market-caps:
     name: deploy store-market-caps
@@ -116,10 +116,10 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
           command: set image deployment/store-market-caps store-market-caps=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
           command: rollout status deployment/store-market-caps
