@@ -7,6 +7,9 @@ import { FamDetails } from "./fam_service.js";
 import { O } from "./fp.js";
 import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
+// TODO: Move leaderboards... into a folder.
+// TODO: Rewrite using pure DB like burn records.
+
 export type LeaderboardRow = {
   baseFees: number;
   baseFeesUsd: number;
