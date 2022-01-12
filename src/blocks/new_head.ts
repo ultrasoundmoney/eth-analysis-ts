@@ -1,10 +1,13 @@
+import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
+import * as Duration from "../duration.js";
 import { Head } from "../eth_node.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import * as FeeBurn from "../fee_burns.js";
+import { pipe, TAlt, TEAlt } from "../fp.js";
 import * as GroupedStats1 from "../grouped_stats_1.js";
 import * as Leaderboards from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
@@ -80,10 +83,16 @@ export const addBlock = async (head: Head): Promise<void> => {
     await rollbackToBefore(block.number);
   }
 
-  const [txrs, ethPrice] = await Promise.all([
-    Transactions.getTxrsWithRetry(block),
-    EthPrices.getPriceForOldBlock(block),
-  ]);
+  const [txrs, ethPrice] = await TAlt.seqTParT(
+    () => Transactions.getTxrsWithRetry(block),
+    pipe(
+      EthPrices.getEthPrice(
+        DateFns.fromUnixTime(block.timestamp),
+        Duration.millisFromMinutes(5),
+      ),
+      TEAlt.getOrThrow,
+    ),
+  )();
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs, ethPrice.ethusd);
