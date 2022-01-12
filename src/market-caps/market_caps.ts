@@ -20,6 +20,8 @@ const storeMarketCaps = (marketCaps: MarketCapsInsertable) =>
   sqlTVoid`
     INSERT INTO key_value_store
       ${sql({ key: marketCapsCacheKey, value: JSON.stringify(marketCaps) })}
+    ON CONFLICT (key) DO UPDATE SET
+      value = excluded.value
   `;
 
 type MarketCapsInsertable = {
