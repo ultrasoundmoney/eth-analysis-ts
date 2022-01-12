@@ -11,7 +11,6 @@ import * as ContractsAdmin from "../contracts/admin.js";
 import { runMigrations, sql } from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth_prices.js";
-import * as FeesBurnedPerInterval from "../fees_burned_per_interval.js";
 import { O, pipe, T, TE } from "../fp.js";
 import * as GroupedStats1 from "../grouped_stats_1.js";
 import * as Log from "../log.js";
@@ -29,20 +28,6 @@ const handleGetFeesBurned: Middleware = async (ctx) => {
   ctx.body = {
     number: groupedStats1Cache.number,
     feesBurned: groupedStats1Cache.feesBurned,
-  };
-};
-
-const handleGetFeesBurnedPerInterval: Middleware = async (ctx) => {
-  const feesBurnedPerInterval =
-    await FeesBurnedPerInterval.getFeesBurnedPerInterval();
-  ctx.set(
-    "Cache-Control",
-    `max-age=6, stale-while-revalidate=${Duration.secondsFromHours(24)}`,
-  );
-  ctx.set("Content-Type", "application/json");
-  ctx.body = {
-    feesBurnedPerInterval: feesBurnedPerInterval,
-    number: "unknown",
   };
 };
 
@@ -318,7 +303,6 @@ app.use(async (ctx, next) => {
 const router = new Router();
 
 router.get("/fees/total-burned", handleGetFeesBurned);
-router.get("/fees/burned-per-interval", handleGetFeesBurnedPerInterval);
 router.get("/fees/eth-price", handleGetEthPrice);
 router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);
