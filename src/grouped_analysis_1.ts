@@ -4,7 +4,7 @@ import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
 import * as FeeBurn from "./fee_burns.js";
-import { A, flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
+import { A, flow, O, OAlt, pipe, T, TAlt, TE } from "./fp.js";
 import { serializeBigInt } from "./json.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Leaderboards from "./leaderboards.js";
@@ -13,7 +13,6 @@ import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
-import * as ScarcityCache from "./scarcity/cache.js";
 
 export const groupedAnalysis1CacheKey = "grouped-analysis-1";
 
@@ -86,7 +85,6 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
         ),
       ),
     ),
-    T.apS("scarcity", ScarcityCache.updateScarcityCache(block)),
     T.apS("latestBlockFees", LatestBlockFees.getLatestBlockFees(block.number)),
     T.apS(
       "ethPrice",

@@ -4,8 +4,8 @@ import { calcBlockFeeBreakdown } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
 import * as Duration from "../duration.js";
-import { Head } from "../eth_node.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
+import { Head } from "../eth_node.js";
 import * as FeeBurn from "../fee_burns.js";
 import { pipe, TAlt, TEAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
@@ -14,6 +14,7 @@ import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
+import * as ScarcityCache from "../scarcity/cache.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 
@@ -136,9 +137,15 @@ export const addBlock = async (head: Head): Promise<void> => {
     newBlockQueue.pending <= 1;
 
   if (allBlocksProcessed) {
-    await Performance.measureTaskPerf(
-      "update grouped analysis 1",
-      GroupedAnalysis1.updateAnalysis(blockDb, ethPrice),
+    await TAlt.seqTParT(
+      Performance.measureTaskPerf(
+        "update grouped analysis 1",
+        GroupedAnalysis1.updateAnalysis(blockDb),
+      ),
+      Performance.measureTaskPerf(
+        "calc scarcity",
+        ScarcityCache.updateScarcityCache(blockDb),
+      ),
     )();
   } else {
     Log.debug(
