@@ -53,7 +53,7 @@ const getFreshPrice = (dt: Date) =>
     }),
   );
 
-// Execute these sequentially for maximum cache hits.
+// Execute this fn sequentially for maximum cache hits.
 export const getPriceByDate = (dt: Date) =>
   pipe(
     getCachedPrice(dt),
