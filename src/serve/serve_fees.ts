@@ -255,7 +255,7 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
-  if (payload === GroupedStats1.groupedStats1Key) {
+  if (payload === GroupedStats1.groupedStats1CacheKey) {
     groupedStats1Cache = await GroupedStats1.getLatestStats()();
     return;
   }

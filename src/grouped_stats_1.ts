@@ -15,7 +15,7 @@ import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as ScarcityCache from "./scarcity/cache.js";
 
-export const groupedStats1Key = "grouped-stats-1";
+export const groupedStats1CacheKey = "grouped-stats-1";
 
 export type GroupedStats1 = {
   baseFeePerGas: number;
@@ -32,7 +32,7 @@ export const getLatestStats = () =>
   pipe(
     sqlT<{ value: GroupedStats1 }[]>`
       SELECT value FROM key_value_store
-      WHERE key = ${groupedStats1Key}
+      WHERE key = ${groupedStats1CacheKey}
     `,
     T.map((rows) => rows[0].value),
   );
