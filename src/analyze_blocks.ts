@@ -1,5 +1,3 @@
-import Sentry from "@sentry/node";
-import "@sentry/tracing";
 import * as BlocksNewBlock from "./blocks/new_head.js";
 import * as BlocksSync from "./blocks/sync.js";
 import * as BurnRecordsSync from "./burn-records/sync.js";
@@ -20,14 +18,6 @@ import * as EthSupply from "./scarcity/eth_supply.js";
 process.on("unhandledRejection", (error) => {
   throw error;
 });
-
-if (Config.getEnv() !== "dev") {
-  Sentry.init({
-    dsn: "https://f6393dc2e2984ec09299406e8f409647@o920717.ingest.sentry.io/5896630",
-    tracesSampleRate: 0.1,
-    environment: Config.getEnv(),
-  });
-}
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 

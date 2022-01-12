@@ -1,5 +1,4 @@
 import Router from "@koa/router";
-import * as Sentry from "@sentry/node";
 import Koa, { Middleware } from "koa";
 import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
@@ -19,13 +18,6 @@ import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
-
-if (Config.getEnv() !== "dev") {
-  Sentry.init({
-    dsn: "https://aa7ee1839c7b4ed4993023a300b438de@o920717.ingest.sentry.io/5896640",
-    environment: Config.getEnv(),
-  });
-}
 
 process.on("unhandledRejection", (error) => {
   throw error;

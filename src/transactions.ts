@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/node";
 import PQueue from "p-queue";
 import { setTimeout } from "timers/promises";
 import type { TransactionReceipt as TxRWeb3 } from "web3-core";
