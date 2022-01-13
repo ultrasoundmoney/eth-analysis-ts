@@ -3,7 +3,7 @@ import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
-import * as FeeBurn from "./fee_burns.js";
+import * as FeeBurn from "./fee_burn.js";
 import { A, flow, O, OAlt, pipe, T, TAlt, TE } from "./fp.js";
 import { serializeBigInt } from "./json.js";
 import * as LatestBlockFees from "./latest_block_fees.js";

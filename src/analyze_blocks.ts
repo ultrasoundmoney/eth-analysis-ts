@@ -4,7 +4,7 @@ import * as BurnRecordsSync from "./burn-records/sync.js";
 import * as Config from "./config.js";
 import { runMigrations, sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
-import * as FeeBurns from "./fee_burns.js";
+import * as FeeBurn from "./fee_burn.js";
 import { TAlt } from "./fp.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
@@ -50,7 +50,7 @@ try {
     EthLocked.init(),
     () => EthStaked.init(),
     () => EthSupply.init(),
-    Performance.measureTaskPerf("init fee burns", FeeBurns.init()),
+    Performance.measureTaskPerf("init fee burns", FeeBurn.init()),
     Performance.measureTaskPerf("init leaderboard limited timeframes", () =>
       initLeaderboardLimitedTimeframes(),
     ),

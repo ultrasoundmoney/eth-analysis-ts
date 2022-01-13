@@ -6,7 +6,7 @@ import * as Contracts from "../contracts/contracts.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import * as FeeBurn from "../fee_burns.js";
+import * as FeeBurn from "../fee_burn.js";
 import { pipe, TAlt, TEAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Leaderboards from "../leaderboards.js";

@@ -2,7 +2,7 @@ import { BlockDb } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
 import { sqlTNotify, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
-import * as FeeBurn from "../fee_burns.js";
+import * as FeeBurn from "../fee_burn.js";
 import { E, flow, O, OAlt, pipe, T, TE } from "../fp.js";
 import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";

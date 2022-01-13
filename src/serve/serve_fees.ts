@@ -333,7 +333,7 @@ app.use(async (ctx, next) => {
 
 const router = new Router();
 
-router.get("/fees/fees-burned", handleGetFeesBurned);
+router.get("/fees/fee-burn", handleGetFeesBurned);
 router.get("/fees/eth-price", handleGetEthPrice);
 router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);

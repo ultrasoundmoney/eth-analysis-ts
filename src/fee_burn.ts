@@ -3,7 +3,6 @@ import { BlockDb } from "./blocks/blocks.js";
 import { sqlT } from "./db.js";
 import { WeiBI } from "./eth_units.js";
 import { B, IO, pipe, RA, T, TAlt } from "./fp.js";
-import * as Log from "./log.js";
 import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrameNext, TimeFrameNext } from "./time_frames.js";
 import { Usd } from "./usd_scaling.js";
