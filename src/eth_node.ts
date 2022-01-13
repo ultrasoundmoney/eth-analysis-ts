@@ -351,6 +351,7 @@ const translateTxr = (rawTrx: RawTxr): TxRWeb3London => ({
   contractAddress: rawTrx.contractAddress || undefined,
   cumulativeGasUsed: hexToNumber(rawTrx.cumulativeGasUsed),
   gasUsed: hexToNumber(rawTrx.gasUsed),
+  gasUsedBI: BigInt(rawTrx.gasUsed),
 });
 
 export const getTransactionReceipt = async (

@@ -14,6 +14,7 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 export type TxRWeb3London = TxRWeb3 & {
   to: string | null;
   effectiveGasPrice: string;
+  gasUsedBI: bigint;
 };
 
 export const txrsPQ = new PQueue({

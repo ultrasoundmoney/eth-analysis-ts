@@ -24,6 +24,9 @@ export const calcTxrBaseFee = (
   txr: TxRWeb3London,
 ): number => hexToNumber(block.baseFeePerGas) * txr.gasUsed;
 
+export const calcTxrBaseFeeBI = (block: BlockLondon, txr: TxRWeb3London) =>
+  BigInt(block.baseFeePerGas) * txr.gasUsedBI;
+
 /**
  * Map of base fees grouped by contract address
  */
