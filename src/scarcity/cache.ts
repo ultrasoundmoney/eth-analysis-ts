@@ -37,8 +37,8 @@ export const scarcityCacheKey = "scarcity-cache-key";
 const buildScarcity = (
   block: BlockDb,
   ethLocked: EthLocked.EthLocked,
+  ethBurned: bigint,
 ): E.Either<Error, Scarcity> => {
-  const ethBurned = FeeBurn.getAllFeesBurned().eth;
   const ethStaked = EthStaked.getLastEthStaked();
   const ethSupply = EthSupply.getLastEthSupply();
 
@@ -83,9 +83,18 @@ const buildScarcity = (
 
 export const updateScarcityCache = (block: BlockDb): T.Task<void> =>
   pipe(
-    EthLocked.getLastEthLocked(),
-    T.map(OAlt.getOrThrow("can't update scarcity, eth locked is missing")),
-    T.map((ethLocked) => buildScarcity(block, ethLocked)),
+    T.Do,
+    T.apS(
+      "ethLocked",
+      pipe(
+        EthLocked.getLastEthLocked(),
+        T.map(OAlt.getOrThrow("can't update scarcity, eth locked is missing")),
+      ),
+    ),
+    T.apS("ethBurned", FeeBurn.getFeeBurnAll()),
+    T.map(({ ethBurned, ethLocked }) =>
+      buildScarcity(block, ethLocked, ethBurned.eth),
+    ),
     TE.chainTaskK(
       (scarcity) =>
         sqlTVoid`

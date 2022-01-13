@@ -21,7 +21,7 @@ export type GroupedAnalysis1 = {
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   ethPrice: EthPrices.EthStats | null;
-  feesBurned: FeeBurn.FeesBurnedT;
+  feeBurns: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
   leaderboards: Leaderboards.LeaderboardEntries;
   number: number;
@@ -99,6 +99,10 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
         ),
       ),
     ),
+    T.apS(
+      "feeBurns",
+      Performance.measureTaskPerf("calc fee burns", FeeBurn.getFeeBurnsOld()),
+    ),
     T.map(
       ({
         burnRates,
@@ -106,6 +110,7 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
         ethPrice,
         latestBlockFees,
         leaderboards,
+        feeBurns,
       }): GroupedAnalysis1 => ({
         baseFeePerGas: Number(block.baseFeePerGas),
         number: block.number,
@@ -114,7 +119,7 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
         ethPrice,
         latestBlockFees,
         leaderboards: leaderboards,
-        feesBurned: FeeBurn.getFeeBurnsOld(),
+        feeBurns,
       }),
     ),
     T.map((groupedAnalysis1) => ({

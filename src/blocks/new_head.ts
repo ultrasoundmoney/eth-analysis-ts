@@ -6,7 +6,6 @@ import * as Contracts from "../contracts/contracts.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import * as FeeBurn from "../fee_burn.js";
 import { pipe, TAlt, TEAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Leaderboards from "../leaderboards.js";
@@ -32,10 +31,7 @@ export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
 
   for (const blockNumber of blocksNewestFirst) {
     Log.debug(`rolling back ${blockNumber}`);
-    const [block] = await Blocks.getBlocks(blockNumber, blockNumber);
     const t0 = performance.now();
-
-    FeeBurn.onRollback(block);
 
     const sumsToRollback = await Leaderboards.getRangeBaseFees(
       blockNumber,
@@ -107,8 +103,6 @@ export const addBlock = async (head: Head): Promise<void> => {
     feeBreakdown.contract_use_fees,
     feeBreakdown.contract_use_fees_usd!,
   );
-
-  FeeBurn.onNewBlock(blockDb)();
 
   const addToLeaderboardAllTask = () =>
     LeaderboardsAll.addBlock(

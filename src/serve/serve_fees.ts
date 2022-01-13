@@ -22,12 +22,12 @@ process.on("unhandledRejection", (error) => {
   throw error;
 });
 
-const handleGetFeesBurned: Middleware = async (ctx) => {
+const handleGetFeeBurns: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
   ctx.set("Content-Type", "application/json");
   ctx.body = {
     number: groupedAnalysis1Cache.number,
-    feesBurned: groupedAnalysis1Cache.feesBurned,
+    feeBurns: groupedAnalysis1Cache.feeBurns,
   };
 };
 
@@ -80,7 +80,10 @@ const handleGetBurnLeaderboard: Middleware = async (ctx) => {
 const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
   ctx.set("Content-Type", "application/json");
-  ctx.body = groupedAnalysis1Cache;
+  ctx.body = {
+    ...groupedAnalysis1Cache,
+    feesBurned: groupedAnalysis1Cache.feeBurns,
+  };
 };
 
 const handleSetContractTwitterHandle: Middleware = async (ctx) => {
@@ -333,7 +336,7 @@ app.use(async (ctx, next) => {
 
 const router = new Router();
 
-router.get("/fees/fee-burn", handleGetFeesBurned);
+router.get("/fees/fee-burns", handleGetFeeBurns);
 router.get("/fees/eth-price", handleGetEthPrice);
 router.get("/fees/burn-rate", handleGetBurnRate);
 router.get("/fees/latest-blocks", handleGetLatestBlocks);

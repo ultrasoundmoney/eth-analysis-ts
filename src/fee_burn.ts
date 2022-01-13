@@ -1,8 +1,7 @@
-import * as Blocks from "./blocks/blocks.js";
-import { BlockDb } from "./blocks/blocks.js";
 import { sqlT } from "./db.js";
 import { WeiBI } from "./eth_units.js";
-import { B, IO, IOAlt, pipe, RA, T, TAlt } from "./fp.js";
+import { flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
+import * as Log from "./log.js";
 import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrameNext, TimeFrameNext } from "./time_frames.js";
 import { Usd } from "./usd_scaling.js";
@@ -27,7 +26,7 @@ type PreciseBaseFeeSum = {
   usd: Usd;
 };
 
-const getSumForAll = () =>
+export const getFeeBurnAll = () =>
   pipe(
     sqlT<{ eth: string; usd: number }[]>`
       SELECT
@@ -35,9 +34,20 @@ const getSumForAll = () =>
         SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 10e18) AS usd
       FROM blocks
     `,
+    T.map(
+      flow(
+        (rows) => rows[0],
+        O.fromNullable,
+        O.map((row) => ({
+          eth: BigInt(row.eth),
+          usd: row.usd,
+        })),
+        OAlt.getOrThrow("tried to get fee burn but blocks table is empty"),
+      ),
+    ),
   );
 
-const getSumForInterval = (timeFrame: LimitedTimeFrameNext) =>
+const getFeeBurnTimeFrame = (timeFrame: LimitedTimeFrameNext) =>
   pipe(
     TimeFrames.intervalSqlMapNext[timeFrame],
     (interval) => sqlT<{ eth: string; usd: number }[]>`
@@ -47,109 +57,69 @@ const getSumForInterval = (timeFrame: LimitedTimeFrameNext) =>
       FROM blocks
       WHERE mined_at >= NOW() - ${interval}::interval
     `,
-  );
-
-export const getInitSumForTimeFrame = (
-  timeFrame: TimeFrameNext,
-): T.Task<PreciseBaseFeeSum> =>
-  pipe(
-    timeFrame === "all",
-    B.match(
-      () => getSumForInterval(timeFrame as LimitedTimeFrameNext),
-      () => getSumForAll(),
-    ),
-    T.map((rows) => ({ eth: BigInt(rows[0].eth), usd: rows[0].usd })),
-  );
-
-type BaseFeeSums = Record<TimeFrameNext, PreciseBaseFeeSum>;
-const currentBurnedMap = pipe(
-  TimeFrames.timeFramesNext,
-  RA.reduce({} as BaseFeeSums, (map, timeFrame) => {
-    map[timeFrame] = {
-      eth: 0n,
-      usd: 0,
-    };
-    return map;
-  }),
-);
-
-const addToCurrent = (timeFrame: TimeFrameNext, sum: PreciseBaseFeeSum) =>
-  pipe(
-    currentBurnedMap[timeFrame],
-    (currentBurned) => ({
-      eth: currentBurned.eth + sum.eth,
-      usd: currentBurned.usd + sum.usd,
-    }),
-    (newCurrentBurned) => () => {
-      currentBurnedMap[timeFrame] = newCurrentBurned;
-    },
-  );
-
-export const init = () =>
-  pipe(
-    TimeFrames.timeFramesNext,
-    T.traverseArray((timeFrame) =>
-      pipe(
-        getInitSumForTimeFrame(timeFrame),
-        T.chain((sum) => T.fromIO(addToCurrent(timeFrame, sum))),
-      ),
-    ),
-    TAlt.concatAllVoid,
-  );
-
-export const onNewBlock = (block: BlockDb) =>
-  pipe(
-    TimeFrames.timeFramesNext,
-    IO.traverseArray((timeFrame) =>
-      addToCurrent(timeFrame, {
-        eth: block.baseFeePerGas * block.gasUsed,
-        usd:
-          (Number(block.baseFeePerGas * block.gasUsed) * block.ethPrice) /
-          10 ** 18,
-      }),
-    ),
-    IOAlt.concatAllVoid,
-  );
-
-const rollbackTimeFrame = (block: BlockDb, timeFrame: TimeFrameNext) =>
-  pipe(
-    Blocks.getIsBlockWithinTimeFrame(block.number, timeFrame),
-    TAlt.whenTrue(
-      T.fromIO(
-        addToCurrent(timeFrame, {
-          eth: block.baseFeePerGas * block.gasUsed * -1n,
-          usd:
-            ((Number(block.baseFeePerGas * block.gasUsed) * block.ethPrice) /
-              10 ** 18) *
-            -1,
+    T.map(
+      flow(
+        (rows) => rows[0],
+        O.fromNullable,
+        O.map((row) => ({
+          eth: BigInt(row.eth),
+          usd: row.usd,
+        })),
+        O.getOrElse(() => {
+          Log.warn(
+            `tried to get fee burn for timeframe: ${timeFrame}, but interval was empty, returning 0`,
+          );
+          return {
+            eth: 0n,
+            usd: 0,
+          };
         }),
       ),
     ),
   );
 
-export const onRollback = (block: BlockDb) =>
+type FeeBurns = Record<TimeFrameNext, PreciseBaseFeeSum>;
+
+const getFeeBurn = (timeFrame: TimeFrameNext) =>
+  timeFrame === "all" ? getFeeBurnAll() : getFeeBurnTimeFrame(timeFrame);
+
+export const getFeeBurnsOld = () =>
   pipe(
     TimeFrames.timeFramesNext,
-    T.traverseArray((timeFrame) => rollbackTimeFrame(block, timeFrame)),
-    TAlt.concatAllVoid,
+    T.traverseArray(
+      (timeFrame) =>
+        TAlt.seqTParT(T.of(timeFrame), getFeeBurn(timeFrame)) as T.Task<
+          [TimeFrameNext, PreciseBaseFeeSum]
+        >,
+    ),
+    T.map((entries) => Object.fromEntries(entries) as FeeBurns),
+    T.map((feeBurns) => ({
+      feesBurned5m: Number(feeBurns.m5.eth),
+      feesBurned5mUsd: feeBurns.m5.usd,
+      feesBurned1h: Number(feeBurns.h1.eth),
+      feesBurned1hUsd: feeBurns.h1.usd,
+      feesBurned24h: Number(feeBurns.d1.eth),
+      feesBurned24hUsd: feeBurns.d1.usd,
+      feesBurned7d: Number(feeBurns.d7.eth),
+      feesBurned7dUsd: feeBurns.d7.usd,
+      feesBurned30d: Number(feeBurns.d30.eth),
+      feesBurned30dUsd: feeBurns.d30.usd,
+      feesBurnedAll: Number(feeBurns.all.eth),
+      feesBurnedAllUsd: feeBurns.all.usd,
+    })),
   );
 
-export const getFeeBurns = (): BaseFeeSums => currentBurnedMap;
-
-export const getAllFeesBurned = (): PreciseBaseFeeSum =>
-  currentBurnedMap["all"];
-
-export const getFeeBurnsOld = (): FeesBurnedT => ({
-  feesBurned5m: Number(currentBurnedMap.m5.eth),
-  feesBurned5mUsd: currentBurnedMap.m5.usd,
-  feesBurned1h: Number(currentBurnedMap.h1.eth),
-  feesBurned1hUsd: currentBurnedMap.h1.usd,
-  feesBurned24h: Number(currentBurnedMap.d1.eth),
-  feesBurned24hUsd: currentBurnedMap.d1.usd,
-  feesBurned7d: Number(currentBurnedMap.d7.eth),
-  feesBurned7dUsd: currentBurnedMap.d7.usd,
-  feesBurned30d: Number(currentBurnedMap.d30.eth),
-  feesBurned30dUsd: currentBurnedMap.d30.usd,
-  feesBurnedAll: Number(currentBurnedMap.all.eth),
-  feesBurnedAllUsd: currentBurnedMap.all.usd,
-});
+export const getFeeBurns = () =>
+  pipe(
+    TimeFrames.timeFramesNext,
+    T.traverseArray(
+      (timeFrame) =>
+        TAlt.seqTParT(T.of(timeFrame), getFeeBurn(timeFrame)) as T.Task<
+          [TimeFrameNext, PreciseBaseFeeSum]
+        >,
+    ),
+    T.map(
+      (entries) =>
+        Object.fromEntries(entries) as Record<TimeFrameNext, PreciseBaseFeeSum>,
+    ),
+  );
