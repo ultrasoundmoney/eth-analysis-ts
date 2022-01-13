@@ -47,7 +47,8 @@ const getFirstBlockToInclude = (
 
 const initTimeFrame = (timeFrame: TimeFrame) =>
   pipe(
-    TAlt.seqTParT(BurnRecords.getLastIncludedBlock(), () =>
+    TAlt.seqTParT(
+      BurnRecords.getLastIncludedBlock(),
       Blocks.getLastStoredBlock(),
     ),
     T.chain(([lastIncludedBlock]) =>

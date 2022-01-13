@@ -12,7 +12,7 @@ import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
 
-const lastStoredBlock = await Blocks.getLastStoredBlock();
+const lastStoredBlock = await Blocks.getLastStoredBlock()();
 
 const lastReanalyzedBlock = await sql<{ value: number | null }[]>`
   SELECT "value" FROM key_value_store

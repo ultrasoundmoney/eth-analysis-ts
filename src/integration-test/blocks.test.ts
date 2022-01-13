@@ -31,7 +31,7 @@ test.before(async () => {
 test("return the last stored block", async () => {
   const block = await BlocksData.getSingleBlock();
   await insertTestBlock(block);
-  const storedBlock = await Blocks.getLastStoredBlock();
+  const storedBlock = await Blocks.getLastStoredBlock()();
   assert.is(storedBlock.hash, block.hash);
 
   await removeTestBlock(block.number);

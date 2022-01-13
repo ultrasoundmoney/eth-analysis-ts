@@ -35,7 +35,7 @@ const syncBlock = async (blockNumber: number): Promise<void> => {
 };
 
 const rollbackToLastValidBlock = async () => {
-  let lastStoredBlock = await Blocks.getLastStoredBlock();
+  let lastStoredBlock = await Blocks.getLastStoredBlock()();
   let block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
 
   while (lastStoredBlock.hash !== block.hash) {
@@ -43,7 +43,7 @@ const rollbackToLastValidBlock = async () => {
       `on-start last known block does not match chain, rolling back ${block.number}`,
     );
     await rollbackToBefore(lastStoredBlock.number - 1);
-    lastStoredBlock = await Blocks.getLastStoredBlock();
+    lastStoredBlock = await Blocks.getLastStoredBlock()();
     block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
   }
 };

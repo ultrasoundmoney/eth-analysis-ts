@@ -11,7 +11,7 @@ import { sql, sqlT, sqlTVoid } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
 import { BlockLondon } from "../eth_node.js";
-import { A, NEA, O, pipe, T, TAlt, TO } from "../fp.js";
+import { A, flow, NEA, O, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
@@ -403,19 +403,22 @@ export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
     .map((_, i) => toAndIncluding - i)
     .reverse();
 
-export const getLastStoredBlock = async (): Promise<BlockDb> => {
-  const rows = await sql<{ max: number }[]>`
-    SELECT MAX(number) FROM blocks
-  `;
-
-  if (rows.length === 0) {
-    throw new Error("can't get last stored block from empty table");
-  }
-
-  const [block] = await getBlocks(rows[0].max, rows[0].max);
-
-  return block;
-};
+export const getLastStoredBlock = () =>
+  pipe(
+    sqlT<{ max: number }[]>`
+      SELECT MAX(number) FROM blocks
+    `,
+    T.chain(
+      flow(
+        (rows) => rows[0]?.max,
+        O.fromNullable,
+        TO.fromOption,
+        TO.chainTaskK((max) => () => getBlocks(max, max)),
+        TO.chainOptionK(flow((rows) => rows[0], O.fromNullable)),
+        TOAlt.getOrThrow("can't get last stored block from empty table"),
+      ),
+    ),
+  );
 
 export const getIsBlockWithinTimeFrame = async (
   blockNumber: number,

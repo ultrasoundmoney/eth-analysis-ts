@@ -16,7 +16,7 @@ import * as BurnRecords from "./burn_records.js";
 Log.info("measuring add all blocks performance");
 
 const t0 = performance.now();
-const lastStoredBlock = await Blocks.getLastStoredBlock();
+const lastStoredBlock = await Blocks.getLastStoredBlock()();
 Log.info(`last stored block is: ${lastStoredBlock.number}`);
 
 // const blocks = await Blocks.getFeeBlocks(

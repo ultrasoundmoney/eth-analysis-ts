@@ -138,7 +138,7 @@ export const addBlock = async (
 export const addMissingBlocks = async (): Promise<void> => {
   const [newestIncludedBlock, lastStoredBlock] = await Promise.all([
     getNewestIncludedBlockNumber(),
-    Blocks.getLastStoredBlock(),
+    Blocks.getLastStoredBlock()(),
   ]);
 
   if (
