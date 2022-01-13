@@ -2,7 +2,7 @@ import * as Blocks from "./blocks/blocks.js";
 import { BlockDb } from "./blocks/blocks.js";
 import { sqlT } from "./db.js";
 import { WeiBI } from "./eth_units.js";
-import { B, IO, pipe, RA, T, TAlt } from "./fp.js";
+import { B, IO, IOAlt, pipe, RA, T, TAlt } from "./fp.js";
 import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrameNext, TimeFrameNext } from "./time_frames.js";
 import { Usd } from "./usd_scaling.js";
@@ -73,10 +73,7 @@ const currentBurnedMap = pipe(
   }),
 );
 
-const addToCurrent = (
-  timeFrame: TimeFrameNext,
-  sum: PreciseBaseFeeSum,
-): IO.IO<void> =>
+const addToCurrent = (timeFrame: TimeFrameNext, sum: PreciseBaseFeeSum) =>
   pipe(
     currentBurnedMap[timeFrame],
     (currentBurned) => ({
@@ -88,7 +85,7 @@ const addToCurrent = (
     },
   );
 
-export const init = (): T.Task<void> =>
+export const init = () =>
   pipe(
     TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
@@ -100,37 +97,42 @@ export const init = (): T.Task<void> =>
     TAlt.concatAllVoid,
   );
 
-export const onNewBlock = (block: BlockDb): void => {
-  for (const timeFrame of TimeFrames.timeFramesNext) {
-    addToCurrent(timeFrame, {
-      eth: block.baseFeePerGas * block.gasUsed,
-      usd:
-        (Number(block.baseFeePerGas * block.gasUsed) * block.ethPrice) /
-        10 ** 18,
-    });
-  }
-};
+export const onNewBlock = (block: BlockDb) =>
+  pipe(
+    TimeFrames.timeFramesNext,
+    IO.traverseArray((timeFrame) =>
+      addToCurrent(timeFrame, {
+        eth: block.baseFeePerGas * block.gasUsed,
+        usd:
+          (Number(block.baseFeePerGas * block.gasUsed) * block.ethPrice) /
+          10 ** 18,
+      }),
+    ),
+    IOAlt.concatAllVoid,
+  );
 
-export const onRollback = (block: BlockDb): void => {
-  for (const timeFrame of TimeFrames.timeFramesNext) {
-    const isBlockWithinTimeFrame = Blocks.getIsBlockWithinTimeFrame(
-      block.number,
-      timeFrame,
-    );
+const rollbackTimeFrame = (block: BlockDb, timeFrame: TimeFrameNext) =>
+  pipe(
+    Blocks.getIsBlockWithinTimeFrame(block.number, timeFrame),
+    TAlt.whenTrue(
+      T.fromIO(
+        addToCurrent(timeFrame, {
+          eth: block.baseFeePerGas * block.gasUsed * -1n,
+          usd:
+            ((Number(block.baseFeePerGas * block.gasUsed) * block.ethPrice) /
+              10 ** 18) *
+            -1,
+        }),
+      ),
+    ),
+  );
 
-    if (!isBlockWithinTimeFrame) {
-      return;
-    }
-
-    addToCurrent(timeFrame, {
-      eth: block.baseFeePerGas * block.gasUsed * -1n,
-      usd:
-        ((Number(block.baseFeePerGas * block.gasUsed) * block.ethPrice) /
-          10 ** 18) *
-        -1,
-    });
-  }
-};
+export const onRollback = (block: BlockDb) =>
+  pipe(
+    TimeFrames.timeFramesNext,
+    T.traverseArray((timeFrame) => rollbackTimeFrame(block, timeFrame)),
+    TAlt.concatAllVoid,
+  );
 
 export const getFeeBurns = (): BaseFeeSums => currentBurnedMap;
 

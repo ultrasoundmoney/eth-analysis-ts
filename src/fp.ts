@@ -1,10 +1,11 @@
 import * as Apply from "fp-ts/lib/Apply.js";
 import { pipe } from "fp-ts/lib/function.js";
+import * as IO from "fp-ts/lib/IO.js";
 import * as Mo from "fp-ts/lib/Monoid.js";
 import * as O from "fp-ts/lib/Option.js";
 import * as T from "fp-ts/lib/Task.js";
-import * as TO from "fp-ts/lib/TaskOption.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import * as TO from "fp-ts/lib/TaskOption.js";
 import * as Void from "fp-ts/lib/void.js";
 import * as Log from "./log.js";
 
@@ -58,6 +59,16 @@ export const TAlt = {
   seqSSeqT: Apply.sequenceS(T.ApplySeq),
   seqTParT: Apply.sequenceT(T.ApplyPar),
   seqTSeqT: Apply.sequenceT(T.ApplySeq),
+  when:
+    <A, C>(shouldExecute: (a: A) => boolean, task: T.Task<C>) =>
+    (ma: T.Task<A>) =>
+      pipe(
+        ma,
+        T.chain<A, C | void>((a) =>
+          shouldExecute(a) ? task : T.of(undefined as void),
+        ),
+      ),
+  whenTrue: <A>(task: T.Task<A>) => TAlt.when((a: boolean) => a, task),
   logDebugStr: <A>(msg: string) =>
     T.chainFirstIOK<A, void>((value) => () => {
       Log.debug(msg + String(value));
@@ -96,4 +107,8 @@ export const TOAlt = {
           throw new Error(message);
         }),
       ),
+};
+
+export const IOAlt = {
+  concatAllVoid: IO.map(Mo.concatAll(Void.Monoid)),
 };

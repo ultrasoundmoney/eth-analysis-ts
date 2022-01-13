@@ -108,7 +108,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     feeBreakdown.contract_use_fees_usd!,
   );
 
-  FeeBurn.onNewBlock(blockDb);
+  FeeBurn.onNewBlock(blockDb)();
 
   const addToLeaderboardAllTask = () =>
     LeaderboardsAll.addBlock(
