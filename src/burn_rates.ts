@@ -41,7 +41,6 @@ const getTimeframeBurnRate = (block: BlockDb, timeframe: LimitedTimeFrame) =>
         SUM(base_fee_sum * eth_price / 1e18) / ${timeframeMinutesMap[timeframe]} AS usd
       FROM blocks
       WHERE mined_at >= now() - ${timeframeIntervalMap[timeframe]}::interval
-      AND number <= ${block.number}
     `,
     T.map((rows) => ({ eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 })),
   );
