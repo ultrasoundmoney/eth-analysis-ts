@@ -420,26 +420,23 @@ export const getLastStoredBlock = () =>
     ),
   );
 
-export const getIsBlockWithinTimeFrame = async (
+export const getIsBlockWithinTimeFrame = (
   blockNumber: number,
   timeFrame: TimeFrameNext,
-) => {
-  if (timeFrame === "all") {
-    return true;
-  }
-
-  const interval = TimeFrames.intervalSqlMapNext[timeFrame];
-
-  const [exists] = await sql<{ exists: boolean }[]>`
-    SELECT (
-      SELECT mined_at FROM blocks WHERE number = ${blockNumber}
-    ) >= (
-      (SELECT MAX(mined_at) FROM blocks) - ${interval}::INTERVAL
-    ) AS "exists"
-  `;
-
-  return exists;
-};
+) =>
+  timeFrame === "all"
+    ? T.of(true)
+    : pipe(
+        TimeFrames.intervalSqlMapNext[timeFrame],
+        (interval) => sqlT<{ exists: boolean }[]>`
+            SELECT (
+              SELECT mined_at FROM blocks WHERE number = ${blockNumber}
+            ) >= (
+              (SELECT MAX(mined_at) FROM blocks) - ${interval}::INTERVAL
+            ) AS "exists"
+          `,
+        T.map((rows) => rows[0]?.exists),
+      );
 
 export const getEarliestBlockInTimeFrame = (timeFrame: TimeFrame) =>
   timeFrame === "all"
