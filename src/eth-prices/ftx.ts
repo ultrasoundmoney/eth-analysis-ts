@@ -109,7 +109,7 @@ export const getPriceByDate = (dt: Date) =>
             E.fromOption(
               () =>
                 new PriceNotFound(
-                  `FTX returned prices from ${start}, to ${end}, but price for requested date is missing`,
+                  `FTX returned prices from ${start.toISOString()}, to ${end.toISOString()}, but price for requested date ${dt.toISOString()} is missing`,
                 ),
             ),
             TE.fromEither,
