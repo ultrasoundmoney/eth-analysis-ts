@@ -116,7 +116,8 @@ export const getPriceByDate = (dt: Date) =>
           ),
         ),
         TE.map((price) => ({
-          timestamp: start,
+          // We consider a price within two minutes to be close enough to call it the price of the requested minute.
+          timestamp: dt,
           ethusd: price,
         })),
       ),
