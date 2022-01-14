@@ -31,7 +31,7 @@ export const getFeeBurnAll = () =>
     sqlT<{ eth: string; usd: number }[]>`
       SELECT
         SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
-        SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 10e18) AS usd
+        SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 1e18) AS usd
       FROM blocks
     `,
     T.map(
@@ -53,7 +53,7 @@ const getFeeBurnTimeFrame = (timeFrame: LimitedTimeFrameNext) =>
     (interval) => sqlT<{ eth: string; usd: number }[]>`
       SELECT
         SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
-        SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 10e18) AS usd
+        SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 1e18) AS usd
       FROM blocks
       WHERE mined_at >= NOW() - ${interval}::interval
     `,
