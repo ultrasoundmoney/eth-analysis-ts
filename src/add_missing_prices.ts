@@ -89,7 +89,7 @@ while (nextDateToCheck.getTime() <= Date.now()) {
           sqlTVoid`
             INSERT INTO eth_prices
               ${sql(prices)}
-        `,
+          `,
       ),
     )();
   }
