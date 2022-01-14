@@ -6,8 +6,7 @@ import etag from "koa-etag";
 import * as Blocks from "../blocks/blocks.js";
 import * as BurnRecordsCache from "../burn-records/cache.js";
 import * as Canary from "../canary.js";
-import * as Config from "../config.js";
-import * as ContractsAdmin from "../contracts/admin.js";
+import * as ContractsRoutes from "../contracts/routes.js";
 import { runMigrations, sql } from "../db.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
@@ -21,6 +20,14 @@ import * as SupplyProjection from "../supply-projection/supply_projection.js";
 process.on("unhandledRejection", (error) => {
   throw error;
 });
+
+await runMigrations();
+
+// Prepare caches before registering routes or even starting the server.
+let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
+let scarcityCache = await ScarcityCache.getScarcityCache()();
+let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
+let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
 
 const handleGetFeeBurns: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
@@ -84,134 +91,6 @@ const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
     ...groupedAnalysis1Cache,
     feesBurned: groupedAnalysis1Cache.feeBurns,
   };
-};
-
-const handleSetContractTwitterHandle: Middleware = async (ctx) => {
-  const token = ctx.query.token;
-  if (typeof token !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing token param" };
-    return undefined;
-  }
-
-  if (token !== Config.getAdminToken()) {
-    ctx.status = 403;
-    ctx.body = { msg: "invalid token" };
-    return undefined;
-  }
-
-  const handle = ctx.query.handle;
-  const address = ctx.query.address;
-
-  if (typeof handle !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing handle" };
-    return undefined;
-  }
-
-  if (typeof address !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing address" };
-    return undefined;
-  }
-
-  await ContractsAdmin.setTwitterHandle(address, handle)();
-  ctx.status = 200;
-  return undefined;
-};
-
-const handleSetContractName: Middleware = async (ctx) => {
-  const token = ctx.query.token;
-  if (typeof token !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing token param" };
-    return undefined;
-  }
-
-  if (token !== Config.getAdminToken()) {
-    ctx.status = 403;
-    ctx.body = { msg: "invalid token" };
-    return undefined;
-  }
-
-  const name = ctx.query.name;
-  const address = ctx.query.address;
-
-  if (typeof name !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing name" };
-    return undefined;
-  }
-  if (typeof address !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing address" };
-    return undefined;
-  }
-
-  await ContractsAdmin.setName(address, name)();
-  ctx.status = 200;
-  return undefined;
-};
-
-const handleSetContractCategory: Middleware = async (ctx) => {
-  const token = ctx.query.token;
-  if (typeof token !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing token param" };
-    return undefined;
-  }
-
-  if (token !== Config.getAdminToken()) {
-    ctx.status = 403;
-    ctx.body = { msg: "invalid token" };
-    return undefined;
-  }
-
-  const category = ctx.query.category;
-  const address = ctx.query.address;
-
-  if (typeof category !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing category" };
-    return undefined;
-  }
-
-  if (typeof address !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing address" };
-    return undefined;
-  }
-
-  await ContractsAdmin.setCategory(address, category)();
-  ctx.status = 200;
-  return undefined;
-};
-
-const handleSetContractLastManuallyVerified: Middleware = async (ctx) => {
-  const token = ctx.query.token;
-  if (typeof token !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing token param" };
-    return undefined;
-  }
-
-  if (token !== Config.getAdminToken()) {
-    ctx.status = 403;
-    ctx.body = { msg: "invalid token" };
-    return undefined;
-  }
-
-  const address = ctx.query.address;
-
-  if (typeof address !== "string") {
-    ctx.status = 400;
-    ctx.body = { msg: "missing address" };
-    return undefined;
-  }
-
-  await ContractsAdmin.setLastManuallyVerified(address)();
-  ctx.status = 200;
-  return undefined;
 };
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
@@ -344,13 +223,6 @@ router.get("/fees/base-fee-per-gas", handleGetBaseFeePerGas);
 router.get("/fees/burn-leaderboard", handleGetBurnLeaderboard);
 // deprecate as soon as frontend is switched over to /fees/grouped-analysis-1
 router.get("/fees/all", handleGetGroupedAnalysis1);
-router.get("/fees/set-contract-twitter-handle", handleSetContractTwitterHandle);
-router.get("/fees/set-contract-name", handleSetContractName);
-router.get("/fees/set-contract-category", handleSetContractCategory);
-router.get(
-  "/fees/set-contract-last-manually-verified",
-  handleSetContractLastManuallyVerified,
-);
 router.get("/fees/average-eth-price", handleAverageEthPrice);
 router.get("/fees/market-caps", handleGetMarketCaps);
 router.get("/fees/scarcity", handleGetScarcity);
@@ -358,26 +230,11 @@ router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 router.get("/fees/burn-records", handleGetBurnRecords);
 router.get("/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
 
+ContractsRoutes.registerRoutes(router);
+
 app.use(bodyParser());
 app.use(router.routes());
 app.use(router.allowedMethods());
-
-await runMigrations();
-
-const blockNumberOnStart = await sql<{ blockNumber: number }[]>`
-      SELECT block_number FROM derived_block_stats
-      ORDER BY block_number DESC
-      LIMIT 1
-    `.then((rows) => rows[0]?.blockNumber);
-
-if (blockNumberOnStart === undefined) {
-  throw new Error("no derived block stats, can't serve fees");
-}
-
-let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
-let scarcityCache = await ScarcityCache.getScarcityCache()();
-let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
-let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
 
 await new Promise((resolve) => {
   app.listen(port, () => {

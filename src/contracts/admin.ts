@@ -1,5 +1,5 @@
-import { sqlTVoid } from "../db.js";
-import { pipe, T } from "../fp.js";
+import { sqlT, sqlTVoid } from "../db.js";
+import { A, pipe, T } from "../fp.js";
 import * as Contracts from "./contracts.js";
 import * as ContractsMetadata from "./crawl_metadata.js";
 
@@ -33,3 +33,31 @@ export const setLastManuallyVerified = (address: string) =>
     WHERE
       address = ${address}
   `;
+
+type RawMetadataFreshness = {
+  address: string;
+  openseaContractLastFetch: boolean | null;
+  lastManuallyVerified: boolean | null;
+};
+type MetadataFreshness = {
+  openseaContractLastFetch: boolean | null;
+  lastManuallyVerified: boolean | null;
+};
+type MetadataFreshnessMap = Map<string, MetadataFreshness>;
+
+export const getMetadataFreshness = (
+  addresses: string[],
+): T.Task<MetadataFreshnessMap> =>
+  pipe(
+    sqlT<RawMetadataFreshness[]>`
+    SELECT address, opensea_contract_last_fetch, last_manually_verified FROM contracts
+    WHERE address IN (${addresses})
+  `,
+    T.map(
+      A.reduce(
+        new Map<string, MetadataFreshness>(),
+        (map, { address, openseaContractLastFetch, lastManuallyVerified }) =>
+          map.set(address, { openseaContractLastFetch, lastManuallyVerified }),
+      ),
+    ),
+  );
