@@ -16,7 +16,12 @@ const getLastAnalyzedDate = async (): Promise<Date | undefined> => {
     WHERE key = 'last-reanalyzed-pricedate'
   `;
 
-  return rows[0]?.value;
+  return pipe(
+    rows[0]?.value,
+    O.fromNullable,
+    O.map(DateFns.parseISO),
+    O.toUndefined,
+  );
 };
 
 const setLastAnalyzedDate = async (dt: Date): Promise<void> => {
