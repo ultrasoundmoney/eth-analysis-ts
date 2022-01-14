@@ -86,39 +86,40 @@ export const getFtxPrices = (startDateTime: Date, endDateTime: Date) => {
 
 export class PriceNotFound extends Error {}
 
-export const getPriceByDate = (dt: Date) =>
-  pipe(
-    {
-      start: pipe(dt, DateFns.startOfMinute, (dt) => DateFns.subMinutes(dt, 1)),
-      end: DateFns.addMinutes(dt, 1),
-    },
-    ({ start, end }) =>
+// We might not have the exact price date, as FTX doesn't have every date, it is also possible the start of the minute is so recent, FTX doesn't have a price yet. We accept prices within one minute on either side.
+export const getPriceByDate = (dt: Date) => {
+  const targetMinute = DateFns.startOfMinute(dt);
+  const targetSubOne = DateFns.subMinutes(targetMinute, 1);
+  const targetPlusOne = DateFns.addMinutes(targetMinute, 1);
+  const start = targetSubOne;
+  const end = targetPlusOne;
+
+  const getPriceFromMap = (map: HistoricPriceMap, dt: Date) =>
+    pipe(
+      dt,
+      DateFns.getTime,
+      (jsTimestamp) => map.get(jsTimestamp),
+      O.fromNullable,
+    );
+
+  return pipe(
+    getFtxPrices(start, end),
+    TE.chainEitherKW((prices) =>
       pipe(
-        getFtxPrices(start, end),
-        TE.chainW((prices) =>
-          pipe(
-            prices.get(DateFns.getTime(start)),
-            O.fromNullable,
-            // Sometimes the start of the current minute is too recent for FTX to have a price, so we ask for the past two minutes and return the most recent.
-            O.alt(() =>
-              pipe(
-                prices.get(DateFns.getTime(DateFns.subMinutes(start, 1))),
-                O.fromNullable,
-              ),
+        getPriceFromMap(prices, targetMinute),
+        O.alt(() => getPriceFromMap(prices, targetSubOne)),
+        O.alt(() => getPriceFromMap(prices, targetPlusOne)),
+        E.fromOption(
+          () =>
+            new PriceNotFound(
+              `FTX returned prices from ${start.toISOString()}, to ${end.toISOString()}, but price for requested date ${dt.toISOString()} is missing`,
             ),
-            E.fromOption(
-              () =>
-                new PriceNotFound(
-                  `FTX returned prices from ${start.toISOString()}, to ${end.toISOString()}, but price for requested date ${dt.toISOString()} is missing`,
-                ),
-            ),
-            TE.fromEither,
-          ),
         ),
-        TE.map((price) => ({
-          // We consider a price within two minutes to be close enough to call it the price of the requested minute.
-          timestamp: dt,
-          ethusd: price,
-        })),
       ),
+    ),
+    TE.map((price) => ({
+      timestamp: dt,
+      ethusd: price,
+    })),
   );
+};
