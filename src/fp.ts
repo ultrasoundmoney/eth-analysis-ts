@@ -2,6 +2,7 @@ import * as Apply from "fp-ts/lib/Apply.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as IO from "fp-ts/lib/IO.js";
 import * as Mo from "fp-ts/lib/Monoid.js";
+import * as E from "fp-ts/lib/Either.js";
 import * as O from "fp-ts/lib/Option.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -111,4 +112,11 @@ export const TOAlt = {
 
 export const IOAlt = {
   concatAllVoid: IO.map(Mo.concatAll(Void.Monoid)),
+};
+
+export const EAlt = {
+  getOrThrow: (message: string) =>
+    E.getOrElse(() => {
+      throw new Error(message);
+    }),
 };
