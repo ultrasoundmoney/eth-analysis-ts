@@ -102,7 +102,7 @@ export const handleGetMetadataFreshness: Middleware = async (ctx) => {
     Admin.getMetadataFreshness(addresses),
     T.map((metadataFreshnessMap) => {
       ctx.status = 200;
-      ctx.body = metadataFreshnessMap;
+      ctx.body = Object.fromEntries(metadataFreshnessMap.entries());
       return undefined;
     }),
   )();
