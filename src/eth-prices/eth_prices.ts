@@ -122,7 +122,7 @@ export const getEthPrice = (
     getDbEthPrice(start),
     TE.chainEitherK((ethPrice) => {
       const priceAge = DateFnsAlt.millisecondsBetweenAbs(
-        new Date(),
+        start,
         ethPrice.timestamp,
       );
 
