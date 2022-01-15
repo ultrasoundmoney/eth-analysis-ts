@@ -92,7 +92,7 @@ while (nextDateToFetch !== undefined) {
   );
 
   await sql`
-    INSERT INTO eth_prices_next
+    INSERT INTO eth_prices
       ${sql(insertables)}
     ON CONFLICT (timestamp) DO UPDATE SET
       ethusd = excluded.ethusd
