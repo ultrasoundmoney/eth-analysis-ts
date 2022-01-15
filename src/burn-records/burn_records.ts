@@ -3,7 +3,7 @@ import { sqlT } from "../db.js";
 import { flow, O, pipe, T } from "../fp.js";
 import { LimitedTimeFrame, TimeFrame } from "../time_frames.js";
 
-export const maxRank = 100;
+export const maxRank = 10;
 
 export const getLastIncludedBlock = () =>
   pipe(
