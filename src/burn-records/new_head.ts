@@ -15,22 +15,16 @@ export const onNewBlock = (block: BlockDb) =>
         T.chain(() =>
           BurnRecords.pruneRecordsBeyondRank(timeFrame, BurnRecords.maxRank),
         ),
-        T.chain(() => BurnRecords.setLastIncludedBlock(block.number)),
       ),
     ),
-    TAlt.concatAllVoid,
+    T.chain(() => BurnRecords.setLastIncludedBlock(block.number)),
   );
 
 export const onRollback = (rollbackToAndIncluding: number) =>
   pipe(
     TimeFrames.timeFrames,
     T.traverseArray(() =>
-      pipe(
-        BurnRecords.expireRecordsFromAndIncluding(rollbackToAndIncluding),
-        T.chain(() =>
-          BurnRecords.setLastIncludedBlock(rollbackToAndIncluding - 1),
-        ),
-      ),
+      pipe(BurnRecords.expireRecordsFromAndIncluding(rollbackToAndIncluding)),
     ),
-    TAlt.concatAllVoid,
+    T.chain(() => BurnRecords.setLastIncludedBlock(rollbackToAndIncluding - 1)),
   );
