@@ -36,12 +36,12 @@ export const setLastManuallyVerified = (address: string) =>
 
 type RawMetadataFreshness = {
   address: string;
-  openseaContractLastFetch: boolean | null;
-  lastManuallyVerified: boolean | null;
+  openseaContractLastFetch: Date | null;
+  lastManuallyVerified: Date | null;
 };
 type MetadataFreshness = {
-  openseaContractLastFetch: boolean | null;
-  lastManuallyVerified: boolean | null;
+  openseaContractLastFetch: Date | null;
+  lastManuallyVerified: Date | null;
 };
 type MetadataFreshnessMap = Map<string, MetadataFreshness>;
 
@@ -50,9 +50,9 @@ export const getMetadataFreshness = (
 ): T.Task<MetadataFreshnessMap> =>
   pipe(
     sqlT<RawMetadataFreshness[]>`
-    SELECT address, opensea_contract_last_fetch, last_manually_verified FROM contracts
-    WHERE address IN (${addresses})
-  `,
+      SELECT address, opensea_contract_last_fetch, last_manually_verified FROM contracts
+      WHERE address IN (${addresses})
+    `,
     T.map(
       A.reduce(
         new Map<string, MetadataFreshness>(),
