@@ -1,0 +1,22 @@
+import fetch from "node-fetch";
+import { setTimeout } from "timers/promises";
+import { releaseCanary, resetCanary } from "./canary.js";
+
+releaseCanary("block");
+
+let lastSeenBlockNumber = undefined;
+
+// eslint-disable-next-line no-constant-condition
+while (true) {
+  const res = await fetch(
+    "https://api.ultrasound.money/fees/grouped-analysis-1",
+  );
+  const body = (await res.json()) as { number: number };
+
+  if (lastSeenBlockNumber !== body.number) {
+    lastSeenBlockNumber = body.number;
+    resetCanary("block");
+  }
+
+  await setTimeout(10000);
+}
