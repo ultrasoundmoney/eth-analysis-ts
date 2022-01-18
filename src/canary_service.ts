@@ -16,11 +16,11 @@ while (true) {
   const body = (await res.json()) as { number: number };
 
   if (lastSeenBlockNumber !== body.number) {
-    lastSeenBlockNumber = body.number;
     resetCanary("block");
     Log.debug(
       `lastSeenBlockNumber: ${lastSeenBlockNumber}, new block number: ${body.number}, resetting canary`,
     );
+    lastSeenBlockNumber = body.number;
   }
 
   await setTimeout(10000);
