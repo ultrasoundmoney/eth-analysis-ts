@@ -13,8 +13,6 @@ spec:
     metadata:
       labels:
         app: contract-metadata
-      annotations:
-        linkerd.io/inject: enabled
     spec:
       containers:
         - name: contract-metadata
