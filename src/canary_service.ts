@@ -1,7 +1,9 @@
 import fetch from "node-fetch";
 import { setTimeout } from "timers/promises";
 import { releaseCanary, resetCanary } from "./canary.js";
+import * as Log from "./log.js";
 
+Log.info("releasing canary, triggers after ? seconds");
 releaseCanary("block");
 
 let lastSeenBlockNumber = undefined;
@@ -16,6 +18,9 @@ while (true) {
   if (lastSeenBlockNumber !== body.number) {
     lastSeenBlockNumber = body.number;
     resetCanary("block");
+    Log.debug(
+      `lastSeenBlockNumber: ${lastSeenBlockNumber}, new block number: ${body.number}, resetting canary`,
+    );
   }
 
   await setTimeout(10000);
