@@ -40,8 +40,8 @@ spec:
                   fieldPath: metadata.name
           resources:
             limits:
-              cpu: 800m
-              memory: 1Gi
+              cpu: 1500m
+              memory: 2Gi
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 1000m
+              memory: 1Gi
