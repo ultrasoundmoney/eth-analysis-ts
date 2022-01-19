@@ -73,6 +73,7 @@ export const fetchAbi = (
         return TE.left(new AbiApiError(abiRaw.result));
       }
 
+      Log.error("unexpected etherscan API response", abiRaw);
       return TE.left(new Error(abiRaw.result));
     }),
   );
