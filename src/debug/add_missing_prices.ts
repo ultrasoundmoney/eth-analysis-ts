@@ -1,13 +1,13 @@
 import * as DateFns from "date-fns";
 import _ from "lodash";
 import makeEta from "simple-eta";
-import * as Blocks from "./blocks/blocks.js";
-import { sql, sqlTVoid } from "./db.js";
-import { EthPrice } from "./eth-prices/eth_prices.js";
-import * as EthPricesFtx from "./eth-prices/ftx.js";
-import * as EthNode from "./eth_node.js";
-import { E, pipe, RA, T, TE } from "./fp.js";
-import * as Log from "./log.js";
+import * as Blocks from "../blocks/blocks.js";
+import { sql, sqlTVoid } from "../db.js";
+import { EthPrice } from "../eth-prices/eth_prices.js";
+import * as EthPricesFtx from "../eth-prices/ftx.js";
+import * as EthNode from "../eth_node.js";
+import { E, pipe, RA, T, TE } from "../fp.js";
+import * as Log from "../log.js";
 
 await EthNode.connect();
 const block = await EthNode.getBlock(Blocks.londonHardForkBlockNumber);
