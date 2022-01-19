@@ -10,7 +10,7 @@ const cage: Record<CanaryType, NodeJS.Timeout | undefined> = {
   leaderboard: undefined,
 };
 
-const durationMilis = Duration.millisFromSeconds(180);
+const durationMilis = Duration.millisFromSeconds(300);
 
 export const releaseCanary = (type: CanaryType): void => {
   cage[type] = setTimeout(async () => {
