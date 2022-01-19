@@ -23,7 +23,7 @@ const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 export const apiQueue = new PQueue({
   concurrency: 2,
   interval: Duration.millisFromSeconds(4),
-  intervalCap: 5,
+  intervalCap: 4,
 });
 
 const queueApiCall =
