@@ -42,6 +42,11 @@ const storeLastReanalyzed = (blockNumber: number) => sql`
 
 for (const blockNumber of blocksToStore) {
   const [storedBlock] = await Blocks.getBlocks(blockNumber, blockNumber);
+
+  if (storedBlock === undefined) {
+    throw new Error(`get block ${blockNumber} returned undefined`);
+  }
+
   const block = await Blocks.getBlockWithRetry(blockNumber);
 
   if (blockNumber % 100 === 0 && blockNumber !== 0) {
