@@ -14,10 +14,6 @@ import * as EthLocked from "./scarcity/eth_locked.js";
 import * as EthStaked from "./scarcity/eth_staked.js";
 import * as EthSupply from "./scarcity/eth_supply.js";
 
-process.on("unhandledRejection", (error) => {
-  throw error;
-});
-
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
 const syncLeaderboardAll = async (): Promise<void> => {
