@@ -68,7 +68,8 @@ for (const blockNumber of blocksToStore) {
   )();
   await LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback);
 
-  await Contracts.deleteContractsMinedAt(blockNumber);
+  // Contracts marked as mined in a block that was rolled back are possibly wrong. Reanalyze 'contract mined at' data if we want very high confidence.
+  // await Contracts.deleteContractsMinedAt(blockNumber);
   await Blocks.deleteContractBaseFees(blockNumber);
   await Blocks.deleteDerivedBlockStats(blockNumber);
   await Blocks.deleteBlock(blockNumber);
