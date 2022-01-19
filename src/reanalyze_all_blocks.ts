@@ -2,7 +2,6 @@ import * as DateFns from "date-fns";
 import makeEta from "simple-eta";
 import { calcBlockFeeBreakdown } from "./base_fees.js";
 import * as Blocks from "./blocks/blocks.js";
-import * as Contracts from "./contracts/contracts.js";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
