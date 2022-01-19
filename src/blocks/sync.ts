@@ -9,7 +9,7 @@ import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { rollbackToBefore } from "./new_head.js";
 
-const syncBlock = async (blockNumber: number): Promise<void> => {
+export const syncBlock = async (blockNumber: number): Promise<void> => {
   const block = await Blocks.getBlockWithRetry(blockNumber);
 
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
