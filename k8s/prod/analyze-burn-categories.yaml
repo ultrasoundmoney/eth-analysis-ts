@@ -24,7 +24,7 @@ spec:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: pg-password-lilly
           env:
             - name: NAME
               valueFrom:
