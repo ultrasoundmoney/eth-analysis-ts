@@ -1,4 +1,3 @@
-import * as DateFns from "date-fns";
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as EthPrices from "../eth-prices/eth_prices.js";
