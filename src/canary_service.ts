@@ -4,7 +4,7 @@ import { releaseCanary, resetCanary } from "./canary.js";
 import * as Log from "./log.js";
 
 Log.info("releasing canary, triggers after ? seconds");
-releaseCanary("block");
+releaseCanary();
 
 let lastSeenBlockNumber = undefined;
 
@@ -16,7 +16,7 @@ while (true) {
   const body = (await res.json()) as { number: number };
 
   if (lastSeenBlockNumber !== body.number) {
-    resetCanary("block");
+    resetCanary();
     Log.debug(
       `lastSeenBlockNumber: ${lastSeenBlockNumber}, new block number: ${body.number}, resetting canary`,
     );
