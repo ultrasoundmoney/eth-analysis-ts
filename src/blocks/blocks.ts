@@ -138,7 +138,7 @@ export const blockDbFromBlock = (
   txrs: TransactionReceiptV1[],
   ethPrice: number,
 ): BlockDb => {
-  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
+  const feeBreakdown = calcBlockFeeBreakdown(block, segmentTxrs(txrs));
   const tips = calcBlockTips(block, txrs);
 
   return {
@@ -183,12 +183,11 @@ const storeContractsBaseFeesTask = (
     ),
   );
 
-const countTransactionsPerContract = (
+export const countTransactionsPerContract = (
   transactionReceipts: TransactionReceiptV1[],
 ) =>
   pipe(
     transactionReceipts,
-    A.filter((txr) => typeof txr.to === "string"),
     A.reduce(new Map<string, number>(), (map, txr) => {
       const currentCount = map.get(txr.to) ?? 0;
       return map.set(txr.to, currentCount + 1);
@@ -201,8 +200,11 @@ export const storeBlock = async (
   ethPrice: number,
 ): Promise<void> => {
   const blockDb = blockDbFromBlock(block, txrs, ethPrice);
-  const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
-  const transactionCounts = countTransactionsPerContract(txrs);
+  const transactionReceiptSegments = segmentTxrs(txrs);
+  const feeBreakdown = calcBlockFeeBreakdown(block, transactionReceiptSegments);
+  const transactionCounts = countTransactionsPerContract(
+    transactionReceiptSegments.contractUseTxrs,
+  );
   const tips = calcBlockTips(block, txrs);
   const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
 

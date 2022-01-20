@@ -83,11 +83,11 @@ export const calcBlockBaseFeeSumDb = (block: BlockDb): bigint =>
 
 export const calcBlockFeeBreakdown = (
   block: BlockLondon,
-  txrs: readonly TransactionReceiptV1[],
+  transactionReceiptSegments: Transactions.TxrSegments,
   ethPrice?: number,
 ): FeeBreakdown => {
   const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
-    Transactions.segmentTxrs(txrs);
+    transactionReceiptSegments;
 
   const ethTransferFees = pipe(
     ethTransferTxrs,
