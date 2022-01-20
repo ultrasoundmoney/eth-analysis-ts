@@ -1,11 +1,11 @@
 import makeEta from "simple-eta";
-import * as Blocks from "../blocks/blocks.js";
-import { sql, sqlTVoid } from "../db.js";
-import { A, NEA, O, pipe, T } from "../fp.js";
-import * as Log from "../log.js";
-import * as Transactions from "../transactions.js";
-import * as EthNode from "../eth_node.js";
-import * as Contracts from "../contracts/contracts.js";
+import * as Blocks from "./blocks/blocks.js";
+import * as Contracts from "./contracts/contracts.js";
+import { sql, sqlTVoid } from "./db.js";
+import * as EthNode from "./eth_node.js";
+import { A, NEA, O, pipe, T } from "./fp.js";
+import * as Log from "./log.js";
+import * as Transactions from "./transactions.js";
 
 await EthNode.connect();
 
