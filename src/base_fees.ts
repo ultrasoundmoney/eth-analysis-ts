@@ -2,6 +2,7 @@ import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
 import { BlockDb, BlockV1 } from "./blocks/blocks.js";
+import { O } from "./fp.js";
 import { sum } from "./numbers.js";
 import type { TransactionReceiptV1 } from "./transactions";
 import * as Transactions from "./transactions.js";
@@ -36,10 +37,16 @@ const calcBaseFeePerContract = (
 ): ContractBaseFeeMap =>
   pipe(
     txrs,
-    A.reduce(new Map(), (sumMap, txr: TransactionReceiptV1) =>
-      sumMap.set(
+    A.reduce(new Map<string, number>(), (sumMap, txr: TransactionReceiptV1) =>
+      pipe(
         txr.to,
-        (sumMap.get(txr.to) || 0) + calcTxrBaseFee(block, txr),
+        O.match(
+          () => sumMap,
+          (to) => {
+            const currentSum = sumMap.get(to) ?? 0;
+            return sumMap.set(to, currentSum + calcTxrBaseFee(block, txr));
+          },
+        ),
       ),
     ),
   );

@@ -4,7 +4,7 @@ import { flow, NEA, O, pipe, T } from "../fp.js";
 import * as OpenSea from "../opensea.js";
 
 export const storeContracts = flow(
-  NEA.map((address) => ({ address })),
+  NEA.map((address: string) => ({ address })),
   (insertables) =>
     sqlTVoid`
       INSERT INTO contracts
