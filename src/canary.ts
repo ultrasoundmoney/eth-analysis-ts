@@ -39,6 +39,8 @@ export const releaseCanary = (type: CanaryType): void => {
 };
 
 export const resetCanary = (type: CanaryType) => {
+  Log.debug(`resetting ${type} canary`);
+
   const timerId = cage[type];
   if (timerId) {
     timerId.refresh();
