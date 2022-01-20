@@ -276,8 +276,7 @@ export const storeBlock = async (
 
   const storeContractsTask = pipe(
     feeBreakdown.contract_use_fees,
-    (map) => map.keys(),
-    Array.from,
+    (map) => Array.from(map.keys()),
     NEA.fromArray,
     O.match(
       () => T.of(undefined),
