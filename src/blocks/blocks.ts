@@ -16,7 +16,7 @@ import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import { TimeFrame, TimeFrameNext } from "../time_frames.js";
-import { segmentTxrs, TxRWeb3London } from "../transactions.js";
+import { segmentTxrs, TransactionReceiptV1 } from "../transactions.js";
 import { usdToScaled } from "../usd_scaling.js";
 
 export const londonHardForkBlockNumber = 12965000;
@@ -77,9 +77,10 @@ type ContractBaseFeesRow = {
   contract_address: string;
   base_fees: number;
   block_number: number;
+  transaction_count: number;
 };
 
-const getNewContractsFromBlock = (txrs: TxRWeb3London[]) =>
+const getNewContractsFromBlock = (txrs: TransactionReceiptV1[]) =>
   pipe(
     txrs,
     segmentTxrs,
@@ -134,7 +135,7 @@ export const getBlockWithRetry = async (
 
 export const blockDbFromBlock = (
   block: BlockLondon,
-  txrs: TxRWeb3London[],
+  txrs: TransactionReceiptV1[],
   ethPrice: number,
 ): BlockDb => {
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
@@ -158,6 +159,7 @@ export const blockDbFromBlock = (
 const storeContractsBaseFeesTask = (
   block: BlockLondon,
   feeBreakdown: FeeBreakdown,
+  transactionCounts: Map<string, number>,
 ) =>
   pipe(
     Array.from(feeBreakdown.contract_use_fees.entries()),
@@ -168,6 +170,7 @@ const storeContractsBaseFeesTask = (
           base_fees: baseFees,
           block_number: block.number,
           contract_address: address,
+          transaction_count: transactionCounts.get(address) ?? 0,
         }),
       ),
     ),
@@ -180,13 +183,26 @@ const storeContractsBaseFeesTask = (
     ),
   );
 
+const countTransactionsPerContract = (
+  transactionReceipts: TransactionReceiptV1[],
+) =>
+  pipe(
+    transactionReceipts,
+    A.filter((txr) => typeof txr.to === "string"),
+    A.reduce(new Map<string, number>(), (map, txr) => {
+      const currentCount = map.get(txr.to) ?? 0;
+      return map.set(txr.to, currentCount + 1);
+    }),
+  );
+
 export const storeBlock = async (
   block: BlockLondon,
-  txrs: TxRWeb3London[],
+  txrs: TransactionReceiptV1[],
   ethPrice: number,
 ): Promise<void> => {
   const blockDb = blockDbFromBlock(block, txrs, ethPrice);
   const feeBreakdown = calcBlockFeeBreakdown(block, txrs);
+  const transactionCounts = countTransactionsPerContract(txrs);
   const tips = calcBlockTips(block, txrs);
   const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
 
@@ -228,7 +244,7 @@ export const storeBlock = async (
   await TAlt.seqTSeqT(
     TAlt.seqTParT(storeContractsTask, storeBlockTask),
     TAlt.seqTParT(
-      storeContractsBaseFeesTask(block, feeBreakdown),
+      storeContractsBaseFeesTask(block, feeBreakdown, transactionCounts),
       updateContractsMinedAtTask,
     ),
   )();

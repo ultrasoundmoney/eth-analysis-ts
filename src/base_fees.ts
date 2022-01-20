@@ -5,7 +5,7 @@ import { BlockDb } from "./blocks/blocks.js";
 import { BlockLondon } from "./eth_node.js";
 import { hexToNumber } from "./hexadecimal.js";
 import { sum } from "./numbers.js";
-import type { TxRWeb3London } from "./transactions";
+import type { TransactionReceiptV1 } from "./transactions";
 import * as Transactions from "./transactions.js";
 
 export type FeeBreakdown = {
@@ -21,11 +21,13 @@ export type FeeBreakdown = {
 
 export const calcTxrBaseFee = (
   block: BlockLondon,
-  txr: TxRWeb3London,
+  txr: TransactionReceiptV1,
 ): number => hexToNumber(block.baseFeePerGas) * txr.gasUsed;
 
-export const calcTxrBaseFeeBI = (block: BlockLondon, txr: TxRWeb3London) =>
-  BigInt(block.baseFeePerGas) * txr.gasUsedBI;
+export const calcTxrBaseFeeBI = (
+  block: BlockLondon,
+  txr: TransactionReceiptV1,
+) => BigInt(block.baseFeePerGas) * txr.gasUsedBI;
 
 /**
  * Map of base fees grouped by contract address
@@ -34,11 +36,11 @@ type ContractBaseFeeMap = Map<string, number>;
 
 const calcBaseFeePerContract = (
   block: BlockLondon,
-  txrs: TxRWeb3London[],
+  txrs: TransactionReceiptV1[],
 ): ContractBaseFeeMap =>
   pipe(
     txrs,
-    A.reduce(new Map(), (sumMap, txr: TxRWeb3London) =>
+    A.reduce(new Map(), (sumMap, txr: TransactionReceiptV1) =>
       sumMap.set(
         txr.to,
         (sumMap.get(txr.to) || 0) + calcTxrBaseFee(block, txr),
@@ -48,12 +50,12 @@ const calcBaseFeePerContract = (
 
 const calcBaseFeePerContractUsd = (
   block: BlockLondon,
-  txrs: TxRWeb3London[],
+  txrs: TransactionReceiptV1[],
   ethPrice: number,
 ): ContractBaseFeeMap =>
   pipe(
     txrs,
-    A.reduce(new Map(), (sumMap, txr: TxRWeb3London) =>
+    A.reduce(new Map(), (sumMap, txr: TransactionReceiptV1) =>
       sumMap.set(
         txr.to,
         (sumMap.get(txr.to) || 0) +
@@ -81,7 +83,7 @@ export const calcBlockBaseFeeSumDb = (block: BlockDb): bigint =>
 
 export const calcBlockFeeBreakdown = (
   block: BlockLondon,
-  txrs: readonly TxRWeb3London[],
+  txrs: readonly TransactionReceiptV1[],
   ethPrice?: number,
 ): FeeBreakdown => {
   const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
@@ -89,14 +91,12 @@ export const calcBlockFeeBreakdown = (
 
   const ethTransferFees = pipe(
     ethTransferTxrs,
-    A.map((txr) => calcTxrBaseFee(block, txr)),
-    sum,
+    A.reduce(0, (sum, txr) => sum + calcTxrBaseFee(block, txr)),
   );
 
   const contractCreationFees = pipe(
     contractCreationTxrs,
-    A.map((txr) => calcTxrBaseFee(block, txr)),
-    sum,
+    A.reduce(0, (sum, txr) => sum + calcTxrBaseFee(block, txr)),
   );
 
   const feePerContract = calcBaseFeePerContract(block, contractUseTxrs);
@@ -115,7 +115,7 @@ export const calcBlockFeeBreakdown = (
 
 export const calcBlockTips = (
   block: BlockLondon,
-  txrs: readonly TxRWeb3London[],
+  txrs: readonly TransactionReceiptV1[],
 ): number => {
   return pipe(
     txrs,

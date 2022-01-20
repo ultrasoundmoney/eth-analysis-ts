@@ -11,7 +11,7 @@ import * as Duration from "./duration.js";
 import { pipe, T } from "./fp.js";
 import { hexToNumber, numberToHex } from "./hexadecimal.js";
 import * as Log from "./log.js";
-import { TxRWeb3London } from "./transactions.js";
+import { TransactionReceiptV1 } from "./transactions.js";
 
 let managedWeb3Obj: Web3 | undefined = undefined;
 
@@ -343,7 +343,7 @@ const statusToNumber = (rawStatus: string): boolean => {
   throw new Error(`unexpected status string: ${rawStatus}`);
 };
 
-const translateTxr = (rawTrx: RawTxr): TxRWeb3London => ({
+const translateTxr = (rawTrx: RawTxr): TransactionReceiptV1 => ({
   ...rawTrx,
   status: statusToNumber(rawTrx.status),
   transactionIndex: hexToNumber(rawTrx.transactionIndex),
@@ -356,7 +356,7 @@ const translateTxr = (rawTrx: RawTxr): TxRWeb3London => ({
 
 export const getTransactionReceipt = async (
   hash: string,
-): Promise<TxRWeb3London | undefined> => {
+): Promise<TransactionReceiptV1 | undefined> => {
   const [id, messageP] = registerMessageListener<RawTxr>();
 
   send({
