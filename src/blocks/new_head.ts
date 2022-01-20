@@ -92,7 +92,11 @@ export const addBlock = async (head: Head): Promise<void> => {
   )();
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 
-  const feeBreakdown = calcBlockFeeBreakdown(block, txrs, ethPrice.ethusd);
+  const feeBreakdown = calcBlockFeeBreakdown(
+    block,
+    Transactions.segmentTxrs(txrs),
+    ethPrice.ethusd,
+  );
 
   const blockDb = Blocks.blockDbFromBlock(block, txrs, ethPrice.ethusd);
 
