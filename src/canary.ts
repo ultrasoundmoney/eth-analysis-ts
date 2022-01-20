@@ -1,3 +1,4 @@
+import _ from "lodash";
 import fetch from "node-fetch";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
@@ -10,38 +11,40 @@ const cage: Record<CanaryType, NodeJS.Timeout | undefined> = {
   leaderboard: undefined,
 };
 
-const durationMilis = Duration.millisFromSeconds(300);
+const durationMilis = Duration.millisFromMinutes(5);
 
-export const releaseCanary = (type: CanaryType): void => {
-  cage[type] = setTimeout(async () => {
-    Log.alert(`canary dead, no block for ${durationMilis / 1000}s`);
+const fireAlarm = _.throttle(async () => {
+  Log.alert(`canary dead, no block for ${durationMilis / 1000}s`);
 
-    const res = await fetch("https://api.opsgenie.com/v2/alerts", {
-      method: "POST",
-      headers: {
-        Authorization: `GenieKey ${opsGenieApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message: "no block for more than 3 minutes!",
-      }),
-    });
+  const res = await fetch("https://api.opsgenie.com/v2/alerts", {
+    method: "POST",
+    headers: {
+      Authorization: `GenieKey ${opsGenieApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: "no block for more than 3 minutes!",
+    }),
+  });
 
-    if (!res.ok) {
-      const body = (await res.json()) as {
-        message: string;
-        took: number;
-        requestId: string;
-      };
-      throw new Error(`OpsGenie alert request failed! ${body.message}`);
-    }
-  }, durationMilis);
+  if (!res.ok) {
+    const body = (await res.json()) as {
+      message: string;
+      took: number;
+      requestId: string;
+    };
+    throw new Error(`OpsGenie alert request failed! ${body.message}`);
+  }
+}, Duration.millisFromMinutes(1));
+
+export const releaseCanary = (): void => {
+  cage.block = setTimeout(fireAlarm, durationMilis);
 };
 
-export const resetCanary = (type: CanaryType) => {
-  Log.debug(`resetting ${type} canary`);
+export const resetCanary = () => {
+  Log.debug("resetting block canary");
 
-  const timerId = cage[type];
+  const timerId = cage.block;
   if (timerId) {
     timerId.refresh();
   }

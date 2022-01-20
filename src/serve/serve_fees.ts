@@ -174,7 +174,7 @@ sql.listen("cache-update", async (payload) => {
   }
 
   if (payload === GroupedAnalysis1.groupedAnalysis1CacheKey) {
-    Canary.resetCanary("block");
+    Canary.resetCanary();
     groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
     return;
   }
@@ -244,4 +244,4 @@ await new Promise((resolve) => {
 });
 
 Log.info(`listening on ${port}`);
-Canary.releaseCanary("block");
+Canary.releaseCanary();
