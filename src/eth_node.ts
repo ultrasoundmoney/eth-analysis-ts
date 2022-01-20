@@ -41,7 +41,9 @@ export const connect = async (): Promise<WebSocket> => {
       result: unknown;
       error: { code: number; message: string };
     } = JSON.parse(event.toString());
+
     const cb = messageListners.get(message.id);
+
     if (cb !== undefined) {
       if ("error" in message) {
         cb(message.error);
