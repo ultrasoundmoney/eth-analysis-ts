@@ -8,7 +8,7 @@ export const storeContracts = flow(
   (insertables) =>
     sqlTVoid`
       INSERT INTO contracts
-      ${sql(insertables)}
+        ${sql(insertables)}
       ON CONFLICT DO NOTHING
     `,
 );
