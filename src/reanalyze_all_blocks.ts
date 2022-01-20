@@ -1,4 +1,3 @@
-import * as DateFns from "date-fns";
 import makeEta from "simple-eta";
 import { calcBlockFeeBreakdown } from "./base_fees.js";
 import * as Blocks from "./blocks/blocks.js";
@@ -80,7 +79,7 @@ for (const blockNumber of blocksToStore) {
 
   // Add block
   const ethPrice = await EthPrices.getEthPrice(
-    DateFns.fromUnixTime(block.timestamp),
+    block.timestamp,
     Duration.millisFromMinutes(2),
   )();
   if (E.isLeft(ethPrice)) {

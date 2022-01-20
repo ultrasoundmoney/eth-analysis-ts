@@ -10,8 +10,8 @@ import * as Contracts from "../contracts/contracts.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
-import { BlockLondon } from "../eth_node.js";
 import { A, flow, NEA, O, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
+import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
@@ -20,6 +20,38 @@ import { segmentTxrs, TransactionReceiptV1 } from "../transactions.js";
 import { usdToScaled } from "../usd_scaling.js";
 
 export const londonHardForkBlockNumber = 12965000;
+
+export type BlockV1 = {
+  baseFeePerGas: number;
+  baseFeePerGasBI: bigint;
+  gasLimit: number;
+  gasLimitBI: bigint;
+  gasUsed: number;
+  gasUsedBI: bigint;
+  hash: string;
+  number: number;
+  parentHash: string;
+  size: number;
+  timestamp: Date;
+  transactions: string[];
+};
+
+export const translateBlock = (rawBlock: EthNode.RawBlock): BlockV1 => ({
+  baseFeePerGas: Number(rawBlock.baseFeePerGas),
+  baseFeePerGasBI: BigInt(rawBlock.baseFeePerGas),
+  gasLimit: Hexadecimal.numberFromHex(rawBlock.gasLimit),
+  gasLimitBI: BigInt(rawBlock.gasLimit),
+  gasUsed: Hexadecimal.numberFromHex(rawBlock.gasUsed),
+  gasUsedBI: BigInt(rawBlock.gasUsed),
+  hash: rawBlock.hash,
+  number: Hexadecimal.numberFromHex(rawBlock.number),
+  parentHash: rawBlock.parentHash,
+  size: Hexadecimal.numberFromHex(rawBlock.size),
+  timestamp: DateFns.fromUnixTime(
+    Hexadecimal.numberFromHex(rawBlock.timestamp),
+  ),
+  transactions: rawBlock.transactions,
+});
 
 export type NewBlockPayload = {
   number: number;
@@ -86,7 +118,6 @@ const getNewContractsFromBlock = (txrs: TransactionReceiptV1[]) =>
     segmentTxrs,
     (segments) => segments.contractCreationTxrs,
     A.map((txr) => txr.contractAddress),
-    A.map(O.fromNullable),
     A.compact,
     NEA.fromArray,
   );
@@ -101,7 +132,7 @@ export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
 
 export const getBlockWithRetry = async (
   blockNumber: number | "latest" | string,
-): Promise<BlockLondon> => {
+): Promise<BlockV1> => {
   const delayMilis = millisFromSeconds(3);
   const delaySeconds = delayMilis * 1000;
   let tries = 0;
@@ -115,7 +146,7 @@ export const getBlockWithRetry = async (
 
     if (typeof maybeBlock?.hash === "string") {
       PerformanceMetrics.onBlockReceived();
-      return maybeBlock;
+      return translateBlock(maybeBlock);
     }
 
     if (tries === 10) {
@@ -141,8 +172,11 @@ export const getBlockSafe = (
     T.map(flow(O.fromNullable, O.map(translateBlock))),
   );
 
+export const getBlockByHash = (hash: string) =>
+  pipe(() => EthNode.getRawBlockByHash(hash), TO.fromNullable);
+
 export const blockDbFromBlock = (
-  block: BlockLondon,
+  block: BlockV1,
   txrs: TransactionReceiptV1[],
   ethPrice: number,
 ): BlockDb => {
@@ -158,14 +192,14 @@ export const blockDbFromBlock = (
     ethTransferSum: feeBreakdown.transfers,
     gasUsed: BigInt(block.gasUsed),
     hash: block.hash,
-    minedAt: DateFns.fromUnixTime(block.timestamp),
+    minedAt: block.timestamp,
     number: block.number,
     tips,
   };
 };
 
 const storeContractsBaseFeesTask = (
-  block: BlockLondon,
+  block: BlockV1,
   feeBreakdown: FeeBreakdown,
   transactionCounts: Map<string, number>,
 ) =>
@@ -196,14 +230,23 @@ export const countTransactionsPerContract = (
 ) =>
   pipe(
     transactionReceipts,
-    A.reduce(new Map<string, number>(), (map, txr) => {
-      const currentCount = map.get(txr.to) ?? 0;
-      return map.set(txr.to, currentCount + 1);
-    }),
+    A.reduce(new Map<string, number>(), (map, txr) =>
+      pipe(
+        txr.to,
+        O.match(
+          // Contract creation, skip.
+          () => map,
+          (to) =>
+            pipe(map.get(to) ?? 0, (currentCount) =>
+              map.set(to, currentCount + 1),
+            ),
+        ),
+      ),
+    ),
   );
 
 export const storeBlock = async (
-  block: BlockLondon,
+  block: BlockV1,
   txrs: TransactionReceiptV1[],
   ethPrice: number,
 ): Promise<void> => {
@@ -223,11 +266,7 @@ export const storeBlock = async (
     getNewContractsFromBlock(txrs),
     TO.fromOption,
     TO.chainTaskK((addresses) =>
-      Contracts.setContractsMinedAt(
-        addresses,
-        block.number,
-        DateFns.fromUnixTime(block.timestamp),
-      ),
+      Contracts.setContractsMinedAt(addresses, block.number, block.timestamp),
     ),
     TO.getOrElse(TAlt.constVoid),
   );

@@ -2,8 +2,11 @@ import * as BaseFees from "../base_fees.js";
 import * as Blocks from "../blocks/blocks.js";
 import { weiToEth, weiToGwei } from "../convert_unit.js";
 import * as EthNode from "../eth_node";
-import { hexToNumber } from "../hexadecimal.js";
 import * as Log from "../log";
+import {
+  transactionReceiptFromRaw,
+  TransactionReceiptV1,
+} from "../transactions.js";
 
 const main = async () => {
   await EthNode.connect();
@@ -13,6 +16,12 @@ const main = async () => {
 
   const txrs = await Promise.all(
     block.transactions.map((txHash) => EthNode.getTransactionReceipt(txHash)),
+  ).then((arr) =>
+    arr.reduce(
+      (arr: TransactionReceiptV1[], rawTxr) =>
+        rawTxr === null ? arr : [...arr, transactionReceiptFromRaw(rawTxr)],
+      [],
+    ),
   );
 
   const fees = txrs
@@ -24,12 +33,11 @@ const main = async () => {
       const baseFee = BaseFees.calcTxrBaseFee(block, txr);
 
       const tip =
-        txr.gasUsed * hexToNumber(txr.effectiveGasPrice) -
-        txr.gasUsed * hexToNumber(block.baseFeePerGas);
+        txr.gasUsed * txr.effectiveGasPrice - txr.gasUsed * block.baseFeePerGas;
 
       Log.debug(`txr: ${Log.shortenHash(txr.transactionHash)}`);
       Log.debug(`  gas used: ${txr.gasUsed}`);
-      Log.debug(`  effective gas price: ${hexToNumber(txr.effectiveGasPrice)}`);
+      Log.debug(`  effective gas price: ${txr.effectiveGasPrice}`);
       Log.debug(`  tip: ${weiToGwei(tip)}`);
       Log.debug(`  base fee: ${weiToGwei(baseFee)}`);
       Log.debug(`  fee: ${weiToEth(baseFee + tip)}`);

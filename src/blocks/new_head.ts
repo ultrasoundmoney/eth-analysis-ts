@@ -1,4 +1,3 @@
-import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
@@ -83,10 +82,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   const [txrs, ethPrice] = await TAlt.seqTParT(
     () => Transactions.getTxrsWithRetry(block),
     pipe(
-      EthPrices.getEthPrice(
-        DateFns.fromUnixTime(block.timestamp),
-        Duration.millisFromMinutes(5),
-      ),
+      EthPrices.getEthPrice(block.timestamp, Duration.millisFromMinutes(5)),
       TEAlt.getOrThrow,
     ),
   )();
