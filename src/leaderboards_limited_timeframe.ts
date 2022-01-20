@@ -109,7 +109,8 @@ const subtractFromSums = (
     A.reduce(contractSums, (sums, [address, feesToRemove]) => {
       const currentFees = sums.get(address);
       if (currentFees === undefined) {
-        throw new Error("tried to remove base fees from a non-existing sum");
+        Log.error("tried to remove base fees from a non-existing sum");
+        return sums;
       }
       return sums.set(address, currentFees - feesToRemove);
     }),
