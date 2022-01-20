@@ -89,7 +89,7 @@ for (const blockNumber of blocksToStore) {
   await Blocks.storeBlock(block, txrs, ethPrice.right.ethusd);
   const feeBreakdown = calcBlockFeeBreakdown(
     block,
-    txrs,
+    Transactions.segmentTxrs(txrs),
     ethPrice.right.ethusd,
   );
   await LeaderboardsAll.addBlock(
