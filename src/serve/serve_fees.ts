@@ -4,6 +4,7 @@ import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
 import * as Blocks from "../blocks/blocks.js";
+import * as BurnCategories from "../burn-categories/burn_categories.js";
 import * as BurnRecordsCache from "../burn-records/cache.js";
 import * as Canary from "../canary.js";
 import * as ContractsRoutes from "../contracts/routes.js";
@@ -28,6 +29,7 @@ let burnRecordsCache = await BurnRecordsCache.getRecordsCache()();
 let scarcityCache = await ScarcityCache.getScarcityCache()();
 let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
 let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
+let burnCategoriesCache = await BurnCategories.getCategoriesCache()();
 
 const handleGetFeeBurns: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
@@ -184,8 +186,19 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
+  if (payload === BurnCategories.burnCategoriesCacheKey) {
+    burnCategoriesCache = await BurnCategories.getCategoriesCache()();
+    return;
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
+
+const handleGetBurnCategories: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = burnCategoriesCache;
+};
 
 const port = process.env.PORT || 8080;
 
@@ -230,6 +243,7 @@ router.get("/fees/scarcity", handleGetScarcity);
 router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 router.get("/fees/burn-records", handleGetBurnRecords);
 router.get("/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
+router.get("/fees/burn-categories", handleGetBurnCategories);
 
 ContractsRoutes.registerRoutes(router);
 

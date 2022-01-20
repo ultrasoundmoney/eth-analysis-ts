@@ -1,60 +1,21 @@
-import { sql, sqlT, sqlTVoid } from "../db.js";
-import { pipe, T } from "../fp.js";
+import { sql } from "../db.js";
 import * as Log from "../log.js";
+import * as BurnCategories from "./burn_categories.js";
 
 Log.info("start analyzing burn categories");
 
 // This query is slow. We only want to run one computation at a time with no queueing.
 let isUpdating = false;
 
-type BurnCategory = {
-  category: string;
-  fees: number;
-  feesUsd: number;
-  transactionCount: number;
+export const setIsUpdating = (nextIsUpdating: boolean) => {
+  isUpdating = nextIsUpdating;
 };
-
-export type BurnCategories = BurnCategory[];
-
-const burnCategoriesCacheKey = "burn-categories-cache-key";
-
-export const updateBurnCategories = () =>
-  pipe(
-    sqlT<BurnCategory[]>`
-      SELECT
-        category,
-        SUM(base_fees) AS fees,
-        SUM(base_fees * eth_price) AS fees_usd,
-        SUM(transaction_count) AS transaction_count
-      FROM contract_base_fees
-      JOIN blocks ON number = block_number
-      JOIN contracts ON address = contract_address
-      WHERE category IS NOT NULL
-      GROUP BY (category)
-    `,
-    T.chain(
-      (burnCategories) =>
-        sqlTVoid`
-          INSERT INTO key_value_store
-            ${sql({
-              key: burnCategoriesCacheKey,
-              value: JSON.stringify(burnCategories),
-            })}
-          ON CONFLICT (key) DO UPDATE SET
-            value = excluded.value
-        `,
-    ),
-    T.chainFirstIOK(() => () => {
-      Log.debug("finished block analysis, waiting for next block update");
-      isUpdating = false;
-    }),
-  );
 
 sql.listen("blocks-update", () => {
   if (!isUpdating) {
     Log.debug("got blocks update, starting analysis");
     isUpdating = true;
-    updateBurnCategories()();
+    BurnCategories.updateBurnCategories()();
     return;
   }
 
