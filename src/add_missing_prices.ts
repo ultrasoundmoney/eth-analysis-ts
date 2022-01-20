@@ -10,10 +10,10 @@ import { E, pipe, RA, T, TE } from "./fp.js";
 import * as Log from "./log.js";
 
 await EthNode.connect();
-const block = await EthNode.getBlock(Blocks.londonHardForkBlockNumber);
-let nextDateToCheck = DateFns.startOfMinute(
-  DateFns.fromUnixTime(block!.timestamp),
+const block = Blocks.translateBlock(
+  (await EthNode.getBlock(Blocks.londonHardForkBlockNumber))!,
 );
+let nextDateToCheck = DateFns.startOfMinute(block.timestamp);
 
 const minutesToFetchCount = DateFns.differenceInMinutes(
   new Date(),
