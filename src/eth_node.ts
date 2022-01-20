@@ -66,22 +66,21 @@ export const connect = async (): Promise<WebSocket> => {
 
 type MessageErr = { code: number; message: string };
 
-let randomIds: number[] = [];
+let nextId = 0;
 const inUseIds = new Set<number>();
 
 const getNewMessageId = (): number => {
-  if (randomIds.length === 0) {
-    randomIds = new Array(10000).fill(undefined).map((_, i) => i);
+  if (nextId === 1024) {
+    nextId = 0;
   }
 
-  // We fill the array when it's empty above. pop() can't return undefined.
-  let candidate = randomIds.pop()!;
-  while (inUseIds.has(candidate)) {
-    candidate = randomIds.pop()!;
+  // If more than 1024 messages are still waiting for a response, this loop starts eating CPU until an id frees up. We assume this is never the case, if it does start happening, increase the id pool.
+  while (inUseIds.has(nextId)) {
+    nextId = nextId + 1;
   }
 
-  inUseIds.add(candidate);
-  return candidate;
+  inUseIds.add(nextId);
+  return nextId;
 };
 
 const registerMessageListener = <A>(): [number, Promise<A>] => {
