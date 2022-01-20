@@ -133,6 +133,14 @@ export const getBlockWithRetry = async (
   }
 };
 
+export const getBlockSafe = (
+  blockNumber: number | "latest" | string,
+): TO.TaskOption<BlockV1> =>
+  pipe(
+    () => EthNode.getBlock(blockNumber),
+    T.map(flow(O.fromNullable, O.map(translateBlock))),
+  );
+
 export const blockDbFromBlock = (
   block: BlockLondon,
   txrs: TransactionReceiptV1[],

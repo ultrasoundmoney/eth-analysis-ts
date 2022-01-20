@@ -226,48 +226,39 @@ type RawBlock = {
   uncles: string[];
 };
 
-export type BlockLondon = {
+export type BlockV1 = {
   baseFeePerGas: string;
   baseFeePerGasBI: bigint;
-  difficulty: string;
-  extraData: string;
   gasLimit: number;
+  gasLimitBI: bigint;
   gasUsed: number;
   gasUsedBI: bigint;
   hash: string;
-  logsBloom: string;
-  miner: string;
-  mixHash: string;
-  nonce: string;
   number: number;
   parentHash: string;
-  receiptsRoot: string;
-  sha3Uncles: string;
   size: number;
-  stateRoot: string;
   timestamp: number;
-  totalDifficulty: string;
   transactions: string[];
-  transactionsRoot: string;
-  uncles: string[];
 };
 
-// NOTE: this is not safe. We lose precision here. Convert these to big int at some point.
-const translateBlock = (rawBlock: RawBlock): BlockLondon => ({
-  ...rawBlock,
+const translateBlock = (rawBlock: RawBlock): BlockV1 => ({
   baseFeePerGas: rawBlock.baseFeePerGas,
   baseFeePerGasBI: BigInt(rawBlock.baseFeePerGas),
+  gasLimit: hexToNumber(rawBlock.gasLimit),
+  gasLimitBI: BigInt(rawBlock.gasLimit),
   gasUsed: hexToNumber(rawBlock.gasUsed),
   gasUsedBI: BigInt(rawBlock.gasUsed),
-  gasLimit: hexToNumber(rawBlock.gasLimit),
+  hash: rawBlock.hash,
   number: hexToNumber(rawBlock.number),
+  parentHash: rawBlock.parentHash,
   size: hexToNumber(rawBlock.size),
   timestamp: hexToNumber(rawBlock.timestamp),
+  transactions: rawBlock.transactions,
 });
 
 export const getBlock = async (
   number: number | "latest" | string,
-): Promise<BlockLondon | undefined> => {
+): Promise<BlockV1 | undefined> => {
   const [id, messageP] = registerMessageListener<RawBlock>();
 
   const numberAsHex =
@@ -296,7 +287,7 @@ export const getBlock = async (
 
 export const getBlockByHash = async (
   hash: string,
-): Promise<BlockLondon | undefined> => {
+): Promise<BlockV1 | undefined> => {
   const [id, messageP] = registerMessageListener<RawBlock>();
 
   send({
