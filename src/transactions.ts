@@ -1,6 +1,6 @@
 import PQueue from "p-queue";
 import { setTimeout } from "timers/promises";
-import type { TransactionReceipt as TxRWeb3 } from "web3-core";
+import type { TransactionReceipt as TransactionReceiptWeb3 } from "web3-core";
 import * as Blocks from "./blocks/blocks.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
@@ -11,7 +11,7 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 /**
  * A post London hardfork transaction receipt with an effective gas price.
  */
-export type TxRWeb3London = TxRWeb3 & {
+export type TransactionReceiptV1 = TransactionReceiptWeb3 & {
   to: string | null;
   effectiveGasPrice: string;
   gasUsedBI: bigint;
@@ -23,12 +23,12 @@ export const txrsPQ = new PQueue({
 
 export const getTxrsWithRetry = async (
   block: BlockLondon,
-): Promise<TxRWeb3London[]> => {
+): Promise<TransactionReceiptV1[]> => {
   let tries = 0;
 
   // Retry continuously
   let tryBlock = block;
-  let txrs: TxRWeb3London[] = [];
+  let txrs: TransactionReceiptV1[] = [];
   let missingHashes: string[] = [];
 
   // eslint-disable-next-line no-constant-condition
@@ -90,15 +90,17 @@ export const getTxrsWithRetry = async (
 };
 
 export type TxrSegments = {
-  contractCreationTxrs: TxRWeb3London[];
-  ethTransferTxrs: TxRWeb3London[];
-  contractUseTxrs: TxRWeb3London[];
+  contractCreationTxrs: TransactionReceiptV1[];
+  ethTransferTxrs: TransactionReceiptV1[];
+  contractUseTxrs: TransactionReceiptV1[];
 };
 
-export const segmentTxrs = (txrs: readonly TxRWeb3London[]): TxrSegments => {
-  const contractUseTxrs: TxRWeb3London[] = [];
-  const contractCreationTxrs: TxRWeb3London[] = [];
-  const ethTransferTxrs: TxRWeb3London[] = [];
+export const segmentTxrs = (
+  txrs: readonly TransactionReceiptV1[],
+): TxrSegments => {
+  const contractUseTxrs: TransactionReceiptV1[] = [];
+  const contractCreationTxrs: TransactionReceiptV1[] = [];
+  const ethTransferTxrs: TransactionReceiptV1[] = [];
 
   txrs.forEach((txr) => {
     if (txr.to === null) {
