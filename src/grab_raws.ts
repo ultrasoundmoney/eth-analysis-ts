@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from "fs";
-import { RawHead } from "./eth_node.js";
+import { blockV1FromRaw } from "./blocks/blocks.js";
 import * as EthNode from "./eth_node.js";
-import * as Transactions from "./transactions.js";
+import { RawHead } from "./eth_node.js";
 import "./json.js";
-import { translateBlock } from "./blocks/blocks.js";
+import * as Transactions from "./transactions.js";
 
 const rawHeadsFileStr = readFileSync("./raw_heads.ndjson", "utf8");
 const rawHeadsStrings = rawHeadsFileStr.trimEnd().split("\n");
@@ -18,7 +18,7 @@ for (const rawHeadStr of rawHeadsStrings) {
     );
   }
 
-  const txrs = await Transactions.getTxrsWithRetry(translateBlock(block));
+  const txrs = await Transactions.getTxrsWithRetry(blockV1FromRaw(block));
 
   writeFileSync("./raw_blocks.ndjson", JSON.stringify(block));
   writeFileSync("./raw_txrs.ndjson", JSON.stringify(txrs));

@@ -21,6 +21,9 @@ import { usdToScaled } from "../usd_scaling.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
+/**
+ * This is a block as we get it from an eth node, after we drop fields we don't need and decode ones we use.
+ */
 export type BlockV1 = {
   baseFeePerGas: number;
   baseFeePerGasBI: bigint;
@@ -36,7 +39,7 @@ export type BlockV1 = {
   transactions: string[];
 };
 
-export const translateBlock = (rawBlock: EthNode.RawBlock): BlockV1 => ({
+export const blockV1FromRaw = (rawBlock: EthNode.RawBlock): BlockV1 => ({
   baseFeePerGas: Number(rawBlock.baseFeePerGas),
   baseFeePerGasBI: BigInt(rawBlock.baseFeePerGas),
   gasLimit: Hexadecimal.numberFromHex(rawBlock.gasLimit),
@@ -146,7 +149,7 @@ export const getBlockWithRetry = async (
 
     if (typeof maybeBlock?.hash === "string") {
       PerformanceMetrics.onBlockReceived();
-      return translateBlock(maybeBlock);
+      return blockV1FromRaw(maybeBlock);
     }
 
     if (tries === 10) {
@@ -169,7 +172,7 @@ export const getBlockSafe = (
 ): TO.TaskOption<BlockV1> =>
   pipe(
     () => EthNode.getBlock(blockNumber),
-    T.map(flow(O.fromNullable, O.map(translateBlock))),
+    T.map(flow(O.fromNullable, O.map(blockV1FromRaw))),
   );
 
 export const getBlockByHash = (hash: string) =>

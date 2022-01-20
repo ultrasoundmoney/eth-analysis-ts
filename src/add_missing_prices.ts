@@ -10,7 +10,7 @@ import { E, pipe, RA, T, TE } from "./fp.js";
 import * as Log from "./log.js";
 
 await EthNode.connect();
-const block = Blocks.translateBlock(
+const block = Blocks.blockV1FromRaw(
   (await EthNode.getBlock(Blocks.londonHardForkBlockNumber))!,
 );
 let nextDateToCheck = DateFns.startOfMinute(block.timestamp);

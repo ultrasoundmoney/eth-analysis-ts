@@ -169,6 +169,9 @@ const send = async (message: Record<string, unknown>) => {
   connection.send(JSON.stringify(message));
 };
 
+/**
+ * A block as it comes in from an eth node.
+ */
 export type RawBlock = {
   baseFeePerGas: string;
   gasUsed: string;
