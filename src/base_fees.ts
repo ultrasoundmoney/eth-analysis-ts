@@ -1,9 +1,7 @@
 import A from "fp-ts/lib/Array.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as ROA from "fp-ts/lib/ReadonlyArray.js";
-import { BlockDb } from "./blocks/blocks.js";
-import { BlockLondon } from "./eth_node.js";
-import { hexToNumber } from "./hexadecimal.js";
+import { BlockDb, BlockV1 } from "./blocks/blocks.js";
 import { sum } from "./numbers.js";
 import type { TransactionReceiptV1 } from "./transactions";
 import * as Transactions from "./transactions.js";
@@ -20,14 +18,12 @@ export type FeeBreakdown = {
 };
 
 export const calcTxrBaseFee = (
-  block: BlockLondon,
+  block: BlockV1,
   txr: TransactionReceiptV1,
-): number => hexToNumber(block.baseFeePerGas) * txr.gasUsed;
+): number => block.baseFeePerGas * txr.gasUsed;
 
-export const calcTxrBaseFeeBI = (
-  block: BlockLondon,
-  txr: TransactionReceiptV1,
-) => BigInt(block.baseFeePerGas) * txr.gasUsedBI;
+export const calcTxrBaseFeeBI = (block: BlockV1, txr: TransactionReceiptV1) =>
+  BigInt(block.baseFeePerGas) * txr.gasUsedBI;
 
 /**
  * Map of base fees grouped by contract address
@@ -35,7 +31,7 @@ export const calcTxrBaseFeeBI = (
 type ContractBaseFeeMap = Map<string, number>;
 
 const calcBaseFeePerContract = (
-  block: BlockLondon,
+  block: BlockV1,
   txrs: TransactionReceiptV1[],
 ): ContractBaseFeeMap =>
   pipe(
@@ -49,7 +45,7 @@ const calcBaseFeePerContract = (
   );
 
 const calcBaseFeePerContractUsd = (
-  block: BlockLondon,
+  block: BlockV1,
   txrs: TransactionReceiptV1[],
   ethPrice: number,
 ): ContractBaseFeeMap =>
@@ -75,14 +71,14 @@ export const sumFeeMaps = (
     return sumMap;
   }, {} as Record<string, number>);
 
-export const calcBlockBaseFeeSum = (block: BlockLondon): bigint =>
+export const calcBlockBaseFeeSum = (block: BlockV1): bigint =>
   block.gasUsedBI * block.baseFeePerGasBI;
 
 export const calcBlockBaseFeeSumDb = (block: BlockDb): bigint =>
   block.gasUsed * block.baseFeePerGas;
 
 export const calcBlockFeeBreakdown = (
-  block: BlockLondon,
+  block: BlockV1,
   transactionReceiptSegments: Transactions.TxrSegments,
   ethPrice?: number,
 ): FeeBreakdown => {
@@ -114,16 +110,14 @@ export const calcBlockFeeBreakdown = (
 };
 
 export const calcBlockTips = (
-  block: BlockLondon,
+  block: BlockV1,
   txrs: readonly TransactionReceiptV1[],
-): number => {
-  return pipe(
+): number =>
+  pipe(
     txrs,
     ROA.map(
       (txr) =>
-        txr.gasUsed * hexToNumber(txr.effectiveGasPrice) -
-        txr.gasUsed * hexToNumber(block.baseFeePerGas),
+        txr.gasUsed * txr.effectiveGasPrice - txr.gasUsed * block.baseFeePerGas,
     ),
     sum,
   );
-};

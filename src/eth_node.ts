@@ -1,17 +1,14 @@
 import PQueue from "p-queue";
-import ProgressBar from "progress";
 import Web3 from "web3";
 import { Log as LogWeb3 } from "web3-core";
 import { Contract } from "web3-eth-contract";
 import { AbiItem } from "web3-utils";
 import WebSocket from "ws";
-import * as Blocks from "./blocks/blocks.js";
 import * as Config from "./config.js";
 import * as Duration from "./duration.js";
 import { pipe, T } from "./fp.js";
-import { hexToNumber, numberToHex } from "./hexadecimal.js";
+import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
-import { TransactionReceiptV1 } from "./transactions.js";
 
 let managedWeb3Obj: Web3 | undefined = undefined;
 
@@ -172,37 +169,7 @@ const send = async (message: Record<string, unknown>) => {
   connection.send(JSON.stringify(message));
 };
 
-export const benchmarkTxrFetch = async () => {
-  const blockQueue = new PQueue({ concurrency: 4 });
-  const txrsQueue = new PQueue({ concurrency: 200 });
-  await connect();
-  Log.info("connected!");
-  const block = await getBlock("latest");
-
-  const blockRange = Blocks.getBlockRange(block!.number - 1000, block!.number);
-
-  const blocks = await Promise.all(blockRange.map(getBlock));
-
-  const bar = new ProgressBar(">> [:bar] :rate/s :percent :etas", {
-    total: blocks.length,
-  });
-
-  await blockQueue.addAll(
-    blocks.map((block) => async () => {
-      await txrsQueue.addAll(
-        block!.transactions.map(
-          (hash) => () =>
-            getTransactionReceipt(hash).then((txr) => {
-              return txr;
-            }),
-        ),
-      );
-      bar.tick();
-    }),
-  );
-};
-
-type RawBlock = {
+export type RawBlock = {
   baseFeePerGas: string;
   gasUsed: string;
   difficulty: string;
@@ -226,47 +193,18 @@ type RawBlock = {
   uncles: string[];
 };
 
-export type BlockV1 = {
-  baseFeePerGas: string;
-  baseFeePerGasBI: bigint;
-  gasLimit: number;
-  gasLimitBI: bigint;
-  gasUsed: number;
-  gasUsedBI: bigint;
-  hash: string;
-  number: number;
-  parentHash: string;
-  size: number;
-  timestamp: number;
-  transactions: string[];
-};
-
-const translateBlock = (rawBlock: RawBlock): BlockV1 => ({
-  baseFeePerGas: rawBlock.baseFeePerGas,
-  baseFeePerGasBI: BigInt(rawBlock.baseFeePerGas),
-  gasLimit: hexToNumber(rawBlock.gasLimit),
-  gasLimitBI: BigInt(rawBlock.gasLimit),
-  gasUsed: hexToNumber(rawBlock.gasUsed),
-  gasUsedBI: BigInt(rawBlock.gasUsed),
-  hash: rawBlock.hash,
-  number: hexToNumber(rawBlock.number),
-  parentHash: rawBlock.parentHash,
-  size: hexToNumber(rawBlock.size),
-  timestamp: hexToNumber(rawBlock.timestamp),
-  transactions: rawBlock.transactions,
-});
-
+// NOTE: Some blocks get dropped, queries come back null.
 export const getBlock = async (
-  number: number | "latest" | string,
-): Promise<BlockV1 | undefined> => {
+  query: number | "latest" | string,
+): Promise<RawBlock | undefined> => {
   const [id, messageP] = registerMessageListener<RawBlock>();
 
   const numberAsHex =
-    number === "latest"
+    query === "latest"
       ? "latest"
-      : typeof number === "string"
-      ? number
-      : numberToHex(number);
+      : typeof query === "string"
+      ? query
+      : Hexadecimal.hexFromNumber(query);
 
   send({
     method: "eth_getBlockByNumber",
@@ -277,17 +215,12 @@ export const getBlock = async (
 
   const rawBlock = await messageP;
 
-  // NOTE: Some blocks come back as null. Unclear why.
-  if (rawBlock === null) {
-    return undefined;
-  }
-
-  return translateBlock(rawBlock);
+  return rawBlock;
 };
 
-export const getBlockByHash = async (
+export const getRawBlockByHash = async (
   hash: string,
-): Promise<BlockV1 | undefined> => {
+): Promise<RawBlock | null> => {
   const [id, messageP] = registerMessageListener<RawBlock>();
 
   send({
@@ -299,14 +232,10 @@ export const getBlockByHash = async (
 
   const rawBlock = await messageP;
 
-  if (rawBlock === null) {
-    return undefined;
-  }
-
-  return translateBlock(rawBlock);
+  return rawBlock;
 };
 
-type RawTxr = {
+export type RawTxr = {
   blockHash: string;
   blockNumber: string;
   contractAddress: string | null;
@@ -323,32 +252,10 @@ type RawTxr = {
   type: string;
 };
 
-const statusToNumber = (rawStatus: string): boolean => {
-  if (rawStatus === "0") {
-    return false;
-  }
-
-  if (rawStatus !== "1") {
-    return true;
-  }
-
-  throw new Error(`unexpected status string: ${rawStatus}`);
-};
-
-const translateTxr = (rawTrx: RawTxr): TransactionReceiptV1 => ({
-  ...rawTrx,
-  status: statusToNumber(rawTrx.status),
-  transactionIndex: hexToNumber(rawTrx.transactionIndex),
-  blockNumber: hexToNumber(rawTrx.blockNumber),
-  contractAddress: rawTrx.contractAddress || undefined,
-  cumulativeGasUsed: hexToNumber(rawTrx.cumulativeGasUsed),
-  gasUsed: hexToNumber(rawTrx.gasUsed),
-  gasUsedBI: BigInt(rawTrx.gasUsed),
-});
-
+// NOTE: Some blocks get dropped, receipts get dropped, queries come back null.
 export const getTransactionReceipt = async (
   hash: string,
-): Promise<TransactionReceiptV1 | undefined> => {
+): Promise<RawTxr | null> => {
   const [id, messageP] = registerMessageListener<RawTxr>();
 
   send({
@@ -360,12 +267,7 @@ export const getTransactionReceipt = async (
 
   const rawTxr = await messageP;
 
-  // NOTE: Some txrs come back as null. Unclear why.
-  if (rawTxr === null) {
-    return undefined;
-  }
-
-  return translateTxr(rawTxr);
+  return rawTxr;
 };
 
 export const closeConnection = () => {
@@ -375,11 +277,9 @@ export const closeConnection = () => {
 };
 
 const translateHead = (rawHead: RawHead): Head => ({
-  ...rawHead,
-  gasLimit: hexToNumber(rawHead.gasLimit),
-  gasUsed: hexToNumber(rawHead.gasUsed),
-  number: hexToNumber(rawHead.number),
-  timestamp: hexToNumber(rawHead.timestamp),
+  hash: rawHead.hash,
+  number: Hexadecimal.numberFromHex(rawHead.number),
+  parentHash: rawHead.parentHash,
 });
 
 let subscribeHeadsAttempt = 0;
@@ -430,6 +330,7 @@ export const subscribeNewHeads = (
     //   receivedAt,
     //   minedAt,
     // });
+
     Log.debug(
       `new head, number: ${head.number}, hash: ${head.hash}, parent: ${head.parentHash}`,
     );
@@ -465,23 +366,9 @@ export type RawHead = {
 };
 
 export type Head = {
-  baseFeePerGas: string;
-  difficulty: string;
-  extraData: string;
-  gasLimit: number;
-  gasUsed: number;
   hash: string;
-  logsBloom: string;
-  miner: string;
-  mixHash: string;
-  nonce: string;
   number: number;
   parentHash: string;
-  receiptsRoot: string;
-  sha3Uncles: string;
-  stateRoot: string;
-  timestamp: number;
-  transactionsRoot: string;
 };
 
 // Doesn't seem to do anything.
@@ -510,7 +397,7 @@ export const getLatestBlockNumber = async (): Promise<number> => {
 
   const rawBlockNumber = await messageP;
 
-  return hexToNumber(rawBlockNumber);
+  return Hexadecimal.numberFromHex(rawBlockNumber);
 };
 
 export const makeContract = (address: string, abi: AbiItem[]): Contract => {

@@ -1,28 +1,46 @@
 import PQueue from "p-queue";
 import { setTimeout } from "timers/promises";
-import type { TransactionReceipt as TransactionReceiptWeb3 } from "web3-core";
 import * as Blocks from "./blocks/blocks.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import { BlockLondon } from "./eth_node.js";
+import { O } from "./fp.js";
+import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
  */
-export type TransactionReceiptV1 = TransactionReceiptWeb3 & {
-  to: string | null;
-  effectiveGasPrice: string;
+export type TransactionReceiptV1 = {
+  blockNumber: number;
+  contractAddress: O.Option<string>;
+  effectiveGasPrice: number;
+  effectiveGasPriceBI: bigint;
+  gasUsed: number;
   gasUsedBI: bigint;
+  to: O.Option<string>;
+  transactionHash: string;
 };
+
+export const transactionReceiptFromRaw = (
+  rawTrx: EthNode.RawTxr,
+): TransactionReceiptV1 => ({
+  blockNumber: Hexadecimal.numberFromHex(rawTrx.blockNumber),
+  contractAddress: O.fromNullable(rawTrx.contractAddress),
+  effectiveGasPrice: Hexadecimal.numberFromHex(rawTrx.effectiveGasPrice),
+  effectiveGasPriceBI: BigInt(rawTrx.effectiveGasPrice),
+  gasUsed: Hexadecimal.numberFromHex(rawTrx.gasUsed),
+  gasUsedBI: BigInt(rawTrx.gasUsed),
+  to: O.fromNullable(rawTrx.to),
+  transactionHash: rawTrx.transactionHash,
+});
 
 export const txrsPQ = new PQueue({
   concurrency: 64,
 });
 
 export const getTxrsWithRetry = async (
-  block: BlockLondon,
+  block: Blocks.BlockV1,
 ): Promise<TransactionReceiptV1[]> => {
   let tries = 0;
 
@@ -39,11 +57,11 @@ export const getTxrsWithRetry = async (
       tryBlock.transactions.map(
         (txHash) => () =>
           EthNode.getTransactionReceipt(txHash).then((txr) => {
-            if (txr === undefined) {
+            if (txr === null) {
               missingHashes.push(txHash);
             } else {
               PerformanceMetrics.onTxrReceived();
-              txrs.push(txr);
+              txrs.push(transactionReceiptFromRaw(txr));
             }
           }),
       ),

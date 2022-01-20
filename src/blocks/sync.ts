@@ -25,10 +25,7 @@ export const syncBlock = async (blockNumber: number): Promise<void> => {
 
   const [txrs, ethPrice] = await Promise.all([
     Transactions.getTxrsWithRetry(block),
-    pipe(
-      EthPrices.getEthPrice(DateFns.fromUnixTime(block.timestamp)),
-      TEAlt.getOrThrow,
-    )(),
+    pipe(EthPrices.getEthPrice(block.timestamp), TEAlt.getOrThrow)(),
   ]);
 
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
