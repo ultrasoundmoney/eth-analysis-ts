@@ -35,7 +35,7 @@ const fireAlarm = _.throttle(async () => {
     };
     throw new Error(`OpsGenie alert request failed! ${body.message}`);
   }
-}, Duration.millisFromMinutes(1));
+}, Duration.millisFromMinutes(4));
 
 export const releaseCanary = (): void => {
   cage.block = setTimeout(fireAlarm, durationMilis);
