@@ -2,6 +2,7 @@ import PQueue from "p-queue";
 import { calcBlockFeeBreakdown } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
+import { sqlTNotify } from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
@@ -15,6 +16,10 @@ import * as Performance from "../performance.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
+
+export type BlocksUpdate = {
+  number: number;
+};
 
 export const newBlockQueue = new PQueue({
   concurrency: 1,
@@ -87,6 +92,9 @@ export const addBlock = async (head: Head): Promise<void> => {
     ),
   )();
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
+
+  const blocksUpdate: BlocksUpdate = { number: block.number };
+  await sqlTNotify("blocks-update", JSON.stringify(blocksUpdate))();
 
   const feeBreakdown = calcBlockFeeBreakdown(
     block,
