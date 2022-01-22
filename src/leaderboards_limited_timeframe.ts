@@ -221,7 +221,8 @@ export const onRollback = (
 ): void => {
   for (const timeFrame of TimeFrame.limitedTimeFrames) {
     const includedBlocks = blocksInTimeframe[timeFrame];
-    const indexOfBlockToRollbackToBefore = includedBlocks.findIndex(
+    const indexOfBlockToRollbackToBefore = _.findLastIndex(
+      includedBlocks,
       (block) => block.number === blockNumber,
     );
 
