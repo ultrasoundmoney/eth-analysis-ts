@@ -1,8 +1,8 @@
 import * as DateFns from "date-fns";
-import { performance } from "perf_hooks";
+import _ from "lodash";
 import { BlockDb } from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
-import { A, O, Ord, pipe, RA, T, TAlt } from "./fp.js";
+import { A, O, Ord, pipe, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeesNext,
@@ -13,7 +13,8 @@ import {
   LeaderboardRow,
 } from "./leaderboards.js";
 import * as Log from "./log.js";
-import * as TimeFrame from "./time_frames.js";
+import * as Performance from "./performance.js";
+import * as TimeFrames from "./time_frames.js";
 import { LimitedTimeFrame } from "./time_frames.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
@@ -120,67 +121,51 @@ const blockForTotalOrd = Ord.fromCompare<BlockForTotal>((x, y) =>
   x.number < y.number ? -1 : x.number === y.number ? 0 : 1,
 );
 
-export const addAllBlocksForAllTimeframes = (): T.Task<void> =>
+const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.LimitedTimeFrame) =>
   pipe(
-    pipe(
-      TimeFrame.limitedTimeFrames,
-      RA.map((timeframe) => {
-        Log.debug(`init leaderboard limited time frame ${timeframe}`);
-
-        const t0 = performance.now();
-
-        return pipe(
-          getBlocksForTimeframe(timeframe),
-          T.chain((blocksToAdd) =>
+    getBlocksForTimeframe(timeFrame),
+    T.chain((blocksToAdd) =>
+      pipe(
+        O.sequenceArray([A.head(blocksToAdd), A.last(blocksToAdd)]),
+        O.match(
+          () => {
+            Log.warn(
+              `init leaderboard limited time frame, zero blocks found in blocks table within now - ${timeFrame}, skipping init`,
+            );
+            return T.of(undefined);
+          },
+          ([head, last]) =>
             pipe(
-              O.sequenceArray([A.head(blocksToAdd), A.last(blocksToAdd)]),
-              O.match(
-                () => {
-                  Log.warn(
-                    `init leaderboard limited time frame, zero blocks found in blocks table within now - ${timeframe}, skipping init`,
-                  );
-                  return T.of(undefined);
-                },
-                ([head, last]) =>
-                  pipe(
-                    getBaseFeesForRange(head.number, last.number),
-                    T.map((sums) => {
-                      blocksInTimeframe[timeframe] = blocksToAdd;
+              getBaseFeesForRange(head.number, last.number),
+              T.chainIOK((sums) => () => {
+                blocksInTimeframe[timeFrame] = blocksToAdd;
 
-                      const sumsEth = Leaderboards.pickDenomination(
-                        sums,
-                        "eth",
-                      );
-                      const sumsUsd = Leaderboards.pickDenomination(
-                        sums,
-                        "usd",
-                      );
+                const sumsEth = Leaderboards.pickDenomination(sums, "eth");
+                const sumsUsd = Leaderboards.pickDenomination(sums, "usd");
 
-                      contractSumsPerTimeframe[timeframe] = addToSums(
-                        sumsEth,
-                        contractSumsPerTimeframe[timeframe],
-                      );
-                      contractSumsPerTimeframeUsd[timeframe] = addToSums(
-                        sumsUsd,
-                        contractSumsPerTimeframeUsd[timeframe],
-                      );
-
-                      const t1 = performance.now();
-                      const took = Number((t1 - t0) / 1000).toFixed(2);
-                      Log.debug(
-                        `loading leaderboard ${timeframe} took ${took}s`,
-                      );
-
-                      return undefined;
-                    }),
-                  ),
-              ),
+                contractSumsPerTimeframe[timeFrame] = addToSums(
+                  sumsEth,
+                  contractSumsPerTimeframe[timeFrame],
+                );
+                contractSumsPerTimeframeUsd[timeFrame] = addToSums(
+                  sumsUsd,
+                  contractSumsPerTimeframeUsd[timeFrame],
+                );
+              }),
             ),
-          ),
-        );
-      }),
-      T.sequenceArray,
-      T.map(() => undefined),
+        ),
+      ),
+    ),
+  );
+
+export const addAllBlocksForAllTimeframes = () =>
+  pipe(
+    TimeFrames.limitedTimeFrames,
+    T.traverseArray((timeFrame) =>
+      Performance.measureTaskPerf(
+        `loading leaderboard ${timeFrame}`,
+        addAllBlocksForTimeFrame(timeFrame),
+      ),
     ),
   );
 
@@ -189,7 +174,7 @@ export const addBlockForAllTimeframes = (
   baseFeesToAddEth: ContractSums,
   baseFeesToAddUsd: ContractSums,
 ): void => {
-  TimeFrame.limitedTimeFrames.forEach((timeframe) => {
+  TimeFrames.limitedTimeFrames.forEach((timeframe) => {
     blocksInTimeframe[timeframe] = pipe(
       blocksInTimeframe[timeframe],
       A.append({
@@ -219,7 +204,7 @@ export const onRollback = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
-  for (const timeFrame of TimeFrame.limitedTimeFrames) {
+  for (const timeFrame of TimeFrames.limitedTimeFrames) {
     const includedBlocks = blocksInTimeframe[timeFrame];
     const indexOfBlockToRollbackToBefore = _.findLastIndex(
       includedBlocks,
@@ -249,7 +234,7 @@ export const onRollback = (
   }
 };
 
-const removeExpiredBlocks = (timeFrame: LimitedTimeFrame): T.Task<void> => {
+const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
   const ageLimit = DateFns.subMinutes(
     new Date(),
     Leaderboards.timeframeMinutesMap[timeFrame],
@@ -292,7 +277,7 @@ const removeExpiredBlocks = (timeFrame: LimitedTimeFrame): T.Task<void> => {
 
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
   pipe(
-    TimeFrame.limitedTimeFrames,
+    TimeFrames.limitedTimeFrames,
     T.traverseArray(removeExpiredBlocks),
     TAlt.concatAllVoid,
   );
