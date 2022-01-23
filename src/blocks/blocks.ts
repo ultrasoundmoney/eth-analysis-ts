@@ -330,25 +330,6 @@ export const getSyncedBlockHeight = async (): Promise<number> => {
   return rows[0].max;
 };
 
-export const getBaseFeesPerGas = (blockNumber: number): T.Task<number> =>
-  pipe(
-    sqlT<{ baseFeePerGas: number }[]>`
-      SELECT base_fee_per_gas FROM blocks
-      WHERE number = ${blockNumber}
-    `,
-    T.map((rows) => Number(rows[0].baseFeePerGas)),
-  );
-
-export const setEthPrice = (
-  blockNumber: number,
-  ethPrice: number,
-): T.Task<void> =>
-  sqlTVoid`
-    UPDATE blocks
-    SET eth_price = ${ethPrice}
-    WHERE number = ${blockNumber}
-  `;
-
 export const getLatestBaseFeePerGas = (): T.Task<number> =>
   pipe(
     sqlT<{ baseFeePerGas: number }[]>`
@@ -433,33 +414,6 @@ export type FeeBlockDb = {
   number: number;
 };
 
-const feeBlockDbFromRow = (row: FeeBlockRow): FeeBlockDb => ({
-  baseFeePerGas: BigInt(row.baseFeePerGas),
-  ethPrice: row.ethPrice,
-  ethPriceCents: BigInt(row.ethPriceCents),
-  gasUsed: BigInt(row.gasUsed),
-  minedAt: row.minedAt,
-  number: row.number,
-});
-
-export const getFeeBlocks = (from: number, upToIncluding: number) =>
-  pipe(
-    sqlT<FeeBlockRow[]>`
-      SELECT
-        base_fee_per_gas,
-        eth_price,
-        (eth_price * 100)::bigint AS eth_price_cents,
-        gas_used,
-        mined_at,
-        number
-      FROM blocks
-      WHERE number >= ${from}
-      AND number <= ${upToIncluding}
-      ORDER BY number DESC
-    `,
-    T.map(A.map(feeBlockDbFromRow)),
-  );
-
 export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
   new Array(toAndIncluding - from + 1)
     .fill(undefined)
@@ -482,24 +436,6 @@ export const getLastStoredBlock = () =>
       ),
     ),
   );
-
-export const getIsBlockWithinTimeFrame = (
-  blockNumber: number,
-  timeFrame: TimeFrameNext,
-) =>
-  timeFrame === "all"
-    ? T.of(true)
-    : pipe(
-        TimeFrames.intervalSqlMapNext[timeFrame],
-        (interval) => sqlT<{ exists: boolean }[]>`
-            SELECT (
-              SELECT mined_at FROM blocks WHERE number = ${blockNumber}
-            ) >= (
-              (SELECT MAX(mined_at) FROM blocks) - ${interval}::INTERVAL
-            ) AS "exists"
-          `,
-        T.map((rows) => rows[0]?.exists),
-      );
 
 export const getEarliestBlockInTimeFrame = (timeFrame: TimeFrame) =>
   timeFrame === "all"
