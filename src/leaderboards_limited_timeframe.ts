@@ -110,7 +110,9 @@ const subtractFromSums = (
     A.reduce(contractSums, (sums, [address, feesToRemove]) => {
       const currentFees = sums.get(address);
       if (currentFees === undefined) {
-        Log.error("tried to remove base fees from a non-existing sum");
+        Log.error(
+          "tried to remove base fees from a non-existing sum, doing nothing",
+        );
         return sums;
       }
       return sums.set(address, currentFees - feesToRemove);
@@ -249,7 +251,7 @@ const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
     return T.of(undefined);
   }
 
-  const blocksToRemoveStr = expired.map((block) => block.number).join(",");
+  const blocksToRemoveStr = expired.map((block) => block.number).join(", ");
 
   Log.debug(
     `some blocks are too old in ${timeFrame} time frame, removing ${blocksToRemoveStr}`,

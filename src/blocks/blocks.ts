@@ -119,7 +119,7 @@ const getNewContractsFromBlock = (txrs: TransactionReceiptV1[]) =>
   pipe(
     txrs,
     segmentTxrs,
-    (segments) => segments.contractCreationTxrs,
+    (segments) => segments.creation,
     A.map((txr) => txr.contractAddress),
     A.compact,
     NEA.fromArray,
@@ -257,7 +257,7 @@ export const storeBlock = async (
   const transactionReceiptSegments = segmentTxrs(txrs);
   const feeBreakdown = calcBlockFeeBreakdown(block, transactionReceiptSegments);
   const transactionCounts = countTransactionsPerContract(
-    transactionReceiptSegments.contractUseTxrs,
+    transactionReceiptSegments.other,
   );
   const tips = calcBlockTips(block, txrs);
   const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
