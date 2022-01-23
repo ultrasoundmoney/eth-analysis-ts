@@ -58,11 +58,19 @@ const calcBaseFeePerContractUsd = (
 ): ContractBaseFeeMap =>
   pipe(
     txrs,
-    A.reduce(new Map(), (sumMap, txr: TransactionReceiptV1) =>
-      sumMap.set(
+    A.reduce(new Map<string, number>(), (sumMap, txr: TransactionReceiptV1) =>
+      pipe(
         txr.to,
-        (sumMap.get(txr.to) || 0) +
-          (calcTxrBaseFee(block, txr) / 10 ** 18) * ethPrice,
+        O.match(
+          () => sumMap,
+          (to) => {
+            const currentSum = sumMap.get(to) ?? 0;
+            return sumMap.set(
+              to,
+              (currentSum + calcTxrBaseFee(block, txr) / 10 ** 18) * ethPrice,
+            );
+          },
+        ),
       ),
     ),
   );
@@ -89,8 +97,11 @@ export const calcBlockFeeBreakdown = (
   transactionReceiptSegments: Transactions.TxrSegments,
   ethPrice?: number,
 ): FeeBreakdown => {
-  const { contractCreationTxrs, ethTransferTxrs, contractUseTxrs } =
-    transactionReceiptSegments;
+  const {
+    creation: contractCreationTxrs,
+    transfer: ethTransferTxrs,
+    other: contractUseTxrs,
+  } = transactionReceiptSegments;
 
   const ethTransferFees = pipe(
     ethTransferTxrs,

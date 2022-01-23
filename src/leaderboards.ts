@@ -107,7 +107,7 @@ export type ContractBaseFeeSums = { eth: ContractSums; usd: ContractSums };
 export const collectInMap = (rows: ContractBaseFeesRow[]) =>
   pipe(
     rows,
-    A.reduce(new Map(), (map, row) => {
+    A.reduce(new Map() as ContractBaseFeesNext, (map, row) => {
       return map.set(row.contractAddress, {
         eth: row.baseFees,
         usd: row.baseFeesUsd,

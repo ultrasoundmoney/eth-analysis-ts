@@ -108,27 +108,20 @@ export const getTxrsWithRetry = async (
 };
 
 export type TxrSegments = {
-  contractCreationTxrs: TransactionReceiptV1[];
-  ethTransferTxrs: TransactionReceiptV1[];
-  contractUseTxrs: TransactionReceiptV1[];
+  creation: TransactionReceiptV1[];
+  transfer: TransactionReceiptV1[];
+  other: TransactionReceiptV1[];
 };
 
-export const segmentTxrs = (
-  txrs: readonly TransactionReceiptV1[],
-): TxrSegments => {
-  const contractUseTxrs: TransactionReceiptV1[] = [];
-  const contractCreationTxrs: TransactionReceiptV1[] = [];
-  const ethTransferTxrs: TransactionReceiptV1[] = [];
+const getIsEthTransfer = (txr: TransactionReceiptV1) =>
+  txr.gasUsedBI === 21000n;
 
-  txrs.forEach((txr) => {
-    if (txr.to === null) {
-      contractCreationTxrs.push(txr);
-    } else if (txr.gasUsed === 21000) {
-      ethTransferTxrs.push(txr);
-    } else {
-      contractUseTxrs.push(txr);
-    }
-  });
+const getIsContractCreation = (txr: TransactionReceiptV1) => O.isNone(txr.to);
 
-  return { contractCreationTxrs, contractUseTxrs, ethTransferTxrs };
-};
+export const segmentTxrs = (txrs: TransactionReceiptV1[]): TxrSegments => ({
+  transfer: txrs.filter(getIsEthTransfer),
+  creation: txrs.filter(getIsContractCreation),
+  other: txrs.filter(
+    (txr) => !getIsContractCreation(txr) && !getIsEthTransfer(txr),
+  ),
+});
