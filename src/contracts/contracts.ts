@@ -38,15 +38,20 @@ export const setSimpleTextColumn = (
   columnName: SimpleTextColumn,
   address: string,
   value: string | null,
-): T.Task<void> =>
+) =>
   pipe(
-    () => sql`
-      UPDATE contracts
-      SET
-        ${sql({ [columnName]: value })}
-      WHERE
-        address = ${address}
-    `,
+    value,
+    TO.fromPredicate((v) => typeof v === "string" && v.length > 0),
+    TO.chainTaskK(
+      (value) =>
+        sqlTVoid`
+          UPDATE contracts
+          SET
+            ${sql({ [columnName]: value })}
+          WHERE
+            address = ${address}
+        `,
+    ),
     T.map(() => undefined),
   );
 
