@@ -33,13 +33,10 @@ const sumPerContractEth = (
         txr.to,
         O.match(
           () => sumMap,
-          (to) => {
-            const currentSum = sumMap.get(to) ?? 0;
-            return sumMap.set(
-              to,
-              currentSum + Transactions.calcBaseFee(block, txr),
-            );
-          },
+          (to) =>
+            pipe(sumMap.get(to) ?? 0, (currentSum) =>
+              sumMap.set(to, currentSum + Transactions.calcBaseFee(block, txr)),
+            ),
         ),
       ),
     ),
@@ -57,14 +54,14 @@ const sumPerContractUsd = (
         txr.to,
         O.match(
           () => sumMap,
-          (to) => {
-            const currentSum = sumMap.get(to) ?? 0;
-            return sumMap.set(
-              to,
-              currentSum +
-                (Transactions.calcBaseFee(block, txr) / 10 ** 18) * ethPrice,
-            );
-          },
+          (to) =>
+            pipe(sumMap.get(to) ?? 0, (currentSum) =>
+              sumMap.set(
+                to,
+                currentSum +
+                  (Transactions.calcBaseFee(block, txr) / 10 ** 18) * ethPrice,
+              ),
+            ),
         ),
       ),
     ),
