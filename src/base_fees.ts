@@ -3,10 +3,8 @@ import { pipe } from "fp-ts/lib/function.js";
 import { BlockV1 } from "./blocks/blocks.js";
 import { O } from "./fp.js";
 import { sum } from "./numbers.js";
-import type {
-  SegmentedTransactions,
-  TransactionReceiptV1,
-} from "./transactions";
+import type { TransactionSegments, TransactionReceiptV1 } from "./transactions";
+import * as Transactions from "./transactions.js";
 
 export type FeeSegments = {
   /** fees burned for the creation of contracts. */
@@ -18,14 +16,6 @@ export type FeeSegments = {
   /** fees burned for simple transfers. */
   transfersSum: number;
 };
-
-export const calcBaseFee = (
-  block: BlockV1,
-  txr: TransactionReceiptV1,
-): number => block.baseFeePerGas * txr.gasUsed;
-
-export const calcBaseFeeBI = (block: BlockV1, txr: TransactionReceiptV1) =>
-  BigInt(block.baseFeePerGas) * txr.gasUsedBI;
 
 /**
  * Map of base fees grouped by contract address
@@ -45,7 +35,10 @@ const sumPerContractEth = (
           () => sumMap,
           (to) => {
             const currentSum = sumMap.get(to) ?? 0;
-            return sumMap.set(to, currentSum + calcBaseFee(block, txr));
+            return sumMap.set(
+              to,
+              currentSum + Transactions.calcBaseFee(block, txr),
+            );
           },
         ),
       ),
@@ -68,7 +61,8 @@ const sumPerContractUsd = (
             const currentSum = sumMap.get(to) ?? 0;
             return sumMap.set(
               to,
-              currentSum + (calcBaseFee(block, txr) / 10 ** 18) * ethPrice,
+              currentSum +
+                (Transactions.calcBaseFee(block, txr) / 10 ** 18) * ethPrice,
             );
           },
         ),
@@ -81,7 +75,7 @@ export const calcBlockBaseFeeSum = (block: BlockV1): bigint =>
 
 export const sumFeeSegments = (
   block: BlockV1,
-  segments: SegmentedTransactions,
+  segments: TransactionSegments,
   ethPrice: number,
 ): FeeSegments => {
   const { creations: creations, transfers: transfers, other: other } = segments;
@@ -90,13 +84,14 @@ export const sumFeeSegments = (
     transfers,
     A.reduce(
       0,
-      (sum, transactionReceipt) => sum + calcBaseFee(block, transactionReceipt),
+      (sum, transactionReceipt) =>
+        sum + Transactions.calcBaseFee(block, transactionReceipt),
     ),
   );
 
   const creationsSum = pipe(
     creations,
-    A.reduce(0, (sum, txr) => sum + calcBaseFee(block, txr)),
+    A.reduce(0, (sum, txr) => sum + Transactions.calcBaseFee(block, txr)),
   );
 
   const contractSumsEth = sumPerContractEth(block, other);

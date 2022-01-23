@@ -2,9 +2,9 @@ import * as DateFns from "date-fns";
 import { setTimeout } from "timers/promises";
 import {
   calcBlockBaseFeeSum,
-  sumFeeSegments,
   calcBlockTips,
   FeeSegments,
+  sumFeeSegments,
 } from "../base_fees.js";
 import * as Contracts from "../contracts/contracts.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
@@ -15,11 +15,8 @@ import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
-import { TimeFrame, TimeFrameNext } from "../time_frames.js";
-import {
-  getTransactionSegments,
-  TransactionReceiptV1,
-} from "../transactions.js";
+import { TimeFrame } from "../time_frames.js";
+import * as Transactions from "../transactions.js";
 import { usdToScaled } from "../usd_scaling.js";
 
 export const londonHardForkBlockNumber = 12965000;
@@ -118,14 +115,6 @@ type ContractBaseFeesRow = {
   transaction_count: number;
 };
 
-const getNewContractsFromBlock = flow(
-  getTransactionSegments,
-  (segments) => segments.creations,
-  A.map((txr) => txr.contractAddress),
-  A.compact,
-  NEA.fromArray,
-);
-
 export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
   const [block] = await sql<{ isKnown: boolean }[]>`
       SELECT EXISTS(SELECT hash FROM blocks WHERE hash = ${hash}) AS is_known
@@ -181,12 +170,12 @@ export const getBlockByHash = (hash: string) =>
 
 export const blockDbFromBlock = (
   block: BlockV1,
-  transactionReceipts: TransactionReceiptV1[],
+  transactionReceipts: Transactions.TransactionReceiptV1[],
   ethPrice: number,
 ): BlockDb => {
   const feeSegments = sumFeeSegments(
     block,
-    getTransactionSegments(transactionReceipts),
+    Transactions.segmentTransactions(transactionReceipts),
     ethPrice,
   );
   const tips = calcBlockTips(block, transactionReceipts);
@@ -214,27 +203,28 @@ const storeContractsBaseFeesTask = (
   pipe(
     Array.from(feeSegments.contractSumsEth.entries()),
     NEA.fromArray,
-    O.map(
-      A.map(
-        ([address, baseFees]): ContractBaseFeesRow => ({
-          base_fees: baseFees,
-          block_number: block.number,
-          contract_address: address,
-          transaction_count: transactionCounts.get(address) ?? 0,
-        }),
+    TO.fromOption,
+    TO.chain(
+      flow(
+        A.map(
+          ([address, baseFees]): ContractBaseFeesRow => ({
+            base_fees: baseFees,
+            block_number: block.number,
+            contract_address: address,
+            transaction_count: transactionCounts.get(address) ?? 0,
+          }),
+        ),
+        (insertables) =>
+          sqlTVoid`
+            INSERT INTO contract_base_fees ${sql(insertables)}
+          `,
+        TO.fromTask,
       ),
-    ),
-    O.match(
-      TAlt.constVoid,
-      (insertables) =>
-        sqlTVoid`
-          INSERT INTO contract_base_fees ${sql(insertables)}
-        `,
     ),
   );
 
 export const countTransactionsPerContract = (
-  transactionReceipts: TransactionReceiptV1[],
+  transactionReceipts: Transactions.TransactionReceiptV1[],
 ) =>
   pipe(
     transactionReceipts,
@@ -255,11 +245,12 @@ export const countTransactionsPerContract = (
 
 export const storeBlock = async (
   block: BlockV1,
-  transactionReceipts: TransactionReceiptV1[],
+  transactionReceipts: Transactions.TransactionReceiptV1[],
   ethPrice: number,
 ): Promise<void> => {
   const blockDb = blockDbFromBlock(block, transactionReceipts, ethPrice);
-  const transactionSegments = getTransactionSegments(transactionReceipts);
+  const transactionSegments =
+    Transactions.segmentTransactions(transactionReceipts);
   const feeSegments = sumFeeSegments(block, transactionSegments, ethPrice);
   const transactionCounts = countTransactionsPerContract(
     transactionSegments.other,
@@ -271,7 +262,7 @@ export const storeBlock = async (
   const storeBlockTask = sqlT`INSERT INTO blocks ${sql(blockRow)}`;
 
   const updateContractsMinedAtTask = pipe(
-    getNewContractsFromBlock(transactionReceipts),
+    Transactions.getNewContracts(transactionReceipts),
     TO.fromOption,
     TO.chainTaskK((addresses) =>
       Contracts.setContractsMinedAt(addresses, block.number, block.timestamp),
