@@ -3,7 +3,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { BlockV1 } from "./blocks/blocks.js";
 import { O } from "./fp.js";
 import { sum } from "./numbers.js";
-import type { TransactionSegments, TransactionReceiptV1 } from "./transactions";
+import type { TransactionReceiptV1, TransactionSegments } from "./transactions";
 import * as Transactions from "./transactions.js";
 
 export type FeeSegments = {
