@@ -2,9 +2,9 @@ import * as DateFns from "date-fns";
 import { setTimeout } from "timers/promises";
 import {
   calcBlockBaseFeeSum,
-  calcBlockFeeBreakdown,
+  sumFeeSegments,
   calcBlockTips,
-  FeeBreakdown,
+  FeeSegments,
 } from "../base_fees.js";
 import * as Contracts from "../contracts/contracts.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
@@ -16,7 +16,10 @@ import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import { TimeFrame, TimeFrameNext } from "../time_frames.js";
-import { segmentTxrs, TransactionReceiptV1 } from "../transactions.js";
+import {
+  getTransactionSegments,
+  TransactionReceiptV1,
+} from "../transactions.js";
 import { usdToScaled } from "../usd_scaling.js";
 
 export const londonHardForkBlockNumber = 12965000;
@@ -91,7 +94,7 @@ export type BlockDb = {
 
 const insertableFromBlock = (
   block: BlockDb,
-  feeBreakdown: FeeBreakdown,
+  feeSegments: FeeSegments,
   tips: number,
   ethPrice: number,
 ): BlockDbInsertable => ({
@@ -99,8 +102,8 @@ const insertableFromBlock = (
   base_fee_per_gas: block.baseFeePerGas.toString(),
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: block.baseFeeSum.toString(),
-  contract_creation_sum: feeBreakdown.contract_creation_fees,
-  eth_transfer_sum: feeBreakdown.transfers,
+  contract_creation_sum: feeSegments.creationsSum,
+  eth_transfer_sum: feeSegments.transfersSum,
   gas_used: block.gasUsed.toString(),
   hash: block.hash,
   mined_at: block.minedAt,
@@ -115,15 +118,13 @@ type ContractBaseFeesRow = {
   transaction_count: number;
 };
 
-const getNewContractsFromBlock = (txrs: TransactionReceiptV1[]) =>
-  pipe(
-    txrs,
-    segmentTxrs,
-    (segments) => segments.creation,
-    A.map((txr) => txr.contractAddress),
-    A.compact,
-    NEA.fromArray,
-  );
+const getNewContractsFromBlock = flow(
+  getTransactionSegments,
+  (segments) => segments.creations,
+  A.map((txr) => txr.contractAddress),
+  A.compact,
+  NEA.fromArray,
+);
 
 export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
   const [block] = await sql<{ isKnown: boolean }[]>`
@@ -180,19 +181,23 @@ export const getBlockByHash = (hash: string) =>
 
 export const blockDbFromBlock = (
   block: BlockV1,
-  txrs: TransactionReceiptV1[],
+  transactionReceipts: TransactionReceiptV1[],
   ethPrice: number,
 ): BlockDb => {
-  const feeBreakdown = calcBlockFeeBreakdown(block, segmentTxrs(txrs));
-  const tips = calcBlockTips(block, txrs);
+  const feeSegments = sumFeeSegments(
+    block,
+    getTransactionSegments(transactionReceipts),
+    ethPrice,
+  );
+  const tips = calcBlockTips(block, transactionReceipts);
 
   return {
     baseFeePerGas: BigInt(block.baseFeePerGas),
     baseFeeSum: calcBlockBaseFeeSum(block),
-    contractCreationSum: feeBreakdown.contract_creation_fees,
+    contractCreationSum: feeSegments.creationsSum,
     ethPrice,
     ethPriceCents: usdToScaled(ethPrice),
-    ethTransferSum: feeBreakdown.transfers,
+    ethTransferSum: feeSegments.transfersSum,
     gasUsed: BigInt(block.gasUsed),
     hash: block.hash,
     minedAt: block.timestamp,
@@ -203,11 +208,11 @@ export const blockDbFromBlock = (
 
 const storeContractsBaseFeesTask = (
   block: BlockV1,
-  feeBreakdown: FeeBreakdown,
+  feeSegments: FeeSegments,
   transactionCounts: Map<string, number>,
 ) =>
   pipe(
-    Array.from(feeBreakdown.contract_use_fees.entries()),
+    Array.from(feeSegments.contractSumsEth.entries()),
     NEA.fromArray,
     O.map(
       A.map(
@@ -250,23 +255,23 @@ export const countTransactionsPerContract = (
 
 export const storeBlock = async (
   block: BlockV1,
-  txrs: TransactionReceiptV1[],
+  transactionReceipts: TransactionReceiptV1[],
   ethPrice: number,
 ): Promise<void> => {
-  const blockDb = blockDbFromBlock(block, txrs, ethPrice);
-  const transactionReceiptSegments = segmentTxrs(txrs);
-  const feeBreakdown = calcBlockFeeBreakdown(block, transactionReceiptSegments);
+  const blockDb = blockDbFromBlock(block, transactionReceipts, ethPrice);
+  const transactionSegments = getTransactionSegments(transactionReceipts);
+  const feeSegments = sumFeeSegments(block, transactionSegments, ethPrice);
   const transactionCounts = countTransactionsPerContract(
-    transactionReceiptSegments.other,
+    transactionSegments.other,
   );
-  const tips = calcBlockTips(block, txrs);
-  const blockRow = insertableFromBlock(blockDb, feeBreakdown, tips, ethPrice);
+  const tips = calcBlockTips(block, transactionReceipts);
+  const blockRow = insertableFromBlock(blockDb, feeSegments, tips, ethPrice);
 
   Log.debug(`storing block: ${block.number}, ${block.hash}`);
   const storeBlockTask = sqlT`INSERT INTO blocks ${sql(blockRow)}`;
 
   const updateContractsMinedAtTask = pipe(
-    getNewContractsFromBlock(txrs),
+    getNewContractsFromBlock(transactionReceipts),
     TO.fromOption,
     TO.chainTaskK((addresses) =>
       Contracts.setContractsMinedAt(addresses, block.number, block.timestamp),
@@ -275,7 +280,7 @@ export const storeBlock = async (
   );
 
   const storeContractsTask = pipe(
-    feeBreakdown.contract_use_fees,
+    feeSegments.contractSumsEth,
     (map) => Array.from(map.keys()),
     NEA.fromArray,
     O.match(
@@ -295,7 +300,7 @@ export const storeBlock = async (
   await TAlt.seqTSeqT(
     TAlt.seqTParT(storeContractsTask, storeBlockTask),
     TAlt.seqTParT(
-      storeContractsBaseFeesTask(block, feeBreakdown, transactionCounts),
+      storeContractsBaseFeesTask(block, feeSegments, transactionCounts),
       updateContractsMinedAtTask,
     ),
   )();

@@ -1,5 +1,5 @@
 import makeEta from "simple-eta";
-import { calcBlockFeeBreakdown } from "./base_fees.js";
+import { sumFeeSegments } from "./base_fees.js";
 import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
@@ -86,15 +86,15 @@ for (const blockNumber of blocksToStore) {
     throw ethPrice.left;
   }
   await Blocks.storeBlock(block, txrs, ethPrice.right.ethusd);
-  const feeBreakdown = calcBlockFeeBreakdown(
+  const feeSegments = sumFeeSegments(
     block,
-    Transactions.segmentTxrs(txrs),
+    Transactions.getTransactionSegments(txrs),
     ethPrice.right.ethusd,
   );
   await LeaderboardsAll.addBlock(
     block.number,
-    feeBreakdown.contract_use_fees,
-    feeBreakdown.contract_use_fees_usd!,
+    feeSegments.contractSumsEth,
+    feeSegments.contractSumsUsd!,
   );
 
   await storeLastReanalyzed(blockNumber);

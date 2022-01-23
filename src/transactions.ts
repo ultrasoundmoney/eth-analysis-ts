@@ -107,9 +107,9 @@ export const getTxrsWithRetry = async (
   return txrs;
 };
 
-export type TxrSegments = {
-  creation: TransactionReceiptV1[];
-  transfer: TransactionReceiptV1[];
+export type SegmentedTransactions = {
+  creations: TransactionReceiptV1[];
+  transfers: TransactionReceiptV1[];
   other: TransactionReceiptV1[];
 };
 
@@ -118,10 +118,14 @@ const getIsEthTransfer = (txr: TransactionReceiptV1) =>
 
 const getIsContractCreation = (txr: TransactionReceiptV1) => O.isNone(txr.to);
 
-export const segmentTxrs = (txrs: TransactionReceiptV1[]): TxrSegments => ({
-  transfer: txrs.filter(getIsEthTransfer),
-  creation: txrs.filter(getIsContractCreation),
-  other: txrs.filter(
-    (txr) => !getIsContractCreation(txr) && !getIsEthTransfer(txr),
+export const getTransactionSegments = (
+  transactionReceipts: TransactionReceiptV1[],
+): SegmentedTransactions => ({
+  transfers: transactionReceipts.filter(getIsEthTransfer),
+  creations: transactionReceipts.filter(getIsContractCreation),
+  other: transactionReceipts.filter(
+    (transactionReceipt) =>
+      !getIsContractCreation(transactionReceipt) &&
+      !getIsEthTransfer(transactionReceipt),
   ),
 });
