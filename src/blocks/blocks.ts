@@ -56,10 +56,6 @@ export const blockV1FromRaw = (rawBlock: EthNode.RawBlock): BlockV1 => ({
   transactions: rawBlock.transactions,
 });
 
-export type NewBlockPayload = {
-  number: number;
-};
-
 export type BlockDbInsertable = {
   hash: string;
   number: number;
@@ -391,27 +387,6 @@ export const getBlocks = async (
   `;
 
   return rows.map(blockDbFromRow);
-};
-
-// These blocks are minimized to only carry the information needed to calculate a record.
-export type FeeBlockRow = {
-  baseFeePerGas: string;
-  ethPrice: number;
-  // TODO: should be scaled going in, read the scaled value.
-  ethPriceCents: string;
-  gasUsed: string;
-  minedAt: Date;
-  number: number;
-};
-
-export type FeeBlockDb = {
-  baseFeePerGas: bigint;
-  ethPrice: number;
-  // TODO: should be scaled going in, read the scaled value.
-  ethPriceCents: bigint;
-  gasUsed: bigint;
-  minedAt: Date;
-  number: number;
 };
 
 export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
