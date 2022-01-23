@@ -337,12 +337,17 @@ export const addTwitterMetadata = async (
 
   const handle = await Contracts.getTwitterHandle(address)();
 
-  if (handle === undefined) {
+  if (O.isNone(handle)) {
+    return undefined;
+  }
+
+  if (O.isSome(handle) && handle.value.length === 0) {
+    Log.warn(`contract twitter handle is empty string, ${address}`);
     return undefined;
   }
 
   const profile = await twitterProfileQueue.add(() =>
-    Twitter.getProfileByHandle(handle),
+    Twitter.getProfileByHandle(handle.value),
   );
 
   twitterProfileLastAttemptMap[address] = new Date();
