@@ -28,6 +28,7 @@ export * as TE from "fp-ts/lib/TaskEither.js";
 export * as TO from "fp-ts/lib/TaskOption.js";
 export * as Void from "fp-ts/lib/void.js";
 export * as D from "io-ts/lib/Decoder.js";
+export * as MapF from "fp-ts/lib/Map.js";
 
 type ErrorLike = { error: Error };
 
