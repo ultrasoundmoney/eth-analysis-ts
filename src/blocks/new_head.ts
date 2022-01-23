@@ -1,5 +1,5 @@
 import PQueue from "p-queue";
-import { calcBlockFeeBreakdown } from "../base_fees.js";
+import { sumFeeSegments } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
 import { sqlTNotify } from "../db.js";
@@ -96,9 +96,9 @@ export const addBlock = async (head: Head): Promise<void> => {
   const blocksUpdate: BlocksUpdate = { number: block.number };
   await sqlTNotify("blocks-update", JSON.stringify(blocksUpdate))();
 
-  const feeBreakdown = calcBlockFeeBreakdown(
+  const feeSegments = sumFeeSegments(
     block,
-    Transactions.segmentTxrs(txrs),
+    Transactions.getTransactionSegments(txrs),
     ethPrice.ethusd,
   );
 
@@ -108,15 +108,15 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
     blockDb,
-    feeBreakdown.contract_use_fees,
-    feeBreakdown.contract_use_fees_usd!,
+    feeSegments.contractSumsEth,
+    feeSegments.contractSumsUsd!,
   );
 
   const addToLeaderboardAllTask = () =>
     LeaderboardsAll.addBlock(
       block.number,
-      feeBreakdown.contract_use_fees,
-      feeBreakdown.contract_use_fees_usd!,
+      feeSegments.contractSumsEth,
+      feeSegments.contractSumsUsd!,
     );
 
   const addBlockToBurnRecords = Performance.withPerfLogT(
