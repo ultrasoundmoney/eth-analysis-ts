@@ -1,6 +1,6 @@
 import A from "fp-ts/lib/Array.js";
 import { sql, sqlTVoid } from "../db.js";
-import { flow, NEA, O, pipe, T } from "../fp.js";
+import { flow, NEA, O, pipe, T, TO } from "../fp.js";
 import * as OpenSea from "../opensea.js";
 
 export const storeContracts = flow(
@@ -245,13 +245,13 @@ export const deleteContractsMinedAt = async (
   `;
 };
 
-export const getTwitterHandle = (address: string): T.Task<string | undefined> =>
+export const getTwitterHandle = (address: string) =>
   pipe(
     () => sql<{ twitterHandle: string | null }[]>`
       SELECT twitter_handle FROM contracts
       WHERE address = ${address}
     `,
-    T.map((rows) => rows[0]?.twitterHandle ?? undefined),
+    T.map(flow((rows) => rows[0]?.twitterHandle ?? undefined, O.fromNullable)),
   );
 
 export const getAddressesToRefetch = (): T.Task<Set<string>> =>
