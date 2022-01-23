@@ -28,7 +28,7 @@ type PreciseBaseFeeSum = {
 
 export const getFeeBurnAll = () =>
   pipe(
-    sqlT<{ eth: string; usd: number }[]>`
+    sqlT<{ eth: string | null; usd: number }[]>`
       SELECT
         SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
         SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 1e18) AS usd
@@ -39,7 +39,12 @@ export const getFeeBurnAll = () =>
         (rows) => rows[0],
         O.fromNullable,
         O.map((row) => ({
-          eth: BigInt(row.eth),
+          eth: pipe(
+            row.eth,
+            O.fromNullable,
+            O.map(BigInt),
+            O.getOrElse(() => 0n),
+          ),
           usd: row.usd,
         })),
         OAlt.getOrThrow("tried to get fee burn but blocks table is empty"),
@@ -50,7 +55,7 @@ export const getFeeBurnAll = () =>
 const getFeeBurnTimeFrame = (timeFrame: LimitedTimeFrameNext) =>
   pipe(
     TimeFrames.intervalSqlMapNext[timeFrame],
-    (interval) => sqlT<{ eth: string; usd: number }[]>`
+    (interval) => sqlT<{ eth: string | null; usd: number }[]>`
       SELECT
         SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
         SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 1e18) AS usd
@@ -62,7 +67,12 @@ const getFeeBurnTimeFrame = (timeFrame: LimitedTimeFrameNext) =>
         (rows) => rows[0],
         O.fromNullable,
         O.map((row) => ({
-          eth: BigInt(row.eth),
+          eth: pipe(
+            row.eth,
+            O.fromNullable,
+            O.map(BigInt),
+            O.getOrElse(() => 0n),
+          ),
           usd: row.usd,
         })),
         O.getOrElse(() => {
