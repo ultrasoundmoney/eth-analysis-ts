@@ -69,7 +69,8 @@ export const TAlt = {
           shouldExecute(a) ? task : T.of(undefined as void),
         ),
       ),
-  whenTrue: <A>(task: T.Task<A>) => TAlt.when((a: boolean) => a, task),
+  whenTrue: <A>(task: T.Task<A>) =>
+    TAlt.when((shouldExecute: boolean) => shouldExecute, task),
   logDebugStr: <A>(msg: string) =>
     T.chainFirstIOK<A, void>((value) => () => {
       Log.debug(msg + String(value));
