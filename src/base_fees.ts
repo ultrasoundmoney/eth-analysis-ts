@@ -67,7 +67,7 @@ const calcBaseFeePerContractUsd = (
             const currentSum = sumMap.get(to) ?? 0;
             return sumMap.set(
               to,
-              (currentSum + calcTxrBaseFee(block, txr) / 10 ** 18) * ethPrice,
+              currentSum + (calcBaseFee(block, txr) / 10 ** 18) * ethPrice,
             );
           },
         ),
