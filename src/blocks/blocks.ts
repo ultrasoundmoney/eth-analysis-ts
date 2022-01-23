@@ -228,8 +228,8 @@ const storeContractsBaseFeesTask = (
       TAlt.constVoid,
       (insertables) =>
         sqlTVoid`
-            INSERT INTO contract_base_fees ${sql(insertables)}
-          `,
+          INSERT INTO contract_base_fees ${sql(insertables)}
+        `,
     ),
   );
 
