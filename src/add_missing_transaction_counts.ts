@@ -38,7 +38,7 @@ let blocksDone = 0;
 for (const blockNumber of blocksToStore) {
   const block = await Blocks.getBlockWithRetry(blockNumber);
   const transactionReceipts = await Transactions.getTxrsWithRetry(block);
-  const { other } = Transactions.getTransactionSegments(transactionReceipts);
+  const { other } = Transactions.segmentTransactions(transactionReceipts);
   const transactionCounts = Blocks.countTransactionsPerContract(other);
 
   await pipe(

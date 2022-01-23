@@ -98,7 +98,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const feeSegments = sumFeeSegments(
     block,
-    Transactions.getTransactionSegments(txrs),
+    Transactions.segmentTransactions(txrs),
     ethPrice.ethusd,
   );
 

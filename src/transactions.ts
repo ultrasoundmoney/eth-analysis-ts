@@ -3,7 +3,7 @@ import { setTimeout } from "timers/promises";
 import * as Blocks from "./blocks/blocks.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import { O } from "./fp.js";
+import { A, flow, NEA, O } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
@@ -107,7 +107,7 @@ export const getTxrsWithRetry = async (
   return txrs;
 };
 
-export type SegmentedTransactions = {
+export type TransactionSegments = {
   creations: TransactionReceiptV1[];
   transfers: TransactionReceiptV1[];
   other: TransactionReceiptV1[];
@@ -118,9 +118,9 @@ const getIsEthTransfer = (txr: TransactionReceiptV1) =>
 
 const getIsContractCreation = (txr: TransactionReceiptV1) => O.isNone(txr.to);
 
-export const getTransactionSegments = (
+export const segmentTransactions = (
   transactionReceipts: TransactionReceiptV1[],
-): SegmentedTransactions => ({
+): TransactionSegments => ({
   transfers: transactionReceipts.filter(getIsEthTransfer),
   creations: transactionReceipts.filter(getIsContractCreation),
   other: transactionReceipts.filter(
@@ -129,3 +129,22 @@ export const getTransactionSegments = (
       !getIsEthTransfer(transactionReceipt),
   ),
 });
+
+export const calcBaseFee = (
+  block: Blocks.BlockV1,
+  txr: TransactionReceiptV1,
+): number => block.baseFeePerGas * txr.gasUsed;
+
+export const calcBaseFeeBI = (
+  block: Blocks.BlockV1,
+  txr: TransactionReceiptV1,
+) => BigInt(block.baseFeePerGas) * txr.gasUsedBI;
+
+export const getNewContracts = flow(
+  segmentTransactions,
+
+  (segments) => segments.creations,
+  A.map((txr) => txr.contractAddress),
+  A.compact,
+  NEA.fromArray,
+);

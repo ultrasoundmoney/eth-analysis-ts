@@ -88,7 +88,7 @@ for (const blockNumber of blocksToStore) {
   await Blocks.storeBlock(block, txrs, ethPrice.right.ethusd);
   const feeSegments = sumFeeSegments(
     block,
-    Transactions.getTransactionSegments(txrs),
+    Transactions.segmentTransactions(txrs),
     ethPrice.right.ethusd,
   );
   await LeaderboardsAll.addBlock(
