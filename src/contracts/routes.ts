@@ -82,13 +82,13 @@ export const handleSetContractLastManuallyVerified: Middleware = async (
   return undefined;
 };
 
+const getIsAddresses = (u: unknown): u is string[] =>
+  Array.isArray(u) &&
+  u.length > 0 &&
+  !u.some((address) => typeof address !== "string");
+
 export const handleGetMetadataFreshness: Middleware = async (ctx) => {
   const addresses = ctx.request.body?.addresses;
-
-  const getIsAddresses = (u: unknown): u is string[] =>
-    Array.isArray(addresses) &&
-    addresses.length > 0 &&
-    !addresses.some((address) => typeof address !== "string");
 
   if (!getIsAddresses(addresses)) {
     ctx.status = 400;
