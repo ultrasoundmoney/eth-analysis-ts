@@ -52,7 +52,11 @@ export const getMetadataFreshness = (
 ): T.Task<MetadataFreshnessMap> =>
   pipe(
     sqlT<RawMetadataFreshness[]>`
-      SELECT address, opensea_contract_last_fetch, last_manually_verified FROM contracts
+      SELECT
+        address,
+        last_manually_verified,
+        opensea_contract_last_fetch
+      FROM contracts
       WHERE address IN (${addresses})
     `,
     T.map(
