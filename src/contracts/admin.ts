@@ -19,11 +19,13 @@ export const setName = (address: string, name: string): T.Task<void> =>
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   );
 
-export const setCategory = (address: string, category: string): T.Task<void> =>
+export const setCategory = (address: string, category: string) =>
   pipe(
-    category === "" ? null : category,
-    (category) =>
-      Contracts.setSimpleTextColumn("manual_category", address, category),
+    Contracts.setSimpleTextColumn(
+      "manual_category",
+      address,
+      category === "" ? null : category,
+    ),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   );
 
