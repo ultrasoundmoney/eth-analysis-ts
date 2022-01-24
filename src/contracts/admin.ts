@@ -21,7 +21,9 @@ export const setName = (address: string, name: string): T.Task<void> =>
 
 export const setCategory = (address: string, category: string): T.Task<void> =>
   pipe(
-    Contracts.setSimpleTextColumn("manual_category", address, category),
+    category === "" ? null : category,
+    (category) =>
+      Contracts.setSimpleTextColumn("manual_category", address, category),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   );
 
