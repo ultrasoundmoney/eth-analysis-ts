@@ -5,7 +5,7 @@ import * as BurnRecords from "./burn_records.js";
 
 export const onNewBlock = (block: BlockDb) =>
   pipe(
-    TimeFrames.timeFrames,
+    TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
       pipe(
         TAlt.seqTParT(

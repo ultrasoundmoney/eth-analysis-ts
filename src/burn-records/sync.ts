@@ -2,7 +2,6 @@ import * as Blocks from "../blocks/blocks.js";
 import { O, pipe, T, TAlt } from "../fp.js";
 import * as Performance from "../performance.js";
 import * as TimeFrames from "../time_frames.js";
-import { TimeFrame } from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
 
 const getEarliestBlockToAddAll = (lastIncludedBlock: O.Option<number>) =>
@@ -30,7 +29,7 @@ const getEarliestBlockToAddLimitedTimeFrames = (
   );
 
 const getFirstBlockToInclude = (
-  timeFrame: TimeFrame,
+  timeFrame: TimeFrames.TimeFrameNext,
   lastIncludedBlock: O.Option<number>,
 ) =>
   timeFrame === "all"
@@ -45,7 +44,7 @@ const getFirstBlockToInclude = (
         ),
       );
 
-const initTimeFrame = (timeFrame: TimeFrame) =>
+const initTimeFrame = (timeFrame: TimeFrames.TimeFrameNext) =>
   pipe(
     BurnRecords.getLastIncludedBlock(),
     T.chain((lastIncludedBlock) =>
@@ -71,7 +70,7 @@ const initTimeFrame = (timeFrame: TimeFrame) =>
 
 export const init = () =>
   pipe(
-    TimeFrames.timeFrames,
+    TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
       Performance.measureTaskPerf(
         `init burn records time frame: ${timeFrame}`,
