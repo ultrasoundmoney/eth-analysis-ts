@@ -21,7 +21,7 @@ export type FeesBurnedT = {
   feesBurnedAllUsd: number;
 };
 
-type PreciseBaseFeeSum = {
+export type PreciseBaseFeeSum = {
   eth: WeiBI;
   usd: Usd;
 };
@@ -38,15 +38,17 @@ export const getFeeBurnAll = () =>
       flow(
         (rows) => rows[0],
         O.fromNullable,
-        O.map((row) => ({
-          eth: pipe(
-            row.eth,
-            O.fromNullable,
-            O.map(BigInt),
-            O.getOrElse(() => 0n),
-          ),
-          usd: row.usd,
-        })),
+        O.map(
+          (row): PreciseBaseFeeSum => ({
+            eth: pipe(
+              row.eth,
+              O.fromNullable,
+              O.map(BigInt),
+              O.getOrElse(() => 0n),
+            ),
+            usd: row.usd,
+          }),
+        ),
         OAlt.getOrThrow("tried to get fee burn but blocks table is empty"),
       ),
     ),
