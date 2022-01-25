@@ -131,5 +131,3 @@ export const getCategoriesCache = () =>
     `,
     T.map((rows) => rows[0]?.value),
   );
-
-console.log(await getCategoriesCache()());
