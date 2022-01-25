@@ -89,7 +89,7 @@ test("should sync new blocks on init", async () => {
 
   await BurnRecordsSync.init()();
 
-  for (const timeFrame of TimeFrames.timeFrames) {
+  for (const timeFrame of TimeFrames.timeFramesNext) {
     const [topRecord] = await BurnRecords.getBurnRecords(timeFrame)();
     assert.equal(topRecord, {
       baseFeeSum: Number(2868590697273401000n),
@@ -106,7 +106,7 @@ test("should add a new block on new head", async () => {
 
   await BurnRecordsNewHead.onNewBlock(block)();
 
-  for (const timeFrame of TimeFrames.timeFrames) {
+  for (const timeFrame of TimeFrames.timeFramesNext) {
     const [topRecord] = await BurnRecords.getBurnRecords(timeFrame)();
     assert.equal(topRecord, {
       baseFeeSum: Number(2868590697273401000n),
@@ -122,7 +122,7 @@ test("should expire records outside time frame on init", async () => {
 
   await BurnRecordsSync.init()();
 
-  const topRecords = await BurnRecords.getBurnRecords("5m")();
+  const topRecords = await BurnRecords.getBurnRecords("m5")();
   assert.is(topRecords.length, 0);
 });
 
@@ -140,7 +140,7 @@ test("should expire a record that's fallen outside the time frame", async () => 
 
   await BurnRecordsNewHead.onNewBlock(newBlock)();
 
-  const topRecords = await BurnRecords.getBurnRecords("5m")();
+  const topRecords = await BurnRecords.getBurnRecords("m5")();
   assert.is(topRecords.length, 1);
 
   const newRecord = topRecords[0];
@@ -153,7 +153,7 @@ test("should remove records on rollback", async () => {
   await insertTestBlocks([nowBlock]);
 
   await BurnRecordsNewHead.onNewBlock(block)();
-  const [topRecord] = await BurnRecords.getBurnRecords("5m")();
+  const [topRecord] = await BurnRecords.getBurnRecords("m5")();
   assert.equal(topRecord, {
     baseFeeSum: Number(2868590697273401000n),
     blockNumber: block.number,
@@ -161,7 +161,7 @@ test("should remove records on rollback", async () => {
   });
 
   await BurnRecordsNewHead.onRollback(block.number)();
-  const topRecords = await BurnRecords.getBurnRecords("5m")();
+  const topRecords = await BurnRecords.getBurnRecords("m5")();
   assert.is(topRecords.length, 0);
 });
 
@@ -184,7 +184,7 @@ test("should prune records outside max rank", async () => {
   await BurnRecordsSync.init()();
 
   const topRecords = await BurnRecords.getBurnRecords("all")();
-  assert.is(topRecords.length, 100);
+  assert.is(topRecords.length, 10);
 });
 
 test.after(async () => {
