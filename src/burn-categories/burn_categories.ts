@@ -80,30 +80,31 @@ const extendWithPercent = (
     })),
   );
 
-const getBurnCategoriesWithPercent = (
-  feeBurn: FeeBurn.PreciseBaseFeeSum,
-  timeFrame: TimeFrameNext,
-) =>
+const getBurnCategoriesWithPercent = (timeFrame: TimeFrameNext) =>
   pipe(
-    timeFrame === "all"
-      ? getBurnCategoriesAll()
-      : getBurnCategoriesTimeFrame(timeFrame),
-    T.map((categories) => extendWithPercent(feeBurn, categories)),
+    T.Do,
+    T.apS("feeBurns", FeeBurn.getFeeBurns()),
+    T.apS(
+      "categories",
+      timeFrame === "all"
+        ? getBurnCategoriesAll()
+        : getBurnCategoriesTimeFrame(timeFrame),
+    ),
+    T.map(({ feeBurns, categories }) =>
+      extendWithPercent(feeBurns[timeFrame], categories),
+    ),
   );
 
 export const updateBurnCategories = () =>
   pipe(
-    FeeBurn.getFeeBurnAll(),
-    T.chain((feeBurn) =>
-      TAlt.seqSParT({
-        m5: getBurnCategoriesWithPercent(feeBurn, "m5"),
-        h1: getBurnCategoriesWithPercent(feeBurn, "h1"),
-        d1: getBurnCategoriesWithPercent(feeBurn, "d1"),
-        d7: getBurnCategoriesWithPercent(feeBurn, "d7"),
-        d30: getBurnCategoriesWithPercent(feeBurn, "d30"),
-        all: getBurnCategoriesWithPercent(feeBurn, "all"),
-      }),
-    ),
+    TAlt.seqSParT({
+      m5: getBurnCategoriesWithPercent("m5"),
+      h1: getBurnCategoriesWithPercent("h1"),
+      d1: getBurnCategoriesWithPercent("d1"),
+      d7: getBurnCategoriesWithPercent("d7"),
+      d30: getBurnCategoriesWithPercent("d30"),
+      all: getBurnCategoriesWithPercent("all"),
+    }),
     T.chain(
       (burnCategories) =>
         sqlTVoid`
