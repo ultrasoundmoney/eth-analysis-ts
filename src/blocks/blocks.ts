@@ -15,7 +15,6 @@ import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
-import { TimeFrame } from "../time_frames.js";
 import * as Transactions from "../transactions.js";
 import { usdToScaled } from "../usd_scaling.js";
 
@@ -412,11 +411,13 @@ export const getLastStoredBlock = () =>
     ),
   );
 
-export const getEarliestBlockInTimeFrame = (timeFrame: TimeFrame) =>
+export const getEarliestBlockInTimeFrame = (
+  timeFrame: TimeFrames.TimeFrameNext,
+) =>
   timeFrame === "all"
     ? T.of(londonHardForkBlockNumber)
     : pipe(
-        TimeFrames.intervalSqlMap[timeFrame],
+        TimeFrames.intervalSqlMapNext[timeFrame],
         (interval) => sqlT<{ min: number }[]>`
           SELECT MIN(number) FROM blocks
           WHERE mined_at >= NOW() - ${interval}::interval
