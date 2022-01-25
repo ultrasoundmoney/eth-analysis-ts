@@ -7,7 +7,10 @@ import { runMigrations, sql } from "../db.js";
 
 const insertTestBlock = async (block: BlockDb) => {
   const insertable = {
+    base_fee_per_gas: block.baseFeePerGas,
     base_fee_sum: block.baseFeeSum,
+    gas_used: block.gasUsed,
+    eth_price: 1000,
     hash: block.hash,
     mined_at: block.minedAt,
     number: block.number,
