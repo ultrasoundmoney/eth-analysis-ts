@@ -1,7 +1,7 @@
 import * as Blocks from "../blocks/blocks.js";
 import { sqlT } from "../db.js";
 import { flow, O, pipe, T } from "../fp.js";
-import { LimitedTimeFrame, TimeFrame } from "../time_frames.js";
+import { LimitedTimeFrameNext, TimeFrameNext } from "../time_frames.js";
 
 export const maxRank = 10;
 
@@ -37,7 +37,7 @@ export const setLastIncludedBlockIsLatest = () =>
   `;
 
 const expireRecordsBefore = (
-  timeFrame: LimitedTimeFrame,
+  timeFrame: LimitedTimeFrameNext,
   blockNumber: number,
 ) => sqlT`
   DELETE FROM burn_records
@@ -45,7 +45,9 @@ const expireRecordsBefore = (
   AND time_frame = ${timeFrame}
 `;
 
-const expireRecordsOutsideLimitedTimeFrame = (timeFrame: LimitedTimeFrame) =>
+const expireRecordsOutsideLimitedTimeFrame = (
+  timeFrame: LimitedTimeFrameNext,
+) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
     T.chain((earliestIncludedBlock) =>
@@ -53,7 +55,7 @@ const expireRecordsOutsideLimitedTimeFrame = (timeFrame: LimitedTimeFrame) =>
     ),
   );
 
-export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrame) =>
+export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
   pipe(
     timeFrame === "all"
       ? T.of(undefined)
@@ -61,7 +63,7 @@ export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrame) =>
   );
 
 export const addRecordsFromBlockAndIncluding = (
-  timeFrame: TimeFrame,
+  timeFrame: TimeFrameNext,
   blockNumber: number,
 ) =>
   sqlT`
@@ -78,7 +80,7 @@ export const addRecordsFromBlockAndIncluding = (
   `;
 
 export const pruneRecordsBeyondRank = (
-  timeFrame: TimeFrame,
+  timeFrame: TimeFrameNext,
   rank: number,
 ) => sqlT`
   DELETE FROM burn_records
@@ -98,7 +100,7 @@ export type BurnRecord = {
 };
 
 export const getBurnRecords = (
-  timeFrame: TimeFrame,
+  timeFrame: TimeFrameNext,
   count = 100,
 ): T.Task<BurnRecord[]> => sqlT<BurnRecord[]>`
   SELECT

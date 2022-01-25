@@ -15,11 +15,11 @@ export type BurnRecordsCache = {
 export const updateRecordsCache = (blockNumber: number) =>
   pipe(
     TAlt.seqSParT({
-      m5: BurnRecords.getBurnRecords("5m", maxRecordCount),
-      h1: BurnRecords.getBurnRecords("1h", maxRecordCount),
-      d1: BurnRecords.getBurnRecords("24h", maxRecordCount),
-      d7: BurnRecords.getBurnRecords("7d", maxRecordCount),
-      d30: BurnRecords.getBurnRecords("30d", maxRecordCount),
+      m5: BurnRecords.getBurnRecords("m5", maxRecordCount),
+      h1: BurnRecords.getBurnRecords("h1", maxRecordCount),
+      d1: BurnRecords.getBurnRecords("d1", maxRecordCount),
+      d7: BurnRecords.getBurnRecords("d7", maxRecordCount),
+      d30: BurnRecords.getBurnRecords("d30", maxRecordCount),
       all: BurnRecords.getBurnRecords("all", maxRecordCount),
     }),
     T.chain(
