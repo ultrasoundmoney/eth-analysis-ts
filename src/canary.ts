@@ -13,7 +13,7 @@ const cage: Record<CanaryType, NodeJS.Timeout | undefined> = {
 
 const durationMilis = Duration.millisFromMinutes(5);
 
-const fireAlarm = _.throttle(async () => {
+const fireAlarm = _.debounce(async () => {
   Log.alert(`canary dead, no block for ${durationMilis / 1000}s`);
 
   const res = await fetch("https://api.opsgenie.com/v2/alerts", {
