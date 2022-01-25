@@ -1,7 +1,9 @@
+import * as Blocks from "../blocks/blocks.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as FeeBurn from "../fee_burn.js";
-import { pipe, T } from "../fp.js";
+import { A, pipe, T, TAlt } from "../fp.js";
 import * as Log from "../log.js";
+import { TimeFrameNext } from "../time_frames.js";
 import { setIsUpdating } from "./analyze_burn_categories.js";
 
 type BurnCategoryRow = {
@@ -18,8 +20,6 @@ type BurnCategory = {
   transactionCount: number;
 };
 
-export type BurnCategories = BurnCategory[];
-
 type BurnCategoryForCache = {
   category: string;
   fees: number;
@@ -33,33 +33,76 @@ type BurnCategoriesCache = BurnCategoryForCache[];
 
 export const burnCategoriesCacheKey = "burn-categories-cache-key";
 
-const getBurnCategories = () =>
+const getBurnCategoriesAll = () =>
+  sqlT<BurnCategoryRow[]>`
+    SELECT
+      category,
+      SUM(base_fees) AS fees,
+      SUM(base_fees * eth_price / 1e18) AS fees_usd,
+      SUM(transaction_count) AS transaction_count
+    FROM contract_base_fees
+    JOIN blocks ON number = block_number
+    JOIN contracts ON address = contract_address
+    WHERE category IS NOT NULL
+    GROUP BY (category)
+  `;
+
+const getBurnCategoriesTimeFrame = (timeFrame: TimeFrameNext) =>
   pipe(
-    sqlT<BurnCategoryRow[]>`
-      SELECT
-        category,
-        SUM(base_fees) AS fees,
-        SUM(base_fees * eth_price / 1e18) AS fees_usd,
-        SUM(transaction_count) AS transaction_count
-      FROM contract_base_fees
-      JOIN blocks ON number = block_number
-      JOIN contracts ON address = contract_address
-      WHERE category IS NOT NULL
-      GROUP BY (category)
-    `,
+    Blocks.getEarliestBlockInTimeFrame(timeFrame),
+    T.chain(
+      (earliestBlock) => sqlT<BurnCategoryRow[]>`
+        SELECT
+          category,
+          SUM(base_fees) AS fees,
+          SUM(base_fees * eth_price / 1e18) AS fees_usd,
+          SUM(transaction_count) AS transaction_count
+        FROM contract_base_fees
+        JOIN blocks ON number = block_number
+        JOIN contracts ON address = contract_address
+        WHERE category IS NOT NULL
+        AND block_number >= ${earliestBlock}
+        GROUP BY (category)
+      `,
+    ),
+  );
+
+const extendWithPercent = (
+  feeBurn: FeeBurn.PreciseBaseFeeSum,
+  burnCategories: BurnCategory[],
+): BurnCategoryForCache[] =>
+  pipe(
+    burnCategories,
+    A.map((burnCategory) => ({
+      ...burnCategory,
+      percentOfTotalBurn: burnCategory.fees / Number(feeBurn.eth),
+      percentOfTotalBurnUsd: burnCategory.feesUsd / feeBurn.usd,
+    })),
+  );
+
+const getBurnCategoriesWithPercent = (
+  feeBurn: FeeBurn.PreciseBaseFeeSum,
+  timeFrame: TimeFrameNext,
+) =>
+  pipe(
+    timeFrame === "all"
+      ? getBurnCategoriesAll()
+      : getBurnCategoriesTimeFrame(timeFrame),
+    T.map((categories) => extendWithPercent(feeBurn, categories)),
   );
 
 export const updateBurnCategories = () =>
   pipe(
-    T.Do,
-    T.apS("feeBurn", FeeBurn.getFeeBurnAll()),
-    T.apS("burnCategories", getBurnCategories()),
-    T.map(({ feeBurn, burnCategories }) =>
-      burnCategories.map((burnCategory) => ({
-        ...burnCategory,
-        percentOfTotalBurn: burnCategory.fees / Number(feeBurn.eth),
-        percentOfTotalBurnUsd: burnCategory.feesUsd / feeBurn.usd,
-      })),
+    FeeBurn.getFeeBurnAll(),
+    T.chain((feeBurn) =>
+      TAlt.seqSParT({
+        m5: getBurnCategoriesWithPercent(feeBurn, "m5"),
+        h1: getBurnCategoriesWithPercent(feeBurn, "h1"),
+        d1: getBurnCategoriesWithPercent(feeBurn, "d1"),
+        d7: getBurnCategoriesWithPercent(feeBurn, "d7"),
+        d30: getBurnCategoriesWithPercent(feeBurn, "d30"),
+        all: getBurnCategoriesWithPercent(feeBurn, "all"),
+      }),
     ),
     T.chain(
       (burnCategories) =>
