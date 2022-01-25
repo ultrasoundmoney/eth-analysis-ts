@@ -22,9 +22,6 @@ export const onNewBlock = (block: BlockDb) =>
 
 export const onRollback = (rollbackToAndIncluding: number) =>
   pipe(
-    TimeFrames.timeFrames,
-    T.traverseArray(() =>
-      pipe(BurnRecords.expireRecordsFromAndIncluding(rollbackToAndIncluding)),
-    ),
+    BurnRecords.expireRecordsFromAndIncluding(rollbackToAndIncluding),
     T.chain(() => BurnRecords.setLastIncludedBlock(rollbackToAndIncluding - 1)),
   );
