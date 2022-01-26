@@ -60,12 +60,24 @@ for (const blockNumber of blocksToStore) {
     NEA.fromArray,
     O.match(
       () => T.of(undefined),
-      (insertables) => sqlTVoid`
-        INSERT INTO contract_base_fees
-          ${sql(insertables)}
-        ON CONFLICT (contract_address, block_number) DO UPDATE SET
-          transaction_count = excluded.transaction_count
-      `,
+      (insertables) =>
+        pipe(
+          // Not all contracts are known?! Store all blocks and block_contract_fees again.
+          Contracts.storeContracts(
+            pipe(
+              insertables,
+              NEA.map((row) => row.contract_address),
+            ),
+          ),
+          T.chain(
+            () => sqlTVoid`
+              INSERT INTO contract_base_fees
+                ${sql(insertables)}
+              ON CONFLICT (contract_address, block_number) DO UPDATE SET
+                transaction_count = excluded.transaction_count
+            `,
+          ),
+        ),
     ),
   )();
 
