@@ -30,6 +30,7 @@ let scarcityCache = await ScarcityCache.getScarcityCache()();
 let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
 let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
 let burnCategoriesCache = await BurnCategories.getCategoriesCache()();
+let averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
 
 const handleGetFeeBurns: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
@@ -96,9 +97,8 @@ const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
 };
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
-  const averageEthPrice = await EthPricesAverages.getAveragePrice()();
-  ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=16");
-  ctx.body = averageEthPrice;
+  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=16");
+  ctx.body = averagePricesCache;
   return undefined;
 };
 
@@ -188,6 +188,11 @@ sql.listen("cache-update", async (payload) => {
 
   if (payload === BurnCategories.burnCategoriesCacheKey) {
     burnCategoriesCache = await BurnCategories.getCategoriesCache()();
+    return;
+  }
+
+  if (payload === EthPricesAverages.averagePricesCacheKey) {
+    averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
     return;
   }
 

@@ -4,6 +4,7 @@ import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
 import { sqlTNotify } from "../db.js";
 import * as Duration from "../duration.js";
+import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
 import { pipe, TAlt, TEAlt } from "../fp.js";
@@ -145,8 +146,12 @@ export const addBlock = async (head: Head): Promise<void> => {
         GroupedAnalysis1.updateAnalysis(blockDb),
       ),
       Performance.measureTaskPerf(
-        "calc scarcity",
+        "update scarcity",
         ScarcityCache.updateScarcityCache(blockDb),
+      ),
+      Performance.measureTaskPerf(
+        "update average eth prices",
+        EthPricesAverages.updateAveragePrices(),
       ),
     )();
   } else {
