@@ -33,20 +33,6 @@ type BurnCategoriesCache = BurnCategoryForCache[];
 
 export const burnCategoriesCacheKey = "burn-categories-cache-key";
 
-const getBurnCategoriesAll = () =>
-  sqlT<BurnCategoryRow[]>`
-    SELECT
-      category,
-      SUM(base_fees) AS fees,
-      SUM(base_fees * eth_price / 1e18) AS fees_usd,
-      SUM(transaction_count) AS transaction_count
-    FROM contract_base_fees
-    JOIN blocks ON number = block_number
-    JOIN contracts ON address = contract_address
-    WHERE category IS NOT NULL
-    GROUP BY (category)
-  `;
-
 const getBurnCategoriesTimeFrame = (timeFrame: TimeFrameNext) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
@@ -84,12 +70,7 @@ const getBurnCategoriesWithPercent = (timeFrame: TimeFrameNext) =>
   pipe(
     T.Do,
     T.apS("feeBurns", FeeBurn.getFeeBurns()),
-    T.apS(
-      "categories",
-      timeFrame === "all"
-        ? getBurnCategoriesAll()
-        : getBurnCategoriesTimeFrame(timeFrame),
-    ),
+    T.apS("categories", getBurnCategoriesTimeFrame(timeFrame)),
     T.map(({ feeBurns, categories }) =>
       extendWithPercent(feeBurns[timeFrame], categories),
     ),
