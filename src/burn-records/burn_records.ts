@@ -56,11 +56,9 @@ const expireRecordsOutsideLimitedTimeFrame = (
   );
 
 export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
-  pipe(
-    timeFrame === "all"
-      ? T.of(undefined)
-      : expireRecordsOutsideLimitedTimeFrame(timeFrame),
-  );
+  timeFrame === "all"
+    ? T.of(undefined)
+    : expireRecordsOutsideLimitedTimeFrame(timeFrame);
 
 export const addRecordsFromBlockAndIncluding = (
   timeFrame: TimeFrameNext,
