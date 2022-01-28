@@ -49,8 +49,8 @@ export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
       BurnRecordsNewHead.onRollback(blockNumber)(),
     ]);
 
-    await Contracts.deleteContractsMinedAt(blockNumber);
     await Blocks.deleteContractBaseFees(blockNumber);
+    await Contracts.deleteContractsMinedAt(blockNumber);
     await Blocks.deleteDerivedBlockStats(blockNumber);
     await Blocks.deleteBlock(blockNumber);
 
