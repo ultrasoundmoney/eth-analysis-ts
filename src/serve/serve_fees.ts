@@ -6,7 +6,6 @@ import etag from "koa-etag";
 import * as Blocks from "../blocks/blocks.js";
 import * as BurnCategories from "../burn-categories/burn_categories.js";
 import * as BurnRecordsCache from "../burn-records/cache.js";
-import * as Canary from "../canary.js";
 import * as ContractsRoutes from "../contracts/routes.js";
 import { runMigrations, sql } from "../db.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
