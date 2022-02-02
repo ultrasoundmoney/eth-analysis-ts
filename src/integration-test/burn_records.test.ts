@@ -62,11 +62,11 @@ test("should return none when no block has been included", async () => {
   assert.equal(lastIncludedBlock, O.none);
 });
 
-test("should set the last included block on init", async () => {
+test("should set the last included block on sync", async () => {
   const block = await BlocksData.getSingleBlock();
   await insertTestBlocks([block]);
 
-  await BurnRecordsSync.init()();
+  await BurnRecordsSync.sync()();
 
   const lastIncludedBlock = await BurnRecords.getLastIncludedBlock()();
   assert.equal(lastIncludedBlock, O.some(block.number));
@@ -82,12 +82,12 @@ test("should set the last included block on new head", async () => {
   assert.equal(lastIncludedBlock, O.some(block.number));
 });
 
-test("should sync new blocks on init", async () => {
+test("should sync new blocks on sync", async () => {
   const block = await BlocksData.getSingleBlock();
   const [nowBlock] = setBlocksToNow([block]);
   await insertTestBlocks([nowBlock]);
 
-  await BurnRecordsSync.init()();
+  await BurnRecordsSync.sync()();
 
   for (const timeFrame of TimeFrames.timeFramesNext) {
     const [topRecord] = await BurnRecords.getBurnRecords(timeFrame)();
@@ -116,11 +116,11 @@ test("should add a new block on new head", async () => {
   }
 });
 
-test("should expire records outside time frame on init", async () => {
+test("should expire records outside time frame on sync", async () => {
   const block = await BlocksData.getSingleBlock();
   await insertTestBlocks([block]);
 
-  await BurnRecordsSync.init()();
+  await BurnRecordsSync.sync()();
 
   const topRecords = await BurnRecords.getBurnRecords("m5")();
   assert.is(topRecords.length, 0);
@@ -181,7 +181,7 @@ test("should prune records outside max rank", async () => {
   const blocks = await BlocksData.getH1Blocks();
   const nowBlocks = setBlocksToNow(blocks);
   await insertTestBlocks(nowBlocks);
-  await BurnRecordsSync.init()();
+  await BurnRecordsSync.sync()();
 
   const topRecords = await BurnRecords.getBurnRecords("all")();
   assert.is(topRecords.length, 10);
