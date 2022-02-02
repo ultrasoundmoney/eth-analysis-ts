@@ -161,7 +161,7 @@ export const getBlockSafe = (
   );
 
 export const getBlockByHash = (hash: string) =>
-  pipe(() => EthNode.getRawBlockByHash(hash), TO.fromNullable);
+  pipe(() => EthNode.getRawBlockByHash(hash), T.map(O.fromNullable));
 
 export const blockDbFromBlock = (
   block: BlockV1,
