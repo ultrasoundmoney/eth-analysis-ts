@@ -44,7 +44,7 @@ const getFirstBlockToInclude = (
         ),
       );
 
-const initTimeFrame = (timeFrame: TimeFrames.TimeFrameNext) =>
+const syncTimeFrame = (timeFrame: TimeFrames.TimeFrameNext) =>
   pipe(
     BurnRecords.getLastIncludedBlock(),
     T.chain((lastIncludedBlock) =>
@@ -68,13 +68,13 @@ const initTimeFrame = (timeFrame: TimeFrames.TimeFrameNext) =>
     T.map(() => undefined),
   );
 
-export const init = () =>
+export const sync = () =>
   pipe(
     TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
       Performance.measureTaskPerf(
-        `init burn records time frame: ${timeFrame}`,
-        initTimeFrame(timeFrame),
+        `sync ${timeFrame} burn records`,
+        syncTimeFrame(timeFrame),
       ),
     ),
     TAlt.concatAllVoid,

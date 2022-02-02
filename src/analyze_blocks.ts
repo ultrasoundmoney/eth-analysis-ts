@@ -41,7 +41,7 @@ try {
   Log.info("fast-sync blocks done");
 
   await TAlt.seqTParT(
-    Performance.measureTaskPerf("init burn records", BurnRecordsSync.init()),
+    Performance.measureTaskPerf("sync burn records", BurnRecordsSync.sync()),
     EthLocked.init(),
     () => EthStaked.init(),
     () => EthSupply.init(),
