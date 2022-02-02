@@ -44,19 +44,19 @@ const getFirstBlockToInclude = (
         ),
       );
 
-const syncTimeFrame = (timeFrame: TimeFrames.TimeFrameNext) =>
+const syncTimeFrame = (
+  timeFrame: TimeFrames.TimeFrameNext,
+  lastIncludedBlock: O.Option<number>,
+) =>
   pipe(
-    BurnRecords.getLastIncludedBlock(),
-    T.chain((lastIncludedBlock) =>
-      TAlt.seqTParT(
-        BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
-        pipe(
-          getFirstBlockToInclude(timeFrame, lastIncludedBlock),
-          T.chain((firstBlockToInclude) =>
-            BurnRecords.addRecordsFromBlockAndIncluding(
-              timeFrame,
-              firstBlockToInclude,
-            ),
+    TAlt.seqTParT(
+      BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
+      pipe(
+        getFirstBlockToInclude(timeFrame, lastIncludedBlock),
+        T.chain((firstBlockToInclude) =>
+          BurnRecords.addRecordsFromBlockAndIncluding(
+            timeFrame,
+            firstBlockToInclude,
           ),
         ),
       ),
@@ -64,18 +64,21 @@ const syncTimeFrame = (timeFrame: TimeFrames.TimeFrameNext) =>
     T.chain(() =>
       BurnRecords.pruneRecordsBeyondRank(timeFrame, BurnRecords.maxRank),
     ),
-    T.chain(() => BurnRecords.setLastIncludedBlockIsLatest()),
-    T.map(() => undefined),
   );
 
 export const sync = () =>
   pipe(
-    TimeFrames.timeFramesNext,
-    T.traverseArray((timeFrame) =>
-      Performance.measureTaskPerf(
-        `sync ${timeFrame} burn records`,
-        syncTimeFrame(timeFrame),
+    BurnRecords.getLastIncludedBlock(),
+    T.chain((lastIncludedBlock) =>
+      pipe(
+        TimeFrames.timeFramesNext,
+        T.traverseArray((timeFrame) =>
+          Performance.measureTaskPerf(
+            `sync ${timeFrame} burn records`,
+            syncTimeFrame(timeFrame, lastIncludedBlock),
+          ),
+        ),
       ),
     ),
-    TAlt.concatAllVoid,
+    T.chain(() => BurnRecords.setLastIncludedBlockIsLatest()),
   );
