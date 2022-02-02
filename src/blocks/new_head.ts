@@ -64,7 +64,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   const oBlock = await Blocks.getBlockByHash(head.hash)();
 
   if (O.isNone(oBlock)) {
-    Log.warn("queued head is no longer valid, skipping");
+    Log.info("queued head is no longer valid, skipping");
     return;
   }
 
@@ -93,7 +93,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   if (O.isNone(oTransactionReceipts)) {
     // Block got dropped during transaction receipt fetching or something else went wrong. Either way, we skip this block and figure out on the next head whether we are missing parents.
-    Log.warn(
+    Log.info(
       `failed to fetch transaction receipts for head: ${head.hash}, skipping`,
     );
     return;
