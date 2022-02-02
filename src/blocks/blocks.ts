@@ -157,11 +157,16 @@ export const getBlockSafe = (
 ): TO.TaskOption<BlockV1> =>
   pipe(
     () => EthNode.getBlock(blockNumber),
-    T.map(flow(O.fromNullable, O.map(blockV1FromRaw))),
+    T.map(O.fromNullable),
+    TO.map(blockV1FromRaw),
   );
 
 export const getBlockByHash = (hash: string) =>
-  pipe(() => EthNode.getRawBlockByHash(hash), T.map(O.fromNullable));
+  pipe(
+    () => EthNode.getRawBlockByHash(hash),
+    T.map(O.fromNullable),
+    TO.map(blockV1FromRaw),
+  );
 
 export const blockDbFromBlock = (
   block: BlockV1,

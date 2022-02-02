@@ -2,8 +2,8 @@ import * as DateFns from "date-fns";
 import * as Coingecko from "./coingecko.js";
 import * as ContractsMetadata from "./contracts/crawl_metadata.js";
 import * as DefiLlama from "./defi_llama.js";
-import * as Etherscan from "./etherscan.js";
 import * as EthPricesFtx from "./eth-prices/ftx.js";
+import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
 
@@ -36,7 +36,7 @@ export const onBlockReceived = () => {
     const txrsRate = (txrsReceived / secondsSinceStart).toFixed(2);
     Log.debug(`block fetch rate: ${blocksRate} b/s`);
     Log.debug(`txr fetch rate: ${txrsRate} txr/s`);
-    Log.debug(`txr queue size: ${Transactions.txrsPQ.size}`);
+    Log.debug(`txr queue size: ${Transactions.fetchReceiptQueue.size}`);
   }
   blocksReceived = blocksReceived + 1;
 };

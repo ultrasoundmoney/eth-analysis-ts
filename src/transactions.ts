@@ -3,7 +3,7 @@ import { setTimeout } from "timers/promises";
 import * as Blocks from "./blocks/blocks.js";
 import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import { A, flow, NEA, O } from "./fp.js";
+import { A, flow, NEA, O, pipe, RA, T, TO } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
@@ -35,9 +35,14 @@ export const transactionReceiptFromRaw = (
   transactionHash: rawTrx.transactionHash,
 });
 
-export const txrsPQ = new PQueue({
+export const fetchReceiptQueue = new PQueue({
   concurrency: 64,
 });
+
+const queueFetchReceipt =
+  <A>(task: T.Task<A>): T.Task<A> =>
+  () =>
+    fetchReceiptQueue.add(task);
 
 export const getTxrsWithRetry = async (
   block: Blocks.BlockV1,
@@ -53,7 +58,7 @@ export const getTxrsWithRetry = async (
   while (true) {
     tries += tries + 1;
 
-    await txrsPQ.addAll(
+    await fetchReceiptQueue.addAll(
       tryBlock.transactions.map(
         (txHash) => () =>
           EthNode.getTransactionReceipt(txHash).then((txr) => {
@@ -106,6 +111,20 @@ export const getTxrsWithRetry = async (
 
   return txrs;
 };
+
+export const getTransactionReceiptsSafe = (block: Blocks.BlockV1) =>
+  pipe(
+    block.transactions,
+    TO.traverseArray((hash) =>
+      pipe(
+        () => EthNode.getTransactionReceipt(hash),
+        queueFetchReceipt,
+        T.map(O.fromNullable),
+      ),
+    ),
+    TO.map(RA.map(transactionReceiptFromRaw)),
+    TO.map(RA.toArray),
+  );
 
 export type TransactionSegments = {
   creations: TransactionReceiptV1[];

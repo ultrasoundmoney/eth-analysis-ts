@@ -7,7 +7,7 @@ import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import { pipe, TAlt, TEAlt } from "../fp.js";
+import { O, pipe, TAlt, TEAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Leaderboards from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
@@ -61,12 +61,14 @@ export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
 export const addBlock = async (head: Head): Promise<void> => {
   const t0 = performance.now();
   Log.debug(`add block from new head ${head.number}`);
-  const block = await Blocks.getBlockWithRetry(head.number);
+  const oBlock = await Blocks.getBlockByHash(head.hash)();
 
-  if (head.hash !== block.hash) {
+  if (O.isNone(oBlock)) {
     Log.warn("queued head is no longer valid, skipping");
     return;
   }
+
+  const block = oBlock.value;
 
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
@@ -85,25 +87,41 @@ export const addBlock = async (head: Head): Promise<void> => {
     await rollbackToBefore(block.number);
   }
 
-  const [txrs, ethPrice] = await TAlt.seqTParT(
-    () => Transactions.getTxrsWithRetry(block),
-    pipe(
-      EthPrices.getEthPrice(block.timestamp, Duration.millisFromMinutes(5)),
-      TEAlt.getOrThrow,
-    ),
+  const oTransactionReceipts = await Transactions.getTransactionReceiptsSafe(
+    block,
   )();
-  await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
+
+  if (O.isNone(oTransactionReceipts)) {
+    // Block got dropped during transaction receipt fetching or something else went wrong. Either way, we skip this block and figure out on the next head whether we are missing parents.
+    Log.warn(
+      `failed to fetch transaction receipts for head: ${head.hash}, skipping`,
+    );
+    return;
+  }
+
+  const transactionReceipts = oTransactionReceipts.value;
+
+  const ethPrice = await pipe(
+    EthPrices.getEthPrice(block.timestamp, Duration.millisFromMinutes(5)),
+    TEAlt.getOrThrow,
+  )();
+
+  await Blocks.storeBlock(block, transactionReceipts, ethPrice.ethusd);
 
   const blocksUpdate: BlocksUpdate = { number: block.number };
   await sqlTNotify("blocks-update", JSON.stringify(blocksUpdate))();
 
   const feeSegments = sumFeeSegments(
     block,
-    Transactions.segmentTransactions(txrs),
+    Transactions.segmentTransactions(transactionReceipts),
     ethPrice.ethusd,
   );
 
-  const blockDb = Blocks.blockDbFromBlock(block, txrs, ethPrice.ethusd);
+  const blockDb = Blocks.blockDbFromBlock(
+    block,
+    transactionReceipts,
+    ethPrice.ethusd,
+  );
 
   const tStartAnalyze = performance.now();
 
