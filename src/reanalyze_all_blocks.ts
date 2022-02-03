@@ -4,7 +4,7 @@ import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
-import { E } from "./fp.js";
+import { E, pipe, TOAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as Log from "./log.js";
@@ -45,7 +45,10 @@ for (const blockNumber of blocksToStore) {
     throw new Error(`get block ${blockNumber} returned undefined`);
   }
 
-  const block = await Blocks.getBlockWithRetry(blockNumber);
+  const block = await pipe(
+    Blocks.getBlockSafe(blockNumber),
+    TOAlt.getOrThrow(`while reanalyzing block ${blockNumber} came back null`),
+  )();
 
   if (blockNumber % 100 === 0 && blockNumber !== 0) {
     Log.debug(

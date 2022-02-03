@@ -5,7 +5,7 @@ import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import * as EthPricesFtx from "./eth-prices/ftx.js";
 import * as EthNode from "./eth_node.js";
-import { A, E, O, pipe } from "./fp.js";
+import { A, E, O, pipe, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 await EthNode.connect();
@@ -37,9 +37,10 @@ const setLastAnalyzedDate = async (dt: Date): Promise<void> => {
 };
 
 const getFirstDateToFetch = async () => {
-  const block = await Blocks.getBlockWithRetry(
-    Blocks.londonHardForkBlockNumber,
-  );
+  const block = await pipe(
+    Blocks.getBlockSafe(Blocks.londonHardForkBlockNumber),
+    TOAlt.getOrThrow("failed to fetch london hard fork block"),
+  )();
   return pipe(block.timestamp, DateFns.startOfMinute);
 };
 

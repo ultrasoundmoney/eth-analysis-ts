@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js";
 import * as Blocks from "../blocks/blocks.js";
 import * as ContractsWeb3 from "../contracts/web3.js";
-import { pipe, T, TAlt, TE, TEAlt } from "../fp.js";
+import { pipe, T, TAlt, TE, TEAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 import { EthPrice } from "./eth_prices.js";
 
@@ -95,7 +95,8 @@ export const getMedianEthPrice = (blockHeight?: number): T.Task<EthPrice> =>
   pipe(
     TAlt.seqTParT(
       pipe(
-        () => Blocks.getBlockWithRetry(blockHeight ?? "latest"),
+        Blocks.getBlockSafe(blockHeight ?? "latest"),
+        TOAlt.getOrThrow(`failed to get ${blockHeight} block`),
         T.map((block) => {
           if (block === undefined) {
             Log.error(

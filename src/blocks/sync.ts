@@ -1,15 +1,18 @@
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import { pipe, TEAlt } from "../fp.js";
+import { O, pipe, TEAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
-import { rollbackToBefore } from "./new_head.js";
+import { rollbackToIncluding } from "./new_head.js";
 
 export const syncBlock = async (blockNumber: number): Promise<void> => {
-  const block = await Blocks.getBlockWithRetry(blockNumber);
+  const block = await pipe(
+    Blocks.getBlockSafe(blockNumber),
+    TOAlt.getOrThrow(`while syncing block ${blockNumber} came back null`),
+  )();
 
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
@@ -18,7 +21,7 @@ export const syncBlock = async (blockNumber: number): Promise<void> => {
     Log.warn(
       "sync block parent is not in our DB, rolling back one block and trying again",
     );
-    await rollbackToBefore(blockNumber - 1);
+    await rollbackToIncluding(blockNumber - 1);
     await syncBlock(blockNumber - 1);
   }
 
@@ -32,15 +35,15 @@ export const syncBlock = async (blockNumber: number): Promise<void> => {
 
 const rollbackToLastValidBlock = async () => {
   let lastStoredBlock = await Blocks.getLastStoredBlock()();
-  let block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
+  let block = await Blocks.getBlockSafe(lastStoredBlock.number)();
 
-  while (lastStoredBlock.hash !== block.hash) {
+  while (O.isNone(block) || lastStoredBlock.hash !== block.value.hash) {
     Log.warn(
-      `on-start last known block does not match chain, rolling back ${block.number}`,
+      `on-start last known block does not match chain, rolling back ${lastStoredBlock.number}`,
     );
-    await rollbackToBefore(lastStoredBlock.number - 1);
+    await rollbackToIncluding(lastStoredBlock.number - 1);
     lastStoredBlock = await Blocks.getLastStoredBlock()();
-    block = await Blocks.getBlockWithRetry(lastStoredBlock.number);
+    block = await Blocks.getBlockSafe(lastStoredBlock.number)();
   }
 };
 

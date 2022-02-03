@@ -7,7 +7,7 @@ import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import { O, pipe, TAlt, TEAlt } from "../fp.js";
+import { O, pipe, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Leaderboards from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
@@ -27,7 +27,9 @@ export const newBlockQueue = new PQueue({
   autoStart: false,
 });
 
-export const rollbackToBefore = async (blockNumber: number): Promise<void> => {
+export const rollbackToIncluding = async (
+  blockNumber: number,
+): Promise<void> => {
   Log.info(`rolling back to and including: ${blockNumber}`);
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
 
@@ -77,14 +79,20 @@ export const addBlock = async (head: Head): Promise<void> => {
     Log.warn(
       "new head's parent is not in our DB, rollback one block and try to add the parent",
     );
-    await rollbackToBefore(head.number - 1);
-    const previousBlock = await Blocks.getBlockWithRetry(head.number - 1);
+    const rollbackTarget = head.number - 1;
+    await rollbackToIncluding(rollbackTarget);
+    const previousBlock = await pipe(
+      Blocks.getBlockSafe(rollbackTarget),
+      TOAlt.getOrThrow(
+        `after rolling back, when adding old block ${rollbackTarget}, block came back null`,
+      ),
+    )();
     await addBlock(previousBlock);
   }
 
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
-    await rollbackToBefore(block.number);
+    await rollbackToIncluding(block.number);
   }
 
   const oTransactionReceipts = await Transactions.getTransactionReceiptsSafe(
