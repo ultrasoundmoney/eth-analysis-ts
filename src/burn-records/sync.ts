@@ -4,40 +4,16 @@ import * as Performance from "../performance.js";
 import * as TimeFrames from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
 
-const getEarliestBlockToAddAll = (lastIncludedBlock: O.Option<number>) =>
-  pipe(
-    lastIncludedBlock,
-    O.match(
-      () => Blocks.londonHardForkBlockNumber,
-      (lastIncludedBlock) => lastIncludedBlock + 1,
-    ),
-  );
-
-const getEarliestBlockToAddLimitedTimeFrames = (
-  earliestBlockInTimeFrame: number,
-  lastIncludedBlock: O.Option<number>,
-) =>
-  pipe(
-    lastIncludedBlock,
-    O.match(
-      () => earliestBlockInTimeFrame,
-      (lastIncludedBlock) =>
-        lastIncludedBlock > earliestBlockInTimeFrame
-          ? lastIncludedBlock + 1
-          : earliestBlockInTimeFrame,
-    ),
-  );
-
 const getFirstBlockToInclude = (
   timeFrame: TimeFrames.TimeFrameNext,
   lastIncludedBlock: O.Option<number>,
 ) =>
   timeFrame === "all"
-    ? T.of(getEarliestBlockToAddAll(lastIncludedBlock))
+    ? T.of(TimeFrames.getEarliestBlockToAddAll(lastIncludedBlock))
     : pipe(
         Blocks.getEarliestBlockInTimeFrame(timeFrame),
         T.map((earliestBlockInTimeFrame) =>
-          getEarliestBlockToAddLimitedTimeFrames(
+          TimeFrames.getEarliestBlockToAddLimitedTimeFrames(
             earliestBlockInTimeFrame,
             lastIncludedBlock,
           ),
