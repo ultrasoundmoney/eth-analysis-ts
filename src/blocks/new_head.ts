@@ -17,6 +17,7 @@ import * as Performance from "../performance.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
+import * as BaseFees from "../base_fees.js";
 
 export type BlocksUpdate = {
   number: number;
@@ -125,9 +126,12 @@ export const addBlock = async (head: Head): Promise<void> => {
     ethPrice.ethusd,
   );
 
+  const tips = BaseFees.calcBlockTips(block, transactionReceipts);
+
   const blockDb = Blocks.blockDbFromBlock(
     block,
-    transactionReceipts,
+    feeSegments,
+    tips,
     ethPrice.ethusd,
   );
 
