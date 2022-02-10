@@ -90,11 +90,11 @@ const insertableFromBlock = (
   tips: number,
   ethPrice: number,
 ): BlockDbInsertable => ({
-  ...(typeof ethPrice === "number" ? { eth_price: ethPrice } : undefined),
   base_fee_per_gas: block.baseFeePerGas.toString(),
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: block.baseFeeSum.toString(),
   contract_creation_sum: feeSegments.creationsSum,
+  eth_price: ethPrice,
   eth_transfer_sum: feeSegments.transfersSum,
   gas_used: block.gasUsed.toString(),
   hash: block.hash,
@@ -170,30 +170,22 @@ export const getBlockByHash = (hash: string) =>
 
 export const blockDbFromBlock = (
   block: BlockV1,
-  transactionReceipts: Transactions.TransactionReceiptV1[],
+  feeSegments: FeeSegments,
+  tips: number,
   ethPrice: number,
-): BlockDb => {
-  const feeSegments = sumFeeSegments(
-    block,
-    Transactions.segmentTransactions(transactionReceipts),
-    ethPrice,
-  );
-  const tips = calcBlockTips(block, transactionReceipts);
-
-  return {
-    baseFeePerGas: BigInt(block.baseFeePerGas),
-    baseFeeSum: calcBlockBaseFeeSum(block),
-    contractCreationSum: feeSegments.creationsSum,
-    ethPrice,
-    ethPriceCents: usdToScaled(ethPrice),
-    ethTransferSum: feeSegments.transfersSum,
-    gasUsed: BigInt(block.gasUsed),
-    hash: block.hash,
-    minedAt: block.timestamp,
-    number: block.number,
-    tips,
-  };
-};
+): BlockDb => ({
+  baseFeePerGas: BigInt(block.baseFeePerGas),
+  baseFeeSum: calcBlockBaseFeeSum(block),
+  contractCreationSum: feeSegments.creationsSum,
+  ethPrice,
+  ethPriceCents: usdToScaled(ethPrice),
+  ethTransferSum: feeSegments.transfersSum,
+  gasUsed: BigInt(block.gasUsed),
+  hash: block.hash,
+  minedAt: block.timestamp,
+  number: block.number,
+  tips,
+});
 
 const storeContractsBaseFeesTask = (
   block: BlockV1,
@@ -248,14 +240,14 @@ export const storeBlock = async (
   transactionReceipts: Transactions.TransactionReceiptV1[],
   ethPrice: number,
 ): Promise<void> => {
-  const blockDb = blockDbFromBlock(block, transactionReceipts, ethPrice);
   const transactionSegments =
     Transactions.segmentTransactions(transactionReceipts);
   const feeSegments = sumFeeSegments(block, transactionSegments, ethPrice);
+  const tips = calcBlockTips(block, transactionReceipts);
+  const blockDb = blockDbFromBlock(block, feeSegments, tips, ethPrice);
   const transactionCounts = countTransactionsPerContract(
     transactionSegments.other,
   );
-  const tips = calcBlockTips(block, transactionReceipts);
   const blockRow = insertableFromBlock(blockDb, feeSegments, tips, ethPrice);
 
   Log.debug(`storing block: ${block.number}, ${block.hash}`);
