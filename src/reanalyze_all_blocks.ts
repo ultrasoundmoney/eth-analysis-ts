@@ -1,14 +1,13 @@
 import makeEta from "simple-eta";
-import { sumFeeSegments } from "./base_fees.js";
 import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
-import { E, pipe, TOAlt } from "./fp.js";
-import * as Leaderboards from "./leaderboards.js";
-import * as LeaderboardsAll from "./leaderboards_all.js";
+import { pipe, TEAlt, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
+
+// After this process has run, all calculations based on blocks or block_contract_base_fees will be wrong and need to be recalculated.
 
 const lastStoredBlock = await Blocks.getLastStoredBlock()();
 
@@ -39,67 +38,38 @@ const storeLastReanalyzed = (blockNumber: number) => sql`
 `;
 
 for (const blockNumber of blocksToStore) {
-  const [storedBlock] = await Blocks.getBlocks(blockNumber, blockNumber);
-
-  if (storedBlock === undefined) {
-    throw new Error(`get block ${blockNumber} returned undefined`);
-  }
-
   const block = await pipe(
     Blocks.getBlockSafe(blockNumber),
     TOAlt.getOrThrow(`while reanalyzing block ${blockNumber} came back null`),
   )();
 
-  if (blockNumber % 100 === 0 && blockNumber !== 0) {
-    Log.debug(
-      `blocks done: ${blocksDone}, eta: ${eta.estimate().toFixed(0)}s left`,
-    );
+  if (blockNumber % 50 === 0 && blocksDone !== 0) {
+    const hoursLeft = (eta.estimate() / 60 / 60).toFixed(0);
+    Log.info(`blocks done: ${blocksDone}, eta: ${hoursLeft} hours left`);
     await storeLastReanalyzed(blockNumber);
   }
 
-  if (storedBlock.hash === block.hash) {
-    blocksDone++;
-    eta.report(blocksDone);
-    continue;
-  }
-
-  Log.debug(`block ${blockNumber} hash mismatch, reanalyzing!`);
-
-  const txrs = await Transactions.getTxrsWithRetry(block);
-
-  // Remove block
-  const sumsToRollback = await Leaderboards.getRangeBaseFees(
-    blockNumber,
-    blockNumber,
+  const txrs = await pipe(
+    Transactions.getTransactionReceiptsSafe(block),
+    TOAlt.getOrThrow(
+      `transacion receipts for block ${blockNumber} came back null`,
+    ),
   )();
-  await LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback);
 
   // Contracts marked as mined in a block that was rolled back are possibly wrong. Reanalyze 'contract mined at' data if we want very high confidence.
-  // await Contracts.deleteContractsMinedAt(blockNumber);
   await Blocks.deleteContractBaseFees(blockNumber);
   await Blocks.deleteDerivedBlockStats(blockNumber);
   await Blocks.deleteBlock(blockNumber);
 
   // Add block
-  const ethPrice = await EthPrices.getEthPrice(
-    block.timestamp,
-    Duration.millisFromMinutes(2),
+  const ethPrice = await pipe(
+    EthPrices.getEthPrice(block.timestamp, Duration.millisFromMinutes(2)),
+    TEAlt.getOrThrow,
   )();
-  if (E.isLeft(ethPrice)) {
-    throw ethPrice.left;
-  }
-  await Blocks.storeBlock(block, txrs, ethPrice.right.ethusd);
-  const feeSegments = sumFeeSegments(
-    block,
-    Transactions.segmentTransactions(txrs),
-    ethPrice.right.ethusd,
-  );
-  await LeaderboardsAll.addBlock(
-    block.number,
-    feeSegments.contractSumsEth,
-    feeSegments.contractSumsUsd!,
-  );
+
+  await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 
   await storeLastReanalyzed(blockNumber);
-  Log.debug(`reanalyzed ${blockNumber}`);
+  blocksDone++;
+  eta.report(blocksDone);
 }
