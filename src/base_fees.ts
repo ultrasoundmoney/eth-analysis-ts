@@ -22,48 +22,71 @@ export type FeeSegments = {
  */
 type ContractBaseFeeMap = Map<string, number>;
 
+const mergeReceiptEth = (
+  block: BlockV1,
+  sumMap: ContractBaseFeeMap,
+  transactionReceipt: TransactionReceiptV1,
+) =>
+  pipe(
+    transactionReceipt.to,
+    O.match(
+      () => sumMap,
+      (to) =>
+        pipe(
+          sumMap.get(to) ?? 0,
+          (currentSum) =>
+            currentSum + Transactions.calcBaseFee(block, transactionReceipt),
+          (nextSum) => sumMap.set(to, nextSum),
+        ),
+    ),
+  );
+
 const sumPerContractEth = (
   block: BlockV1,
-  txrs: TransactionReceiptV1[],
+  transactionReceipts: TransactionReceiptV1[],
 ): ContractBaseFeeMap =>
   pipe(
-    txrs,
-    A.reduce(new Map<string, number>(), (sumMap, txr: TransactionReceiptV1) =>
-      pipe(
-        txr.to,
-        O.match(
-          () => sumMap,
-          (to) =>
-            pipe(sumMap.get(to) ?? 0, (currentSum) =>
-              sumMap.set(to, currentSum + Transactions.calcBaseFee(block, txr)),
-            ),
+    transactionReceipts,
+    A.reduce(
+      new Map<string, number>(),
+      (sumMap, transactionReceipt: TransactionReceiptV1) =>
+        mergeReceiptEth(block, sumMap, transactionReceipt),
+    ),
+  );
+
+const mergeReceiptUsd = (
+  block: BlockV1,
+  sumMap: ContractBaseFeeMap,
+  transactionReceipt: TransactionReceiptV1,
+  ethPrice: number,
+) =>
+  pipe(
+    transactionReceipt.to,
+    O.match(
+      () => sumMap,
+      (to) =>
+        pipe(
+          sumMap.get(to) ?? 0,
+          (currentSum) =>
+            currentSum +
+            (Transactions.calcBaseFee(block, transactionReceipt) / 10 ** 18) *
+              ethPrice,
+          (nextSum) => sumMap.set(to, nextSum),
         ),
-      ),
     ),
   );
 
 const sumPerContractUsd = (
   block: BlockV1,
-  txrs: TransactionReceiptV1[],
+  transactionReceipts: TransactionReceiptV1[],
   ethPrice: number,
 ): ContractBaseFeeMap =>
   pipe(
-    txrs,
-    A.reduce(new Map<string, number>(), (sumMap, txr: TransactionReceiptV1) =>
-      pipe(
-        txr.to,
-        O.match(
-          () => sumMap,
-          (to) =>
-            pipe(sumMap.get(to) ?? 0, (currentSum) =>
-              sumMap.set(
-                to,
-                currentSum +
-                  (Transactions.calcBaseFee(block, txr) / 10 ** 18) * ethPrice,
-              ),
-            ),
-        ),
-      ),
+    transactionReceipts,
+    A.reduce(
+      new Map<string, number>(),
+      (sumMap, transactionReceipt: TransactionReceiptV1) =>
+        mergeReceiptUsd(block, sumMap, transactionReceipt, ethPrice),
     ),
   );
 
@@ -88,7 +111,11 @@ export const sumFeeSegments = (
 
   const creationsSum = pipe(
     creations,
-    A.reduce(0, (sum, txr) => sum + Transactions.calcBaseFee(block, txr)),
+    A.reduce(
+      0,
+      (sum, transactionReceipt) =>
+        sum + Transactions.calcBaseFee(block, transactionReceipt),
+    ),
   );
 
   const contractSumsEth = sumPerContractEth(block, other);
@@ -103,19 +130,26 @@ export const sumFeeSegments = (
   };
 };
 
-export const getTip = (block: BlockV1, txr: TransactionReceiptV1) =>
-  txr.gasUsed * txr.effectiveGasPrice - txr.gasUsed * block.baseFeePerGas;
+export const getTip = (
+  block: BlockV1,
+  transactionReceipt: TransactionReceiptV1,
+) =>
+  transactionReceipt.gasUsed * transactionReceipt.effectiveGasPrice -
+  transactionReceipt.gasUsed * block.baseFeePerGas;
 
-export const getTipBI = (block: BlockV1, txr: TransactionReceiptV1) =>
-  txr.gasUsedBI * txr.effectiveGasPriceBI -
-  txr.gasUsedBI * block.baseFeePerGasBI;
+export const getTipBI = (
+  block: BlockV1,
+  transactionReceipt: TransactionReceiptV1,
+) =>
+  transactionReceipt.gasUsedBI * transactionReceipt.effectiveGasPriceBI -
+  transactionReceipt.gasUsedBI * block.baseFeePerGasBI;
 
 export const calcBlockTips = (
   block: BlockV1,
-  txrs: TransactionReceiptV1[],
+  transactionReceipts: TransactionReceiptV1[],
 ): number =>
   pipe(
-    txrs,
-    A.map((txr) => getTip(block, txr)),
+    transactionReceipts,
+    A.map((transactionReceipt) => getTip(block, transactionReceipt)),
     sum,
   );
