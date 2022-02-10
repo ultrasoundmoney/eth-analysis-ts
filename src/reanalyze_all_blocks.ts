@@ -58,6 +58,7 @@ for (const blockNumber of blocksToStore) {
       blocksDone++;
       continue;
     }
+    Log.debug(`hash mismatch on block ${blockNumber}!`);
   }
 
   const txrs = await pipe(
