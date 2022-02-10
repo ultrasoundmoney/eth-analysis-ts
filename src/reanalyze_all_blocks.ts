@@ -43,7 +43,8 @@ for (const blockNumber of blocksToStore) {
     TOAlt.getOrThrow(`while reanalyzing block ${blockNumber} came back null`),
   )();
 
-  if (blockNumber % 50 === 0 && blocksDone !== 0) {
+  if (blockNumber % 100 === 0 && blocksDone !== 0) {
+    eta.report(blocksDone);
     const hoursLeft = (eta.estimate() / 60 / 60).toFixed(0);
     Log.info(`blocks done: ${blocksDone}, eta: ${hoursLeft} hours left`);
     await storeLastReanalyzed(blockNumber);
@@ -83,5 +84,4 @@ for (const blockNumber of blocksToStore) {
 
   await storeLastReanalyzed(blockNumber);
   blocksDone++;
-  eta.report(blocksDone);
 }
