@@ -49,6 +49,17 @@ for (const blockNumber of blocksToStore) {
     await storeLastReanalyzed(blockNumber);
   }
 
+  if (
+    process.env.ONLY_MISMATCH !== undefined &&
+    process.env.ONLY_MISMATCH !== "false"
+  ) {
+    const isBlockKnown = await Blocks.getBlockHashIsKnown(block.hash);
+    if (isBlockKnown) {
+      blocksDone++;
+      continue;
+    }
+  }
+
   const txrs = await pipe(
     Transactions.getTransactionReceiptsSafe(block),
     TOAlt.getOrThrow(
