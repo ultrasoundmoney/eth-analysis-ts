@@ -15,7 +15,7 @@ const main = async () => {
     Log.error("error adding metadata", { error });
   }
 
-  EthNode.closeConnection();
+  EthNode.closeConnections();
   sql.end();
 };
 
