@@ -2,12 +2,9 @@ import makeEta from "simple-eta";
 import * as Blocks from "./blocks/blocks.js";
 import * as Contracts from "./contracts/contracts.js";
 import { sql, sqlTVoid } from "./db.js";
-import * as EthNode from "./eth_node.js";
 import { A, NEA, O, pipe, T, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
-
-await EthNode.connect();
 
 const lastStoredBlock = await Blocks.getLastStoredBlock()();
 
