@@ -54,5 +54,5 @@ for (const address of addresses) {
 
 Log.info("done!");
 
-EthNode.closeConnection();
+EthNode.closeConnections();
 sql.end();
