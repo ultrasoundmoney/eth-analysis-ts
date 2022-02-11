@@ -30,7 +30,6 @@ const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
 
 try {
   Config.ensureCriticalBlockAnalysisConfig();
-  await EthNode.connect();
   await runMigrations();
 
   const chainHeadOnStart = await EthNode.getLatestBlockNumber();

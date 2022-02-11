@@ -1,6 +1,6 @@
 import PQueue from "p-queue";
 import Web3 from "web3";
-import { Log as LogWeb3 } from "web3-core";
+import web3Core from "web3-core";
 import { Contract } from "web3-eth-contract";
 import { AbiItem } from "web3-utils";
 import WebSocket from "ws";
@@ -10,6 +10,9 @@ import { pipe, T } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
 
+type LogWeb3 = web3Core.Log;
+const WebsocketProvider = web3Core.WebsocketProvider;
+
 let managedWeb3Obj: Web3 | undefined = undefined;
 
 let managedGethWs: WebSocket | undefined = undefined;
@@ -18,7 +21,7 @@ const messageListners = new Map();
 
 let wsAttempt = 0;
 
-export const connect = async (): Promise<WebSocket> => {
+const connect = async (): Promise<WebSocket> => {
   // Try our own node three times then try our third part fallback
   const ws =
     wsAttempt < 3
@@ -138,7 +141,25 @@ export const getWeb3 = (): Web3 => {
 
 const connectionQueue = new PQueue({ concurrency: 1 });
 
-export const getGethWs = () => connectionQueue.add(getOpenSocketOrReconnect);
+const getGethWs = () => connectionQueue.add(getOpenSocketOrReconnect);
+
+export const closeConnections = async () => {
+  if (connectionQueue.size !== 0) {
+    await connectionQueue.onEmpty();
+  }
+
+  if (managedGethWs !== undefined) {
+    managedGethWs.close();
+  }
+
+  if (
+    managedWeb3Obj !== undefined &&
+    managedWeb3Obj.currentProvider !== null &&
+    managedWeb3Obj.currentProvider instanceof WebsocketProvider
+  ) {
+    managedWeb3Obj.currentProvider.disconnect(0, "exiting");
+  }
+};
 
 const getOpenSocketOrReconnect = async (): Promise<WebSocket> => {
   if (
