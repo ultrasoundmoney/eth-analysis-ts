@@ -2,7 +2,6 @@ import { setInterval } from "timers/promises";
 import * as Contracts from "./contracts/contracts.js";
 import * as ContractsMetadata from "./contracts/crawl_metadata.js";
 import * as Duration from "./duration.js";
-import * as EthNode from "./eth_node.js";
 import { pipe, T } from "./fp.js";
 import * as GroupedAnalysis1 from "./grouped_analysis_1.js";
 import * as Log from "./log.js";
@@ -12,8 +11,6 @@ process.on("unhandledRejection", (error) => {
 });
 
 const intervalIterator = setInterval(Duration.millisFromSeconds(4), Date.now());
-
-await EthNode.connect();
 
 let lastAnalyzed = await pipe(
   GroupedAnalysis1.getLatestLeaderboards(),

@@ -5,8 +5,6 @@ import { sql } from "./db.js";
 import * as EthNode from "./eth_node.js";
 import * as Log from "./log.js";
 
-await EthNode.connect();
-
 const rows = await sql<{ contractAddress: string }[]>`
   SELECT * FROM contract_base_fee_sums
   JOIN contracts ON contract_address = address

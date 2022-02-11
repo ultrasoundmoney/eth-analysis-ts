@@ -2,8 +2,6 @@ import { sql } from "../db.js";
 import * as EthNode from "../eth_node.js";
 import * as Log from "../log.js";
 
-await EthNode.connect();
-
 await sql<{ hash: string; number: number }[]>`
   SELECT hash, number FROM blocks
 `.cursor(1000, async (rows) => {

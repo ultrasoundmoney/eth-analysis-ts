@@ -4,11 +4,8 @@ import makeEta from "simple-eta";
 import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
 import * as EthPricesFtx from "./eth-prices/ftx.js";
-import * as EthNode from "./eth_node.js";
 import { A, E, O, pipe, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
-
-await EthNode.connect();
 
 const getLastAnalyzedDate = async (): Promise<Date | undefined> => {
   const rows = await sql`
