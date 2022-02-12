@@ -8,12 +8,12 @@ spec:
       containers:
         - name: add-missing-transaction-counts
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/add_missing_transaction_counts.js"]
+          command: ["node", "src/debug/add_all_transaction_counts.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: pg-password-lilly
             - secretRef:
                 name: node-urls
           env:
