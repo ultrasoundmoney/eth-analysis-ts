@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: store-pe-ratios
 spec:
-  schedule: "* */2 * * *"
+  schedule: "0 */12 * * *"
   jobTemplate:
     spec:
       template:
