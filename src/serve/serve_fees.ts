@@ -14,6 +14,7 @@ import { O, pipe, TE } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
+import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 
@@ -30,6 +31,7 @@ let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
 let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
 let burnCategoriesCache = await BurnCategories.getCategoriesCache()();
 let averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
+let peRatiosCache = await PeRatios.getPeRatiosCache()();
 
 const handleGetFeeBurns: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
@@ -156,6 +158,18 @@ const handleGetBurnRecords: Middleware = async (ctx) => {
   ctx.body = burnRecordsCache;
 };
 
+const handleGetBurnCategories: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = burnCategoriesCache;
+};
+
+const handleGetPeRatios: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=82800");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = peRatiosCache;
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -194,14 +208,13 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
+  if (payload === PeRatios.peRatiosCacheKey) {
+    peRatiosCache = await PeRatios.getPeRatiosCache()();
+    return;
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
-
-const handleGetBurnCategories: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
-  ctx.set("Content-Type", "application/json");
-  ctx.body = burnCategoriesCache;
-};
 
 const port = process.env.PORT || 8080;
 
@@ -247,6 +260,7 @@ router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 router.get("/fees/burn-records", handleGetBurnRecords);
 router.get("/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
 router.get("/fees/burn-categories", handleGetBurnCategories);
+router.get("/fees/pe-ratios", handleGetPeRatios);
 
 ContractsRoutes.registerRoutes(router);
 
