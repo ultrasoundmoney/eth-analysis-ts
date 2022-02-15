@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: store-pe-ratios
+spec:
+  schedule: "* */2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: store-pe-ratios
+              image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+              command: ["node", "src/store_pe_ratios.js"]
+              envFrom:
+                - configMapRef:
+                    name: gas-analysis-env
+                - secretRef:
+                    name: pg-password-anton
+              env:
+                - name: NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 128Mi
+          restartPolicy: OnFailure
