@@ -4,7 +4,6 @@ import * as FeeBurn from "../fee_burn.js";
 import { A, pipe, T, TAlt } from "../fp.js";
 import * as Log from "../log.js";
 import { TimeFrameNext } from "../time_frames.js";
-import { setIsUpdating } from "./analyze_burn_categories.js";
 
 type BurnCategoryRow = {
   category: string;
@@ -113,3 +112,12 @@ export const getCategoriesCache = () =>
     `,
     T.map((rows) => rows[0]?.value),
   );
+
+// This query is slow. We only want to run one computation at a time with no queueing.
+let isUpdating = false;
+
+export const setIsUpdating = (nextIsUpdating: boolean) => {
+  isUpdating = nextIsUpdating;
+};
+
+export const getIsUpdating = () => isUpdating;

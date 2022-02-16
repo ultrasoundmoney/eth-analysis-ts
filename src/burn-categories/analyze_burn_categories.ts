@@ -4,17 +4,10 @@ import * as BurnCategories from "./burn_categories.js";
 
 Log.info("start analyzing burn categories");
 
-// This query is slow. We only want to run one computation at a time with no queueing.
-let isUpdating = false;
-
-export const setIsUpdating = (nextIsUpdating: boolean) => {
-  isUpdating = nextIsUpdating;
-};
-
 sql.listen("blocks-update", () => {
-  if (!isUpdating) {
+  if (!BurnCategories.getIsUpdating()) {
     Log.debug("got blocks update, starting analysis");
-    isUpdating = true;
+    BurnCategories.setIsUpdating(true);
     BurnCategories.updateBurnCategories()();
     return;
   }
