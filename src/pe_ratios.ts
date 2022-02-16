@@ -6,7 +6,7 @@ import * as Log from "./log.js";
 
 export const peRatiosCacheKey = "pe-ratios-cache-key";
 
-type QuoteSymbol = "AAPL" | "GOOGL" | "NFLX" | "TSLA";
+type QuoteSymbol = "AMZN" | "INTC" | "GOOGL" | "NFLX" | "TSLA";
 type Quotes = Record<QuoteSymbol, number>;
 type Quote = {
   trailingPE: number;
@@ -25,7 +25,7 @@ const getPeRatios = () =>
       urlSub.formatUrl("https://yfapi.net", "/v6/finance/quote", {
         region: "US",
         lang: "en",
-        symbols: "AAPL,GOOGL,NFLX,TSLA",
+        symbols: "AMZN,INTC,GOOGL,NFLX,TSLA",
       }),
       { headers: { "X-API-KEY": "muzty6czcs6YcpxoSb27K5RmzBdXgIO8a33mBs3T" } },
     ),
