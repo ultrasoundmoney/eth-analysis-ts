@@ -8,7 +8,7 @@ export const maxRank = 10;
 export const getLastIncludedBlock = () =>
   pipe(
     sqlT<{ lastAnalyzedBlock: number | null }[]>`
-      SELECT last_analyzed_block FROM analysis_state
+      SELECT last FROM analysis_state
       WHERE key = 'burn_records'
     `,
     T.map(flow((rows) => rows[0]?.lastAnalyzedBlock, O.fromNullable)),
@@ -18,11 +18,11 @@ export const setLastIncludedBlock = (blockNumber: number) =>
   pipe(
     sqlT`
       INSERT INTO analysis_state
-        (key, last_analyzed_block)
+        (key, last)
       VALUES
         ('burn_records', ${blockNumber})
       ON CONFLICT (key) DO UPDATE SET
-        last_analyzed_block = excluded.last_analyzed_block
+        last = excluded.last
     `,
     T.map(() => undefined),
   );
@@ -30,10 +30,10 @@ export const setLastIncludedBlock = (blockNumber: number) =>
 export const setLastIncludedBlockIsLatest = () =>
   sqlT`
     INSERT INTO analysis_state
-      (key, last_analyzed_block)
+      (key, last)
     SELECT 'burn_records', MAX(number) FROM blocks
     ON CONFLICT (key) DO UPDATE SET
-      last_analyzed_block = excluded.last_analyzed_block
+      last = excluded.last
   `;
 
 const expireRecordsBefore = (
