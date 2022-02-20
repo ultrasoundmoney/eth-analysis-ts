@@ -196,7 +196,7 @@ const storeContractsBaseFeesTask = (
     Array.from(feeSegments.contractSumsEth.entries()),
     NEA.fromArray,
     TO.fromOption,
-    TO.chain(
+    TO.chainTaskK(
       flow(
         A.map(
           ([address, baseFees]): ContractBaseFeesRow => ({
@@ -210,7 +210,6 @@ const storeContractsBaseFeesTask = (
           sqlTVoid`
             INSERT INTO contract_base_fees ${sql(insertables)}
           `,
-        TO.fromTask,
       ),
     ),
   );
