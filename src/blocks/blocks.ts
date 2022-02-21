@@ -187,7 +187,7 @@ export const blockDbFromBlock = (
   tips,
 });
 
-const storeContractsBaseFeesTask = (
+export const storeContractsBaseFeesTask = (
   block: BlockV1,
   feeSegments: FeeSegments,
   transactionCounts: Map<string, number>,
