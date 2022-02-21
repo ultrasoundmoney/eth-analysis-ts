@@ -84,7 +84,7 @@ for (const blockNumber of blocksToStore) {
     ),
   )();
 
-  if (blockNumber % 100 === 0 && blockNumber !== 0) {
+  if (blockNumber % 100 === 0 && blocksDone !== 0) {
     Log.debug(
       `blocks done: ${blocksDone}, eta: ${eta.estimate().toFixed(0)}s left`,
     );
