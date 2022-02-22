@@ -11,10 +11,19 @@ import postgres, {
 import * as Config from "./config.js";
 import { A, O, pipe, T } from "./fp.js";
 
+const connectionsPerServiceProd: Partial<Record<string, number>> = {
+  "analyze-blocks": 8,
+};
+
+const getMax = (env: Config.Env, name: string | undefined) =>
+  env !== "prod" || name === undefined
+    ? 2
+    : connectionsPerServiceProd[name] ?? 2;
+
 const config = {
   ssl: "prefer",
   transform: { column: camelCase },
-  max: Config.getEnv() === "staging" ? 2 : 6,
+  max: getMax(Config.getEnv(), Config.getName()),
   no_prepare: Config.getEnv() === "staging",
   connection: {
     application_name: Config.getName(),
