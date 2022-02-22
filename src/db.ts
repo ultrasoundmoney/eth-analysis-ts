@@ -24,7 +24,6 @@ const config = {
   ssl: "prefer",
   transform: { column: camelCase },
   max: getMax(Config.getEnv(), Config.getName()),
-  no_prepare: Config.getEnv() === "staging",
   connection: {
     application_name: Config.getName(),
   },
