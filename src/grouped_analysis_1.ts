@@ -2,6 +2,7 @@ import * as Blocks from "./blocks/blocks.js";
 import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
+import * as DeflationaryStreak from "./deflationary_streaks.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
 import * as FeeBurn from "./fee_burn.js";
 import { A, flow, O, OAlt, pipe, T, TAlt, TE } from "./fp.js";
@@ -20,6 +21,7 @@ export type GroupedAnalysis1 = {
   baseFeePerGas: number;
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
+  deflationaryStreak: DeflationaryStreak.DeflationaryStreakState;
   ethPrice: EthPrices.EthStats | null;
   feeBurns: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
@@ -101,12 +103,20 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
     ),
     T.apS(
       "feeBurns",
-      Performance.measureTaskPerf("calc fee burns", FeeBurn.getFeeBurnsOld()),
+      Performance.measureTaskPerf("get fee burns", FeeBurn.getFeeBurnsOld()),
+    ),
+    T.apS(
+      "deflationaryStreak",
+      Performance.measureTaskPerf(
+        "get deflationary streak",
+        DeflationaryStreak.getStreakState(),
+      ),
     ),
     T.map(
       ({
         burnRates,
         burnRecords,
+        deflationaryStreak,
         ethPrice,
         latestBlockFees,
         leaderboards,
@@ -116,6 +126,7 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
         number: block.number,
         burnRates: burnRates,
         burnRecords,
+        deflationaryStreak,
         ethPrice,
         latestBlockFees,
         leaderboards: leaderboards,
