@@ -13,12 +13,8 @@ let blocksDone = 0;
 
 await pipe(
   () => fs.readFile("./blocks_202202211320.json", "utf8") as Promise<string>,
-  T.map((text: string) =>
-    pipe(
-      JSON.parse(text) as { number: number }[],
-      A.map((row) => row.number),
-    ),
-  ),
+  T.map((text: string) => JSON.parse(text) as number[]),
+  T.map(A.filter((num) => num > 13403024)),
   T.chainIOK((rows) => () => {
     eta = makeEta({
       max: rows.length,
