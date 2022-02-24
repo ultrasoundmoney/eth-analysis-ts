@@ -1,5 +1,6 @@
 import * as Blocks from "./blocks/blocks.js";
 import { sql, sqlT, sqlTVoid } from "./db.js";
+import * as EthUnits from "./eth_units.js";
 import { A, flow, NEA, O, pipe, T } from "./fp.js";
 import * as StaticEtherData from "./static-ether-data.js";
 
@@ -74,7 +75,8 @@ export const getNextBlockToAdd = () =>
   );
 
 const getIsDeflationaryBlock = (block: Blocks.BlockDb) =>
-  Number(block.baseFeeSum) > StaticEtherData.issuancePerBlock;
+  Number(EthUnits.ethFromWeiBI(block.baseFeeSum)) >
+  StaticEtherData.issuancePerBlock;
 
 const addBlockToState = (
   streakState: DeflationaryStreakState,
