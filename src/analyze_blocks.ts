@@ -1,3 +1,4 @@
+import * as Blocks from "./blocks/blocks.js";
 import * as BlocksNewBlock from "./blocks/new_head.js";
 import * as BlocksSync from "./blocks/sync.js";
 import * as BurnRecordsSync from "./burn-records/sync.js";
@@ -13,6 +14,7 @@ import * as PerformanceMetrics from "./performance_metrics.js";
 import * as EthLocked from "./scarcity/eth_locked.js";
 import * as EthStaked from "./scarcity/eth_staked.js";
 import * as EthSupply from "./scarcity/eth_supply.js";
+import * as SyncOnStart from "./sync_on_start.js";
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
@@ -32,6 +34,7 @@ try {
   Config.ensureCriticalBlockAnalysisConfig();
   await runMigrations();
 
+  const lastStoredBlockOnStart = await Blocks.getLastStoredBlock()();
   const chainHeadOnStart = await EthNode.getLatestBlockNumber();
   Log.debug(`fast-sync blocks up to ${chainHeadOnStart}`);
   EthNode.subscribeNewHeads(BlocksNewBlock.onNewBlock);
@@ -49,6 +52,10 @@ try {
     ),
     Performance.measureTaskPerf("init leaderboard all", () =>
       syncLeaderboardAll(),
+    ),
+    Performance.measureTaskPerf(
+      "sync-next on start",
+      SyncOnStart.sync(lastStoredBlockOnStart.number + 1, chainHeadOnStart),
     ),
   )();
 

@@ -1,13 +1,15 @@
 import PQueue from "p-queue";
+import * as BaseFees from "../base_fees.js";
 import { sumFeeSegments } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
 import { sqlTNotify } from "../db.js";
+import * as DeflationaryStreaks from "../deflationary_streaks.js";
 import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import { O, pipe, TAlt, TEAlt, TOAlt } from "../fp.js";
+import { NEA, O, pipe, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Leaderboards from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
@@ -17,7 +19,6 @@ import * as Performance from "../performance.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
-import * as BaseFees from "../base_fees.js";
 
 export type BlocksUpdate = {
   number: number;
@@ -155,11 +156,12 @@ export const addBlock = async (head: Head): Promise<void> => {
     BurnRecordsNewHead.onNewBlock,
   );
 
-  await Promise.all([
-    LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()(),
-    addToLeaderboardAllTask(),
-    addBlockToBurnRecords(blockDb)(),
-  ]);
+  await TAlt.seqTParT(
+    LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
+    addToLeaderboardAllTask,
+    addBlockToBurnRecords(blockDb),
+    DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
+  )();
 
   Performance.logPerf("second order analyze block", tStartAnalyze);
 
