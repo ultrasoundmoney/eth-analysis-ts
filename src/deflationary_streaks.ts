@@ -98,7 +98,7 @@ const addBlockToState = (
             }),
         ),
       )
-    : streakState;
+    : O.none;
 
 const addBlocksToState = (
   streakState: DeflationaryStreakState,
