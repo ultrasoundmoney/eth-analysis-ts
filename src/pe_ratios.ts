@@ -1,4 +1,4 @@
-import urlSub from "url-sub";
+import { formatUrl } from "url-sub";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { A, E, flow, pipe, T, TE } from "./fp.js";
@@ -28,16 +28,17 @@ type QuoteApiResponse = {
   };
 };
 
+const peRatioUrl = formatUrl("https://yfapi.net", "/v6/finance/quote", {
+  region: "US",
+  lang: "en",
+  symbols: symbols.join(","),
+});
+
 const getPeRatios = () =>
   pipe(
-    FetchAlt.fetchWithRetry(
-      urlSub.formatUrl("https://yfapi.net", "/v6/finance/quote", {
-        region: "US",
-        lang: "en",
-        symbols: symbols.join(","),
-      }),
-      { headers: { "X-API-KEY": "muzty6czcs6YcpxoSb27K5RmzBdXgIO8a33mBs3T" } },
-    ),
+    FetchAlt.fetchWithRetry(peRatioUrl, {
+      headers: { "X-API-KEY": "muzty6czcs6YcpxoSb27K5RmzBdXgIO8a33mBs3T" },
+    }),
     TE.chainW((res) =>
       pipe(() => res.json() as Promise<QuoteApiResponse>, T.map(E.right)),
     ),
