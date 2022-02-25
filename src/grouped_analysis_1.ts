@@ -21,7 +21,7 @@ export type GroupedAnalysis1 = {
   baseFeePerGas: number;
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
-  deflationaryStreak: DeflationaryStreak.DeflationaryStreakState;
+  deflationaryStreak: DeflationaryStreak.DeflationaryStreakForSite;
   ethPrice: EthPrices.EthStats | null;
   feeBurns: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
@@ -109,7 +109,7 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
       "deflationaryStreak",
       Performance.measureTaskPerf(
         "get deflationary streak",
-        DeflationaryStreak.getStreakState(),
+        DeflationaryStreak.getStreakStateForSite(),
       ),
     ),
     T.map(
