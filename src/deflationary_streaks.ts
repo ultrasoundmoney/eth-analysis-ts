@@ -10,11 +10,21 @@ type DeflationaryStreak = {
 };
 
 export type DeflationaryStreakState = O.Option<DeflationaryStreak>;
+export type DeflationaryStreakForSite = DeflationaryStreak | null;
 
 export const deflationaryStreakCacheKey = "deflationary-streak";
 const analysisKey = "deflationaryStreakKey";
 
-export const getStreakState = () =>
+export const getStreakStateForSite = (): T.Task<DeflationaryStreakForSite> =>
+  pipe(
+    sqlT<{ value: { from: Date; count: number } | null }[]>`
+      SELECT value FROM key_value_store
+      WHERE key = ${deflationaryStreakCacheKey}
+    `,
+    T.map((rows) => rows[0]?.value ?? null),
+  );
+
+const getStreakState = () =>
   pipe(
     sqlT<{ value: { from: Date; count: number } | null }[]>`
       SELECT value FROM key_value_store
@@ -137,9 +147,8 @@ export const analyzeNewBlocks = (
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
 ) =>
   pipe(
-    T.Do,
-    T.apS("streakState", getStreakState()),
-    T.map(({ streakState }) => addBlocksToState(streakState, blocksToAdd)),
+    getStreakState(),
+    T.map((streakState) => addBlocksToState(streakState, blocksToAdd)),
     T.chain((state) => storeStreakState(state)),
     T.chain(() => setLastAnalyzed(NEA.last(blocksToAdd).number)),
   );
