@@ -1,3 +1,4 @@
+import * as Retry from "retry-ts";
 import * as FetchAlt from "./fetch_alt.js";
 import { E, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
@@ -20,7 +21,14 @@ type MarketData = {
 export const getEthLocked = () =>
   pipe(
     Log.debug("getting ETH locked from DefiPulse"),
-    () => FetchAlt.fetchWithRetry(marketDataApi),
+    () =>
+      // DefiPulse API is broken, to speed up our boot time we only retry the request once for the time being.
+      FetchAlt.fetchWithRetry(marketDataApi, undefined, {
+        retryPolicy: Retry.Monoid.concat(
+          Retry.exponentialBackoff(2000),
+          Retry.limitRetries(1),
+        ),
+      }),
     TE.chainW((res) =>
       pipe(() => res.json() as Promise<MarketData>, T.map(E.right)),
     ),
