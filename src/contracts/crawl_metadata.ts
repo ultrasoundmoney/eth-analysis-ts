@@ -12,6 +12,8 @@ import * as Log from "../log.js";
 import * as Opensea from "../opensea.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Twitter from "../twitter.js";
+import { RateLimitError } from "../errors.js";
+import * as FetchAlt from "../fetch_alt.js";
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;
@@ -346,8 +348,27 @@ export const addTwitterMetadata = async (
     return undefined;
   }
 
-  const profile = await twitterProfileQueue.add(() =>
-    Twitter.getProfileByHandle(handle.value),
+  const profile = await twitterProfileQueue.add(
+    pipe(
+      Twitter.getProfileByHandle(handle.value),
+      TE.match(
+        (e) => {
+          if (
+            e instanceof Twitter.InvalidHandleError ||
+            e instanceof RateLimitError ||
+            e instanceof Twitter.ProfileNotFoundError ||
+            (e instanceof FetchAlt.BadResponseError && e.status === 429)
+          ) {
+            Log.warn(e.message, e);
+          } else {
+            Log.error(e.message, e);
+          }
+
+          return undefined;
+        },
+        (profile) => profile,
+      ),
+    ),
   );
 
   twitterProfileLastAttemptMap[address] = new Date();
