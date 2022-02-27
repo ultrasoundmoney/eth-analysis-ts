@@ -1,9 +1,9 @@
 import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
+import { decodeErrorFromUnknown } from "./errors.js";
 import * as FetchAlt from "./fetch_alt.js";
-import { E } from "./fp.js";
-import * as Log from "./log.js";
+import { pipe, TE } from "./fp.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -40,70 +40,79 @@ type ApiError = {
 //   interval: Duration.millisFromSeconds(10),
 // });
 
-export const getProfileByHandle = async (
-  handle: string,
-): Promise<UserTwitterApiRaw | undefined> => {
-  const resE = await FetchAlt.fetchWithRetry(
-    makeProfileByUsernameUrl(handle),
-    {
-      headers: {
-        Authorization: `Bearer ${getTwitterToken()}`,
+export class GetProfileApiBadResponseError extends Error {}
+export class GetProfileApiError extends Error {}
+export class InvalidHandleError extends Error {}
+export class ProfileNotFoundError extends Error {}
+export class UnexpectedJsonResponse extends Error {}
+export type GetProfileByHandleError =
+  | GetProfileApiBadResponseError
+  | GetProfileApiError
+  | InvalidHandleError
+  | ProfileNotFoundError
+  | UnexpectedJsonResponse;
+
+export const getProfileByHandle = (handle: string) =>
+  pipe(
+    FetchAlt.fetchWithRetry(
+      makeProfileByUsernameUrl(handle),
+      {
+        headers: {
+          Authorization: `Bearer ${getTwitterToken()}`,
+        },
       },
-    },
-    {
-      acceptStatuses: [200, 404],
-      retryPolicy: Retry.Monoid.concat(
-        Retry.exponentialBackoff(2000),
-        Retry.limitRetries(5),
-      ),
-    },
-  )();
+      {
+        acceptStatuses: [200, 404],
+        retryPolicy: Retry.Monoid.concat(
+          Retry.exponentialBackoff(2000),
+          Retry.limitRetries(5),
+        ),
+      },
+    ),
+    TE.chainW((res) => {
+      // If a handle invalid chars twitter will return a 404 without a body.
+      if (res.status === 404) {
+        return TE.left(
+          new InvalidHandleError(
+            `fetch twitter profile ${handle}, invalid handle, 404`,
+          ),
+        );
+      }
 
-  if (E.isLeft(resE)) {
-    Log.error(`fetch twitter profile ${handle} error`, resE.left);
-    return undefined;
-  }
+      if (res.status !== 200) {
+        return TE.left(
+          new GetProfileApiBadResponseError(
+            `fetch twitter profile ${handle}, bad response ${res.status}`,
+          ),
+        );
+      }
 
-  const res = resE.right;
-
-  // If a handle invalid chars twitter will return a 404 without a body.
-  if (res.status === 404) {
-    Log.warn(`fetch twitter profile ${handle}, invalid handle, 404`);
-    return undefined;
-  }
-
-  if (res.status !== 200) {
-    Log.error(`fetch twitter profile ${handle}, bad response ${res.status}`);
-    return undefined;
-  }
-
-  // A 200 response may still contain Api Errors
-  const body = (await res.json()) as ApiWrapper<UserTwitterApiRaw>;
-
-  if ("errors" in body) {
-    // Twitter Api can return multiple errors but let us deal with one at a time.
-    const apiError = body.errors[0];
-    if (apiError.type === apiErrorTypes.notFound) {
-      Log.warn(
-        `fetch twitter profile ${handle}, valid handle, but not found, 404`,
+      return TE.tryCatch(
+        () => res.json() as Promise<ApiWrapper<UserTwitterApiRaw>>,
+        decodeErrorFromUnknown,
       );
-      return undefined;
-    }
-    Log.error(
-      `fetch twitter profile ${handle}, API error, ${apiError.title}, ${apiError.detail}`,
-    );
-    return undefined;
-  }
+    }),
+    TE.chainW((body) => {
+      if ("errors" in body) {
+        // Twitter Api can return multiple errors but let us deal with one at a time.
+        const apiError = body.errors[0];
+        if (apiError.type === apiErrorTypes.notFound) {
+          return TE.left(
+            new ProfileNotFoundError(
+              `fetch twitter profile ${handle}, valid handle, but not found, 404`,
+            ),
+          );
+        }
+        return TE.left(
+          new GetProfileApiError(
+            `fetch twitter profile ${handle}, API error, ${apiError.title}, ${apiError.detail}`,
+          ),
+        );
+      }
 
-  if (body.data === undefined) {
-    Log.error(`fetch twitter profile ${handle}, unexpected json response`, {
-      body,
-    });
-    return undefined;
-  }
-
-  return body.data;
-};
+      return TE.right(body.data);
+    }),
+  );
 
 export const getProfileImage = (
   profile: UserTwitterApiRaw,
