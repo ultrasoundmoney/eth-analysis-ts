@@ -10,7 +10,7 @@ import * as Contracts from "../contracts/contracts.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
-import { A, flow, NEA, O, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
+import { A, flow, NEA, O, OAlt, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
@@ -106,6 +106,7 @@ const insertableFromBlock = (
 type ContractBaseFeesRow = {
   contract_address: string;
   base_fees: number;
+  base_fees_256: string;
   block_number: number;
   transaction_count: number;
 };
@@ -201,6 +202,14 @@ export const storeContractsBaseFeesTask = (
         A.map(
           ([address, baseFees]): ContractBaseFeesRow => ({
             base_fees: baseFees,
+            base_fees_256: pipe(
+              feeSegments.contractSumsEthBI.get(address),
+              O.fromNullable,
+              OAlt.getOrThrow(
+                "when storing contract base fees, bigint counterparts were missing",
+              ),
+              String,
+            ),
             block_number: block.number,
             contract_address: address,
             transaction_count: transactionCounts.get(address) ?? 0,

@@ -10,6 +10,8 @@ export type FeeSegments = {
   creationsSum: number;
   /** fees burned for use of contracts. */
   contractSumsEth: Map<string, number>;
+  /** fees burned for use of contracts, bigint */
+  contractSumsEthBI: Map<string, bigint>;
   /** fees burned for use of contracts in USD. */
   contractSumsUsd: Map<string, number> | undefined;
   /** fees burned for simple transfers. */
@@ -20,6 +22,7 @@ export type FeeSegments = {
  * Map of base fees grouped by contract address
  */
 type ContractBaseFeeMap = Map<string, number>;
+type ContractBaseFeeMapBI = Map<string, bigint>;
 
 const mergeReceiptEth = (
   block: BlockV1,
@@ -50,6 +53,36 @@ const sumPerContractEth = (
       new Map<string, number>(),
       (sumMap, transactionReceipt: TransactionReceiptV1) =>
         mergeReceiptEth(block, sumMap, transactionReceipt),
+    ),
+  );
+
+const mergeReceiptEthBI = (
+  block: BlockV1,
+  sumMap: ContractBaseFeeMapBI,
+  transactionReceipt: TransactionReceiptV1,
+) =>
+  pipe(
+    transactionReceipt.to,
+    O.match(
+      () => sumMap,
+      (to) =>
+        pipe(
+          sumMap.get(to) ?? 0n,
+          (currentSum) =>
+            currentSum + Transactions.calcBaseFeeBI(block, transactionReceipt),
+          (nextSum) => sumMap.set(to, nextSum),
+        ),
+    ),
+  );
+
+const sumPerContractEthBI = (
+  block: BlockV1,
+  transactionReceipts: TransactionReceiptV1[],
+): ContractBaseFeeMapBI =>
+  pipe(
+    transactionReceipts,
+    A.reduce(new Map<string, bigint>(), (sumMap, transactionReceipt) =>
+      mergeReceiptEthBI(block, sumMap, transactionReceipt),
     ),
   );
 
@@ -95,7 +128,7 @@ export const calcBlockBaseFeeSum = (block: BlockV1): bigint =>
 export const sumFeeSegments = (
   block: BlockV1,
   segments: TransactionSegments,
-  ethPrice: number,
+  ethPrice?: number,
 ): FeeSegments => {
   const { creations: creations, transfers: transfers, other: other } = segments;
 
@@ -119,10 +152,17 @@ export const sumFeeSegments = (
 
   const contractSumsEth = sumPerContractEth(block, other);
 
-  const contractSumsUsd = sumPerContractUsd(block, other, ethPrice);
+  const contractSumsEthBI = sumPerContractEthBI(block, other);
+
+  // Temporarily allow no eth price for precise contract base fee migration.
+  const contractSumsUsd =
+    ethPrice === undefined
+      ? new Map()
+      : sumPerContractUsd(block, other, ethPrice);
 
   return {
     contractSumsEth,
+    contractSumsEthBI,
     contractSumsUsd,
     creationsSum,
     transfersSum,
