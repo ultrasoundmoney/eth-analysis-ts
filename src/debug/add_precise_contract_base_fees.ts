@@ -52,7 +52,7 @@ for (const blockNumber of blocksToUpdate) {
     A.map(([address, fees]) => ({
       contract_address: address,
       block_number: blockNumber,
-      base_fees_256: fees,
+      base_fees_256: String(fees),
     })),
     NEA.fromArray,
     O.match(
