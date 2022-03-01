@@ -154,7 +154,7 @@ const fetchMetaTitleWithSpecialRetry = (address: string) =>
                   "amounts of traffic coming from your network, please try again later",
                 )
                   ? TE.left(
-                      new Error("fetch teherscan meta title, hit rate-limit"),
+                      new Error("fetch etherscan meta title, hit rate-limit"),
                     )
                   : TE.right(html),
               ),
