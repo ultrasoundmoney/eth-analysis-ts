@@ -1,19 +1,19 @@
 import * as DateFns from "date-fns";
 import PQueue from "p-queue";
-import * as Contracts from "./contracts.js";
-import * as ContractsWeb3 from "./web3.js";
 import { sql } from "../db.js";
 import * as DefiLlama from "../defi_llama.js";
 import * as Duration from "../duration.js";
+import { RateLimitError } from "../errors.js";
 import * as Etherscan from "../etherscan.js";
+import * as FetchAlt from "../fetch_alt.js";
 import { A, B, E, flow, O, pipe, T, TAlt, TE, TO } from "../fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as Opensea from "../opensea.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Twitter from "../twitter.js";
-import { RateLimitError } from "../errors.js";
-import * as FetchAlt from "../fetch_alt.js";
+import * as Contracts from "./contracts.js";
+import * as ContractsWeb3 from "./web3.js";
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;
@@ -595,7 +595,8 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     TAlt.seqTParT(
       () => addDefiLlamaMetadata(address),
-      () => addEtherscanNameTag(address, forceRefetch),
+      // TODO: temporarily broken. Blockscan returning 503.
+      // () => addEtherscanNameTag(address, forceRefetch),
       () => addWeb3Metadata(address, forceRefetch),
       addOpenseaMetadataMaybe(address, forceRefetch),
     ),
