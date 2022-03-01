@@ -33,6 +33,10 @@ data:
               error_message: error_message
               error_name: error_name
               error_stack: error_stack
+        - labels:
+            level:
+            message:
+            timestamp:
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
@@ -76,6 +80,19 @@ data:
     - job_name: kubernetes-pods-app
       pipeline_stages:
         - docker: {}
+        - cri: {}
+        - json:
+            expressions:
+              output: message
+              timestamp: timestamp
+              level: level
+              error_message: error_message
+              error_name: error_name
+              error_stack: error_stack
+        - labels:
+            level:
+            message:
+            timestamp:
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
