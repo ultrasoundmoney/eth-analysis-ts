@@ -595,7 +595,7 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     TAlt.seqTParT(
       () => addDefiLlamaMetadata(address),
-      // TODO: temporarily broken. Blockscan returning 503.
+      // Blockscan started using CloudFlare, returning 503s.
       // () => addEtherscanNameTag(address, forceRefetch),
       () => addWeb3Metadata(address, forceRefetch),
       addOpenseaMetadataMaybe(address, forceRefetch),
