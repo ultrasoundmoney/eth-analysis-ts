@@ -26,12 +26,6 @@ export const getEnv = (): Env => {
   }
 };
 
-export const getShowProgress = (): boolean =>
-  !(
-    process.env.SHOW_PROGRESS === undefined ||
-    process.env.SHOW_PROGRESS === "false"
-  );
-
 export const getName = () => process.env.NAME || "unknown";
 
 export const getFamServiceUrl = (): string =>
