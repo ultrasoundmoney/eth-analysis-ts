@@ -8,7 +8,7 @@ spec:
       containers:
         - name: add-missing-transaction-counts
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/debug/add_all_transaction_counts.js"]
+          command: ["node", "src/scripts/add_all_transaction_counts.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env

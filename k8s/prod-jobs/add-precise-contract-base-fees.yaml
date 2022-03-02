@@ -8,7 +8,7 @@ spec:
       containers:
         - name: add-precise-contract-base-fees
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/debug/add_precise_contract_base_fees.js"]
+          command: ["node", "src/scripts/add_precise_contract_base_fees.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env

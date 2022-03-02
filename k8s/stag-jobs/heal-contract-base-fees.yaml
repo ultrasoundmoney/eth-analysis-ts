@@ -8,7 +8,7 @@ spec:
       containers:
         - name: heal-contract-base-fees
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/debug/heal_contract_base_fees.js"]
+          command: ["node", "src/scripts/heal_contract_base_fees.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
