@@ -149,7 +149,7 @@ type SimilarContract = {
   twitterHandle: string | null;
 };
 
-const addMetadataFromSimilar = async (
+export const addMetadataFromSimilar = async (
   address: string,
   nameStartsWith: string,
 ): Promise<void> => {

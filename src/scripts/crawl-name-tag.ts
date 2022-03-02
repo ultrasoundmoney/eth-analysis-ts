@@ -1,0 +1,234 @@
+import * as DateFns from "date-fns";
+import { parseHTML } from "linkedom";
+import * as Contracts from "../contracts/contracts.js";
+import * as ContractsMetadata from "../contracts/crawl_metadata.js";
+import { addMetadataFromSimilar } from "../contracts/crawl_metadata.js";
+import { sql, sqlT, sqlTVoid } from "../db.js";
+import * as Duration from "../duration.js";
+import * as FetchAlt from "../fetch_alt.js";
+import { flow, O, pipe, T, TAlt, TE, TEAlt, TO } from "../fp.js";
+import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
+import * as Log from "../log.js";
+
+let isUpdating = false;
+
+if (typeof process.env.CF_COOKIE !== "string") {
+  throw new Error("missing CF_COOKIE env var");
+}
+
+class NameNotFoundError extends Error {}
+
+const fetchNameTag = (address: string) =>
+  pipe(
+    FetchAlt.fetchWithRetry(`https://blockscan.com/address/${address}`, {
+      headers: {
+        cookie: process.env.CF_COOKIE!,
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.45 Safari/537.36",
+      },
+    }),
+    TE.chainW((res) => TE.tryCatch(() => res.text(), TEAlt.errorFromUnknown)),
+    TE.chainW((text) =>
+      pipe(
+        parseHTML(text),
+        (html) => html.document,
+        (document) =>
+          document.querySelector(".badge-secondary") as {
+            innerText: string;
+          } | null,
+        (etherscanPublicName) => etherscanPublicName?.innerText,
+        O.fromNullable,
+        TE.fromOption(() => new NameNotFoundError()),
+      ),
+    ),
+  );
+
+type NameTagAttempt = { lastAttempt: string; attempts: number };
+type ContractNameTagAttemptMap = Partial<Record<string, NameTagAttempt>>;
+
+const lastFetchedKey = "name-tag-last-fetched";
+
+const getContractNameTagAttemptMap = () =>
+  pipe(
+    sqlT<{ value: ContractNameTagAttemptMap }[]>`
+      SELECT value FROM key_value_store
+      WHERE key = ${lastFetchedKey}
+    `,
+    T.map(
+      flow(
+        (rows) => rows[0]?.value,
+        O.fromNullable,
+        O.getOrElse(() => ({} as ContractNameTagAttemptMap)),
+      ),
+    ),
+  );
+
+const setContractNameTagAttemptMap = (
+  contractNameTagAttemptMap: ContractNameTagAttemptMap,
+) =>
+  sqlTVoid`
+    INSERT INTO key_value_store
+      ${sql({
+        key: lastFetchedKey,
+        value: JSON.stringify(contractNameTagAttemptMap),
+      })}
+    ON CONFLICT (key) DO UPDATE SET
+      value = excluded.value
+  `;
+
+const waitInMinutes = Duration.millisFromMinutes(8);
+
+const getIsPastBackoff = (attempt: NameTagAttempt) => {
+  // We use an exponential backoff here.
+  const backoffPoint = DateFns.addMilliseconds(
+    DateFns.parseISO(attempt.lastAttempt),
+    waitInMinutes * 2 ** (attempt.attempts - 1),
+  );
+  return DateFns.isPast(backoffPoint);
+};
+
+const getNameTag = (address: string) =>
+  pipe(
+    sqlT<{ etherscanNameTag: string | null }[]>`
+      SELECT etherscan_name_tag FROM contracts
+      WHERE address = ${address}
+    `,
+    T.map((rows) => rows[0]?.etherscanNameTag),
+    T.map(O.fromNullable),
+    T.chain(
+      O.match(
+        () =>
+          pipe(
+            fetchNameTag(address),
+            TE.match(
+              (e) => {
+                if (e instanceof NameNotFoundError) {
+                  Log.debug(`name not found, skipping ${address}`);
+                  return O.none;
+                }
+
+                if (e instanceof FetchAlt.BadResponseError) {
+                  Log.error(e.message, e);
+                  return O.none;
+                }
+
+                throw e;
+              },
+              (name) => O.some(name),
+            ),
+          ),
+        (etherscanNameTag) => {
+          Log.debug(`found existing name tag ${etherscanNameTag}, skipping`);
+          return TO.none;
+        },
+      ),
+    ),
+  );
+
+const updateNameTagForAddress = (
+  address: string,
+  contractNameTagAttemptMap: ContractNameTagAttemptMap,
+) =>
+  pipe(
+    contractNameTagAttemptMap[address],
+    O.fromNullable,
+    O.match(
+      () => getNameTag(address),
+      (attempt) =>
+        getIsPastBackoff(attempt)
+          ? getNameTag(address)
+          : pipe(
+              sqlT<{ name: string | null }[]>`
+                SELECT name FROM contracts
+                WHERE address = ${address}
+              `,
+              T.map((rows) => rows[0]?.name),
+              T.map(O.fromNullable),
+              T.map((name) => {
+                Log.debug(
+                  `${O.getOrElse(() => address)(
+                    name,
+                  )} not yet past backoff, skipping`,
+                );
+                return O.none;
+              }),
+            ),
+    ),
+    T.chainFirstIOK(() => () => {
+      contractNameTagAttemptMap[address] = {
+        lastAttempt: DateFns.formatISO(new Date()),
+        attempts: contractNameTagAttemptMap[address]?.attempts ?? 1,
+      };
+    }),
+    TO.chainTaskK((name) =>
+      pipe(
+        T.of(name),
+        // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
+        TAlt.when(
+          (name) => name.indexOf(":") !== -1,
+          () => addMetadataFromSimilar(address, name.split(":")[0]),
+        ),
+        T.chain(() =>
+          Contracts.setSimpleTextColumn("etherscan_name_tag", address, name),
+        ),
+        T.chain(() => Contracts.updatePreferredMetadata(address)),
+      ),
+    ),
+    T.chain(() => setContractNameTagAttemptMap(contractNameTagAttemptMap)),
+  );
+
+const updateLeaderboardMetadata = () =>
+  pipe(
+    T.Do,
+    T.bind("flipIsUpdating", () =>
+      T.fromIO(() => {
+        isUpdating = true;
+      }),
+    ),
+    T.apS("contractNameTagAttemptMap", getContractNameTagAttemptMap()),
+    T.apS(
+      "addresses",
+      pipe(
+        GroupedAnalysis1.getLatestAnalysis(),
+        T.map(
+          flow(
+            (groupedAnalysis) =>
+              ContractsMetadata.getAddressesForMetadata(
+                groupedAnalysis.leaderboards,
+              ),
+            (addresses) => Array.from(addresses.values()),
+          ),
+        ),
+      ),
+    ),
+    T.chain(({ addresses, contractNameTagAttemptMap }) =>
+      pipe(
+        addresses,
+        T.traverseSeqArray((address) =>
+          updateNameTagForAddress(address, contractNameTagAttemptMap),
+        ),
+      ),
+    ),
+    T.chainIOK(() => () => {
+      isUpdating = false;
+    }),
+  );
+
+sql.listen("cache-update", async (payload) => {
+  Log.debug(`DB notify cache-update, cache key: ${payload}`);
+
+  if (payload === undefined) {
+    Log.error("DB cache-update with no payload, skipping");
+    return;
+  }
+
+  if (payload === GroupedAnalysis1.groupedAnalysis1CacheKey) {
+    Log.debug("new grouped analysis complete");
+    if (!isUpdating) {
+      updateLeaderboardMetadata()();
+    } else {
+      Log.debug("already updating name tags, skipping");
+    }
+    return;
+  }
+});
