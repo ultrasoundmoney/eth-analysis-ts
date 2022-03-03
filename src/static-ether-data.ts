@@ -7,6 +7,7 @@ export const posIssuancePerDay = 1352;
 // average blocks per day: https://etherscan.io/chart/blocks
 export const blocksPerDay = 6450;
 
-// average issuance per block
-export const issuancePerBlock =
-  (powIssuancePerDay + posIssuancePerDay) / blocksPerDay;
+export const issuancePerBlockPreMerge =
+  (powIssuancePerDay + powIssuancePerDay) / blocksPerDay;
+
+export const issuancePerBlockPostMerge = posIssuancePerDay / blocksPerDay;

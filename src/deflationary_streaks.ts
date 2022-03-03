@@ -1,7 +1,7 @@
 import * as Blocks from "./blocks/blocks.js";
 import { sql, sqlT, sqlTVoid } from "./db.js";
 import * as EthUnits from "./eth_units.js";
-import { A, flow, NEA, O, pipe, T } from "./fp.js";
+import { A, flow, NEA, O, pipe, T, TO } from "./fp.js";
 import * as StaticEtherData from "./static-ether-data.js";
 
 type DeflationaryStreak = {
@@ -10,34 +10,60 @@ type DeflationaryStreak = {
 };
 
 export type DeflationaryStreakState = O.Option<DeflationaryStreak>;
-export type DeflationaryStreakForSite = DeflationaryStreak | null;
+export type DeflationaryStreakForSite = {
+  preMerge: DeflationaryStreak | null;
+  postMerge: DeflationaryStreak | null;
+};
 
-export const deflationaryStreakCacheKey = "deflationary-streak";
-const analysisKey = "deflationaryStreakKey";
+const getStorageKey = (postMerge: boolean) =>
+  postMerge
+    ? "deflationary-streak-post-merge"
+    : "deflationary-streak-pre-merge";
+
+const analysisStateKey = "deflationary-streaks";
 
 export const getStreakStateForSite = (): T.Task<DeflationaryStreakForSite> =>
   pipe(
-    sqlT<{ value: { from: Date; count: number } | null }[]>`
-      SELECT value FROM key_value_store
-      WHERE key = ${deflationaryStreakCacheKey}
-    `,
-    T.map((rows) => rows[0]?.value ?? null),
+    T.Do,
+    T.apS(
+      "preMerge",
+      pipe(
+        sqlT<{ value: { from: Date; count: number } | null }[]>`
+          SELECT value FROM key_value_store
+          WHERE key = ${getStorageKey(false)}
+        `,
+        T.map((rows) => rows[0]?.value ?? null),
+      ),
+    ),
+    T.apS(
+      "postMerge",
+      pipe(
+        sqlT<{ value: { from: Date; count: number } | null }[]>`
+          SELECT value FROM key_value_store
+          WHERE key = ${getStorageKey(true)}
+        `,
+        T.map((rows) => rows[0]?.value ?? null),
+      ),
+    ),
   );
 
-const getStreakState = () =>
+const getStreakState = (storageKey: string) =>
   pipe(
     sqlT<{ value: { from: Date; count: number } | null }[]>`
       SELECT value FROM key_value_store
-      WHERE key = ${deflationaryStreakCacheKey}
+      WHERE key = ${storageKey}
     `,
     T.map(flow((rows) => rows[0]?.value, O.fromNullable)),
   );
 
-const storeStreakState = (streakState: DeflationaryStreakState) =>
+const storeStreakState = (
+  storageKey: string,
+  streakState: DeflationaryStreakState,
+) =>
   sqlTVoid`
     INSERT INTO key_value_store
       ${sql({
-        key: deflationaryStreakCacheKey,
+        key: storageKey,
         value: pipe(
           streakState,
           O.match(
@@ -54,7 +80,7 @@ export const getLastAnalyzed = () =>
   pipe(
     sqlT<{ last: number }[]>`
       SELECT last FROM analysis_state
-      WHERE key = ${deflationaryStreakCacheKey}
+      WHERE key = ${analysisStateKey}
     `,
     T.map(flow((rows) => rows[0]?.last, O.fromNullable)),
   );
@@ -62,7 +88,7 @@ export const getLastAnalyzed = () =>
 const setLastAnalyzed = (blockNumber: number) => sqlTVoid`
   INSERT INTO analysis_state
     ${sql({
-      key: analysisKey,
+      key: analysisStateKey,
       last: blockNumber,
     })}
   ON CONFLICT (key) DO UPDATE SET
@@ -72,25 +98,26 @@ const setLastAnalyzed = (blockNumber: number) => sqlTVoid`
 export const getNextBlockToAdd = () =>
   pipe(
     getLastAnalyzed(),
-    T.chain(
-      O.match(
-        () =>
-          pipe(
-            Blocks.getLastStoredBlock(),
-            T.map((block) => block.number),
-          ),
-        (lastAnalyzed) => T.of(lastAnalyzed + 1),
-      ),
+    TO.matchE(
+      () =>
+        pipe(
+          Blocks.getLastStoredBlock(),
+          T.map((block) => block.number),
+        ),
+      (lastAnalyzed) => T.of(lastAnalyzed + 1),
     ),
   );
 
-const getIsDeflationaryBlock = (block: Blocks.BlockDb) =>
-  Number(EthUnits.ethFromWeiBI(block.baseFeeSum)) >
-  StaticEtherData.issuancePerBlock;
+type GetIsDeflationaryBlock = (block: Blocks.BlockDb) => boolean;
+const makeGetIsDeflationaryBlock =
+  (issuancePerBlock: number): GetIsDeflationaryBlock =>
+  (block) =>
+    Number(EthUnits.ethFromWeiBI(block.baseFeeSum)) > issuancePerBlock;
 
 const addBlockToState = (
   streakState: DeflationaryStreakState,
   block: Blocks.BlockDb,
+  getIsDeflationaryBlock: (block: Blocks.BlockDb) => boolean,
 ) =>
   getIsDeflationaryBlock(block)
     ? pipe(
@@ -113,10 +140,13 @@ const addBlockToState = (
 const addBlocksToState = (
   streakState: DeflationaryStreakState,
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
+  getIsDeflationaryBlock: GetIsDeflationaryBlock,
 ) =>
   pipe(
     blocksToAdd,
-    A.reduce(streakState, (state, block) => addBlockToState(state, block)),
+    A.reduce(streakState, (state, block) =>
+      addBlockToState(state, block, getIsDeflationaryBlock),
+    ),
   );
 
 const removeBlockFromState = (streakState: DeflationaryStreakState) =>
@@ -143,24 +173,54 @@ const removeBlocksFromState = (
     A.reduce(streakState, (state) => removeBlockFromState(state)),
   );
 
+const analyzeNewBlocksWithMergeState = (
+  blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
+  postMerge: boolean,
+) =>
+  pipe(
+    getStreakState(getStorageKey(postMerge)),
+    T.map((streakState) =>
+      addBlocksToState(
+        streakState,
+        blocksToAdd,
+        makeGetIsDeflationaryBlock(
+          postMerge
+            ? StaticEtherData.issuancePerBlockPostMerge
+            : StaticEtherData.issuancePerBlockPostMerge,
+        ),
+      ),
+    ),
+    T.chain((state) => storeStreakState(getStorageKey(postMerge), state)),
+  );
+
 export const analyzeNewBlocks = (
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
 ) =>
   pipe(
-    getStreakState(),
-    T.map((streakState) => addBlocksToState(streakState, blocksToAdd)),
-    T.chain((state) => storeStreakState(state)),
+    T.Do,
+    T.apS("preMerge", analyzeNewBlocksWithMergeState(blocksToAdd, false)),
+    T.apS("postMerge", analyzeNewBlocksWithMergeState(blocksToAdd, true)),
     T.chain(() => setLastAnalyzed(NEA.last(blocksToAdd).number)),
+  );
+
+const rollbackBlocksWithMergeState = (
+  blocksToRollback: NEA.NonEmptyArray<Blocks.BlockDb>,
+  postMerge: boolean,
+) =>
+  pipe(
+    getStreakState(getStorageKey(postMerge)),
+    T.map((streakState) =>
+      removeBlocksFromState(streakState, blocksToRollback),
+    ),
+    T.chain((state) => storeStreakState(getStorageKey(postMerge), state)),
   );
 
 export const rollbackBlocks = (
   blocksToRollback: NEA.NonEmptyArray<Blocks.BlockDb>,
 ) =>
   pipe(
-    getStreakState(),
-    T.map((streakState) =>
-      removeBlocksFromState(streakState, blocksToRollback),
-    ),
-    T.chain((state) => storeStreakState(state)),
+    T.Do,
+    T.apS("preMerge", rollbackBlocksWithMergeState(blocksToRollback, false)),
+    T.apS("postMerge", analyzeNewBlocksWithMergeState(blocksToRollback, true)),
     T.chain(() => setLastAnalyzed(NEA.last(blocksToRollback).number - 1)),
   );
