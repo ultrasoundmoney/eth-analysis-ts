@@ -112,7 +112,7 @@ type GetIsDeflationaryBlock = (block: Blocks.BlockDb) => boolean;
 const makeGetIsDeflationaryBlock =
   (issuancePerBlock: number): GetIsDeflationaryBlock =>
   (block) =>
-    Number(EthUnits.ethFromWeiBI(block.baseFeeSum)) > issuancePerBlock;
+    EthUnits.ethFromWei(Number(block.baseFeeSum)) > issuancePerBlock;
 
 const addBlockToState = (
   streakState: DeflationaryStreakState,
@@ -186,7 +186,7 @@ const analyzeNewBlocksWithMergeState = (
         makeGetIsDeflationaryBlock(
           postMerge
             ? StaticEtherData.issuancePerBlockPostMerge
-            : StaticEtherData.issuancePerBlockPostMerge,
+            : StaticEtherData.issuancePerBlockPreMerge,
         ),
       ),
     ),
