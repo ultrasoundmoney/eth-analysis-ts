@@ -36,7 +36,9 @@ export const limitedTimeFrameMillisMap: Record<LimitedTimeFrame, number> = {
   "30d": TimeFrames.millisFromDays(30),
 };
 
-export const getEarliestBlockToAddAll = (lastIncludedBlock: O.Option<number>) =>
+export const getFirstBlockToIncludeToAll = (
+  lastIncludedBlock: O.Option<number>,
+) =>
   pipe(
     lastIncludedBlock,
     O.match(
