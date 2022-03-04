@@ -1,7 +1,7 @@
 import * as Blocks from "./blocks/blocks.js";
 import { sql, sqlT, sqlTVoid } from "./db.js";
 import * as EthUnits from "./eth_units.js";
-import { A, flow, NEA, O, pipe, T, TO } from "./fp.js";
+import { A, flow, NEA, O, OAlt, pipe, T, TO } from "./fp.js";
 import * as StaticEtherData from "./static-ether-data.js";
 
 type DeflationaryStreak = {
@@ -114,6 +114,26 @@ const makeGetIsDeflationaryBlock =
   (block) =>
     EthUnits.ethFromWei(Number(block.baseFeeSum)) > issuancePerBlock;
 
+const startNewStreak = (block: Blocks.BlockDb) =>
+  pipe(
+    Blocks.getBlocks(block.number - 1, block.number - 1),
+    T.map(
+      flow(
+        A.head,
+        OAlt.getOrThrow(
+          `tried to get block ${
+            block.number - 1
+          } timestamp to start streak but got nothing, skipping streak`,
+        ),
+        (block) =>
+          O.some({
+            from: block.minedAt,
+            count: 1,
+          }),
+      ),
+    ),
+  );
+
 const addBlockToState = (
   streakState: DeflationaryStreakState,
   block: Blocks.BlockDb,
@@ -123,19 +143,15 @@ const addBlockToState = (
     ? pipe(
         streakState,
         O.match(
-          () =>
-            O.some({
-              from: block.minedAt,
-              count: 1,
-            }),
+          () => startNewStreak(block),
           (state) =>
-            O.some({
+            TO.of({
               ...state,
               count: state.count + 1,
             }),
         ),
       )
-    : O.none;
+    : TO.none;
 
 const addBlocksToState = (
   streakState: DeflationaryStreakState,
@@ -144,8 +160,13 @@ const addBlocksToState = (
 ) =>
   pipe(
     blocksToAdd,
-    A.reduce(streakState, (state, block) =>
-      addBlockToState(state, block, getIsDeflationaryBlock),
+    A.reduce(T.of(streakState), (state, block) =>
+      pipe(
+        state,
+        T.chain((state) =>
+          addBlockToState(state, block, getIsDeflationaryBlock),
+        ),
+      ),
     ),
   );
 
@@ -179,7 +200,7 @@ const analyzeNewBlocksWithMergeState = (
 ) =>
   pipe(
     getStreakState(getStorageKey(postMerge)),
-    T.map((streakState) =>
+    T.chain((streakState) =>
       addBlocksToState(
         streakState,
         blocksToAdd,
