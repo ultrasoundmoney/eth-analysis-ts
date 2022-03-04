@@ -76,7 +76,7 @@ const updateCache = (averagePrices: AverageEthPrices) => sqlTVoid`
 
 export const updateAveragePrices = () =>
   pipe(
-    TAlt.seqSParT({
+    TAlt.seqSPar({
       m5: getTimeFrameAverage("m5"),
       h1: getTimeFrameAverage("h1"),
       d1: getTimeFrameAverage("d1"),

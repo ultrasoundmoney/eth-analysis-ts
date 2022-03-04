@@ -14,7 +14,7 @@ export type BurnRecordsCache = {
 
 export const updateRecordsCache = (blockNumber: number) =>
   pipe(
-    TAlt.seqSParT({
+    TAlt.seqSPar({
       m5: BurnRecords.getBurnRecords("m5", maxRecordCount),
       h1: BurnRecords.getBurnRecords("h1", maxRecordCount),
       d1: BurnRecords.getBurnRecords("d1", maxRecordCount),

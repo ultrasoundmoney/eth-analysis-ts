@@ -359,7 +359,7 @@ const calcLeaderboardForLimitedTimeframe = (
   timeFrame: LimitedTimeFrame,
 ): T.Task<LeaderboardEntry[]> =>
   pipe(
-    TAlt.seqTParT(
+    TAlt.seqTPar(
       pipe(
         getTopBaseFeeContracts(timeFrame),
         T.chain(Leaderboards.extendRowsWithFamDetails),
@@ -375,7 +375,7 @@ const calcLeaderboardForLimitedTimeframe = (
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
   Record<LimitedTimeFrame, LeaderboardEntry[]>
 > =>
-  TAlt.seqSParT({
+  TAlt.seqSPar({
     "5m": calcLeaderboardForLimitedTimeframe("5m"),
     "1h": calcLeaderboardForLimitedTimeframe("1h"),
     "24h": calcLeaderboardForLimitedTimeframe("24h"),

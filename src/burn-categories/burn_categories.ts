@@ -77,7 +77,7 @@ const getBurnCategoriesWithPercent = (timeFrame: TimeFrameNext) =>
 
 export const updateBurnCategories = () =>
   pipe(
-    TAlt.seqSParT({
+    TAlt.seqSPar({
       m5: getBurnCategoriesWithPercent("m5"),
       h1: getBurnCategoriesWithPercent("h1"),
       d1: getBurnCategoriesWithPercent("d1"),

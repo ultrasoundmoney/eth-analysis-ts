@@ -57,10 +57,10 @@ const getOrThrow = <A>(
 export const TAlt = {
   concatAllVoid: T.map(Mo.concatAll(Void.Monoid)),
   constVoid: () => T.of(undefined),
-  seqSParT: Apply.sequenceS(T.ApplyPar),
-  seqSSeqT: Apply.sequenceS(T.ApplySeq),
-  seqTParT: Apply.sequenceT(T.ApplyPar),
-  seqTSeqT: Apply.sequenceT(T.ApplySeq),
+  seqSPar: Apply.sequenceS(T.ApplyPar),
+  seqSSeq: Apply.sequenceS(T.ApplySeq),
+  seqTPar: Apply.sequenceT(T.ApplyPar),
+  seqTSeq: Apply.sequenceT(T.ApplySeq),
   when:
     <A, C>(shouldExecute: (a: A) => boolean, task: T.Task<C>) =>
     (ma: T.Task<A>) =>
@@ -87,10 +87,10 @@ export const TEAlt = {
   errorFromUnknown: (e: unknown): Error =>
     e instanceof Error ? e : new Error(String(e)),
   getOrThrow,
-  seqSParTE: Apply.sequenceS(TE.ApplyPar),
-  seqSSeqTE: Apply.sequenceS(TE.ApplySeq),
-  seqTParTE: Apply.sequenceT(TE.ApplyPar),
-  seqTSeqTE: Apply.sequenceT(TE.ApplySeq),
+  seqSPar: Apply.sequenceS(TE.ApplyPar),
+  seqSSeq: Apply.sequenceS(TE.ApplySeq),
+  seqTPar: Apply.sequenceT(TE.ApplyPar),
+  seqTSeq: Apply.sequenceT(TE.ApplySeq),
 };
 
 export const OAlt = {

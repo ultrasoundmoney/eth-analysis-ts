@@ -25,7 +25,7 @@ const syncTimeFrame = (
   lastIncludedBlock: O.Option<number>,
 ) =>
   pipe(
-    TAlt.seqTParT(
+    TAlt.seqTPar(
       BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
       pipe(
         getFirstBlockToInclude(timeFrame, lastIncludedBlock),
