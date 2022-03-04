@@ -9,7 +9,7 @@ const getFirstBlockToInclude = (
   lastIncludedBlock: O.Option<number>,
 ) =>
   timeFrame === "all"
-    ? T.of(TimeFrames.getEarliestBlockToAddAll(lastIncludedBlock))
+    ? T.of(TimeFrames.getFirstBlockToIncludeToAll(lastIncludedBlock))
     : pipe(
         Blocks.getEarliestBlockInTimeFrame(timeFrame),
         T.map((earliestBlockInTimeFrame) =>
