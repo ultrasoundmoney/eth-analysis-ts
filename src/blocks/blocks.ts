@@ -367,30 +367,30 @@ const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
   tips: row.tips,
 });
 
-export const getBlocks = async (
+export const getBlocks = (
   from: number,
   upToIncluding: number,
-): Promise<BlockDb[]> => {
-  const rows = await sql<BlockDbRow[]>`
-    SELECT
-      base_fee_per_gas,
-      contract_creation_sum,
-      eth_price,
-      (eth_price * 100)::bigint AS eth_price_cents,
-      eth_transfer_sum,
-      gas_used,
-      hash,
-      mined_at,
-      number,
-      tips
-    FROM blocks
-    WHERE number >= ${from}
-    AND number <= ${upToIncluding}
-    ORDER BY number ASC
-  `;
-
-  return rows.map(blockDbFromRow);
-};
+): T.Task<BlockDb[]> =>
+  pipe(
+    sqlT<BlockDbRow[]>`
+      SELECT
+        base_fee_per_gas,
+        contract_creation_sum,
+        eth_price,
+        (eth_price * 100)::bigint AS eth_price_cents,
+        eth_transfer_sum,
+        gas_used,
+        hash,
+        mined_at,
+        number,
+        tips
+      FROM blocks
+      WHERE number >= ${from}
+      AND number <= ${upToIncluding}
+      ORDER BY number ASC
+    `,
+    T.map(A.map(blockDbFromRow)),
+  );
 
 export const getBlockRange = (from: number, toAndIncluding: number): number[] =>
   new Array(toAndIncluding - from + 1)
@@ -408,7 +408,7 @@ export const getLastStoredBlock = () =>
         (rows) => rows[0]?.max,
         O.fromNullable,
         TO.fromOption,
-        TO.chainTaskK((max) => () => getBlocks(max, max)),
+        TO.chainTaskK((max) => getBlocks(max, max)),
         TO.chainOptionK(flow((rows) => rows[0], O.fromNullable)),
         TOAlt.getOrThrow("can't get last stored block from empty table"),
       ),
