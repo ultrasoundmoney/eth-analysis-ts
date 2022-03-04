@@ -56,7 +56,6 @@ const getOrThrow = <A>(
 
 export const TAlt = {
   concatAllVoid: T.map(Mo.concatAll(Void.Monoid)),
-  constVoid: () => T.of(undefined),
   seqSPar: Apply.sequenceS(T.ApplyPar),
   seqSSeq: Apply.sequenceS(T.ApplySeq),
   seqTPar: Apply.sequenceT(T.ApplyPar),

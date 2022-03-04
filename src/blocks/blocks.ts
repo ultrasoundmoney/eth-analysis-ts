@@ -267,7 +267,6 @@ export const storeBlock = async (
     TO.chainTaskK((addresses) =>
       Contracts.setContractsMinedAt(addresses, block.number, block.timestamp),
     ),
-    TO.getOrElse(TAlt.constVoid),
   );
 
   const storeContractsTask = pipe(
