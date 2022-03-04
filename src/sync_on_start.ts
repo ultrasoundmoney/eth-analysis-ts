@@ -13,7 +13,7 @@ export const sync = (_from: number, upToIncluding: number) =>
     // Sync deflationary streaks
     T.chain(({ deflationaryStreakNextBlockToAdd }) =>
       pipe(
-        () => Blocks.getBlocks(deflationaryStreakNextBlockToAdd, upToIncluding),
+        Blocks.getBlocks(deflationaryStreakNextBlockToAdd, upToIncluding),
         T.map(
           flow(
             NEA.fromArray,
