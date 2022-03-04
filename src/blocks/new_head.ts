@@ -156,7 +156,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     BurnRecordsNewHead.onNewBlock,
   );
 
-  await TAlt.seqTParT(
+  await TAlt.seqTPar(
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
     addToLeaderboardAllTask,
     addBlockToBurnRecords(blockDb),
@@ -172,7 +172,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     newBlockQueue.pending <= 1;
 
   if (allBlocksProcessed) {
-    await TAlt.seqTParT(
+    await TAlt.seqTPar(
       Performance.measureTaskPerf(
         "update grouped analysis 1",
         GroupedAnalysis1.updateAnalysis(blockDb),

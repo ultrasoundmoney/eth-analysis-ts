@@ -118,7 +118,7 @@ export const addWeb3Metadata = async (
   // Contracts may have a NUL byte in their name, which is not safe to store in postgres. We should find a way to store this safely.
   const safeName = name?.replaceAll("\x00", "");
 
-  await TAlt.seqTParT(
+  await TAlt.seqTPar(
     safeName === undefined
       ? T.of(undefined)
       : Contracts.setSimpleTextColumn("web3_name", address, safeName),
@@ -206,7 +206,7 @@ export const addMetadataFromSimilar = async (
       : Contracts.setSimpleTextColumn("twitter_handle", address, twitterHandle);
 
   return pipe(
-    TAlt.seqTParT(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
+    TAlt.seqTPar(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
     TAlt.concatAllVoid,
   )();
 };
@@ -380,7 +380,7 @@ export const addTwitterMetadata = async (
   const imageUrl = Twitter.getProfileImage(profile) ?? null;
 
   return pipe(
-    TAlt.seqTParT(
+    TAlt.seqTPar(
       Contracts.setSimpleTextColumn("twitter_image_url", address, imageUrl),
       Contracts.setSimpleTextColumn("twitter_name", address, profile.name),
       Contracts.setSimpleTextColumn(
@@ -474,7 +474,7 @@ const updateOpenseaMetadataFromContract = (
   pipe(
     Log.debug(`updating opensea metadata for ${address}`),
     () =>
-      TAlt.seqTParT(
+      TAlt.seqTPar(
         Contracts.setSimpleTextColumn(
           "opensea_twitter_handle",
           address,
@@ -535,7 +535,7 @@ const addOpenseaMetadata = (address: string) =>
       () => undefined,
     ),
     T.chain(() =>
-      TAlt.seqTParT(
+      TAlt.seqTPar(
         Contracts.updatePreferredMetadata(address),
         Opensea.setContractLastFetchNow(address),
       ),
@@ -571,7 +571,7 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
     return undefined;
   }
 
-  await TAlt.seqTParT(
+  await TAlt.seqTPar(
     Contracts.setSimpleTextColumn(
       "defi_llama_category",
       address,
@@ -593,7 +593,7 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
 
 const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
-    TAlt.seqTParT(
+    TAlt.seqTPar(
       () => addDefiLlamaMetadata(address),
       // Blockscan started using CloudFlare, returning 503s.
       // () => addEtherscanNameTag(address, forceRefetch),

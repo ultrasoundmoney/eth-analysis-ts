@@ -93,7 +93,7 @@ const calcMedian = (values: number[]) => {
 // The inversion probably depends on which is token0.
 export const getMedianEthPrice = (blockHeight?: number): T.Task<EthPrice> =>
   pipe(
-    TAlt.seqTParT(
+    TAlt.seqTPar(
       pipe(
         Blocks.getBlockSafe(blockHeight ?? "latest"),
         TOAlt.getOrThrow(`failed to get ${blockHeight} block`),

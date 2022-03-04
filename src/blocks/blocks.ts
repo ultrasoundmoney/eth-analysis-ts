@@ -288,9 +288,9 @@ export const storeBlock = async (
     throw new Error("tried to store a block with no known parent");
   }
 
-  await TAlt.seqTSeqT(
-    TAlt.seqTParT(storeContractsTask, storeBlockTask),
-    TAlt.seqTParT(
+  await TAlt.seqTSeq(
+    TAlt.seqTPar(storeContractsTask, storeBlockTask),
+    TAlt.seqTPar(
       storeContractsBaseFeesTask(block, feeSegments, transactionCounts),
       updateContractsMinedAtTask,
     ),

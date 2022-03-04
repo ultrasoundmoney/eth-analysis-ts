@@ -63,7 +63,7 @@ const getBurnRate = (block: BlockDb) =>
 
 export const calcBurnRates = (block: BlockDb): T.Task<BurnRatesT> => {
   return pipe(
-    TAlt.seqSParT({
+    TAlt.seqSPar({
       burnRate5m: getTimeframeBurnRate(block, "5m"),
       burnRate1h: getTimeframeBurnRate(block, "1h"),
       burnRate24h: getTimeframeBurnRate(block, "24h"),

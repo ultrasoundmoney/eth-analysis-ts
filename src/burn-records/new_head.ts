@@ -8,7 +8,7 @@ export const onNewBlock = (block: BlockDb) =>
     TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
       pipe(
-        TAlt.seqTParT(
+        TAlt.seqTPar(
           BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
           BurnRecords.addRecordsFromBlockAndIncluding(timeFrame, block.number),
         ),

@@ -40,7 +40,7 @@ export const getLatestAnalysis = () =>
 
 const getLeaderboards = () =>
   pipe(
-    TAlt.seqTParT(
+    TAlt.seqTPar(
       Performance.measureTaskPerf(
         "calc leaderboard all",
         LeaderboardsAll.calcLeaderboardAll(),

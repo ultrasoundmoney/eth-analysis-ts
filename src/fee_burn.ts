@@ -100,7 +100,7 @@ export const getFeeBurnsOld = () =>
     TimeFrames.timeFramesNext,
     T.traverseArray(
       (timeFrame) =>
-        TAlt.seqTParT(T.of(timeFrame), getFeeBurn(timeFrame)) as T.Task<
+        TAlt.seqTPar(T.of(timeFrame), getFeeBurn(timeFrame)) as T.Task<
           [TimeFrameNext, PreciseBaseFeeSum]
         >,
     ),
@@ -126,7 +126,7 @@ export const getFeeBurns = () =>
     TimeFrames.timeFramesNext,
     T.traverseArray(
       (timeFrame) =>
-        TAlt.seqTParT(T.of(timeFrame), getFeeBurn(timeFrame)) as T.Task<
+        TAlt.seqTPar(T.of(timeFrame), getFeeBurn(timeFrame)) as T.Task<
           [TimeFrameNext, PreciseBaseFeeSum]
         >,
     ),
