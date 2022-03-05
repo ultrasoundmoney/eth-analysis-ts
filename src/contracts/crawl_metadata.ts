@@ -55,91 +55,128 @@ export const web3Queue = new PQueue({
   timeout: Duration.millisFromSeconds(60),
 });
 
+const queueWeb3Fetch = <E, A>(task: TE.TaskEither<E, A>) =>
+  pipe(
+    TE.tryCatch(
+      () => web3Queue.add(task),
+      () => new TimeoutError(),
+    ),
+    TE.chainW((e) => (E.isLeft(e) ? TE.left(e.left) : TE.right(e.right))),
+  );
 const web3LastAttemptMap: Record<string, Date | undefined> = {};
 
-export const addWeb3Metadata = async (
+const getShouldAttempt = (
+  attemptMap: Partial<Record<string, Date>>,
   address: string,
-  forceRefetch = false,
-): Promise<void> => {
-  const lastAttempted = web3LastAttemptMap[address];
-
-  if (
-    forceRefetch === false &&
-    lastAttempted !== undefined &&
-    DateFns.differenceInHours(new Date(), lastAttempted) < 6
-  ) {
-    return undefined;
-  }
-
-  const contractE = await web3Queue.add(() =>
-    ContractsWeb3.getContract(address)(),
+) =>
+  pipe(
+    attemptMap[address],
+    O.fromNullable,
+    O.map(
+      (lastAttempted) =>
+        DateFns.differenceInHours(new Date(), lastAttempted) < 6,
+    ),
+    O.getOrElse(() => false),
   );
 
-  // Queue has a timeout and returns undefined when hit.
-  if (contractE === undefined) {
-    return undefined;
-  }
+const handleGetSupportedInterfaceError = (
+  address: string,
+  interfaceName: string,
+  e: ContractsWeb3.NoSupportsInterfaceMethodError | Error,
+) =>
+  e instanceof ContractsWeb3.NoSupportsInterfaceMethodError
+    ? // Not all contracts will implement this method, do nothing.
+      T.of(undefined)
+    : T.fromIO(() => {
+        Log.error(
+          `failed to check contract supports interface ${interfaceName} for ${address}`,
+          e,
+        );
+      });
 
-  if (E.isLeft(contractE)) {
-    if (contractE.left instanceof Etherscan.AbiNotVerifiedError) {
-      // Not all contracts we see are verified, that's okay.
-      return undefined;
-    }
-
-    // Something else went wrong!
-    Log.error("get web3 contract for metadata error", contractE.left);
-    return undefined;
-  }
-
-  const contract = contractE.right;
-
-  web3LastAttemptMap[address] = new Date();
-
-  const [supportsErc_721, supportsErc_1155, nameE] = await Promise.all([
-    ContractsWeb3.getSupportedInterface(contract, "ERC721"),
-    ContractsWeb3.getSupportedInterface(contract, "ERC1155"),
-    ContractsWeb3.getName(contract)(),
-  ]);
-
-  let name = null;
-
-  if (E.isLeft(nameE)) {
-    if (nameE.left instanceof ContractsWeb3.NoNameMethodError) {
-      // Not all contracts will have a name method.
-    } else {
-      Log.error("get web3 contract name error", nameE.left);
-    }
-  }
-
-  if (E.isRight(nameE)) {
-    name = nameE.right;
-  }
-
-  // Contracts may have a NUL byte in their name, which is not safe to store in postgres. We should find a way to store this safely.
-  const safeName = name?.replaceAll("\x00", "");
-
-  await TAlt.seqTPar(
-    safeName === undefined
-      ? T.of(undefined)
-      : Contracts.setSimpleTextColumn("web3_name", address, safeName),
-    supportsErc_721 === undefined
-      ? T.of(undefined)
-      : Contracts.setSimpleBooleanColumn(
-          "supports_erc_721",
-          address,
-          supportsErc_721,
+const addWeb3Metadata = (address: string) =>
+  pipe(
+    ContractsWeb3.getContract(address),
+    queueWeb3Fetch,
+    TE.chainFirstIOK(() => () => {
+      web3LastAttemptMap[address] = new Date();
+    }),
+    TE.chainTaskK((contract) => {
+      const storeErc721Task = pipe(
+        ContractsWeb3.getSupportedInterface(contract, "ERC721"),
+        TE.matchE(
+          (e) => handleGetSupportedInterfaceError(address, "erc721", e),
+          (supportsErc_721) =>
+            Contracts.setSimpleBooleanColumn(
+              "supports_erc_721",
+              address,
+              supportsErc_721,
+            ),
         ),
-    supportsErc_1155 === undefined
-      ? T.of(undefined)
-      : Contracts.setSimpleBooleanColumn(
-          "supports_erc_1155",
-          address,
-          supportsErc_1155,
-        ),
-  )();
+      );
 
-  await Contracts.updatePreferredMetadata(address)();
-};
+      const storeErc1155Task = pipe(
+        ContractsWeb3.getSupportedInterface(contract, "ERC1155"),
+        TE.matchE(
+          (e) => handleGetSupportedInterfaceError(address, "erc1155", e),
+          (supportsErc_1155) =>
+            Contracts.setSimpleBooleanColumn(
+              "supports_erc_1155",
+              address,
+              supportsErc_1155,
+            ),
+        ),
+      );
+
+      const storeNameTask = pipe(
+        ContractsWeb3.getName(contract),
+        // Contracts may have a NUL byte in their name, which is not safe to store in postgres. We should find a way to store this safely.
+        TE.map((name) => name.replaceAll("\x00", "")),
+        TE.matchE(
+          (e) => {
+            if (e instanceof ContractsWeb3.NoNameMethodError) {
+              // Not all contracts will implement a name method.
+              return Contracts.setSimpleTextColumn("web3_name", address, null);
+            }
+
+            Log.error("failed to get web3 contract name", e);
+            return T.of(undefined);
+          },
+          (safeName) =>
+            Contracts.setSimpleTextColumn("web3_name", address, safeName),
+        ),
+      );
+
+      return pipe(
+        TAlt.seqTPar(storeErc721Task, storeErc1155Task, storeNameTask),
+        T.chain(() => Contracts.updatePreferredMetadata(address)),
+      );
+    }),
+    TE.match(
+      (e) => {
+        if (e instanceof TimeoutError) {
+          // Timeouts are expected.
+          return undefined;
+        }
+        if (e instanceof Etherscan.AbiNotVerifiedError) {
+          // Not all contracts we see are verified, that's okay.
+          return undefined;
+        }
+
+        // Everything else is an error we should look at although we don't want to hold up the entire crawling process and don't have proper error handling higher up yet.
+        Log.error("failed to fetch web3 contract", e);
+        return undefined;
+      },
+      (v) => v,
+    ),
+  );
+
+export const refreshWeb3Metadata = (address: string, forceRefetch = false) =>
+  pipe(
+    forceRefetch || getShouldAttempt(web3LastAttemptMap, address),
+    T.of,
+    TAlt.whenTrue(addWeb3Metadata(address)),
+  );
 
 type SimilarContract = {
   address: string;
@@ -597,7 +634,7 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
       () => addDefiLlamaMetadata(address),
       // Blockscan started using CloudFlare, returning 503s.
       () => addEtherscanNameTag(address, forceRefetch),
-      () => addWeb3Metadata(address, forceRefetch),
+      refreshWeb3Metadata(address, forceRefetch),
       addOpenseaMetadataMaybe(address, forceRefetch),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.

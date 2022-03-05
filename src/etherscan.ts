@@ -95,7 +95,7 @@ const fetchAndCacheAbi = (address: string) =>
     }),
   );
 
-export const getAbi = (address: string): TE.TaskEither<Error, AbiItem[]> =>
+export const getAbi = (address: string) =>
   pipe(
     getCachedAbi(address),
     O.match(() => fetchAndCacheAbi(address), TE.right),

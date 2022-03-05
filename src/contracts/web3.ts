@@ -22,15 +22,14 @@ const fetchAndCacheContract = (address: string) =>
     }),
   );
 
-export const getContract = (
-  address: string,
-): TE.TaskEither<Etherscan.FetchAbiError, Contract> =>
+export const getContract = (address: string) =>
   pipe(
     getCachedContract(address),
     O.match(() => fetchAndCacheContract(address), TE.right),
   );
 
 export class NoNameMethodError extends Error {}
+export class NameMethodRequiresParamError extends Error {}
 
 export const getName = (
   contract: Contract,
@@ -39,9 +38,20 @@ export const getName = (
     ? TE.tryCatch(
         () => contract.methods.name().call(),
         (e) => {
+          if (
+            e instanceof Error &&
+            e.message.startsWith("Invalid number of parameters for")
+          ) {
+            Log.debug(
+              `name method requires param for contract ${contract.options.address}`,
+            );
+            return new NameMethodRequiresParamError();
+          }
+
           Log.error(
             `name method present but call failed for ${contract.options.address}`,
           );
+
           return TEAlt.errorFromUnknown(e);
         },
       )
@@ -54,26 +64,20 @@ const interfaceSignatureMap: Record<InterfaceId, string> = {
   ERC1155: "0xd9b67a26",
 };
 
-export const getSupportedInterface = async (
+export class NoSupportsInterfaceMethodError extends Error {}
+
+export const getSupportedInterface = (
   contract: Contract,
   interfaceId: InterfaceId,
-): Promise<boolean | undefined> => {
-  const hasSupportedInterfaceMethod =
-    contract.methods["supportsInterface"] !== undefined;
-
-  if (!hasSupportedInterfaceMethod) {
-    return false;
-  }
-
-  const signature = interfaceSignatureMap[interfaceId];
-
-  try {
-    const interfaceSupported = await contract.methods
-      .supportsInterface(signature)
-      .call();
-    return interfaceSupported;
-  } catch (error) {
-    Log.error(String(error), error);
-    return undefined;
-  }
-};
+): TE.TaskEither<NoSupportsInterfaceMethodError | Error, boolean> =>
+  contract.methods["supportsInterface"] !== undefined
+    ? pipe(interfaceSignatureMap[interfaceId], (signature) =>
+        TE.tryCatch(
+          () =>
+            contract.methods
+              .supportsInterface(signature)
+              .call() as Promise<boolean>,
+          TEAlt.errorFromUnknown,
+        ),
+      )
+    : TE.left(new NoSupportsInterfaceMethodError());
