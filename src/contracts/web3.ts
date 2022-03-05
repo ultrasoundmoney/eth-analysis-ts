@@ -34,18 +34,18 @@ export class NoNameMethodError extends Error {}
 
 export const getName = (
   contract: Contract,
-): TE.TaskEither<NoNameMethodError | Error, string> => {
-  const hasNameMethod = contract.methods["name"] !== undefined;
-
-  if (!hasNameMethod) {
-    return TE.left(new NoNameMethodError());
-  }
-
-  return TE.tryCatch(
-    () => contract.methods.name().call(),
-    TEAlt.errorFromUnknown,
-  );
-};
+): TE.TaskEither<NoNameMethodError | Error, string> =>
+  contract.methods["name"] !== undefined
+    ? TE.tryCatch(
+        () => contract.methods.name().call(),
+        (e) => {
+          Log.error(
+            `name method present but call failed for ${contract.options.address}`,
+          );
+          return TEAlt.errorFromUnknown(e);
+        },
+      )
+    : TE.left(new NoNameMethodError());
 
 type InterfaceId = "ERC721" | "ERC1155";
 
