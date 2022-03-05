@@ -319,7 +319,7 @@ const addEtherscanNameTag = async (
 const twitterProfileLastAttemptMap: Record<string, Date | undefined> = {};
 
 export const twitterProfileQueue = new PQueue({
-  concurrency: 2,
+  concurrency: 1,
   timeout: Duration.millisFromSeconds(60),
 });
 
