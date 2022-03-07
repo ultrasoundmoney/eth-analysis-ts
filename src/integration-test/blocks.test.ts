@@ -2,8 +2,8 @@ import { test } from "uvu";
 import * as assert from "uvu/assert";
 import * as Blocks from "../blocks/blocks.js";
 import { BlockDb } from "../blocks/blocks.js";
-import * as BlockSamples from "../block_samples.js";
 import { runMigrations, sql } from "../db.js";
+import * as SamplesBlocks from "../samples/blocks.js";
 
 const insertTestBlock = async (block: BlockDb) => {
   const insertable = {
@@ -32,7 +32,7 @@ test.before(async () => {
 });
 
 test("return the last stored block", async () => {
-  const block = await BlockSamples.getSingleBlock();
+  const block = await SamplesBlocks.getSingleBlock();
   await insertTestBlock(block);
   const storedBlock = await Blocks.getLastStoredBlock()();
   assert.is(storedBlock.hash, block.hash);
