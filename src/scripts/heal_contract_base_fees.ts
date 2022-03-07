@@ -53,7 +53,7 @@ const healBlock = async (
   const transactionCounts = Blocks.countTransactionsPerContract(
     transactionSegments.other,
   );
-  await Blocks.storeContractsBaseFeesTask(
+  await Blocks.storeContractBaseFeesTask(
     block,
     feeSegments,
     transactionCounts,
