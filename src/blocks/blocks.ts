@@ -188,7 +188,28 @@ export const blockDbFromBlock = (
   tips,
 });
 
-export const storeContractsBaseFeesTask = (
+export const insertableFromContractBaseFees = (
+  block: BlockV1,
+  feeSegments: FeeSegments,
+  transactionCounts: Map<string, number>,
+  address: string,
+  baseFees: number,
+): ContractBaseFeesRow => ({
+  base_fees: baseFees,
+  base_fees_256: pipe(
+    feeSegments.contractSumsEthBI.get(address),
+    O.fromNullable,
+    OAlt.getOrThrow(
+      "when storing contract base fees, bigint counterparts were missing",
+    ),
+    String,
+  ),
+  block_number: block.number,
+  contract_address: address,
+  transaction_count: transactionCounts.get(address) ?? 0,
+});
+
+export const storeContractBaseFeesTask = (
   block: BlockV1,
   feeSegments: FeeSegments,
   transactionCounts: Map<string, number>,
@@ -199,21 +220,14 @@ export const storeContractsBaseFeesTask = (
     TO.fromOption,
     TO.chainTaskK(
       flow(
-        A.map(
-          ([address, baseFees]): ContractBaseFeesRow => ({
-            base_fees: baseFees,
-            base_fees_256: pipe(
-              feeSegments.contractSumsEthBI.get(address),
-              O.fromNullable,
-              OAlt.getOrThrow(
-                "when storing contract base fees, bigint counterparts were missing",
-              ),
-              String,
-            ),
-            block_number: block.number,
-            contract_address: address,
-            transaction_count: transactionCounts.get(address) ?? 0,
-          }),
+        A.map(([address, baseFees]) =>
+          insertableFromContractBaseFees(
+            block,
+            feeSegments,
+            transactionCounts,
+            address,
+            baseFees,
+          ),
         ),
         (insertables) =>
           sqlTVoid`
