@@ -113,8 +113,8 @@ type ContractBaseFeesRow = {
 
 export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
   const [block] = await sql<{ isKnown: boolean }[]>`
-      SELECT EXISTS(SELECT hash FROM blocks WHERE hash = ${hash}) AS is_known
-    `;
+    SELECT EXISTS(SELECT hash FROM blocks WHERE hash = ${hash}) AS is_known
+  `;
 
   return block?.isKnown ?? false;
 };
