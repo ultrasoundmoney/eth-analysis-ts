@@ -242,6 +242,6 @@ export const rollbackBlocks = (
   pipe(
     T.Do,
     T.apS("preMerge", rollbackBlocksWithMergeState(blocksToRollback, false)),
-    T.apS("postMerge", analyzeNewBlocksWithMergeState(blocksToRollback, true)),
+    T.apS("postMerge", rollbackBlocksWithMergeState(blocksToRollback, true)),
     T.chain(() => setLastAnalyzed(NEA.last(blocksToRollback).number - 1)),
   );
