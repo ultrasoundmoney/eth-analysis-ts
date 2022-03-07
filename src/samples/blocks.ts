@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import neatCsv from "neat-csv";
 import { URL } from "url";
-import { BlockDb } from "./blocks/blocks.js";
+import { BlockDb } from "../blocks/blocks.js";
 
 type RawBlock = {
   base_fee_per_gas: string;
@@ -34,12 +34,8 @@ const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
   tips: Number(rawBlock.tips),
 });
 
-const blocksM5Path = new URL("./sample-data/blocks_5m.csv", import.meta.url)
-  .pathname;
-const blocksH1Path = new URL("./sample-data/blocks_1h.csv", import.meta.url)
-  .pathname;
-const blocksD1Path = new URL("./sample-data/blocks_1d.csv", import.meta.url)
-  .pathname;
+const blocksM5Path = new URL("./blocks_m5.csv", import.meta.url).pathname;
+const blocksH1Path = new URL("./blocks_h1.csv", import.meta.url).pathname;
 
 let m5Blocks: BlockDb[] | undefined = undefined;
 
@@ -73,16 +69,4 @@ export const getH1Blocks = async (): Promise<BlockDb[]> => {
   }
 
   return h1Blocks;
-};
-
-let d1Blocks: BlockDb[] | undefined = undefined;
-
-export const getD1Blocks = async (): Promise<BlockDb[]> => {
-  if (d1Blocks === undefined) {
-    const file = await fs.readFile(blocksD1Path, "utf8");
-    const rawBlocks = await neatCsv<RawBlock>(file);
-    d1Blocks = rawBlocks.map(blockFromRawBlock);
-  }
-
-  return d1Blocks;
 };
