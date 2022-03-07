@@ -5,13 +5,15 @@ import { LimitedTimeFrameNext, TimeFrameNext } from "../time_frames.js";
 
 export const maxRank = 10;
 
+const analysisStateKey = "burn-records";
+
 export const getLastIncludedBlock = () =>
   pipe(
-    sqlT<{ lastAnalyzedBlock: number | null }[]>`
+    sqlT<{ last: number | null }[]>`
       SELECT last FROM analysis_state
-      WHERE key = 'burn_records'
+      WHERE key = ${analysisStateKey}
     `,
-    T.map(flow((rows) => rows[0]?.lastAnalyzedBlock, O.fromNullable)),
+    T.map(flow((rows) => rows[0]?.last, O.fromNullable)),
   );
 
 export const setLastIncludedBlock = (blockNumber: number) =>
@@ -20,7 +22,7 @@ export const setLastIncludedBlock = (blockNumber: number) =>
       INSERT INTO analysis_state
         (key, last)
       VALUES
-        ('burn_records', ${blockNumber})
+        (${analysisStateKey}, ${blockNumber})
       ON CONFLICT (key) DO UPDATE SET
         last = excluded.last
     `,
@@ -31,7 +33,7 @@ export const setLastIncludedBlockIsLatest = () =>
   sqlT`
     INSERT INTO analysis_state
       (key, last)
-    SELECT 'burn_records', MAX(number) FROM blocks
+    SELECT ${analysisStateKey}, MAX(number) FROM blocks
     ON CONFLICT (key) DO UPDATE SET
       last = excluded.last
   `;
