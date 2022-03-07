@@ -103,7 +103,7 @@ const insertableFromBlock = (
   tips: tips,
 });
 
-type ContractBaseFeesRow = {
+export type ContractBaseFeesRow = {
   contract_address: string;
   base_fees: number;
   base_fees_256: string;
@@ -304,7 +304,7 @@ export const storeBlock = async (
   await TAlt.seqTSeq(
     TAlt.seqTPar(storeContractsTask, storeBlockTask),
     TAlt.seqTPar(
-      storeContractsBaseFeesTask(block, feeSegments, transactionCounts),
+      storeContractBaseFeesTask(block, feeSegments, transactionCounts),
       updateContractsMinedAtTask,
     ),
   )();
