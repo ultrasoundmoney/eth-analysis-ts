@@ -34,9 +34,12 @@ const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
   tips: Number(rawBlock.tips),
 });
 
-const blocksM5Path = new URL("../sample-data/blocks_5m.csv", import.meta.url).pathname;
-const blocksH1Path = new URL("../sample-data/blocks_1h.csv", import.meta.url).pathname;
-const blocksD1Path = new URL("../sample-data/blocks_1d.csv", import.meta.url).pathname;
+const blocksM5Path = new URL("./sample-data/blocks_5m.csv", import.meta.url)
+  .pathname;
+const blocksH1Path = new URL("./sample-data/blocks_1h.csv", import.meta.url)
+  .pathname;
+const blocksD1Path = new URL("./sample-data/blocks_1d.csv", import.meta.url)
+  .pathname;
 
 let m5Blocks: BlockDb[] | undefined = undefined;
 
