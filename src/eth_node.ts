@@ -10,6 +10,9 @@ import { pipe, T } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
 
+// TODO: restart whole service when websocket fails.
+// Try own node three times, then switch to fallback node.
+
 type LogWeb3 = web3Core.Log;
 const WebsocketProvider = web3Core.WebsocketProvider;
 
