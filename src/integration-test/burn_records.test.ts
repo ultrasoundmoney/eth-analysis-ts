@@ -2,35 +2,19 @@ import * as DateFns from "date-fns";
 import { test } from "uvu";
 import * as assert from "uvu/assert";
 import { BlockDb } from "../blocks/blocks.js";
-import * as BlocksData from "../blocks_data.js";
+import * as BlockSamples from "../block_samples.js";
 import * as BurnRecords from "../burn-records/burn_records.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as BurnRecordsSync from "../burn-records/sync.js";
 import { runMigrations, sql } from "../db.js";
 import { A, O, pipe } from "../fp.js";
 import * as TimeFrames from "../time_frames.js";
+import * as MockDb from "./mock_db.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (BigInt.prototype as any).toJSON = function () {
   return this.toString() + "n";
 };
-
-const insertableFromBlock = (block: BlockDb) => ({
-  base_fee_sum: block.baseFeeSum,
-  hash: block.hash,
-  mined_at: block.minedAt,
-  number: block.number,
-});
-
-const insertTestBlocks = async (blocks: BlockDb[]) =>
-  pipe(
-    blocks,
-    A.map(insertableFromBlock),
-    (blocks) => sql`
-      INSERT INTO blocks
-        ${sql(blocks)}
-    `,
-  );
 
 const setBlocksToNow = (blocks: BlockDb[]): BlockDb[] =>
   pipe(
@@ -63,8 +47,8 @@ test("should return none when no block has been included", async () => {
 });
 
 test("should set the last included block on sync", async () => {
-  const block = await BlocksData.getSingleBlock();
-  await insertTestBlocks([block]);
+  const block = await BlockSamples.getSingleBlock();
+  await MockDb.insertTestBlocks([block]);
 
   await BurnRecordsSync.sync()();
 
@@ -73,8 +57,8 @@ test("should set the last included block on sync", async () => {
 });
 
 test("should set the last included block on new head", async () => {
-  const block = await BlocksData.getSingleBlock();
-  await insertTestBlocks([block]);
+  const block = await BlockSamples.getSingleBlock();
+  await MockDb.insertTestBlocks([block]);
 
   await BurnRecordsNewHead.onNewBlock(block)();
 
@@ -83,9 +67,9 @@ test("should set the last included block on new head", async () => {
 });
 
 test("should sync new blocks on sync", async () => {
-  const block = await BlocksData.getSingleBlock();
+  const block = await BlockSamples.getSingleBlock();
   const [nowBlock] = setBlocksToNow([block]);
-  await insertTestBlocks([nowBlock]);
+  await MockDb.insertTestBlocks([nowBlock]);
 
   await BurnRecordsSync.sync()();
 
@@ -100,9 +84,9 @@ test("should sync new blocks on sync", async () => {
 });
 
 test("should add a new block on new head", async () => {
-  const block = await BlocksData.getSingleBlock();
+  const block = await BlockSamples.getSingleBlock();
   const [nowBlock] = setBlocksToNow([block]);
-  await insertTestBlocks([nowBlock]);
+  await MockDb.insertTestBlocks([nowBlock]);
 
   await BurnRecordsNewHead.onNewBlock(block)();
 
@@ -117,8 +101,8 @@ test("should add a new block on new head", async () => {
 });
 
 test("should expire records outside time frame on sync", async () => {
-  const block = await BlocksData.getSingleBlock();
-  await insertTestBlocks([block]);
+  const block = await BlockSamples.getSingleBlock();
+  await MockDb.insertTestBlocks([block]);
 
   await BurnRecordsSync.sync()();
 
@@ -127,7 +111,7 @@ test("should expire records outside time frame on sync", async () => {
 });
 
 test("should expire a record that's fallen outside the time frame", async () => {
-  const blocks = await BlocksData.getM5Blocks();
+  const blocks = await BlockSamples.getM5Blocks();
   const oldBlock = {
     ...blocks[0],
     minedAt: pipe(new Date(), (dt) => DateFns.subMinutes(dt, 6)),
@@ -136,7 +120,7 @@ test("should expire a record that's fallen outside the time frame", async () => 
     ...blocks[1],
     minedAt: new Date(),
   };
-  await insertTestBlocks([oldBlock, newBlock]);
+  await MockDb.insertTestBlocks([oldBlock, newBlock]);
 
   await BurnRecordsNewHead.onNewBlock(newBlock)();
 
@@ -148,9 +132,9 @@ test("should expire a record that's fallen outside the time frame", async () => 
 });
 
 test("should remove records on rollback", async () => {
-  const block = await BlocksData.getSingleBlock();
+  const block = await BlockSamples.getSingleBlock();
   const [nowBlock] = setBlocksToNow([block]);
-  await insertTestBlocks([nowBlock]);
+  await MockDb.insertTestBlocks([nowBlock]);
 
   await BurnRecordsNewHead.onNewBlock(block)();
   const [topRecord] = await BurnRecords.getBurnRecords("m5")();
@@ -166,9 +150,9 @@ test("should remove records on rollback", async () => {
 });
 
 test("should update last included on rollback", async () => {
-  const block = await BlocksData.getSingleBlock();
+  const block = await BlockSamples.getSingleBlock();
   const [nowBlock] = setBlocksToNow([block]);
-  await insertTestBlocks([nowBlock]);
+  await MockDb.insertTestBlocks([nowBlock]);
 
   await BurnRecordsNewHead.onNewBlock(block)();
   await BurnRecordsNewHead.onRollback(block.number)();
@@ -178,9 +162,9 @@ test("should update last included on rollback", async () => {
 });
 
 test("should prune records outside max rank", async () => {
-  const blocks = await BlocksData.getH1Blocks();
+  const blocks = await BlockSamples.getH1Blocks();
   const nowBlocks = setBlocksToNow(blocks);
-  await insertTestBlocks(nowBlocks);
+  await MockDb.insertTestBlocks(nowBlocks);
   await BurnRecordsSync.sync()();
 
   const topRecords = await BurnRecords.getBurnRecords("all")();
