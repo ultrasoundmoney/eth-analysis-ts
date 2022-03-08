@@ -1,4 +1,3 @@
-import * as Blocks from "./blocks/blocks.js";
 import * as TimeFrames from "./duration.js";
 import { O, pipe } from "./fp.js";
 
@@ -36,18 +35,7 @@ export const limitedTimeFrameMillisMap: Record<LimitedTimeFrame, number> = {
   "30d": TimeFrames.millisFromDays(30),
 };
 
-export const getFirstBlockToIncludeToAll = (
-  lastIncludedBlock: O.Option<number>,
-) =>
-  pipe(
-    lastIncludedBlock,
-    O.match(
-      () => Blocks.londonHardForkBlockNumber,
-      (lastIncludedBlock) => lastIncludedBlock + 1,
-    ),
-  );
-
-export const getEarliestBlockToAddLimitedTimeFrames = (
+export const getEarliestBlockToAdd = (
   earliestBlockInTimeFrame: number,
   lastIncludedBlock: O.Option<number>,
 ) =>
