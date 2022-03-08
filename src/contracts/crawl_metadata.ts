@@ -1,6 +1,5 @@
 import * as DateFns from "date-fns";
 import PQueue from "p-queue";
-import { sql } from "../db.js";
 import * as DefiLlama from "../defi_llama.js";
 import * as Duration from "../duration.js";
 import { RateLimitError } from "../errors.js";
@@ -13,6 +12,7 @@ import * as Opensea from "../opensea.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Twitter from "../twitter.js";
 import * as Contracts from "./contracts.js";
+import { addMetadataFromSimilar } from "./metadata_similar.js";
 import * as ContractsWeb3 from "./web3.js";
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
@@ -65,7 +65,7 @@ const queueWeb3Fetch = <E, A>(task: TE.TaskEither<E, A>) =>
   );
 const web3LastAttemptMap: Record<string, Date | undefined> = {};
 
-const getShouldAttempt = (
+const getIsBackoffPast = (
   attemptMap: Partial<Record<string, Date>>,
   address: string,
 ) =>
@@ -173,80 +173,9 @@ const addWeb3Metadata = (address: string) =>
 
 export const refreshWeb3Metadata = (address: string, forceRefetch = false) =>
   pipe(
-    forceRefetch || getShouldAttempt(web3LastAttemptMap, address),
-    T.of,
-    TAlt.whenTrue(addWeb3Metadata(address)),
+    forceRefetch || getIsBackoffPast(web3LastAttemptMap, address),
+    (shouldAttempt) => TAlt.when(shouldAttempt, addWeb3Metadata(address)),
   );
-
-type SimilarContract = {
-  address: string;
-  category: string | null;
-  imageUrl: string | null;
-  name: string | null;
-  twitterHandle: string | null;
-};
-
-export const addMetadataFromSimilar = async (
-  address: string,
-  nameStartsWith: string,
-): Promise<void> => {
-  Log.debug(
-    `attempting to add similar metadata for ${nameStartsWith} - ${address}`,
-  );
-  const nameStartsWithPlusWildcard = `${nameStartsWith}%`;
-  const similarContracts = await sql<SimilarContract[]>`
-    SELECT address, category, image_url, name, twitter_handle FROM contracts
-    WHERE name ILIKE ${nameStartsWithPlusWildcard}
-  `;
-
-  if (similarContracts.length === 0) {
-    return;
-  }
-
-  Log.debug(
-    `found ${similarContracts.length} similar contracts, starting with ${nameStartsWith}`,
-  );
-
-  const getFirstKey = (key: keyof SimilarContract): string | undefined =>
-    pipe(
-      similarContracts,
-      A.map((contract) => contract[key]),
-      A.map(O.fromNullable),
-      A.compact,
-      A.head,
-      O.toUndefined,
-    );
-
-  const category = getFirstKey("category");
-  const name = getFirstKey("name");
-  const imageUrl = getFirstKey("imageUrl");
-  const twitterHandle = getFirstKey("twitterHandle");
-
-  const categoryTask =
-    category === undefined
-      ? T.of(undefined)
-      : Contracts.setSimpleTextColumn("category", address, category);
-
-  const nameTask =
-    name === undefined
-      ? T.of(undefined)
-      : Contracts.setSimpleTextColumn("name", address, name);
-
-  const imageUrlTask =
-    imageUrl === undefined
-      ? T.of(undefined)
-      : Contracts.setSimpleTextColumn("image_url", address, imageUrl);
-
-  const twitterHandleTask =
-    twitterHandle === undefined
-      ? T.of(undefined)
-      : Contracts.setSimpleTextColumn("twitter_handle", address, twitterHandle);
-
-  return pipe(
-    TAlt.seqTPar(categoryTask, nameTask, imageUrlTask, twitterHandleTask),
-    TAlt.concatAllVoid,
-  )();
-};
 
 const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
 
@@ -282,7 +211,7 @@ const addEtherscanNameTag = async (
   // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
   if (name.indexOf(":") !== -1) {
     const nameStartsWith = name.split(":")[0];
-    await addMetadataFromSimilar(address, nameStartsWith);
+    await addMetadataFromSimilar(address, nameStartsWith)();
   }
 
   await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
