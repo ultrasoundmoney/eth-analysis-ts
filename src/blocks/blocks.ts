@@ -38,21 +38,21 @@ export type BlockV1 = {
   transactions: string[];
 };
 
-export const blockV1FromRaw = (rawBlock: EthNode.RawBlock): BlockV1 => ({
-  baseFeePerGas: Number(rawBlock.baseFeePerGas),
-  baseFeePerGasBI: BigInt(rawBlock.baseFeePerGas),
-  gasLimit: Hexadecimal.numberFromHex(rawBlock.gasLimit),
-  gasLimitBI: BigInt(rawBlock.gasLimit),
-  gasUsed: Hexadecimal.numberFromHex(rawBlock.gasUsed),
-  gasUsedBI: BigInt(rawBlock.gasUsed),
-  hash: rawBlock.hash,
-  number: Hexadecimal.numberFromHex(rawBlock.number),
-  parentHash: rawBlock.parentHash,
-  size: Hexadecimal.numberFromHex(rawBlock.size),
+export const blockV1FromNode = (blockNode: EthNode.BlockNode): BlockV1 => ({
+  baseFeePerGas: Number(blockNode.baseFeePerGas),
+  baseFeePerGasBI: BigInt(blockNode.baseFeePerGas),
+  gasLimit: Hexadecimal.numberFromHex(blockNode.gasLimit),
+  gasLimitBI: BigInt(blockNode.gasLimit),
+  gasUsed: Hexadecimal.numberFromHex(blockNode.gasUsed),
+  gasUsedBI: BigInt(blockNode.gasUsed),
+  hash: blockNode.hash,
+  number: Hexadecimal.numberFromHex(blockNode.number),
+  parentHash: blockNode.parentHash,
+  size: Hexadecimal.numberFromHex(blockNode.size),
   timestamp: DateFns.fromUnixTime(
-    Hexadecimal.numberFromHex(rawBlock.timestamp),
+    Hexadecimal.numberFromHex(blockNode.timestamp),
   ),
-  transactions: rawBlock.transactions,
+  transactions: blockNode.transactions,
 });
 
 export type BlockDbInsertable = {
@@ -135,7 +135,7 @@ export const getBlockWithRetry = async (
 
     if (typeof maybeBlock?.hash === "string") {
       PerformanceMetrics.onBlockReceived();
-      return blockV1FromRaw(maybeBlock);
+      return blockV1FromNode(maybeBlock);
     }
 
     if (tries === 10) {
@@ -159,14 +159,14 @@ export const getBlockSafe = (
   pipe(
     () => EthNode.getBlock(blockNumber),
     T.map(O.fromNullable),
-    TO.map(blockV1FromRaw),
+    TO.map(blockV1FromNode),
   );
 
 export const getBlockByHash = (hash: string) =>
   pipe(
     () => EthNode.getRawBlockByHash(hash),
     T.map(O.fromNullable),
-    TO.map(blockV1FromRaw),
+    TO.map(blockV1FromNode),
   );
 
 export const blockDbFromBlock = (

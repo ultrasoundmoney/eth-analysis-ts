@@ -9,7 +9,7 @@ import * as EthNode from "../eth_node.js";
 import { E, pipe, RA, T, TE } from "../fp.js";
 import * as Log from "../log.js";
 
-const block = Blocks.blockV1FromRaw(
+const block = Blocks.blockV1FromNode(
   (await EthNode.getBlock(Blocks.londonHardForkBlockNumber))!,
 );
 let nextDateToCheck = DateFns.startOfMinute(block.timestamp);
