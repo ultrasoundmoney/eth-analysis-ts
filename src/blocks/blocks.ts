@@ -7,16 +7,16 @@ import {
   sumFeeSegments,
 } from "../base_fees.js";
 import * as Contracts from "../contracts/contracts.js";
+import * as ContractBaseFees from "../contract_base_fees.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
-import { A, flow, NEA, O, OAlt, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
+import { A, flow, NEA, O, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import * as Transactions from "../transactions.js";
-import { usdToScaled } from "../usd_scaling.js";
 
 export const londonHardForkBlockNumber = 12965000;
 
@@ -74,7 +74,6 @@ export type BlockDb = {
   baseFeeSum: bigint;
   contractCreationSum: number;
   ethPrice: number;
-  ethPriceCents: bigint;
   ethTransferSum: number;
   gasUsed: bigint;
   hash: string;
@@ -174,34 +173,12 @@ export const blockDbFromAnalysis = (
   baseFeeSum: calcBlockBaseFeeSum(block),
   contractCreationSum: feeSegments.creationsSum,
   ethPrice,
-  ethPriceCents: usdToScaled(ethPrice),
   ethTransferSum: feeSegments.transfersSum,
   gasUsed: BigInt(block.gasUsed),
   hash: block.hash,
   minedAt: block.timestamp,
   number: block.number,
   tips,
-});
-
-export const insertableFromContractBaseFees = (
-  block: BlockV1,
-  feeSegments: FeeSegments,
-  transactionCounts: Map<string, number>,
-  address: string,
-  baseFees: number,
-): ContractBaseFeesInsertable => ({
-  base_fees: baseFees,
-  base_fees_256: pipe(
-    feeSegments.contractSumsEthBI.get(address),
-    O.fromNullable,
-    OAlt.getOrThrow(
-      "when storing contract base fees, bigint counterparts were missing",
-    ),
-    String,
-  ),
-  block_number: block.number,
-  contract_address: address,
-  transaction_count: transactionCounts.get(address) ?? 0,
 });
 
 export const storeContractBaseFeesTask = (
@@ -216,7 +193,7 @@ export const storeContractBaseFeesTask = (
     TO.chainTaskK(
       flow(
         A.map(([address, baseFees]) =>
-          insertableFromContractBaseFees(
+          ContractBaseFees.contractBaseFeesFromAnalysis(
             block,
             feeSegments,
             transactionCounts,
@@ -224,6 +201,7 @@ export const storeContractBaseFeesTask = (
             baseFees,
           ),
         ),
+        A.map(ContractBaseFees.insertableFromContractBaseFees),
         (insertables) =>
           sqlTVoid`
             INSERT INTO contract_base_fees ${sql(insertables)}
@@ -354,7 +332,6 @@ type BlockDbRow = {
   baseFeePerGas: string;
   contractCreationSum: number;
   ethPrice: number;
-  ethPriceCents: string;
   ethTransferSum: number;
   gasUsed: string;
   hash: string;
@@ -368,8 +345,6 @@ const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
   baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
   contractCreationSum: row.contractCreationSum,
   ethPrice: row.ethPrice,
-  // TODO: should be scaled going in, read the scaled value.
-  ethPriceCents: BigInt(row.ethPriceCents),
   ethTransferSum: row.ethTransferSum,
   gasUsed: BigInt(row.gasUsed),
   hash: row.hash,
@@ -388,7 +363,6 @@ export const getBlocks = (
         base_fee_per_gas,
         contract_creation_sum,
         eth_price,
-        (eth_price * 100)::bigint AS eth_price_cents,
         eth_transfer_sum,
         gas_used,
         hash,
