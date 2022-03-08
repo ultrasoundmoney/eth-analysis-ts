@@ -1,9 +1,22 @@
 import fs from "fs/promises";
 import neatCsv from "neat-csv";
-import { URL } from "url";
-import * as Blocks from "../blocks/blocks.js";
-import * as Db from "../db.js";
-import { A, O, pipe, T, TE, TEAlt } from "../fp.js";
+import * as ContractBaseFees from "../contract_base_fees.js";
+import { A, O, pipe, TE, TEAlt } from "../fp.js";
+
+export type SupportedSample = "m5" | "h1";
+
+const files: Record<SupportedSample, string> = {
+  m5: new URL("./contract_base_fees_m5.csv", import.meta.url).pathname,
+  h1: new URL("./contract_base_fees_h1.csv", import.meta.url).pathname,
+};
+
+const cache: Record<
+  SupportedSample,
+  O.Option<ContractBaseFees.ContractBaseFees[]>
+> = {
+  m5: O.none,
+  h1: O.none,
+};
 
 type RawContractBaseFees = {
   block_number: string;
@@ -15,33 +28,22 @@ type RawContractBaseFees = {
 
 const contractBaseFeesFromRaw = (
   rawRow: RawContractBaseFees,
-): Blocks.ContractBaseFeesRow => ({
-  block_number: Number(rawRow.block_number),
-  contract_address: rawRow.contract_address,
-  base_fees: Number(rawRow.base_fees),
-  transaction_count: Number(rawRow.transaction_count),
-  base_fees_256: rawRow.base_fees_256,
+): ContractBaseFees.ContractBaseFees => ({
+  baseFees256: BigInt(rawRow.base_fees_256),
+  baseFees: Number(rawRow.base_fees),
+  blockNumber: Number(rawRow.block_number),
+  contractAddress: rawRow.contract_address,
+  transactionCount: Number(rawRow.transaction_count),
 });
 
-const contractBaseFeesM5 = new URL(
-  "./contract_base_fees_m5.csv",
-  import.meta.url,
-).pathname;
-// const contractBaseFeesH1 = new URL(
-//   "./contract_base_fees_h1.csv",
-//   import.meta.url,
-// ).pathname;
-
-let m5ContractBaseFees: O.Option<Blocks.ContractBaseFeesRow[]> = O.none;
-
-export const getM5ContractBaseFees = () =>
+export const getContractBaseFeesFromFile = (sample: SupportedSample) =>
   pipe(
-    m5ContractBaseFees,
+    cache[sample],
     O.match(
       () =>
         pipe(
           TE.tryCatch(
-            () => fs.readFile(contractBaseFeesM5, "utf8"),
+            () => fs.readFile(files[sample], "utf8"),
             TEAlt.errorFromUnknown,
           ),
           TE.chain((file) =>
@@ -52,10 +54,10 @@ export const getM5ContractBaseFees = () =>
           ),
           TE.map(A.map(contractBaseFeesFromRaw)),
           TE.chainFirstIOK((contractBaseFees) => () => {
-            m5ContractBaseFees = O.some(contractBaseFees);
+            cache[sample] = O.some(contractBaseFees);
           }),
         ),
-      (contractBaseFees) => TE.right(contractBaseFees),
+      TE.right,
     ),
     TEAlt.getOrThrow,
   );
