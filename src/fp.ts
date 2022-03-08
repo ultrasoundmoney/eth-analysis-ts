@@ -91,6 +91,7 @@ export const OAlt = {
 };
 
 export const TOAlt = {
+  concatAllVoid: TO.map(Mo.concatAll(Void.Monoid)),
   getOrThrow:
     (message: string) =>
     <A>(taskOption: TO.TaskOption<A>) =>
@@ -100,6 +101,10 @@ export const TOAlt = {
           throw new Error(message);
         }),
       ),
+  seqSPar: Apply.sequenceS(TO.ApplyPar),
+  seqSSeq: Apply.sequenceS(TO.ApplySeq),
+  seqTPar: Apply.sequenceT(TO.ApplyPar),
+  seqTSeq: Apply.sequenceT(TO.ApplySeq),
 };
 
 export const IOAlt = {
