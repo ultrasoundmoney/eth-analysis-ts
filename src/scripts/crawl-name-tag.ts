@@ -160,17 +160,16 @@ const updateNameTagForAddress = (
         attempts: contractNameTagAttemptMap[address]?.attempts ?? 1,
       };
     }),
+    TO.chainFirstTaskK((name) =>
+      TAlt.when(name.indexOf(":") !== -1, () =>
+        addMetadataFromSimilar(address, name.split(":")[0]),
+      ),
+    ),
     TO.chainTaskK((name) =>
       pipe(
-        T.of(name),
         // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
-        TAlt.when(
-          (name) => name.indexOf(":") !== -1,
-          () => addMetadataFromSimilar(address, name.split(":")[0]),
-        ),
-        T.chain(() =>
-          Contracts.setSimpleTextColumn("etherscan_name_tag", address, name),
-        ),
+
+        Contracts.setSimpleTextColumn("etherscan_name_tag", address, name),
         T.chain(() => Contracts.updatePreferredMetadata(address)),
       ),
     ),
