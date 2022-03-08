@@ -103,7 +103,7 @@ const insertableFromBlock = (
   tips: tips,
 });
 
-export type ContractBaseFeesRow = {
+export type ContractBaseFeesInsertable = {
   contract_address: string;
   base_fees: number;
   base_fees_256: string;
@@ -194,7 +194,7 @@ export const insertableFromContractBaseFees = (
   transactionCounts: Map<string, number>,
   address: string,
   baseFees: number,
-): ContractBaseFeesRow => ({
+): ContractBaseFeesInsertable => ({
   base_fees: baseFees,
   base_fees_256: pipe(
     feeSegments.contractSumsEthBI.get(address),
