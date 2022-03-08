@@ -60,17 +60,8 @@ export const TAlt = {
   seqSSeq: Apply.sequenceS(T.ApplySeq),
   seqTPar: Apply.sequenceT(T.ApplyPar),
   seqTSeq: Apply.sequenceT(T.ApplySeq),
-  when:
-    <A, C>(shouldExecute: (a: A) => boolean, task: T.Task<C>) =>
-    (ma: T.Task<A>) =>
-      pipe(
-        ma,
-        T.chain<A, C | void>((a) =>
-          shouldExecute(a) ? task : T.of(undefined as void),
-        ),
-      ),
-  whenTrue: <A>(task: T.Task<A>) =>
-    TAlt.when((shouldExecute: boolean) => shouldExecute, task),
+  when: (shouldExecute: boolean, task: T.Task<void>) =>
+    shouldExecute ? task : T.of(undefined as void),
   logDebugStr: <A>(msg: string) =>
     T.chainFirstIOK<A, void>((value) => () => {
       Log.debug(msg + String(value));
