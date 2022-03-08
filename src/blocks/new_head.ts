@@ -129,7 +129,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const tips = BaseFees.calcBlockTips(block, transactionReceipts);
 
-  const blockDb = Blocks.blockDbFromBlock(
+  const blockDb = Blocks.blockDbFromAnalysis(
     block,
     feeSegments,
     tips,
