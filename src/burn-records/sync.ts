@@ -8,17 +8,15 @@ const getFirstBlockToInclude = (
   timeFrame: TimeFrames.TimeFrameNext,
   lastIncludedBlock: O.Option<number>,
 ) =>
-  timeFrame === "all"
-    ? T.of(TimeFrames.getFirstBlockToIncludeToAll(lastIncludedBlock))
-    : pipe(
-        Blocks.getEarliestBlockInTimeFrame(timeFrame),
-        T.map((earliestBlockInTimeFrame) =>
-          TimeFrames.getEarliestBlockToAddLimitedTimeFrames(
-            earliestBlockInTimeFrame,
-            lastIncludedBlock,
-          ),
-        ),
-      );
+  pipe(
+    Blocks.getEarliestBlockInTimeFrame(timeFrame),
+    T.map((earliestBlockInTimeFrame) =>
+      TimeFrames.getEarliestBlockToAdd(
+        earliestBlockInTimeFrame,
+        lastIncludedBlock,
+      ),
+    ),
+  );
 
 const syncTimeFrame = (
   timeFrame: TimeFrames.TimeFrameNext,
