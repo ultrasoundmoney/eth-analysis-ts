@@ -10,4 +10,4 @@ export const usdToScaled = (amount: number): bigint =>
   pipe(amount * 10 ** scalingFactor, Math.round, BigInt);
 
 export const scaledToUsd = (amount: bigint): number =>
-  pipe(amount / 10n ** 2n, Number);
+  Number(amount) / 10 ** scalingFactor;
