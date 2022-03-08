@@ -84,23 +84,18 @@ export type BlockDb = {
   tips: number;
 };
 
-const insertableFromBlock = (
-  block: BlockDb,
-  feeSegments: FeeSegments,
-  tips: number,
-  ethPrice: number,
-): BlockDbInsertable => ({
+export const insertableFromBlock = (block: BlockDb): BlockDbInsertable => ({
   base_fee_per_gas: String(block.baseFeePerGas),
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: String(block.baseFeeSum),
-  contract_creation_sum: feeSegments.creationsSum,
-  eth_price: ethPrice,
-  eth_transfer_sum: feeSegments.transfersSum,
+  contract_creation_sum: block.contractCreationSum,
+  eth_price: block.ethPrice,
+  eth_transfer_sum: block.ethTransferSum,
   gas_used: String(block.gasUsed),
   hash: block.hash,
   mined_at: block.minedAt,
   number: block.number,
-  tips: tips,
+  tips: block.tips,
 });
 
 export type ContractBaseFeesInsertable = {
@@ -169,7 +164,7 @@ export const getBlockByHash = (hash: string) =>
     TO.map(blockV1FromNode),
   );
 
-export const blockDbFromBlock = (
+export const blockDbFromAnalysis = (
   block: BlockV1,
   feeSegments: FeeSegments,
   tips: number,
@@ -266,14 +261,16 @@ export const storeBlock = async (
     Transactions.segmentTransactions(transactionReceipts);
   const feeSegments = sumFeeSegments(block, transactionSegments, ethPrice);
   const tips = calcBlockTips(block, transactionReceipts);
-  const blockDb = blockDbFromBlock(block, feeSegments, tips, ethPrice);
+  const blockDb = blockDbFromAnalysis(block, feeSegments, tips, ethPrice);
   const transactionCounts = countTransactionsPerContract(
     transactionSegments.other,
   );
-  const blockRow = insertableFromBlock(blockDb, feeSegments, tips, ethPrice);
+  const blockInsertable = insertableFromBlock(blockDb);
 
   Log.debug(`storing block: ${block.number}, ${block.hash}`);
-  const storeBlockTask = sqlT`INSERT INTO blocks ${sql(blockRow)}`;
+  const storeBlockTask = sqlT`
+    INSERT INTO blocks ${sql(blockInsertable)}
+  `;
 
   const updateContractsMinedAtTask = pipe(
     Transactions.getNewContracts(transactionReceipts),
