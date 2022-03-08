@@ -1,11 +1,28 @@
 import fs from "fs/promises";
 import neatCsv from "neat-csv";
 import { URL } from "url";
-import { BlockDb } from "../blocks/blocks.js";
+import * as Blocks from "../blocks/blocks.js";
+import { flow, NEA, O, OAlt, pipe, TE, TEAlt } from "../fp.js";
 
-type RawBlock = {
+export type SupportedSample = "m5" | "h1";
+
+const files: Record<SupportedSample, string> = {
+  m5: new URL("./blocks_m5.csv", import.meta.url).pathname,
+  h1: new URL("./blocks_h1.csv", import.meta.url).pathname,
+};
+
+const cache: Record<
+  SupportedSample,
+  O.Option<NEA.NonEmptyArray<Blocks.BlockDb>>
+> = {
+  m5: O.none,
+  h1: O.none,
+};
+
+export type BlockCsv = {
   base_fee_per_gas: string;
   base_fee_sum: string;
+  base_fee_sum_256: string;
   contract_creation_sum: string;
   eth_price: string;
   eth_transfer_sum: string;
@@ -16,57 +33,50 @@ type RawBlock = {
   tips: string;
 };
 
-const blockFromRawBlock = (rawBlock: RawBlock): BlockDb => ({
-  baseFeePerGas: BigInt(Number(rawBlock.base_fee_per_gas)),
-  baseFeeSum: BigInt(Number(rawBlock.base_fee_sum)),
+const blockFromRaw = (rawBlock: BlockCsv): Blocks.BlockDb => ({
+  baseFeePerGas:
+    rawBlock.base_fee_per_gas === "0.0"
+      ? 0n
+      : BigInt(rawBlock.base_fee_per_gas),
+  baseFeeSum:
+    rawBlock.base_fee_sum === "0.0" ? 0n : BigInt(rawBlock.base_fee_sum),
   contractCreationSum: Number(rawBlock.contract_creation_sum),
   ethPrice: Number(rawBlock.eth_price),
-  ethPriceCents: BigInt(
-    BigInt(rawBlock.base_fee_per_gas) *
-      BigInt(rawBlock.gas_used) *
-      BigInt(Math.round(Number(rawBlock.eth_price)) * 100),
-  ),
   ethTransferSum: Number(rawBlock.eth_transfer_sum),
-  gasUsed: BigInt(Number(rawBlock.gas_used)),
+  gasUsed: rawBlock.gas_used === "0.0" ? 0n : BigInt(rawBlock.gas_used),
   hash: rawBlock.hash,
   minedAt: new Date(rawBlock.mined_at),
   number: Number(rawBlock.number),
   tips: Number(rawBlock.tips),
 });
 
-const blocksM5Path = new URL("./blocks_m5.csv", import.meta.url).pathname;
-const blocksH1Path = new URL("./blocks_h1.csv", import.meta.url).pathname;
-
-let m5Blocks: BlockDb[] | undefined = undefined;
-
-export const getSingleBlock = async (): Promise<BlockDb> => {
-  if (m5Blocks === undefined) {
-    const file = await fs.readFile(blocksM5Path, "utf8");
-    const rawBlocks = await neatCsv<RawBlock>(file);
-    m5Blocks = rawBlocks.map(blockFromRawBlock);
-  }
-
-  return m5Blocks[1];
-};
-
-export const getM5Blocks = async (): Promise<BlockDb[]> => {
-  if (m5Blocks === undefined) {
-    const file = await fs.readFile(blocksM5Path, "utf8");
-    const rawBlocks = await neatCsv<RawBlock>(file);
-    m5Blocks = rawBlocks.map(blockFromRawBlock);
-  }
-
-  return m5Blocks;
-};
-
-let h1Blocks: BlockDb[] | undefined = undefined;
-
-export const getH1Blocks = async (): Promise<BlockDb[]> => {
-  if (h1Blocks === undefined) {
-    const file = await fs.readFile(blocksH1Path, "utf8");
-    const rawBlocks = await neatCsv<RawBlock>(file);
-    h1Blocks = rawBlocks.map(blockFromRawBlock);
-  }
-
-  return h1Blocks;
-};
+export const getBlocksFromFile = (sample: SupportedSample) =>
+  pipe(
+    cache[sample],
+    O.match(
+      () =>
+        pipe(
+          TE.tryCatch(
+            () => fs.readFile(files[sample], "utf8"),
+            TEAlt.errorFromUnknown,
+          ),
+          TE.chain((file) =>
+            TE.tryCatch(() => neatCsv<BlockCsv>(file), TEAlt.errorFromUnknown),
+          ),
+          TE.map(
+            flow(
+              NEA.fromArray,
+              OAlt.getOrThrow(
+                "failed to read blocks from file, got empty list",
+              ),
+              NEA.map(blockFromRaw),
+            ),
+          ),
+          TE.chainFirstIOK((blocks) => () => {
+            cache[sample] = O.some(blocks);
+          }),
+        ),
+      TE.right,
+    ),
+    TEAlt.getOrThrow,
+  );
