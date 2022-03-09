@@ -67,8 +67,8 @@
     "clean": "gts clean",
     "lint": "gts lint",
     "migrate": "ley",
-    "start": "node build/serve/serve_fees.js",
-    "start:prod": "node src/serve/serve_fees.js",
+    "start": "node build/serve/serve.js",
+    "start:prod": "node src/serve/serve.js",
     "test": "node --loader ts-node/esm node_modules/uvu/bin.js src 'blocks/blocks.test.ts'"
   }
 }
