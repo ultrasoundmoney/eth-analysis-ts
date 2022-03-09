@@ -194,8 +194,11 @@ sql.listen("cache-update", async (payload) => {
     // Websocket experiment.
     sendAll(
       JSON.stringify({
-        ...groupedAnalysis1Cache,
-        feesBurned: groupedAnalysis1Cache.feeBurns,
+        id: GroupedAnalysis1.groupedAnalysis1CacheKey,
+        message: {
+          ...groupedAnalysis1Cache,
+          feesBurned: groupedAnalysis1Cache.feeBurns,
+        },
       }),
     );
     return;
