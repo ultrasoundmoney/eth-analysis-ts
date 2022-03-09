@@ -7,7 +7,7 @@ spec:
     - port: 80
       targetPort: 8080
     - port: 81
-      targetPart: 8081
+      targetPort: 8081
   selector:
     app: serve-fees
 ---
