@@ -1,8 +1,8 @@
 import * as Apply from "fp-ts/lib/Apply.js";
+import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as IO from "fp-ts/lib/IO.js";
 import * as Mo from "fp-ts/lib/Monoid.js";
-import * as E from "fp-ts/lib/Either.js";
 import * as O from "fp-ts/lib/Option.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -16,6 +16,7 @@ export * as B from "fp-ts/lib/boolean.js";
 export * as E from "fp-ts/lib/Either.js";
 export { flow, pipe } from "fp-ts/lib/function.js";
 export * as IO from "fp-ts/lib/IO.js";
+export * as MapF from "fp-ts/lib/Map.js";
 export * as Mo from "fp-ts/lib/Monoid.js";
 export * as NEA from "fp-ts/lib/NonEmptyArray.js";
 export * as Num from "fp-ts/lib/number.js";
@@ -23,12 +24,12 @@ export * as O from "fp-ts/lib/Option.js";
 export * as Ord from "fp-ts/lib/Ord.js";
 export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as RA from "fp-ts/lib/ReadonlyArray.js";
+export * as Rec from "fp-ts/lib/Record.js";
 export * as T from "fp-ts/lib/Task.js";
 export * as TE from "fp-ts/lib/TaskEither.js";
 export * as TO from "fp-ts/lib/TaskOption.js";
 export * as Void from "fp-ts/lib/void.js";
 export * as D from "io-ts/lib/Decoder.js";
-export * as MapF from "fp-ts/lib/Map.js";
 
 type ErrorLike = { error: Error };
 
