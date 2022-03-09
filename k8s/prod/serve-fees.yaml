@@ -5,8 +5,10 @@ metadata:
 spec:
   ports:
     - port: 80
+      name: http
       targetPort: 8080
     - port: 81
+      name: ws
       targetPort: 8081
   selector:
     app: serve-fees
