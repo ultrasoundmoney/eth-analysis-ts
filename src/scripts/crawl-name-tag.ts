@@ -2,11 +2,11 @@ import * as DateFns from "date-fns";
 import { parseHTML } from "linkedom";
 import * as Contracts from "../contracts/contracts.js";
 import * as ContractsMetadata from "../contracts/crawl_metadata.js";
-import { addMetadataFromSimilar } from "../contracts/crawl_metadata.js";
+import { addMetadataFromSimilar } from "../contracts/metadata_similar.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as FetchAlt from "../fetch_alt.js";
-import { flow, O, pipe, T, TAlt, TE, TEAlt, TO } from "../fp.js";
+import { flow, O, pipe, Rec, T, TE, TEAlt, TO } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Log from "../log.js";
 
@@ -44,7 +44,7 @@ const fetchNameTag = (address: string) =>
   );
 
 type NameTagAttempt = { lastAttempt: string; attempts: number };
-type ContractNameTagAttemptMap = Partial<Record<string, NameTagAttempt>>;
+type ContractNameTagAttemptMap = Record<string, NameTagAttempt>;
 
 const lastFetchedKey = "name-tag-last-fetched";
 
@@ -130,28 +130,20 @@ const updateNameTagForAddress = (
   contractNameTagAttemptMap: ContractNameTagAttemptMap,
 ) =>
   pipe(
-    contractNameTagAttemptMap[address],
-    O.fromNullable,
+    contractNameTagAttemptMap,
+    Rec.lookup(address),
     O.match(
       () => getNameTag(address),
       (attempt) =>
         getIsPastBackoff(attempt)
           ? getNameTag(address)
           : pipe(
-              sqlT<{ name: string | null }[]>`
-                SELECT name FROM contracts
-                WHERE address = ${address}
-              `,
-              T.map((rows) => rows[0]?.name),
-              T.map(O.fromNullable),
-              T.map((name) => {
-                Log.debug(
-                  `${O.getOrElse(() => address)(
-                    name,
-                  )} not yet past backoff, skipping`,
-                );
-                return O.none;
+              Contracts.getName(address),
+              TO.getOrElse(() => T.of(address)),
+              T.chainFirstIOK((nameOrAddress) => () => {
+                Log.debug(`${nameOrAddress} not yet past backoff, skipping`);
               }),
+              T.map(() => O.none),
             ),
     ),
     T.chainFirstIOK(() => () => {
@@ -161,14 +153,13 @@ const updateNameTagForAddress = (
       };
     }),
     TO.chainFirstTaskK((name) =>
-      TAlt.when(name.indexOf(":") !== -1, () =>
-        addMetadataFromSimilar(address, name.split(":")[0]),
-      ),
+      name.indexOf(":") !== -1
+        ? addMetadataFromSimilar(address, name.split(":")[0])
+        : TO.none,
     ),
     TO.chainTaskK((name) =>
       pipe(
         // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
-
         Contracts.setSimpleTextColumn("etherscan_name_tag", address, name),
         T.chain(() => Contracts.updatePreferredMetadata(address)),
       ),
