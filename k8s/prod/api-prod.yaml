@@ -26,6 +26,13 @@ spec:
                 name: serve-fees
                 port:
                   number: 80
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: serve-fees
+                port:
+                  number: 81
           - path: /fam
             pathType: Prefix
             backend:

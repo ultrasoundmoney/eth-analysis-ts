@@ -6,6 +6,8 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
+    - port: 81
+      targetPart: 8081
   selector:
     app: serve-fees
 ---
@@ -31,6 +33,7 @@ spec:
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
           ports:
             - containerPort: 8080
+            - containerPort: 8081
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
