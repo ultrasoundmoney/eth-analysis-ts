@@ -1,5 +1,5 @@
 import A from "fp-ts/lib/Array.js";
-import { sql, sqlTVoid } from "../db.js";
+import { sql, sqlT, sqlTVoid } from "../db.js";
 import { flow, NEA, O, pipe, T, TO } from "../fp.js";
 import * as OpenSea from "../opensea.js";
 
@@ -261,4 +261,13 @@ export const getAddressesToRefetch = (): T.Task<Set<string>> =>
       WHERE force_metadata_fetch = TRUE
     `,
     T.map(A.reduce(new Set(), (set, row) => set.add(row.address))),
+  );
+
+export const getName = (address: string) =>
+  pipe(
+    sqlT<{ name: string | null }[]>`
+      SELECT name FROM contracts
+      WHERE address = ${address}
+    `,
+    T.map(flow((rows) => rows[0]?.name, O.fromNullable)),
   );
