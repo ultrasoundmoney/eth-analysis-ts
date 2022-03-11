@@ -35,10 +35,24 @@ export const rollbackToIncluding = async (
   Log.info(`rolling back to and including: ${blockNumber}`);
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
 
-  const blocksToRollback = Blocks.getBlockRange(blockNumber, syncedBlockHeight);
+  const blocksToRollback = await Blocks.getBlocks(
+    blockNumber,
+    syncedBlockHeight,
+  )();
   const blocksNewestFirst = blocksToRollback.reverse();
 
-  for (const blockNumber of blocksNewestFirst) {
+  if (blocksToRollback.length === 0) {
+    Log.alert(`asked to rollback ${blockNumber}, but DB returned zero blocks`);
+    return;
+  }
+
+  await DeflationaryStreaks.rollbackBlocks(
+    // Check above for length !== 0
+    blocksToRollback as NEA.NonEmptyArray<Blocks.BlockDb>,
+  )();
+
+  for (const block of blocksNewestFirst) {
+    const blockNumber = block.number;
     Log.debug(`rolling back ${blockNumber}`);
     const t0 = performance.now();
 
