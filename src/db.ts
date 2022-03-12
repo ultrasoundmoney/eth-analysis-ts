@@ -43,7 +43,7 @@ export const sqlT =
 
 export const sqlTVoid = flow(
   sqlT,
-  T.map(() => undefined),
+  T.map((): void => undefined),
 );
 
 export type SqlArg =

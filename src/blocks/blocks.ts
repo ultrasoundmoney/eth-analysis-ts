@@ -11,7 +11,7 @@ import * as ContractBaseFees from "../contract_base_fees.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
-import { A, flow, NEA, O, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
+import { A, flow, NEA, O, Ord, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
@@ -413,3 +413,14 @@ export const getEarliestBlockInTimeFrame = (
         `,
         T.map((rows) => rows[0].min),
       );
+
+export const sortAsc = Ord.fromCompare<BlockDb>((a, b) =>
+  a.number < b.number ? -1 : a.number > b.number ? 1 : 0,
+);
+
+export const sortDesc = Ord.fromCompare<BlockDb>((a, b) =>
+  a.number < b.number ? 1 : a.number > b.number ? -1 : 0,
+);
+
+export const getPreviousBlock = (block: BlockDb) =>
+  pipe(getBlocks(block.number - 1, block.number - 1), T.map(A.head));
