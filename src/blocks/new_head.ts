@@ -109,7 +109,7 @@ export const addBlock = async (head: Head): Promise<void> => {
       "new head's parent is not in our DB, rollback one block and try to add the parent",
     );
     const rollbackTarget = head.number - 1;
-    await rollbackToIncluding(rollbackTarget);
+    await rollbackToIncluding(rollbackTarget)();
     const previousBlock = await pipe(
       Blocks.getBlockSafe(rollbackTarget),
       TOAlt.getOrThrow(
@@ -121,7 +121,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
-    await rollbackToIncluding(block.number);
+    await rollbackToIncluding(block.number)();
   }
 
   const oTransactionReceipts = await Transactions.getTransactionReceiptsSafe(
