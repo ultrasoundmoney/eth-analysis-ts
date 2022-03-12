@@ -9,7 +9,7 @@ import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import { NEA, O, pipe, TAlt, TEAlt, TOAlt } from "../fp.js";
+import { A, NEA, O, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Leaderboards from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
@@ -29,52 +29,65 @@ export const newBlockQueue = new PQueue({
   autoStart: false,
 });
 
-export const rollbackToIncluding = async (
-  blockNumber: number,
-): Promise<void> => {
-  Log.info(`rolling back to and including: ${blockNumber}`);
-  const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
+// TODO: change fn to take non-empty blocks to roll back instead.
+export const rollbackToIncluding = (blockNumber: number) =>
+  pipe(
+    T.Do,
+    T.chainFirstIOK(() => () => {
+      Log.info(`rolling back to and including: ${blockNumber}`);
+    }),
+    T.apS("syncedBlockHeight", () => Blocks.getSyncedBlockHeight()),
+    T.bind("blocksToRollbackNewestFirst", ({ syncedBlockHeight }) =>
+      pipe(Blocks.getBlocks(blockNumber, syncedBlockHeight), T.map(A.reverse)),
+    ),
+    T.chain(({ blocksToRollbackNewestFirst }) =>
+      pipe(
+        blocksToRollbackNewestFirst,
+        NEA.fromArray,
+        // Remove this if we never get the alert.
+        O.match(
+          () => {
+            Log.warn(
+              `asked to rollback ${blockNumber}, but DB returned zero blocks`,
+            );
+            return T.of(undefined);
+          },
+          (blocksToRollbackNewestFirst) => async () => {
+            await DeflationaryStreaks.rollbackBlocks(
+              blocksToRollbackNewestFirst,
+            )();
 
-  const blocksToRollback = await Blocks.getBlocks(
-    blockNumber,
-    syncedBlockHeight,
-  )();
-  const blocksNewestFirst = blocksToRollback.reverse();
+            for (const block of blocksToRollbackNewestFirst) {
+              const blockNumber = block.number;
+              Log.debug(`rolling back ${blockNumber}`);
+              const t0 = performance.now();
 
-  if (blocksToRollback.length === 0) {
-    Log.alert(`asked to rollback ${blockNumber}, but DB returned zero blocks`);
-    return;
-  }
+              const sumsToRollback = await Leaderboards.getRangeBaseFees(
+                blockNumber,
+                blockNumber,
+              )();
+              LeaderboardsLimitedTimeframe.onRollback(
+                blockNumber,
+                sumsToRollback,
+              );
+              await Promise.all([
+                LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
+                LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
+                BurnRecordsNewHead.onRollback(blockNumber)(),
+              ]);
 
-  await DeflationaryStreaks.rollbackBlocks(
-    // Check above for length !== 0
-    blocksToRollback as NEA.NonEmptyArray<Blocks.BlockDb>,
-  )();
+              await Blocks.deleteContractBaseFees(blockNumber);
+              await Contracts.deleteContractsMinedAt(blockNumber);
+              await Blocks.deleteDerivedBlockStats(blockNumber);
+              await Blocks.deleteBlock(blockNumber);
 
-  for (const block of blocksNewestFirst) {
-    const blockNumber = block.number;
-    Log.debug(`rolling back ${blockNumber}`);
-    const t0 = performance.now();
-
-    const sumsToRollback = await Leaderboards.getRangeBaseFees(
-      blockNumber,
-      blockNumber,
-    )();
-    LeaderboardsLimitedTimeframe.onRollback(blockNumber, sumsToRollback);
-    await Promise.all([
-      LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
-      LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
-      BurnRecordsNewHead.onRollback(blockNumber)(),
-    ]);
-
-    await Blocks.deleteContractBaseFees(blockNumber);
-    await Contracts.deleteContractsMinedAt(blockNumber);
-    await Blocks.deleteDerivedBlockStats(blockNumber);
-    await Blocks.deleteBlock(blockNumber);
-
-    Performance.logPerf("rollback", t0);
-  }
-};
+              Performance.logPerf("rollback", t0);
+            }
+          },
+        ),
+      ),
+    ),
+  );
 
 export const addBlock = async (head: Head): Promise<void> => {
   const t0 = performance.now();
