@@ -1,7 +1,9 @@
+import QuickLRU from "quick-lru";
 import * as Blocks from "./blocks/blocks.js";
 import { sql, sqlT, sqlTVoid } from "./db.js";
 import * as EthUnits from "./eth_units.js";
-import { A, flow, NEA, O, OAlt, pipe, T, TO } from "./fp.js";
+import { A, B, flow, NEA, O, OAlt, pipe, T, TO } from "./fp.js";
+import * as Log from "./log.js";
 import * as StaticEtherData from "./static-ether-data.js";
 
 type DeflationaryStreak = {
@@ -95,6 +97,18 @@ const setLastAnalyzed = (blockNumber: number) => sqlTVoid`
     last = excluded.last
 `;
 
+type RecentStreaks = QuickLRU<number, DeflationaryStreak>;
+const recentpreMergeStreaks: RecentStreaks = new QuickLRU({
+  maxSize: 8,
+});
+const recentpostMergeStreaks: RecentStreaks = new QuickLRU({
+  maxSize: 8,
+});
+const getRecentStreaks = (postMerge: boolean) =>
+  postMerge ? recentpostMergeStreaks : recentpreMergeStreaks;
+const getRecentStreak = (recentStreaks: RecentStreaks, block: Blocks.BlockDb) =>
+  pipe(recentStreaks.get(block.number), O.fromNullable);
+
 export const getNextBlockToAdd = () =>
   pipe(
     getLastAnalyzed(),
@@ -108,26 +122,26 @@ export const getNextBlockToAdd = () =>
     ),
   );
 
-type GetIsDeflationaryBlock = (block: Blocks.BlockDb) => boolean;
-const makeGetIsDeflationaryBlock =
-  (issuancePerBlock: number): GetIsDeflationaryBlock =>
-  (block) =>
-    EthUnits.ethFromWei(Number(block.baseFeeSum)) > issuancePerBlock;
+const getIsDeflationaryBlock = (
+  issuancePerBlock: number,
+  block: Blocks.BlockDb,
+) => EthUnits.ethFromWei(Number(block.baseFeeSum)) > issuancePerBlock;
 
 const startNewStreak = (block: Blocks.BlockDb) =>
   pipe(
-    Blocks.getBlocks(block.number - 1, block.number - 1),
+    Blocks.getPreviousBlock(block),
     T.map(
       flow(
-        A.head,
         OAlt.getOrThrow(
-          `tried to get block ${
+          `block ${
+            block.number
+          } starts a new streak, need timestamp from block ${
             block.number - 1
-          } timestamp to start streak but got nothing, skipping streak`,
+          } but this block was not found`,
         ),
-        (block) =>
+        (previousBlock) =>
           O.some({
-            from: block.minedAt,
+            from: previousBlock.minedAt,
             count: 1,
           }),
       ),
@@ -135,28 +149,39 @@ const startNewStreak = (block: Blocks.BlockDb) =>
   );
 
 const addBlockToState = (
+  recentStreaks: RecentStreaks,
   streakState: DeflationaryStreakState,
   block: Blocks.BlockDb,
-  getIsDeflationaryBlock: (block: Blocks.BlockDb) => boolean,
+  issuancePerBlock: number,
 ) =>
-  getIsDeflationaryBlock(block)
-    ? pipe(
-        streakState,
-        O.match(
-          () => startNewStreak(block),
-          (state) =>
-            TO.of({
-              ...state,
-              count: state.count + 1,
-            }),
+  pipe(
+    getIsDeflationaryBlock(issuancePerBlock, block),
+    B.match(
+      () => TO.none,
+      () =>
+        pipe(
+          streakState,
+          O.match(
+            () => startNewStreak(block),
+            (state) =>
+              TO.of({
+                ...state,
+                count: state.count + 1,
+              }),
+          ),
         ),
-      )
-    : TO.none;
+    ),
+    // Remember the state for the block in case we need to roll back to it.
+    TO.chainFirstIOK((state) => () => {
+      recentStreaks.set(block.number, state);
+    }),
+  );
 
 const addBlocksToState = (
+  recentStreaks: RecentStreaks,
   streakState: DeflationaryStreakState,
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
-  getIsDeflationaryBlock: GetIsDeflationaryBlock,
+  issuancePerBlock: number,
 ) =>
   pipe(
     blocksToAdd,
@@ -164,35 +189,35 @@ const addBlocksToState = (
       pipe(
         state,
         T.chain((state) =>
-          addBlockToState(state, block, getIsDeflationaryBlock),
+          addBlockToState(recentStreaks, state, block, issuancePerBlock),
         ),
       ),
     ),
   );
 
-const removeBlockFromState = (streakState: DeflationaryStreakState) =>
-  pipe(
-    streakState,
-    O.match(
-      // We currently have no way to recover streaks, if no streak is running, we assume none was running, and stay in the no-streak state.
-      () => O.none,
-      (state) =>
-        state.count === 1
-          ? // This was the first block in the streak. We go back to the no-streak state.
-            O.none
-          : // There are multiple blocks in the current streak, decrement streak by one.
-            O.some({ ...state, count: state.count - 1 }),
-    ),
-  );
-
-const removeBlocksFromState = (
-  streakState: DeflationaryStreakState,
+// Removing happens on rollback. Because a rolled back block might have undone the previous state, it isn't always as simple as reducing any running streak by one. Therefore, on adding blocks, we remember what the previous state was, and restore it here.
+const removeBlocksFromRecentStreaks = (
+  recentStreaks: RecentStreaks,
   blocksToRemove: NEA.NonEmptyArray<Blocks.BlockDb>,
 ) =>
   pipe(
     blocksToRemove,
-    A.reduce(streakState, (state) => removeBlockFromState(state)),
+    NEA.sort(Blocks.sortAsc),
+    NEA.head,
+    (block) => getRecentStreak(recentStreaks, block),
+    O.altW(() => {
+      // This may happen when history is empty on start and we roll back immediately.
+      Log.error(
+        "tried to restore the previous block's deflationary streak, but none found in recent history",
+      );
+      return O.none;
+    }),
   );
+
+const getIssuancePerBlock = (postMerge: boolean) =>
+  postMerge
+    ? StaticEtherData.issuancePerBlockPostMerge
+    : StaticEtherData.issuancePerBlockPreMerge;
 
 const analyzeNewBlocksWithMergeState = (
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
@@ -202,13 +227,10 @@ const analyzeNewBlocksWithMergeState = (
     getStreakState(getStorageKey(postMerge)),
     T.chain((streakState) =>
       addBlocksToState(
+        getRecentStreaks(postMerge),
         streakState,
         blocksToAdd,
-        makeGetIsDeflationaryBlock(
-          postMerge
-            ? StaticEtherData.issuancePerBlockPostMerge
-            : StaticEtherData.issuancePerBlockPreMerge,
-        ),
+        getIssuancePerBlock(postMerge),
       ),
     ),
     T.chain((state) => storeStreakState(getStorageKey(postMerge), state)),
@@ -229,11 +251,11 @@ const rollbackBlocksWithMergeState = (
   postMerge: boolean,
 ) =>
   pipe(
-    getStreakState(getStorageKey(postMerge)),
-    T.map((streakState) =>
-      removeBlocksFromState(streakState, blocksToRollback),
+    removeBlocksFromRecentStreaks(
+      getRecentStreaks(postMerge),
+      blocksToRollback,
     ),
-    T.chain((state) => storeStreakState(getStorageKey(postMerge), state)),
+    (state) => storeStreakState(getStorageKey(postMerge), state),
   );
 
 export const rollbackBlocks = (
