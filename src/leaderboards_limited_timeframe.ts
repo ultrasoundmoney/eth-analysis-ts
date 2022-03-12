@@ -1,8 +1,8 @@
 import * as DateFns from "date-fns";
 import _ from "lodash";
-import { BlockDb } from "./blocks/blocks.js";
+import { BlockDb, sortDesc } from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
-import { A, O, Ord, pipe, T, TAlt } from "./fp.js";
+import { A, NEA, O, Ord, pipe, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeesNext,
@@ -235,6 +235,22 @@ export const onRollback = (
     );
   }
 };
+
+export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockDb>) =>
+  pipe(
+    blocks,
+    NEA.sort(sortDesc),
+    T.traverseSeqArray((block) =>
+      pipe(
+        Leaderboards.getRangeBaseFees(block.number, block.number),
+        T.chain((sumsToRollback) =>
+          T.fromIO(() => {
+            onRollback(block.number, sumsToRollback);
+          }),
+        ),
+      ),
+    ),
+  );
 
 const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
   const ageLimit = DateFns.subMinutes(

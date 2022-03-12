@@ -1,7 +1,7 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as Blocks from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
-import { A, O, T } from "./fp.js";
+import { A, NEA, O, T } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
 import {
   ContractBaseFeeSums,
@@ -91,7 +91,7 @@ const addContractBaseFeeSums = async (
 
 export type Currency = "eth" | "usd";
 
-export const removeContractBaseFeeSums = async (
+const removeContractBaseFeeSums = async (
   contractSums: ContractBaseFeeSums,
 ): Promise<void> => {
   if (contractSums.eth.size === 0) {
@@ -237,5 +237,27 @@ export const calcLeaderboardAll = () =>
           ethTransferBaseFees,
           contractCreationBaseFees,
         ),
+    ),
+  );
+
+export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockDb>) =>
+  pipe(
+    blocks,
+    NEA.sort(Blocks.sortAsc),
+    (blocksOldestFirst) =>
+      Leaderboards.getRangeBaseFees(
+        NEA.head(blocksOldestFirst).number,
+        NEA.last(blocksOldestFirst).number,
+      ),
+    T.chain(
+      (sumsToRollback) => () => removeContractBaseFeeSums(sumsToRollback),
+    ),
+    T.chain(() =>
+      pipe(
+        blocks,
+        NEA.sort(Blocks.sortAsc),
+        NEA.head,
+        (block) => () => setNewestIncludedBlockNumber(block.number - 1),
+      ),
     ),
   );
