@@ -243,11 +243,11 @@ export const calcLeaderboardAll = () =>
 export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockDb>) =>
   pipe(
     blocks,
-    NEA.sort(Blocks.sortAsc),
-    (blocksOldestFirst) =>
+    NEA.sort(Blocks.sortDesc),
+    (blocksNewestFirst) =>
       Leaderboards.getRangeBaseFees(
-        NEA.head(blocksOldestFirst).number,
-        NEA.last(blocksOldestFirst).number,
+        NEA.last(blocksNewestFirst).number,
+        NEA.head(blocksNewestFirst).number,
       ),
     T.chain(
       (sumsToRollback) => () => removeContractBaseFeeSums(sumsToRollback),

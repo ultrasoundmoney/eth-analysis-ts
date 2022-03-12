@@ -202,7 +202,7 @@ const findExpiredBlocks = (
   return { valid, expired };
 };
 
-export const onRollback = (
+const rollbackBlockForTimeFrames = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
@@ -244,9 +244,9 @@ export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockDb>) =>
       pipe(
         Leaderboards.getRangeBaseFees(block.number, block.number),
         T.chain((sumsToRollback) =>
-          T.fromIO(() => {
-            onRollback(block.number, sumsToRollback);
-          }),
+          T.fromIO(() =>
+            rollbackBlockForTimeFrames(block.number, sumsToRollback),
+          ),
         ),
       ),
     ),
