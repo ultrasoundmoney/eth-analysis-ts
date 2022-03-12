@@ -52,7 +52,7 @@ export const rollbackToIncluding = (blockNumber: number) =>
   pipe(
     getBlocksToRollBack(blockNumber),
     T.map(NEA.fromArray),
-    TO.match(
+    TO.matchE(
       () => {
         Log.warn(
           `asked to rollback ${blockNumber}, but DB returned zero blocks`,
