@@ -220,8 +220,10 @@ export const onRollback = (
       return undefined;
     }
 
-    blocksInTimeframe[timeFrame] = blocksInTimeframe[timeFrame] =
-      includedBlocks.slice(0, indexOfBlockToRollbackToBefore);
+    blocksInTimeframe[timeFrame] = includedBlocks.slice(
+      0,
+      indexOfBlockToRollbackToBefore,
+    );
 
     contractSumsPerTimeframe[timeFrame] = subtractFromSums(
       contractSumsPerTimeframe[timeFrame],
@@ -231,8 +233,6 @@ export const onRollback = (
       contractSumsPerTimeframeUsd[timeFrame],
       baseFeesToRemove.usd,
     );
-
-    return undefined;
   }
 };
 
