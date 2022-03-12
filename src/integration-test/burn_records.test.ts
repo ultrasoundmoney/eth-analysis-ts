@@ -2,6 +2,7 @@ import * as DateFns from "date-fns";
 import _ from "lodash";
 import { test } from "uvu";
 import * as assert from "uvu/assert";
+import { BlockDb } from "../blocks/blocks.js";
 import * as BurnRecords from "../burn-records/burn_records.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as BurnRecordsSync from "../burn-records/sync.js";
@@ -119,7 +120,9 @@ test("should remove records on rollback", async () => {
   assert.is(topRecord.blockNumber, 12965022);
   assert.is(topRecord.baseFeeSum, Number(395313673917850200n));
 
-  await BurnRecordsNewHead.onRollback(12965022)();
+  await BurnRecordsNewHead.rollbackBlocks(
+    NEA.of({ number: 12965022 } as BlockDb),
+  )();
   const [topRecordPostRollback] = await BurnRecords.getBurnRecords("m5")();
   assert.is.not(topRecordPostRollback.blockNumber, 12965022);
 });
@@ -129,7 +132,7 @@ test("should update last included on rollback", async () => {
   await MockDb.seedBlocks("m5")();
 
   await BurnRecordsNewHead.onNewBlock(block)();
-  await BurnRecordsNewHead.onRollback(block.number)();
+  await BurnRecordsNewHead.rollbackBlocks(NEA.of(block))();
 
   const lastIncludedBlock = await BurnRecords.getLastIncludedBlock()();
   assert.equal(lastIncludedBlock, O.some(block.number - 1));

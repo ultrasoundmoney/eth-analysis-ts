@@ -202,8 +202,8 @@ const removeBlocksFromRecentStreaks = (
 ) =>
   pipe(
     blocksToRemove,
-    NEA.sort(Blocks.sortAsc),
-    NEA.head,
+    NEA.sort(Blocks.sortDesc),
+    NEA.last,
     (block) => getRecentStreak(recentStreaks, block),
     O.altW(() => {
       // This may happen when history is empty on start and we roll back immediately.

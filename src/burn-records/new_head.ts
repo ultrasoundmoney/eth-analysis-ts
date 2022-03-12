@@ -1,9 +1,9 @@
-import { BlockDb } from "../blocks/blocks.js";
-import { pipe, T, TAlt } from "../fp.js";
+import * as Blocks from "../blocks/blocks.js";
+import { NEA, pipe, T, TAlt } from "../fp.js";
 import * as TimeFrames from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
 
-export const onNewBlock = (block: BlockDb) =>
+export const onNewBlock = (block: Blocks.BlockDb) =>
   pipe(
     TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
@@ -20,8 +20,12 @@ export const onNewBlock = (block: BlockDb) =>
     T.chain(() => BurnRecords.setLastIncludedBlock(block.number)),
   );
 
-export const onRollback = (rollbackToAndIncluding: number) =>
-  pipe(
-    BurnRecords.expireRecordsFromAndIncluding(rollbackToAndIncluding),
-    T.chain(() => BurnRecords.setLastIncludedBlock(rollbackToAndIncluding - 1)),
+export const rollbackBlocks = (
+  blocksToRollback: NEA.NonEmptyArray<Blocks.BlockDb>,
+) =>
+  pipe(blocksToRollback, NEA.sort(Blocks.sortDesc), NEA.last, (block) =>
+    pipe(
+      BurnRecords.expireRecordsFromAndIncluding(block.number),
+      T.chain(() => BurnRecords.setLastIncludedBlock(block.number - 1)),
+    ),
   );

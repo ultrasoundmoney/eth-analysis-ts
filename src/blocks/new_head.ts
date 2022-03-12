@@ -9,9 +9,8 @@ import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import { A, NEA, O, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
+import { A, NEA, O, pipe, T, TAlt, TEAlt, TO, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
-import * as Leaderboards from "../leaderboards.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
@@ -29,63 +28,73 @@ export const newBlockQueue = new PQueue({
   autoStart: false,
 });
 
-// TODO: change fn to take non-empty blocks to roll back instead.
-export const rollbackToIncluding = (blockNumber: number) =>
+/**
+ * Gets the blocks currently in our DB that we're looking to roll back.
+ * @param blockNumber {number} the earliest block number we want to roll back.
+ */
+export const getBlocksToRollBack = (blockNumber: number) =>
   pipe(
     T.Do,
     T.chainFirstIOK(() => () => {
       Log.info(`rolling back to and including: ${blockNumber}`);
     }),
     T.apS("syncedBlockHeight", () => Blocks.getSyncedBlockHeight()),
-    T.bind("blocksToRollbackNewestFirst", ({ syncedBlockHeight }) =>
-      pipe(Blocks.getBlocks(blockNumber, syncedBlockHeight), T.map(A.reverse)),
-    ),
-    T.chain(({ blocksToRollbackNewestFirst }) =>
+    T.chain(({ syncedBlockHeight }) =>
       pipe(
-        blocksToRollbackNewestFirst,
-        NEA.fromArray,
-        // Remove this if we never get the alert.
-        O.match(
-          () => {
-            Log.warn(
-              `asked to rollback ${blockNumber}, but DB returned zero blocks`,
-            );
-            return T.of(undefined);
-          },
-          (blocksToRollbackNewestFirst) => async () => {
-            await DeflationaryStreaks.rollbackBlocks(
-              blocksToRollbackNewestFirst,
-            )();
-
-            for (const block of blocksToRollbackNewestFirst) {
-              const blockNumber = block.number;
-              Log.debug(`rolling back ${blockNumber}`);
-              const t0 = performance.now();
-
-              const sumsToRollback = await Leaderboards.getRangeBaseFees(
-                blockNumber,
-                blockNumber,
-              )();
-              LeaderboardsLimitedTimeframe.onRollback(
-                blockNumber,
-                sumsToRollback,
-              );
-              await Promise.all([
-                LeaderboardsAll.removeContractBaseFeeSums(sumsToRollback),
-                LeaderboardsAll.setNewestIncludedBlockNumber(blockNumber - 1),
-                BurnRecordsNewHead.onRollback(blockNumber)(),
-              ]);
-
-              await Blocks.deleteContractBaseFees(blockNumber);
-              await Contracts.deleteContractsMinedAt(blockNumber);
-              await Blocks.deleteDerivedBlockStats(blockNumber);
-              await Blocks.deleteBlock(blockNumber);
-
-              Performance.logPerf("rollback", t0);
-            }
-          },
-        ),
+        Blocks.getBlocks(blockNumber, syncedBlockHeight),
+        T.map(A.sort(Blocks.sortDesc)),
       ),
+    ),
+  );
+
+// TODO: change fn to take non-empty blocks to roll back instead.
+export const rollbackToIncluding = (blockNumber: number) =>
+  pipe(
+    getBlocksToRollBack(blockNumber),
+    T.map(NEA.fromArray),
+    TO.match(
+      () => {
+        Log.warn(
+          `asked to rollback ${blockNumber}, but DB returned zero blocks`,
+        );
+        return T.of(undefined);
+      },
+      (blocksToRollbackNewestFirst) =>
+        pipe(
+          T.Do,
+          T.apS(
+            "rollbackDeflationaryStreaks",
+            DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
+          ),
+          T.apS(
+            "rollbackBurnRecords",
+            BurnRecordsNewHead.rollbackBlocks(blocksToRollbackNewestFirst),
+          ),
+          T.apS(
+            "rollbackLeaderboardsAll",
+            LeaderboardsAll.rollbackBlocks(blocksToRollbackNewestFirst),
+          ),
+          T.apS(
+            "rollbackLeaderboardsLimitedTimeFrames",
+            LeaderboardsLimitedTimeframe.rollbackBlocks(
+              blocksToRollbackNewestFirst,
+            ),
+          ),
+          T.bind("rollbackBlock", () =>
+            pipe(
+              blocksToRollbackNewestFirst,
+              T.traverseSeqArray((block) => async () => {
+                const blockNumber = block.number;
+                await Blocks.deleteContractBaseFees(blockNumber);
+                await Contracts.deleteContractsMinedAt(blockNumber);
+                await Blocks.deleteDerivedBlockStats(blockNumber);
+                await Blocks.deleteBlock(blockNumber);
+              }),
+              TAlt.concatAllVoid,
+            ),
+          ),
+          T.map((): void => undefined),
+        ),
     ),
   );
 
