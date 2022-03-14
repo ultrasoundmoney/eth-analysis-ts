@@ -1,26 +1,19 @@
-import { test } from "uvu";
-import * as assert from "uvu/assert";
+import test from "ava";
 import * as Blocks from "../blocks/blocks.js";
-import { runMigrations, sql } from "../db.js";
+import * as Db from "../db.js";
 import * as MockDb from "./mock_db.js";
 
-test.before(async () => {
-  await runMigrations();
-});
+test.before(() => Db.runMigrations());
 
-test.after.each(() => MockDb.resetTables()());
+test.after(() => Db.closeConnection());
 
-test.after(async () => {
-  await sql.end();
-});
+test.afterEach(() => MockDb.resetTables()());
 
-test("return the last stored block", async () => {
+test("return the last stored block", async (t) => {
   await MockDb.seedBlocks("m5")();
   const storedBlock = await Blocks.getLastStoredBlock()();
-  assert.is(
+  t.is(
     storedBlock.hash,
     "0xd896114fc465d6217b94e9198de99502a990b3482756797a90ae3e2ee6dc1168",
   );
 });
-
-test.run();

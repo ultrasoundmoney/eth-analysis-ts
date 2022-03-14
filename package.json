@@ -51,6 +51,7 @@
     "@types/p-queue": "^3.2.1",
     "@types/progress": "^2.0.5",
     "@types/ws": "^8.2.2",
+    "ava": "^4.1.0",
     "gts": "^3.1.0",
     "ley": "^0.7.1",
     "linkedom": "^0.13.0",
@@ -70,5 +71,13 @@
     "start": "node build/serve/serve.js",
     "start:prod": "node src/serve/serve.js",
     "test": "node --loader ts-node/esm node_modules/uvu/bin.js src 'blocks/blocks.test.ts'"
+  },
+  "ava": {
+    "extensions": {
+      "ts": "module"
+    },
+    "nodeArguments": [
+      "--loader=ts-node/esm"
+    ]
   }
 }
