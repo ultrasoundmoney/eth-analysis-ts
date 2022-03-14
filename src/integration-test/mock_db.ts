@@ -17,6 +17,7 @@ export const resetTables = () =>
     TAlt.seqTSeq(
       Db.sqlTVoid`DELETE FROM contract_base_fees`,
       Db.sqlTVoid`DELETE FROM contracts`,
+      Db.sqlTVoid`DELETE FROM burn_records`,
       Db.sqlTVoid`DELETE FROM blocks`,
       Db.sqlTVoid`DELETE FROM analysis_state`,
       Db.sqlTVoid`DELETE FROM key_value_store`,

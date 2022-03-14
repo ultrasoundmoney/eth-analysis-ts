@@ -17,18 +17,9 @@ test.before(async () => {
   await runMigrations();
 });
 
-test.after.each(() => resetTables());
+test.after.each(() => MockDb.resetTables()());
 
 test.after(() => Db.closeConnection());
-
-const resetTables = async () => {
-  await Db.sql`DELETE FROM contract_base_fees`;
-  await Db.sql`DELETE FROM contracts`;
-  await Db.sql`DELETE FROM burn_records`;
-  await Db.sql`DELETE FROM blocks`;
-  await Db.sql`DELETE FROM analysis_state`;
-  await Db.sql`DELETE FROM key_value_store`;
-};
 
 test("should return none when no block has been included", async () => {
   const lastIncludedBlock = await BurnRecords.getLastIncludedBlock()();
