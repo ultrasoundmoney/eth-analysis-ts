@@ -12,9 +12,13 @@ psql --quiet --command "CREATE DATABASE test_$TIMESTAMP"
 
 export PGDATABASE="test_$TIMESTAMP"
 
-node --loader ts-node/esm src/integration-test/blocks.test.ts
+yarn ava --serial src/integration-test/blocks.test.ts
 
-node --loader ts-node/esm src/integration-test/burn_records.test.ts
+yarn ava --serial src/integration-test/burn_records.test.ts
+
+yarn ava --serial src/integration-test/leaderboards.test.ts
+
+yarn ava --serial src/integration-test/deflationary_streaks.test.ts
 
 export PGDATABASE=postgres
 

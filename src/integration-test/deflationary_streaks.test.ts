@@ -1,22 +1,17 @@
-import { test } from "uvu";
-import * as assert from "uvu/assert";
+import test from "ava";
 import * as Db from "../db.js";
 import * as DeflationaryStreaks from "../deflationary_streaks.js";
 import { A, NEA, O, OAlt, pipe, T } from "../fp.js";
 import * as SamplesBlocks from "../samples/blocks.js";
 import * as MockDb from "./mock_db.js";
 
-test.before(async () => {
-  await Db.runMigrations();
-});
+test.before(() => Db.runMigrations());
 
-test.after(async () => {
-  await Db.closeConnection();
-});
+test.after(() => Db.closeConnection());
 
-test.after.each(() => MockDb.resetTables()());
+test.afterEach(() => MockDb.resetTables()());
 
-test("should restore a previous streak on rollback", async () =>
+test("should restore a previous streak on rollback", (t) =>
   pipe(
     MockDb.seedBlocks("h1", false),
     T.chain(() => SamplesBlocks.getBlocksFromFile("h1")),
@@ -42,7 +37,7 @@ test("should restore a previous streak on rollback", async () =>
           pipe(
             DeflationaryStreaks.getStreakState(12965024, true),
             T.map((state) => {
-              assert.is(state, 9);
+              t.is(state, 8);
             }),
           ),
         ),
@@ -53,7 +48,7 @@ test("should restore a previous streak on rollback", async () =>
             ),
             T.chain(() => DeflationaryStreaks.getStreakState(12965025, true)),
             T.map((state) => {
-              assert.is(state, 1);
+              t.is(state, 0);
             }),
           ),
         ),
@@ -64,7 +59,7 @@ test("should restore a previous streak on rollback", async () =>
               pipe(
                 DeflationaryStreaks.getStreakState(12965024, true),
                 T.map((state) => {
-                  assert.equal(state, 9);
+                  t.is(state, 8);
                 }),
               ),
             ),
@@ -73,5 +68,3 @@ test("should restore a previous streak on rollback", async () =>
       ),
     ),
   )());
-
-test.run();
