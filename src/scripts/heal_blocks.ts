@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
+import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { A, pipe, T, TEAlt, TOAlt } from "../fp.js";
@@ -48,7 +49,7 @@ await pipe(
             // Contracts marked as mined in a block that was rolled back are possibly wrong. Reanalyze 'contract mined at' data if we want very high confidence.
             T.bind(
               "deleteContractBaseFees",
-              () => () => Blocks.deleteContractBaseFees(blockNumber),
+              () => () => ContractBaseFees.deleteContractBaseFees(blockNumber),
             ),
             T.bind("deleteBlock", () => () => Blocks.deleteBlock(blockNumber)),
             // Add block

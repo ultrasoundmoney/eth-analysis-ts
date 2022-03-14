@@ -3,6 +3,7 @@ import * as BaseFees from "../base_fees.js";
 import { sumFeeSegments } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as Contracts from "../contracts/contracts.js";
+import * as ContractBaseFees from "../contract_base_fees.js";
 import { sqlTNotify } from "../db.js";
 import * as DeflationaryStreaks from "../deflationary_streaks.js";
 import * as Duration from "../duration.js";
@@ -85,7 +86,7 @@ export const rollbackToIncluding = (blockNumber: number) =>
               blocksToRollbackNewestFirst,
               T.traverseSeqArray((block) => async () => {
                 const blockNumber = block.number;
-                await Blocks.deleteContractBaseFees(blockNumber);
+                await ContractBaseFees.deleteContractBaseFees(blockNumber);
                 await Contracts.deleteContractsMinedAt(blockNumber);
                 await Blocks.deleteDerivedBlockStats(blockNumber);
                 await Blocks.deleteBlock(blockNumber);

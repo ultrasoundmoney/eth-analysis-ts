@@ -8,7 +8,7 @@ import {
 } from "../base_fees.js";
 import * as Contracts from "../contracts/contracts.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
-import { sql, sqlT, sqlTVoid } from "../db.js";
+import { sql, sqlT } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
 import { A, flow, NEA, O, Ord, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
@@ -181,35 +181,6 @@ export const blockDbFromAnalysis = (
   tips,
 });
 
-export const storeContractBaseFeesTask = (
-  block: BlockV1,
-  feeSegments: FeeSegments,
-  transactionCounts: Map<string, number>,
-) =>
-  pipe(
-    Array.from(feeSegments.contractSumsEth.entries()),
-    NEA.fromArray,
-    TO.fromOption,
-    TO.chainTaskK(
-      flow(
-        A.map(([address, baseFees]) =>
-          ContractBaseFees.contractBaseFeesFromAnalysis(
-            block,
-            feeSegments,
-            transactionCounts,
-            address,
-            baseFees,
-          ),
-        ),
-        A.map(ContractBaseFees.insertableFromContractBaseFees),
-        (insertables) =>
-          sqlTVoid`
-            INSERT INTO contract_base_fees ${sql(insertables)}
-          `,
-      ),
-    ),
-  );
-
 export const countTransactionsPerContract = (
   transactionReceipts: Transactions.TransactionReceiptV1[],
 ) =>
@@ -279,7 +250,11 @@ export const storeBlock = async (
   await TAlt.seqTSeq(
     TAlt.seqTPar(storeContractsTask, storeBlockTask),
     TAlt.seqTPar(
-      storeContractBaseFeesTask(block, feeSegments, transactionCounts),
+      ContractBaseFees.storeContractBaseFees(
+        block,
+        feeSegments,
+        transactionCounts,
+      ),
       updateContractsMinedAtTask,
     ),
   )();
@@ -298,15 +273,6 @@ export const deleteBlock = async (blockNumber: number): Promise<void> => {
   await sql`
     DELETE FROM blocks
     WHERE number = ${blockNumber}
-  `;
-};
-
-export const deleteContractBaseFees = async (
-  blockNumber: number,
-): Promise<void> => {
-  await sql`
-    DELETE FROM contract_base_fees
-    WHERE block_number = ${blockNumber}
   `;
 };
 
