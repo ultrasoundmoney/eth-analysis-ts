@@ -26,10 +26,7 @@ const getStreakStateForSiteWithMergeState = (
     T.map(
       flow(
         A.head,
-        OAlt.getOrThrow(
-          `expected deflationary streak to be analyzed for ${block.number}`,
-        ),
-        (row) =>
+        O.chain((row) =>
           row.count === null
             ? O.none
             : O.some({
@@ -37,6 +34,7 @@ const getStreakStateForSiteWithMergeState = (
                 // We consider a deflationary streak to have started the moment after the block before the first block in the deflationary streak was mined.
                 startedOnBlock: block.number - row.count,
               }),
+        ),
       ),
     ),
     TO.chainTaskK(({ count, startedOnBlock }) =>
