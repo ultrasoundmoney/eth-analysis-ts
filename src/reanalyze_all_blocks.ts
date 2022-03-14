@@ -1,5 +1,6 @@
 import makeEta from "simple-eta";
 import * as Blocks from "./blocks/blocks.js";
+import * as ContractBaseFees from "./contract_base_fees.js";
 import { sql } from "./db.js";
 import * as Duration from "./duration.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
@@ -70,7 +71,7 @@ for (const blockNumber of blocksToStore) {
   )();
 
   // Contracts marked as mined in a block that was rolled back are possibly wrong. Reanalyze 'contract mined at' data if we want very high confidence.
-  await Blocks.deleteContractBaseFees(blockNumber);
+  await ContractBaseFees.deleteContractBaseFees(blockNumber);
   await Blocks.deleteDerivedBlockStats(blockNumber);
   await Blocks.deleteBlock(blockNumber);
 

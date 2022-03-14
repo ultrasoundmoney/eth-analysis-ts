@@ -1,6 +1,8 @@
 import { FeeSegments } from "./base_fees.js";
 import { BlockV1, ContractBaseFeesInsertable } from "./blocks/blocks.js";
-import { O, OAlt, pipe } from "./fp.js";
+import { A, flow, NEA, O, OAlt, pipe, TO } from "./fp.js";
+import * as Blocks from "./blocks/blocks.js";
+import * as Db from "./db.js";
 
 // TODO: rename to BlockContractFees
 export type ContractBaseFees = {
@@ -40,3 +42,41 @@ export const contractBaseFeesFromAnalysis = (
   contractAddress: address,
   transactionCount: transactionCounts.get(address) ?? 0,
 });
+
+export const storeContractBaseFees = (
+  block: Blocks.BlockV1,
+  feeSegments: FeeSegments,
+  transactionCounts: Map<string, number>,
+) =>
+  pipe(
+    Array.from(feeSegments.contractSumsEth.entries()),
+    NEA.fromArray,
+    TO.fromOption,
+    TO.chainTaskK(
+      flow(
+        A.map(([address, baseFees]) =>
+          contractBaseFeesFromAnalysis(
+            block,
+            feeSegments,
+            transactionCounts,
+            address,
+            baseFees,
+          ),
+        ),
+        A.map(insertableFromContractBaseFees),
+        (insertables) =>
+          Db.sqlTVoid`
+            INSERT INTO contract_base_fees ${Db.values(insertables)}
+          `,
+      ),
+    ),
+  );
+
+export const deleteContractBaseFees = async (
+  blockNumber: number,
+): Promise<void> => {
+  await Db.sql`
+    DELETE FROM contract_base_fees
+    WHERE block_number = ${blockNumber}
+  `;
+};

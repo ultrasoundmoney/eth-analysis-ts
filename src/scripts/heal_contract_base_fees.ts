@@ -1,6 +1,7 @@
 import makeEta from "simple-eta";
 import * as BaseFees from "../base_fees.js";
 import * as Blocks from "../blocks/blocks.js";
+import * as ContractBaseFees from "../contract_base_fees.js";
 import { sql, sqlT } from "../db.js";
 import * as Duration from "../duration.js";
 import { getEthPrice } from "../eth-prices/eth_prices.js";
@@ -53,7 +54,7 @@ const healBlock = async (
   const transactionCounts = Blocks.countTransactionsPerContract(
     transactionSegments.other,
   );
-  await Blocks.storeContractBaseFeesTask(
+  await ContractBaseFees.storeContractBaseFees(
     block,
     feeSegments,
     transactionCounts,

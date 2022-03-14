@@ -82,3 +82,7 @@ export const sqlTNotify = (channel: string, payload: string) => () =>
   sql.notify(channel, payload);
 
 export const closeConnection = () => sql.end();
+
+export const query = sql;
+
+export const values = sql;
