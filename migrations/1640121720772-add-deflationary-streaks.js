@@ -18,6 +18,11 @@ export async function up(client) {
     DELETE FROM key_value_store
     WHERE key = 'deflationary-streak-pre-merge'
   `;
+
+  await client`
+    DELETE FROM analysis_state
+    WHERE key = 'deflationary-streaks'
+  `;
 }
 
 export async function down(client) {
