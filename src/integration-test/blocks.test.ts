@@ -8,9 +8,7 @@ test.before(async () => {
   await runMigrations();
 });
 
-test.after.each(async () => {
-  MockDb.resetTables();
-});
+test.after.each(() => MockDb.resetTables()());
 
 test.after(async () => {
   await sql.end();
