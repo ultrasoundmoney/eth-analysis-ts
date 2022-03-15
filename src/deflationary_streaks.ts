@@ -79,8 +79,8 @@ export const getStreakState = (blockNumber: number, postMerge: boolean) =>
     T.map(
       flow(
         A.head,
-        OAlt.getOrThrow(`expected block ${blockNumber} streak to be analyzed`),
-        (row) => (row.count === null ? 0 : row.count),
+        O.chainNullableK((row) => row.count),
+        O.getOrElse(() => 0),
       ),
     ),
   );
