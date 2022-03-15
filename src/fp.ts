@@ -63,14 +63,18 @@ export const TAlt = {
   seqTSeq: Apply.sequenceT(T.ApplySeq),
   when: (shouldExecute: boolean, task: T.Task<void>) =>
     shouldExecute ? task : T.of(undefined as void),
-  logDebugStr: <A>(message: string) =>
-    T.chainFirstIOK<A, void>((value) => () => {
-      Log.debug(message + String(value));
-    }),
-  logDebug: <A>(message: string) =>
+  debugTap: <A>(message: string) =>
     T.chainFirstIOK<A, void>((value) => () => {
       Log.debug(message, value);
     }),
+  debugTapStr: <A>(message: string) =>
+    T.chainFirstIOK<A, void>((value) => () => {
+      Log.debug(message + String(value));
+    }),
+  chainFirstLog: <A>(level: Log.Level, format: (a: A) => string) =>
+    T.chainFirstIOK<A, void>((value) => Log.logIO(level, format(value))),
+  chainFirstLogDebug: <A>(format: (a: A) => string) =>
+    TAlt.chainFirstLog("DEBUG", format),
 };
 
 export const TEAlt = {

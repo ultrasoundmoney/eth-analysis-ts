@@ -1,4 +1,6 @@
 import { pipe } from "fp-ts/lib/function.js";
+import * as T from "fp-ts/lib/Task.js";
+import * as IO from "fp-ts/lib/IO.js";
 import kleur from "kleur";
 
 const levelMap = {
@@ -22,7 +24,7 @@ const levelMap = {
  * ALERT (700) A person must take an action immediately.
  * EMERGENCY (800) One or more systems are unusable.
  */
-type Level = keyof typeof levelMap;
+export type Level = keyof typeof levelMap;
 
 const prettySeverityMap: Record<Level, string> = {
   DEFAULT: "",
@@ -100,22 +102,35 @@ export const log = (
   }
 };
 
-export const debug = (message: string, meta?: unknown) =>
-  log("DEBUG", message, meta);
+export const logIO =
+  (level = "DEFAULT" as Level, message: string, meta?: unknown) =>
+  () =>
+    log(level, message, meta);
 
-export const info = (message: string, meta?: unknown) =>
-  log("INFO", message, meta);
+const makeLogWithLevel = (level: Level) => (message: string, meta?: unknown) =>
+  log(level, message, meta);
 
-export const warn = (message: string, meta?: unknown) =>
-  log("WARNING", message, meta);
+const makeLogWithLevelIO =
+  (level: Level) => (message: string, meta?: unknown) => () =>
+    log(level, message, meta);
 
-export const error = (message: string, meta?: unknown) =>
-  log("ERROR", message, meta);
+const makeLogWithLevelT = (level: Level) => (message: string, meta?: unknown) =>
+  T.fromIO(() => log(level, message, meta));
 
-export const alert = (message: string, meta?: unknown) =>
-  log("ALERT", message, meta);
+export const debug = makeLogWithLevel("DEBUG");
+export const info = makeLogWithLevel("INFO");
+export const warn = makeLogWithLevel("WARNING");
+export const error = makeLogWithLevel("ERROR");
+export const alert = makeLogWithLevel("ALERT");
 
-/**
- * reduce hash to six unique chars easier human reading.
- */
-export const shortenHash = (hash: string): string => hash.slice(0, 8);
+export const debugIO = makeLogWithLevelIO("DEBUG");
+export const infoIO = makeLogWithLevelIO("INFO");
+export const warnIO = makeLogWithLevelIO("WARNING");
+export const errorIO = makeLogWithLevelIO("ERROR");
+export const alertIO = makeLogWithLevelIO("ALERT");
+
+export const debugT = makeLogWithLevelT("DEBUG");
+export const infoT = makeLogWithLevelT("INFO");
+export const warnT = makeLogWithLevelT("WARNING");
+export const errorT = makeLogWithLevelT("ERROR");
+export const alertT = makeLogWithLevelT("ALERT");
