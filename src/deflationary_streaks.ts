@@ -13,7 +13,7 @@ export type StreakForSite = {
 
 const analysisStateKey = "deflationary-streaks";
 
-const getStreakStateForSiteWithMergeState = (
+const getStreakForSiteWithMergeState = (
   block: Blocks.BlockDb,
   postMerge: boolean,
 ) =>
@@ -60,16 +60,16 @@ const getStreakStateForSiteWithMergeState = (
     T.map(O.toNullable),
   );
 
-export const getStreakStateForSite = (
+export const getStreakForSite = (
   block: Blocks.BlockDb,
 ): T.Task<StreakForSite> =>
   pipe(
     T.Do,
-    T.apS("preMerge", getStreakStateForSiteWithMergeState(block, true)),
-    T.apS("postMerge", getStreakStateForSiteWithMergeState(block, false)),
+    T.apS("preMerge", getStreakForSiteWithMergeState(block, true)),
+    T.apS("postMerge", getStreakForSiteWithMergeState(block, false)),
   );
 
-export const getStreakState = (blockNumber: number, postMerge: boolean) =>
+export const getStreak = (blockNumber: number, postMerge: boolean) =>
   pipe(
     Db.sqlT<{ count: number | null }[]>`
       SELECT count FROM deflationary_streaks
@@ -154,7 +154,7 @@ const analyzeNewBlocksWithMergeState = (
           () => T.of(0),
           () =>
             pipe(
-              getStreakState(block.number - 1, postMerge),
+              getStreak(block.number - 1, postMerge),
               T.map((streak) => streak + 1),
             ),
         ),

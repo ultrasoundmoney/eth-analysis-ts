@@ -109,7 +109,7 @@ export const updateAnalysis = (block: Blocks.BlockDb) =>
       "deflationaryStreak",
       Performance.measureTaskPerf(
         "get deflationary streak",
-        DeflationaryStreak.getStreakStateForSite(block),
+        DeflationaryStreak.getStreakForSite(block),
       ),
     ),
     T.map(
