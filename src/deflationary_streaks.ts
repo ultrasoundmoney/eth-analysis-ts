@@ -27,7 +27,7 @@ const getStreakForSiteWithMergeState = (
       flow(
         A.head,
         O.chain((row) =>
-          row.count === null
+          row.count === null || row.count === 0
             ? O.none
             : O.some({
                 count: row.count,
