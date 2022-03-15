@@ -33,38 +33,24 @@ test("should restore a previous streak on rollback", (t) =>
     T.chain((blockSets) =>
       pipe(
         DeflationaryStreaks.analyzeNewBlocks(blockSets.blocksThatBuildStreak),
+        T.chain(() => DeflationaryStreaks.getStreakState(12965024, true)),
+        T.map((state) => {
+          t.is(state, 8);
+        }),
         T.chain(() =>
-          pipe(
-            DeflationaryStreaks.getStreakState(12965024, true),
-            T.map((state) => {
-              t.is(state, 8);
-            }),
-          ),
+          DeflationaryStreaks.analyzeNewBlocks(blockSets.blockThatBreaksStreak),
         ),
+        T.chain(() => DeflationaryStreaks.getStreakState(12965025, true)),
+        T.map((state) => {
+          t.is(state, 0);
+        }),
         T.chain(() =>
-          pipe(
-            DeflationaryStreaks.analyzeNewBlocks(
-              blockSets.blockThatBreaksStreak,
-            ),
-            T.chain(() => DeflationaryStreaks.getStreakState(12965025, true)),
-            T.map((state) => {
-              t.is(state, 0);
-            }),
-          ),
+          DeflationaryStreaks.rollbackBlocks(blockSets.blockThatBreaksStreak),
         ),
-        T.chain(() =>
-          pipe(
-            DeflationaryStreaks.rollbackBlocks(blockSets.blockThatBreaksStreak),
-            T.chain(() =>
-              pipe(
-                DeflationaryStreaks.getStreakState(12965024, true),
-                T.map((state) => {
-                  t.is(state, 8);
-                }),
-              ),
-            ),
-          ),
-        ),
+        T.chain(() => DeflationaryStreaks.getStreakState(12965024, true)),
+        T.map((state) => {
+          t.is(state, 8);
+        }),
       ),
     ),
   )());
