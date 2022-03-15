@@ -63,13 +63,13 @@ export const TAlt = {
   seqTSeq: Apply.sequenceT(T.ApplySeq),
   when: (shouldExecute: boolean, task: T.Task<void>) =>
     shouldExecute ? task : T.of(undefined as void),
-  logDebugStr: <A>(msg: string) =>
+  logDebugStr: <A>(message: string) =>
     T.chainFirstIOK<A, void>((value) => () => {
-      Log.debug(msg + String(value));
+      Log.debug(message + String(value));
     }),
-  logDebug: <A>(msg: string) =>
+  logDebug: <A>(message: string) =>
     T.chainFirstIOK<A, void>((value) => () => {
-      Log.debug(msg, value);
+      Log.debug(message, value);
     }),
 };
 
