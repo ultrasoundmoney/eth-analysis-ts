@@ -41,7 +41,7 @@ const getStreakForSiteWithMergeState = (
       pipe(
         Db.sqlT<{ minedAt: Date }[]>`
           SELECT mined_at FROM blocks
-          WHERE block_number = ${startedOnBlock}
+          WHERE number = ${startedOnBlock}
         `,
         T.map(
           flow(
