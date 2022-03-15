@@ -11,6 +11,29 @@ test.after(() => Db.closeConnection());
 
 test.afterEach(() => MockDb.resetTables()());
 
+test("should start a streak when no previous streaks exist", (t) =>
+  pipe(
+    MockDb.seedBlocks("m5", false),
+    T.chain(() => SamplesBlocks.getBlocksFromFile("h1")),
+    T.map((blocks) =>
+      pipe(
+        blocks,
+        A.findFirst((block) => block.number === 12965017),
+        OAlt.getOrThrow("expected block 12965017 in sample"),
+        NEA.of,
+      ),
+    ),
+    T.chain((blocks) =>
+      pipe(
+        DeflationaryStreaks.analyzeNewBlocks(blocks),
+        T.chain(() => DeflationaryStreaks.getStreak(12965017, true)),
+        T.map((streak) => {
+          t.is(streak, 1);
+        }),
+      ),
+    ),
+  )());
+
 test("should restore a previous streak on rollback", (t) =>
   pipe(
     MockDb.seedBlocks("h1", false),
