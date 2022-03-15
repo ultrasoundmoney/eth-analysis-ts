@@ -21,7 +21,7 @@ const updateEthStaked = () =>
       (balance) =>
         `got eth staked from deposit contract, balance: ${Format.ethFromWei(
           balance,
-        )}`,
+        )} ETH`,
     ),
     T.map((balance) => {
       lastEthStaked = O.some({
