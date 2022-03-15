@@ -7,6 +7,7 @@ export PGUSER=postgres
 export PGPASSWORD=deflationary
 export PGPORT=5432
 export PGDATABASE=postgres
+unset NODE_OPTIONS
 
 psql --quiet --command "CREATE DATABASE test_$TIMESTAMP"
 
