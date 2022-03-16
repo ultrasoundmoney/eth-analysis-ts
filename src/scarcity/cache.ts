@@ -1,4 +1,4 @@
-import { BlockDb } from "../blocks/blocks.js";
+import { BlockV1 } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
 import { sqlTNotify, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
@@ -35,7 +35,7 @@ export type Scarcity = {
 export const scarcityCacheKey = "scarcity-cache-key";
 
 const buildScarcity = (
-  block: BlockDb,
+  block: BlockV1,
   ethLocked: EthLocked.EthLocked,
   ethBurned: bigint,
 ): E.Either<Error, Scarcity> => {
@@ -81,7 +81,7 @@ const buildScarcity = (
   });
 };
 
-export const updateScarcityCache = (block: BlockDb): T.Task<void> =>
+export const updateScarcityCache = (block: BlockV1): T.Task<void> =>
   pipe(
     T.Do,
     T.apS(

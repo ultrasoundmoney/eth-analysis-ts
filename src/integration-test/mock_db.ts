@@ -26,7 +26,7 @@ export const resetTables = () =>
     TAlt.concatAllVoid,
   );
 
-const getMostRecentBlockDistanceToNow = (blocks: Blocks.BlockDb[]) =>
+const getMostRecentBlockDistanceToNow = (blocks: Blocks.BlockV1[]) =>
   pipe(
     blocks,
     A.last,
@@ -34,7 +34,7 @@ const getMostRecentBlockDistanceToNow = (blocks: Blocks.BlockDb[]) =>
     (block) => DateFns.differenceInMilliseconds(new Date(), block.minedAt),
   );
 
-const setBlocksToNow = (blocks: NEA.NonEmptyArray<Blocks.BlockDb>) =>
+const setBlocksToNow = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>) =>
   pipe(getMostRecentBlockDistanceToNow(blocks), (distanceToNow) =>
     pipe(
       blocks,
@@ -55,7 +55,7 @@ const shiftMap: Record<SamplesBlocks.SupportedSample, number> = {
 
 const setBlocksHalfOutOfFrame = (
   sample: SamplesBlocks.SupportedSample,
-  blocks: NEA.NonEmptyArray<Blocks.BlockDb>,
+  blocks: NEA.NonEmptyArray<Blocks.BlockV1>,
 ) =>
   pipe(
     blocks,

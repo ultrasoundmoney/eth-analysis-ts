@@ -71,7 +71,7 @@ export type BlockDbInsertable = {
   eth_price?: number;
 };
 
-export type BlockDb = {
+export type BlockV1 = {
   baseFeePerGas: bigint;
   baseFeeSum: bigint;
   contractCreationSum: number;
@@ -85,7 +85,7 @@ export type BlockDb = {
   tips: number;
 };
 
-export const insertableFromBlock = (block: BlockDb): BlockDbInsertable => ({
+export const insertableFromBlock = (block: BlockV1): BlockDbInsertable => ({
   base_fee_per_gas: String(block.baseFeePerGas),
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: String(block.baseFeeSum),
@@ -170,7 +170,7 @@ export const blockDbFromAnalysis = (
   feeSegments: FeeSegments,
   tips: number,
   ethPrice: number,
-): BlockDb => ({
+): BlockV1 => ({
   baseFeePerGas: BigInt(block.baseFeePerGas),
   baseFeeSum: calcBlockBaseFeeSum(block),
   contractCreationSum: feeSegments.creationsSum,
@@ -308,7 +308,7 @@ type BlockDbRow = {
   tips: number;
 };
 
-const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
+const blockDbFromRow = (row: BlockDbRow): BlockV1 => ({
   baseFeePerGas: BigInt(row.baseFeePerGas),
   baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
   contractCreationSum: row.contractCreationSum,
@@ -324,7 +324,7 @@ const blockDbFromRow = (row: BlockDbRow): BlockDb => ({
 export const getBlocks = (
   from: number,
   upToIncluding: number,
-): T.Task<BlockDb[]> =>
+): T.Task<BlockV1[]> =>
   pipe(
     sqlT<BlockDbRow[]>`
       SELECT
@@ -405,13 +405,13 @@ export const getEarliestBlockInTimeFrame = (
         T.map((rows) => rows[0].min),
       );
 
-export const sortAsc = Ord.fromCompare<BlockDb>((a, b) =>
+export const sortAsc = Ord.fromCompare<BlockV1>((a, b) =>
   a.number < b.number ? -1 : a.number > b.number ? 1 : 0,
 );
 
-export const sortDesc = Ord.fromCompare<BlockDb>((a, b) =>
+export const sortDesc = Ord.fromCompare<BlockV1>((a, b) =>
   a.number < b.number ? 1 : a.number > b.number ? -1 : 0,
 );
 
-export const getPreviousBlock = (block: BlockDb) =>
+export const getPreviousBlock = (block: BlockV1) =>
   pipe(getBlocks(block.number - 1, block.number - 1), T.map(A.head));

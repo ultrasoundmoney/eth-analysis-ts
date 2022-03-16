@@ -1,7 +1,7 @@
 import test from "ava";
 import * as DateFns from "date-fns";
 import _ from "lodash";
-import { BlockDb } from "../blocks/blocks.js";
+import { BlockV1 } from "../blocks/blocks.js";
 import * as BurnRecords from "../burn-records/burn_records.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
 import * as BurnRecordsSync from "../burn-records/sync.js";
@@ -106,7 +106,7 @@ test("should remove records on rollback", async (t) => {
   t.is(topRecord.baseFeeSum, Number(395313673917850200n));
 
   await BurnRecordsNewHead.rollbackBlocks(
-    NEA.of({ number: 12965022 } as BlockDb),
+    NEA.of({ number: 12965022 } as BlockV1),
   )();
   const [topRecordPostRollback] = await BurnRecords.getBurnRecords("m5")();
   t.not(topRecordPostRollback.blockNumber, 12965022);

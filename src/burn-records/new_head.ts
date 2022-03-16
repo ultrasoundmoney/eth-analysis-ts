@@ -3,7 +3,7 @@ import { NEA, pipe, T, TAlt } from "../fp.js";
 import * as TimeFrames from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
 
-export const onNewBlock = (block: Blocks.BlockDb) =>
+export const onNewBlock = (block: Blocks.BlockV1) =>
   pipe(
     TimeFrames.timeFramesNext,
     T.traverseArray((timeFrame) =>
@@ -21,7 +21,7 @@ export const onNewBlock = (block: Blocks.BlockDb) =>
   );
 
 export const rollbackBlocks = (
-  blocksToRollback: NEA.NonEmptyArray<Blocks.BlockDb>,
+  blocksToRollback: NEA.NonEmptyArray<Blocks.BlockV1>,
 ) =>
   pipe(blocksToRollback, NEA.sort(Blocks.sortDesc), NEA.last, (block) =>
     pipe(

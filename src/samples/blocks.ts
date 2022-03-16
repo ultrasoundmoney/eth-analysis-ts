@@ -13,7 +13,7 @@ const files: Record<SupportedSample, string> = {
 
 const cache: Record<
   SupportedSample,
-  O.Option<NEA.NonEmptyArray<Blocks.BlockDb>>
+  O.Option<NEA.NonEmptyArray<Blocks.BlockV1>>
 > = {
   m5: O.none,
   h1: O.none,
@@ -33,7 +33,7 @@ export type BlockCsv = {
   tips: string;
 };
 
-const blockFromRaw = (rawBlock: BlockCsv): Blocks.BlockDb => ({
+const blockFromRaw = (rawBlock: BlockCsv): Blocks.BlockV1 => ({
   baseFeePerGas:
     rawBlock.base_fee_per_gas === "0.0"
       ? 0n
