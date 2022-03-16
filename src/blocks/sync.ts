@@ -21,7 +21,11 @@ export const syncBlock = async (blockNumber: number): Promise<void> => {
     Log.warn(
       "sync block parent is not in our DB, rolling back one block and trying again",
     );
-    await rollbackToIncluding(blockNumber - 1)();
+    const parentBlockNumber = blockNumber - 1;
+    const oBlock = await Blocks.getBlock(parentBlockNumber)();
+    if (O.isSome(oBlock)) {
+      await rollbackToIncluding(oBlock.value)();
+    }
     await syncBlock(blockNumber - 1);
   }
 
@@ -41,7 +45,11 @@ const rollbackToLastValidBlock = async () => {
     Log.warn(
       `on-start last known block does not match chain, rolling back ${lastStoredBlock.number}`,
     );
-    await rollbackToIncluding(lastStoredBlock.number - 1)();
+    const parentBlockNumber = lastStoredBlock.number - 1;
+    const oBlock = await Blocks.getBlock(parentBlockNumber)();
+    if (O.isSome(oBlock)) {
+      await rollbackToIncluding(oBlock.value)();
+    }
     lastStoredBlock = await Blocks.getLastStoredBlock()();
     block = await Blocks.getBlockSafe(lastStoredBlock.number)();
   }
