@@ -10,7 +10,7 @@ import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../eth_node.js";
-import { A, NEA, O, pipe, T, TAlt, TEAlt, TO, TOAlt } from "../fp.js";
+import { flow, NEA, O, OAlt, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
@@ -24,79 +24,69 @@ export type BlocksUpdate = {
   number: number;
 };
 
-export const newBlockQueue = new PQueue({
+export const headsQueue = new PQueue({
   concurrency: 1,
   autoStart: false,
 });
 
-/**
- * Gets the blocks currently in our DB that we're looking to roll back.
- * @param blockNumber {number} the earliest block number we want to roll back.
- */
-export const getBlocksToRollBack = (blockNumber: number) =>
+export const rollbackToIncluding = (
+  block: Blocks.BlockV1 | Blocks.BlockNodeV2,
+) =>
   pipe(
-    T.Do,
-    T.chainFirstIOK(() => () => {
-      Log.info(`rolling back to and including: ${blockNumber}`);
-    }),
-    T.apS("syncedBlockHeight", () => Blocks.getSyncedBlockHeight()),
-    T.chain(({ syncedBlockHeight }) =>
+    Blocks.getBlocksAfter(block.number),
+    T.map(
+      flow(
+        NEA.fromArray,
+        OAlt.getOrThrow("expected blocks to roll back to be one or more"),
+        NEA.sort(Blocks.sortDesc),
+      ),
+    ),
+    TAlt.chainFirstLogDebug(
+      (blocks) =>
+        `rolling back ${blocks.length} blocks to and including: ${block.number}`,
+    ),
+    T.chain((blocksToRollbackNewestFirst) =>
       pipe(
-        Blocks.getBlocks(blockNumber, syncedBlockHeight),
-        T.map(A.sort(Blocks.sortDesc)),
+        T.Do,
+        T.apS(
+          "rollbackDeflationaryStreaks",
+          DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
+        ),
+        T.apS(
+          "rollbackBurnRecords",
+          BurnRecordsNewHead.rollbackBlocks(blocksToRollbackNewestFirst),
+        ),
+        T.apS(
+          "rollbackLeaderboardsAll",
+          LeaderboardsAll.rollbackBlocks(blocksToRollbackNewestFirst),
+        ),
+        T.apS(
+          "rollbackLeaderboardsLimitedTimeFrames",
+          LeaderboardsLimitedTimeframe.rollbackBlocks(
+            blocksToRollbackNewestFirst,
+          ),
+        ),
+        T.bind("rollbackBlock", () =>
+          pipe(
+            blocksToRollbackNewestFirst,
+            T.traverseSeqArray((block) => async () => {
+              const blockNumber = block.number;
+              await ContractBaseFees.deleteContractBaseFees(blockNumber);
+              await Contracts.deleteContractsMinedAt(blockNumber);
+              await Blocks.deleteDerivedBlockStats(blockNumber);
+              await Blocks.deleteBlock(blockNumber);
+            }),
+            TAlt.concatAllVoid,
+          ),
+        ),
+        T.map((): void => undefined),
       ),
     ),
   );
 
-// TODO: change fn to take non-empty blocks to roll back instead.
-export const rollbackToIncluding = (blockNumber: number) =>
-  pipe(
-    getBlocksToRollBack(blockNumber),
-    T.map(NEA.fromArray),
-    TO.matchE(
-      () => {
-        Log.warn(
-          `asked to rollback ${blockNumber}, but DB returned zero blocks`,
-        );
-        return T.of(undefined);
-      },
-      (blocksToRollbackNewestFirst) =>
-        pipe(
-          T.Do,
-          T.apS(
-            "rollbackDeflationaryStreaks",
-            DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
-          ),
-          T.apS(
-            "rollbackBurnRecords",
-            BurnRecordsNewHead.rollbackBlocks(blocksToRollbackNewestFirst),
-          ),
-          T.apS(
-            "rollbackLeaderboardsAll",
-            LeaderboardsAll.rollbackBlocks(blocksToRollbackNewestFirst),
-          ),
-          T.apS(
-            "rollbackLeaderboardsLimitedTimeFrames",
-            LeaderboardsLimitedTimeframe.rollbackBlocks(
-              blocksToRollbackNewestFirst,
-            ),
-          ),
-          T.bind("rollbackBlock", () =>
-            pipe(
-              blocksToRollbackNewestFirst,
-              T.traverseSeqArray((block) => async () => {
-                const blockNumber = block.number;
-                await ContractBaseFees.deleteContractBaseFees(blockNumber);
-                await Contracts.deleteContractsMinedAt(blockNumber);
-                await Blocks.deleteDerivedBlockStats(blockNumber);
-                await Blocks.deleteBlock(blockNumber);
-              }),
-              TAlt.concatAllVoid,
-            ),
-          ),
-          T.map((): void => undefined),
-        ),
-    ),
+const broadcastBlocksUpdate = (block: Blocks.BlockNodeV2) =>
+  pipe({ number: block.number }, (blocksUpdate: BlocksUpdate) =>
+    sqlTNotify("blocks-update", JSON.stringify(blocksUpdate)),
   );
 
 export const addBlock = async (head: Head): Promise<void> => {
@@ -113,25 +103,33 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
+  // After this step the chain to the current head should be unbroken to the received head.
   if (!isParentKnown) {
-    // NOTE: sometimes a new head has a parent never seen before. In this case we rollback to the last known parent, roll back to that block, then roll forwards to the current block.
+    // NOTE: sometimes a new head has a parent never seen before. In this case we drop recursively, then add recursively all parents to get back to the head.
     Log.warn(
       "new head's parent is not in our DB, rollback one block and try to add the parent",
     );
-    const rollbackTarget = head.number - 1;
-    await rollbackToIncluding(rollbackTarget)();
+    const parentBlockNumber = head.number - 1;
+    const oBlock = await Blocks.getBlock(parentBlockNumber)();
+
+    // We stored a parent, but it's not the one this head expected, rollback the parent.
+    if (O.isSome(oBlock)) {
+      await rollbackToIncluding(oBlock.value)();
+    }
+
     const previousBlock = await pipe(
-      Blocks.getBlockSafe(rollbackTarget),
+      Blocks.getBlockSafe(parentBlockNumber),
       TOAlt.getOrThrow(
-        `after rolling back, when adding old block ${rollbackTarget}, block came back null`,
+        `expected block ${parentBlockNumber} to exist on-chain whilst replacing a parent`,
       ),
     )();
     await addBlock(previousBlock);
   }
 
+  // This block rolls back the chain.
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
-    await rollbackToIncluding(block.number)();
+    await rollbackToIncluding(block)();
   }
 
   const oTransactionReceipts = await Transactions.getTransactionReceiptsSafe(
@@ -139,7 +137,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   )();
 
   if (O.isNone(oTransactionReceipts)) {
-    // Block got dropped during transaction receipt fetching or something else went wrong. Either way, we skip this block and figure out on the next head whether we are missing parents.
+    // Block got superseded between the time we received the head and finished retrieving all transactions. We stop working on the current head and let the next head guide us to the current on-chain truth.
     Log.info(
       `failed to fetch transaction receipts for head: ${head.hash}, skipping`,
     );
@@ -155,8 +153,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   await Blocks.storeBlock(block, transactionReceipts, ethPrice.ethusd);
 
-  const blocksUpdate: BlocksUpdate = { number: block.number };
-  await sqlTNotify("blocks-update", JSON.stringify(blocksUpdate))();
+  await broadcastBlocksUpdate(block)();
 
   const feeSegments = sumFeeSegments(
     block,
@@ -172,8 +169,6 @@ export const addBlock = async (head: Head): Promise<void> => {
     tips,
     ethPrice.ethusd,
   );
-
-  const tStartAnalyze = performance.now();
 
   LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
     blockDb,
@@ -200,16 +195,14 @@ export const addBlock = async (head: Head): Promise<void> => {
     DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
   )();
 
-  Performance.logPerf("second order analyze block", tStartAnalyze);
-
-  Log.debug(`store block seq queue ${newBlockQueue.size}`);
+  Log.debug(`heads queue: ${headsQueue.size}`);
   const allBlocksProcessed =
-    newBlockQueue.size === 0 &&
+    headsQueue.size === 0 &&
     // This function is on this queue.
-    newBlockQueue.pending <= 1;
+    headsQueue.pending <= 1;
 
   if (allBlocksProcessed) {
-    await TAlt.seqTPar(
+    await TAlt.seqTSeq(
       Performance.measureTaskPerf(
         "update grouped analysis 1",
         GroupedAnalysis1.updateAnalysis(blockDb),
@@ -224,12 +217,10 @@ export const addBlock = async (head: Head): Promise<void> => {
       ),
     )();
   } else {
-    Log.debug(
-      "more than one block queued for analysis, skipping further computation",
-    );
+    Log.debug("more than one head queued, skipping some computation");
   }
   Performance.logPerf("add block", t0);
 };
 
 export const onNewBlock = async (head: Head): Promise<void> =>
-  newBlockQueue.add(() => addBlock(head));
+  headsQueue.add(() => addBlock(head));
