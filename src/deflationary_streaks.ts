@@ -11,8 +11,6 @@ export type StreakForSite = {
   postMerge: { count: number; startedOn: Date } | null;
 };
 
-const analysisStateKey = "deflationary-streaks";
-
 const getStreakForSiteWithMergeState = (
   block: Blocks.BlockV1,
   postMerge: boolean,
@@ -101,22 +99,11 @@ const storeStreak = (
 
 export const getLastAnalyzed = () =>
   pipe(
-    Db.sqlT<{ last: number }[]>`
-      SELECT last FROM analysis_state
-      WHERE key = ${analysisStateKey}
+    Db.sqlT<{ max: number }[]>`
+      SELECT MAX(block_number) FROM deflationary_streaks
     `,
-    T.map(flow((rows) => rows[0]?.last, O.fromNullable)),
+    T.map(flow((rows) => rows[0]?.max, O.fromNullable)),
   );
-
-const setLastAnalyzed = (blockNumber: number) => Db.sqlTVoid`
-  INSERT INTO analysis_state
-    ${Db.sql({
-      key: analysisStateKey,
-      last: blockNumber,
-    })}
-  ON CONFLICT (key) DO UPDATE SET
-    last = excluded.last
-`;
 
 export const getNextBlockToAdd = () =>
   pipe(
@@ -168,10 +155,11 @@ export const analyzeNewBlocks = (
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockV1>,
 ) =>
   pipe(
-    T.Do,
-    T.apS("preMerge", analyzeNewBlocksWithMergeState(blocksToAdd, false)),
-    T.apS("postMerge", analyzeNewBlocksWithMergeState(blocksToAdd, true)),
-    T.chain(() => setLastAnalyzed(NEA.last(blocksToAdd).number)),
+    TAlt.seqTPar(
+      analyzeNewBlocksWithMergeState(blocksToAdd, false),
+      analyzeNewBlocksWithMergeState(blocksToAdd, true),
+    ),
+    TAlt.concatAllVoid,
   );
 
 export const rollbackBlocks = (
@@ -184,13 +172,4 @@ export const rollbackBlocks = (
       DELETE FROM deflationary_streaks
       WHERE block_number IN (${blockNumbers})
     `,
-    T.chain(() =>
-      pipe(
-        blocksToRollback,
-        NEA.sort(Blocks.sortDesc),
-        NEA.last,
-        (youngestRolledBack) => youngestRolledBack.number - 1,
-        (latestBlock) => setLastAnalyzed(latestBlock),
-      ),
-    ),
   );
