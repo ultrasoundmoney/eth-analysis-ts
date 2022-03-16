@@ -59,7 +59,7 @@ try {
     ),
   )();
 
-  BlocksNewBlock.newBlockQueue.start();
+  BlocksNewBlock.headsQueue.start();
   Log.info("started analyzing new blocks from queue");
 } catch (error) {
   EthNode.closeConnections();
