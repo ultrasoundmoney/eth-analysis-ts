@@ -1,5 +1,5 @@
 import { pipe } from "fp-ts/lib/function.js";
-import { BlockV1 } from "./blocks/blocks.js";
+import { BlockNodeV2 } from "./blocks/blocks.js";
 import { A, O } from "./fp.js";
 import { sum } from "./numbers.js";
 import type { TransactionReceiptV1, TransactionSegments } from "./transactions";
@@ -25,7 +25,7 @@ type ContractBaseFeeMap = Map<string, number>;
 type ContractBaseFeeMapBI = Map<string, bigint>;
 
 const mergeReceiptEth = (
-  block: BlockV1,
+  block: BlockNodeV2,
   sumMap: ContractBaseFeeMap,
   transactionReceipt: TransactionReceiptV1,
 ) =>
@@ -44,7 +44,7 @@ const mergeReceiptEth = (
   );
 
 const sumPerContractEth = (
-  block: BlockV1,
+  block: BlockNodeV2,
   transactionReceipts: TransactionReceiptV1[],
 ): ContractBaseFeeMap =>
   pipe(
@@ -57,7 +57,7 @@ const sumPerContractEth = (
   );
 
 const mergeReceiptEthBI = (
-  block: BlockV1,
+  block: BlockNodeV2,
   sumMap: ContractBaseFeeMapBI,
   transactionReceipt: TransactionReceiptV1,
 ) =>
@@ -76,7 +76,7 @@ const mergeReceiptEthBI = (
   );
 
 const sumPerContractEthBI = (
-  block: BlockV1,
+  block: BlockNodeV2,
   transactionReceipts: TransactionReceiptV1[],
 ): ContractBaseFeeMapBI =>
   pipe(
@@ -87,7 +87,7 @@ const sumPerContractEthBI = (
   );
 
 const mergeReceiptUsd = (
-  block: BlockV1,
+  block: BlockNodeV2,
   sumMap: ContractBaseFeeMap,
   transactionReceipt: TransactionReceiptV1,
   ethPrice: number,
@@ -109,7 +109,7 @@ const mergeReceiptUsd = (
   );
 
 const sumPerContractUsd = (
-  block: BlockV1,
+  block: BlockNodeV2,
   transactionReceipts: TransactionReceiptV1[],
   ethPrice: number,
 ): ContractBaseFeeMap =>
@@ -122,11 +122,11 @@ const sumPerContractUsd = (
     ),
   );
 
-export const calcBlockBaseFeeSum = (block: BlockV1): bigint =>
+export const calcBlockBaseFeeSum = (block: BlockNodeV2): bigint =>
   block.gasUsedBI * block.baseFeePerGasBI;
 
 export const sumFeeSegments = (
-  block: BlockV1,
+  block: BlockNodeV2,
   segments: TransactionSegments,
   ethPrice?: number,
 ): FeeSegments => {
@@ -170,21 +170,21 @@ export const sumFeeSegments = (
 };
 
 export const getTip = (
-  block: BlockV1,
+  block: BlockNodeV2,
   transactionReceipt: TransactionReceiptV1,
 ) =>
   transactionReceipt.gasUsed * transactionReceipt.effectiveGasPrice -
   transactionReceipt.gasUsed * block.baseFeePerGas;
 
 export const getTipBI = (
-  block: BlockV1,
+  block: BlockNodeV2,
   transactionReceipt: TransactionReceiptV1,
 ) =>
   transactionReceipt.gasUsedBI * transactionReceipt.effectiveGasPriceBI -
   transactionReceipt.gasUsedBI * block.baseFeePerGasBI;
 
 export const calcBlockTips = (
-  block: BlockV1,
+  block: BlockNodeV2,
   transactionReceipts: TransactionReceiptV1[],
 ): number =>
   pipe(
