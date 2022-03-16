@@ -60,7 +60,7 @@ const getLeaderboards = () =>
     })),
   );
 
-export const updateAnalysis = (block: Blocks.BlockDb) =>
+export const updateAnalysis = (block: Blocks.BlockV1) =>
   pipe(
     Log.debug("computing grouped analysis 1"),
     () => T.Do,

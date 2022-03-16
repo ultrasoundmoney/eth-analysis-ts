@@ -14,7 +14,7 @@ export type StreakForSite = {
 const analysisStateKey = "deflationary-streaks";
 
 const getStreakForSiteWithMergeState = (
-  block: Blocks.BlockDb,
+  block: Blocks.BlockV1,
   postMerge: boolean,
 ) =>
   pipe(
@@ -61,7 +61,7 @@ const getStreakForSiteWithMergeState = (
   );
 
 export const getStreakForSite = (
-  block: Blocks.BlockDb,
+  block: Blocks.BlockV1,
 ): T.Task<StreakForSite> =>
   pipe(
     T.Do,
@@ -86,7 +86,7 @@ export const getStreak = (blockNumber: number, postMerge: boolean) =>
   );
 
 const storeStreak = (
-  block: Blocks.BlockDb,
+  block: Blocks.BlockV1,
   postMerge: boolean,
   count: number,
 ) =>
@@ -133,7 +133,7 @@ export const getNextBlockToAdd = () =>
 
 const getIsDeflationaryBlock = (
   issuancePerBlock: number,
-  block: Blocks.BlockDb,
+  block: Blocks.BlockV1,
 ) => EthUnits.ethFromWei(Number(block.baseFeeSum)) > issuancePerBlock;
 
 const getIssuancePerBlock = (postMerge: boolean) =>
@@ -142,7 +142,7 @@ const getIssuancePerBlock = (postMerge: boolean) =>
     : StaticEtherData.issuancePerBlockPreMerge;
 
 const analyzeNewBlocksWithMergeState = (
-  blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
+  blocksToAdd: NEA.NonEmptyArray<Blocks.BlockV1>,
   postMerge: boolean,
 ) =>
   pipe(
@@ -165,7 +165,7 @@ const analyzeNewBlocksWithMergeState = (
   );
 
 export const analyzeNewBlocks = (
-  blocksToAdd: NEA.NonEmptyArray<Blocks.BlockDb>,
+  blocksToAdd: NEA.NonEmptyArray<Blocks.BlockV1>,
 ) =>
   pipe(
     T.Do,
@@ -175,7 +175,7 @@ export const analyzeNewBlocks = (
   );
 
 export const rollbackBlocks = (
-  blocksToRollback: NEA.NonEmptyArray<Blocks.BlockDb>,
+  blocksToRollback: NEA.NonEmptyArray<Blocks.BlockV1>,
 ) =>
   pipe(
     blocksToRollback,

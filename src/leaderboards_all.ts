@@ -240,7 +240,7 @@ export const calcLeaderboardAll = () =>
     ),
   );
 
-export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockDb>) =>
+export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>) =>
   pipe(
     blocks,
     NEA.sort(Blocks.sortDesc),

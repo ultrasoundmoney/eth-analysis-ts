@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import _ from "lodash";
-import { BlockDb, sortDesc } from "./blocks/blocks.js";
+import { BlockV1, sortDesc } from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
 import { A, NEA, O, Ord, pipe, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
@@ -172,7 +172,7 @@ export const addAllBlocksForAllTimeframes = () =>
   );
 
 export const addBlockForAllTimeframes = (
-  block: BlockDb,
+  block: BlockV1,
   baseFeesToAddEth: ContractSums,
   baseFeesToAddUsd: ContractSums,
 ): void => {
@@ -236,7 +236,7 @@ const rollbackBlockForTimeFrames = (
   }
 };
 
-export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockDb>) =>
+export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockV1>) =>
   pipe(
     blocks,
     NEA.sort(sortDesc),
