@@ -23,7 +23,7 @@ export const londonHardForkBlockNumber = 12965000;
 /**
  * This is a block as we get it from an eth node, after we drop fields we don't need and decode ones we use.
  */
-export type BlockV1 = {
+export type BlockNodeV2 = {
   baseFeePerGas: number;
   baseFeePerGasBI: bigint;
   gasLimit: number;
@@ -38,7 +38,9 @@ export type BlockV1 = {
   transactions: string[];
 };
 
-export const blockV1FromNode = (blockNode: EthNode.BlockNode): BlockV1 => ({
+export const blockV1FromNode = (
+  blockNode: EthNode.BlockNodeV1,
+): BlockNodeV2 => ({
   baseFeePerGas: Number(blockNode.baseFeePerGas),
   baseFeePerGasBI: BigInt(blockNode.baseFeePerGas),
   gasLimit: Hexadecimal.numberFromHex(blockNode.gasLimit),
@@ -115,7 +117,7 @@ export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
 
 export const getBlockWithRetry = async (
   blockNumber: number | "latest" | string,
-): Promise<BlockV1> => {
+): Promise<BlockNodeV2> => {
   const delayMilis = millisFromSeconds(3);
   const delaySeconds = delayMilis * 1000;
   let tries = 0;
@@ -149,7 +151,7 @@ export const getBlockWithRetry = async (
 
 export const getBlockSafe = (
   blockNumber: number | "latest" | string,
-): TO.TaskOption<BlockV1> =>
+): TO.TaskOption<BlockNodeV2> =>
   pipe(
     () => EthNode.getBlock(blockNumber),
     T.map(O.fromNullable),
@@ -164,7 +166,7 @@ export const getBlockByHash = (hash: string) =>
   );
 
 export const blockDbFromAnalysis = (
-  block: BlockV1,
+  block: BlockNodeV2,
   feeSegments: FeeSegments,
   tips: number,
   ethPrice: number,
@@ -202,7 +204,7 @@ export const countTransactionsPerContract = (
   );
 
 export const storeBlock = async (
-  block: BlockV1,
+  block: BlockNodeV2,
   transactionReceipts: Transactions.TransactionReceiptV1[],
   ethPrice: number,
 ): Promise<void> => {
@@ -338,6 +340,29 @@ export const getBlocks = (
       FROM blocks
       WHERE number >= ${from}
       AND number <= ${upToIncluding}
+      ORDER BY number ASC
+    `,
+    T.map(A.map(blockDbFromRow)),
+  );
+
+export const getBlock = (blockNumber: number) =>
+  pipe(getBlocks(blockNumber, blockNumber), T.map(A.head));
+
+export const getBlocksAfter = (blockNumber: number) =>
+  pipe(
+    sqlT<BlockDbRow[]>`
+      SELECT
+        base_fee_per_gas,
+        contract_creation_sum,
+        eth_price,
+        eth_transfer_sum,
+        gas_used,
+        hash,
+        mined_at,
+        number,
+        tips
+      FROM blocks
+      WHERE number >= ${blockNumber}
       ORDER BY number ASC
     `,
     T.map(A.map(blockDbFromRow)),

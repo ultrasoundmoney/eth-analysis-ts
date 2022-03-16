@@ -196,7 +196,7 @@ const send = async (message: Record<string, unknown>) => {
 /**
  * A block as it comes in from an eth node.
  */
-export type BlockNode = {
+export type BlockNodeV1 = {
   baseFeePerGas: string;
   gasUsed: string;
   difficulty: string;
@@ -223,8 +223,8 @@ export type BlockNode = {
 // NOTE: Some blocks get dropped, queries come back null.
 export const getBlock = async (
   query: number | "latest" | string,
-): Promise<BlockNode | undefined> => {
-  const [id, messageP] = registerMessageListener<BlockNode>();
+): Promise<BlockNodeV1 | undefined> => {
+  const [id, messageP] = registerMessageListener<BlockNodeV1>();
 
   const numberAsHex =
     query === "latest"
@@ -247,8 +247,8 @@ export const getBlock = async (
 
 export const getRawBlockByHash = async (
   hash: string,
-): Promise<BlockNode | null> => {
-  const [id, messageP] = registerMessageListener<BlockNode>();
+): Promise<BlockNodeV1 | null> => {
+  const [id, messageP] = registerMessageListener<BlockNodeV1>();
 
   send({
     method: "eth_getBlockByHash",

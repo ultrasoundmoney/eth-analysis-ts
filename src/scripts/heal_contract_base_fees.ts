@@ -31,7 +31,7 @@ const storeLastAdded = (blockNumber: number) => sql`
 `;
 
 const healBlock = async (
-  block: Blocks.BlockV1,
+  block: Blocks.BlockNodeV2,
   transactionReceipts: Transactions.TransactionReceiptV1[],
 ) => {
   const ethPrice = await pipe(

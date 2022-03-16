@@ -1,5 +1,5 @@
 import { FeeSegments } from "./base_fees.js";
-import { BlockV1, ContractBaseFeesInsertable } from "./blocks/blocks.js";
+import { BlockNodeV2, ContractBaseFeesInsertable } from "./blocks/blocks.js";
 import { A, flow, NEA, O, OAlt, pipe, TO } from "./fp.js";
 import * as Blocks from "./blocks/blocks.js";
 import * as Db from "./db.js";
@@ -24,7 +24,7 @@ export const insertableFromContractBaseFees = (
 });
 
 export const contractBaseFeesFromAnalysis = (
-  block: BlockV1,
+  block: BlockNodeV2,
   feeSegments: FeeSegments,
   transactionCounts: Map<string, number>,
   address: string,
@@ -44,7 +44,7 @@ export const contractBaseFeesFromAnalysis = (
 });
 
 export const storeContractBaseFees = (
-  block: Blocks.BlockV1,
+  block: Blocks.BlockNodeV2,
   feeSegments: FeeSegments,
   transactionCounts: Map<string, number>,
 ) =>

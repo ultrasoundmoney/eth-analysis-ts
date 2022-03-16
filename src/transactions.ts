@@ -45,7 +45,7 @@ const queueFetchReceipt =
     fetchReceiptQueue.add(task);
 
 export const getTxrsWithRetry = async (
-  block: Blocks.BlockV1,
+  block: Blocks.BlockNodeV2,
 ): Promise<TransactionReceiptV1[]> => {
   let tries = 0;
 
@@ -112,7 +112,7 @@ export const getTxrsWithRetry = async (
   return txrs;
 };
 
-export const getTransactionReceiptsSafe = (block: Blocks.BlockV1) =>
+export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
   pipe(
     block.transactions,
     TO.traverseArray((hash) =>
@@ -150,12 +150,12 @@ export const segmentTransactions = (
 });
 
 export const calcBaseFee = (
-  block: Blocks.BlockV1,
+  block: Blocks.BlockNodeV2,
   txr: TransactionReceiptV1,
 ): number => block.baseFeePerGas * txr.gasUsed;
 
 export const calcBaseFeeBI = (
-  block: Blocks.BlockV1,
+  block: Blocks.BlockNodeV2,
   txr: TransactionReceiptV1,
 ) => BigInt(block.baseFeePerGas) * txr.gasUsedBI;
 
