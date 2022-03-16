@@ -65,8 +65,8 @@ export const getStreakForSite = (
 ): T.Task<StreakForSite> =>
   pipe(
     T.Do,
-    T.apS("preMerge", getStreakForSiteWithMergeState(block, true)),
-    T.apS("postMerge", getStreakForSiteWithMergeState(block, false)),
+    T.apS("preMerge", getStreakForSiteWithMergeState(block, false)),
+    T.apS("postMerge", getStreakForSiteWithMergeState(block, true)),
   );
 
 export const getStreak = (blockNumber: number, postMerge: boolean) =>
