@@ -78,8 +78,11 @@ export const readFromFirstRow =
       O.map((row) => row[field]),
     );
 
-export const sqlTNotify = (channel: string, payload: string) => () =>
-  sql.notify(channel, payload);
+export const sqlTNotify = (channel: string, payload: string) =>
+  pipe(
+    () => sql.notify(channel, payload),
+    T.map((): void => undefined),
+  );
 
 export const closeConnection = () => sql.end();
 
