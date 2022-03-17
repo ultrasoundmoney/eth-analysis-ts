@@ -8,6 +8,6 @@ export const posIssuancePerDay = 1352;
 export const blocksPerDay = 6450;
 
 export const issuancePerBlockPreMerge =
-  (powIssuancePerDay + powIssuancePerDay) / blocksPerDay;
+  (powIssuancePerDay + posIssuancePerDay) / blocksPerDay;
 
 export const issuancePerBlockPostMerge = posIssuancePerDay / blocksPerDay;
