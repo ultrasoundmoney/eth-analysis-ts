@@ -59,13 +59,6 @@ CREATE TABLE "contracts" (
   "web3_supports_eip_721" boolean
 );
 
-CREATE TABLE "derived_block_stats" (
-  "block_number" int PRIMARY KEY,
-  "burn_rates" jsonb,
-  "fees_burned" jsonb,
-  "leaderboards" jsonb
-);
-
 CREATE TABLE "contract_base_fee_sums" (
   "base_fee_sum" float8,
   "base_fee_sum_usd" float8,
@@ -111,8 +104,6 @@ ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("block_number") REFERENCES "bl
 ALTER TABLE "contract_base_fees" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 
 ALTER TABLE "contracts" ADD FOREIGN KEY ("mined_at_block") REFERENCES "blocks" ("number");
-
-ALTER TABLE "derived_block_stats" ADD FOREIGN KEY ("block_number") REFERENCES "blocks" ("number");
 
 ALTER TABLE "contract_base_fee_sums" ADD FOREIGN KEY ("contract_address") REFERENCES "contracts" ("address");
 

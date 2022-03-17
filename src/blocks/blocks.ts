@@ -262,15 +262,6 @@ export const storeBlock = async (
   )();
 };
 
-export const deleteDerivedBlockStats = async (
-  blockNumber: number,
-): Promise<void> => {
-  await sql`
-    DELETE FROM derived_block_stats
-    WHERE block_number = ${blockNumber}
-  `;
-};
-
 export const deleteBlock = async (blockNumber: number): Promise<void> => {
   await sql`
     DELETE FROM blocks

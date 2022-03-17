@@ -73,7 +73,6 @@ export const rollbackToIncluding = (
               const blockNumber = block.number;
               await ContractBaseFees.deleteContractBaseFees(blockNumber);
               await Contracts.deleteContractsMinedAt(blockNumber);
-              await Blocks.deleteDerivedBlockStats(blockNumber);
               await Blocks.deleteBlock(blockNumber);
             }),
             TAlt.concatAllVoid,

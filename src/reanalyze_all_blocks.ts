@@ -72,7 +72,6 @@ for (const blockNumber of blocksToStore) {
 
   // Contracts marked as mined in a block that was rolled back are possibly wrong. Reanalyze 'contract mined at' data if we want very high confidence.
   await ContractBaseFees.deleteContractBaseFees(blockNumber);
-  await Blocks.deleteDerivedBlockStats(blockNumber);
   await Blocks.deleteBlock(blockNumber);
 
   // Add block
