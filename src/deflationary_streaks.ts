@@ -2,7 +2,7 @@ import * as Blocks from "./blocks/blocks.js";
 import * as Db from "./db.js";
 import * as EthUnits from "./eth_units.js";
 import { A, B, flow, NEA, O, OAlt, pipe, T, TAlt, TO } from "./fp.js";
-import * as StaticEtherData from "./static-ether-data.js";
+import * as StaticEtherData from "./static_ether_data.js";
 
 type Count = number;
 export type Streak = O.Option<Count>;
