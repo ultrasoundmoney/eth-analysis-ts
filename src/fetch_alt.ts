@@ -61,20 +61,16 @@ export const fetchWithRetry = (
             );
           }),
         ),
-      (eRes) =>
-        pipe(
-          eRes,
-          E.match(
-            (e) =>
-              e instanceof BadResponseError &&
-              options.noRetryStatuses.includes(e.status)
-                ? // If the result is a bad response but the response status is in the don't-retry list, don't retry
-                  false
-                : // In all other cases, retry.
-                  true,
-            // We have a Right, don't retry.
-            () => false,
-          ),
-        ),
+      E.match(
+        (e) =>
+          e instanceof BadResponseError &&
+          options.noRetryStatuses.includes(e.status)
+            ? // If the result is a bad response but the response status is in the don't-retry list, don't retry
+              false
+            : // In all other cases, retry.
+              true,
+        // We have a Right, don't retry.
+        () => false,
+      ),
     ),
   );
