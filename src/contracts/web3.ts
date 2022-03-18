@@ -2,7 +2,7 @@ import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
 import * as Etherscan from "../etherscan.js";
 import * as EthNode from "../eth_node.js";
-import { O, pipe, TE, TEAlt } from "../fp.js";
+import { B, O, pipe, TE, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
 
 // NOTE: We already cache ABIs and creating contracts is cheap, but it turns out web3js leaks memory when creating new contracts. There's a _years_ old issue describing the problem here: https://github.com/ChainSafe/web3.js/issues/3042 . We'd like to switch to ethers-js for this and various other reasons. Until then, we cache contracts to alleviate the problem a little.
@@ -64,20 +64,38 @@ const interfaceSignatureMap: Record<InterfaceId, string> = {
   ERC1155: "0xd9b67a26",
 };
 
-export class NoSupportsInterfaceMethodError extends Error {}
+export class UnsupportedMethodError extends Error {}
 
 export const getSupportedInterface = (
   contract: Contract,
   interfaceId: InterfaceId,
-): TE.TaskEither<NoSupportsInterfaceMethodError | Error, boolean> =>
-  contract.methods["supportsInterface"] !== undefined
-    ? pipe(interfaceSignatureMap[interfaceId], (signature) =>
+): TE.TaskEither<UnsupportedMethodError | Error, boolean> =>
+  pipe(
+    contract.methods["supportsInterface"] === undefined,
+    B.match(
+      () =>
+        pipe(interfaceSignatureMap[interfaceId], (signature) =>
+          TE.tryCatch(
+            () =>
+              contract.methods
+                .supportsInterface(signature)
+                .call() as Promise<boolean>,
+            TEAlt.errorFromUnknown,
+          ),
+        ),
+      () => TE.left(new UnsupportedMethodError()),
+    ),
+  );
+
+export const getTotalSupply = (contract: Contract) =>
+  pipe(
+    contract.methods["totalSupply"] === undefined,
+    B.match(
+      () =>
         TE.tryCatch(
-          () =>
-            contract.methods
-              .supportsInterface(signature)
-              .call() as Promise<boolean>,
+          () => contract.methods.totalSupply().call() as Promise<number>,
           TEAlt.errorFromUnknown,
         ),
-      )
-    : TE.left(new NoSupportsInterfaceMethodError());
+      () => TE.left(new UnsupportedMethodError()),
+    ),
+  );

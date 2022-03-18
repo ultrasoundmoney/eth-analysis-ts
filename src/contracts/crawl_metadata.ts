@@ -82,9 +82,9 @@ const getIsBackoffPast = (
 const handleGetSupportedInterfaceError = (
   address: string,
   interfaceName: string,
-  e: ContractsWeb3.NoSupportsInterfaceMethodError | Error,
+  e: ContractsWeb3.UnsupportedMethodError | Error,
 ) =>
-  e instanceof ContractsWeb3.NoSupportsInterfaceMethodError
+  e instanceof ContractsWeb3.UnsupportedMethodError
     ? // Not all contracts will implement this method, do nothing.
       T.of(undefined)
     : T.fromIO(() => {
