@@ -115,7 +115,7 @@ const makeLogWithLevelIO =
     log(level, message, meta);
 
 const makeLogWithLevelT = (level: Level) => (message: string, meta?: unknown) =>
-  T.fromIO(() => log(level, message, meta));
+  T.fromIO(logIO(level, message, meta));
 
 export const debug = makeLogWithLevel("DEBUG");
 export const info = makeLogWithLevel("INFO");
