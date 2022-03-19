@@ -1,4 +1,3 @@
-import camelcaseKeys from "camelcase-keys";
 import * as Coingecko from "../coingecko.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
@@ -10,13 +9,13 @@ export type MarketCaps = {
   btcMarketCap: number;
   ethMarketCap: number;
   goldMarketCap: number;
-  usdM3MarketCap: number;
   timestamp: Date;
+  usdM3MarketCap: number;
 };
 
 export const marketCapsCacheKey = "market-caps";
 
-const storeMarketCaps = (marketCaps: MarketCapsInsertable) =>
+const storeMarketCaps = (marketCaps: MarketCaps) =>
   sqlTVoid`
     INSERT INTO key_value_store
       ${sql({ key: marketCapsCacheKey, value: JSON.stringify(marketCaps) })}
@@ -24,18 +23,10 @@ const storeMarketCaps = (marketCaps: MarketCapsInsertable) =>
       value = excluded.value
   `;
 
-type MarketCapsInsertable = {
-  btc_market_cap: number;
-  eth_market_cap: number;
-  gold_market_cap: number;
-  usd_m3_market_cap: number;
-  timestamp: Date;
-};
-
 const insertableFromCoinData = (
   coins: Coingecko.PriceResponse,
   ethPrice: EthPrices.EthPrice,
-): MarketCapsInsertable => {
+) => {
   const btcMarketCap = coins.bitcoin.usd_market_cap;
   const coingeckoMarketCap = coins.ethereum.usd_market_cap;
   const coingeckoEthPrice = coins.ethereum.usd;
@@ -53,11 +44,11 @@ const insertableFromCoinData = (
   const usdM3MarketCap = 20_982_900_000_000;
 
   return {
-    btc_market_cap: btcMarketCap,
-    eth_market_cap: ethMarketCap,
-    gold_market_cap: goldMarketCap,
-    usd_m3_market_cap: usdM3MarketCap,
+    btcMarketCap: btcMarketCap,
+    ethMarketCap: ethMarketCap,
+    goldMarketCap: goldMarketCap,
     timestamp: new Date(),
+    usdM3MarketCap: usdM3MarketCap,
   };
 };
 
@@ -69,10 +60,7 @@ export const storeCurrentMarketCaps = () =>
       "ethPrice",
       EthPrices.getEthPrice(new Date(), Duration.millisFromMinutes(5)),
     ),
-    TE.map(
-      ({ coins, ethPrice }): MarketCapsInsertable =>
-        insertableFromCoinData(coins, ethPrice),
-    ),
+    TE.map(({ coins, ethPrice }) => insertableFromCoinData(coins, ethPrice)),
     TE.chainW((marketCaps) =>
       pipe(storeMarketCaps(marketCaps), T.map(E.right)),
     ),
@@ -83,11 +71,11 @@ export const storeCurrentMarketCaps = () =>
   );
 
 type MarketCapsRow = {
-  btc_market_cap: number;
-  eth_market_cap: number;
-  gold_market_cap: number;
-  usd_m3_market_cap: number;
+  btcMarketCap: number;
+  ethMarketCap: number;
+  goldMarketCap: number;
   timestamp: string;
+  usdM3MarketCap: number;
 };
 
 export const getStoredMarketCaps = () =>
@@ -100,9 +88,7 @@ export const getStoredMarketCaps = () =>
     `,
     T.map(
       flow(
-        (rows) => rows[0]?.value,
-        O.fromNullable,
-        O.map((obj) => camelcaseKeys(obj)),
+        O.fromNullableK((rows) => rows[0]?.value),
         O.map((obj) => ({
           ...obj,
           timestamp: new Date(obj.timestamp),
