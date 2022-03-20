@@ -354,6 +354,7 @@ export const addTwitterMetadata = async (
         address,
         profile.description,
       ),
+      Contracts.setSimpleTextColumn("twitter_id", address, profile.id),
     ),
     T.chainFirstIOK(() => () => {
       Log.debug("updating twitter metadata", {

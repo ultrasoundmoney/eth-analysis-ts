@@ -30,6 +30,7 @@ export type SimpleTextColumn =
   | "opensea_twitter_handle"
   | "twitter_description"
   | "twitter_handle"
+  | "twitter_id"
   | "twitter_image_url"
   | "twitter_name"
   | "web3_name";
