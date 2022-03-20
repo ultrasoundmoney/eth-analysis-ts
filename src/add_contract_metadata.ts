@@ -1,14 +1,13 @@
 import { setInterval } from "timers/promises";
 import * as Contracts from "./contracts/contracts.js";
 import * as ContractsMetadata from "./contracts/crawl_metadata.js";
+import * as Db from "./db.js";
 import * as Duration from "./duration.js";
 import { pipe, T } from "./fp.js";
 import * as GroupedAnalysis1 from "./grouped_analysis_1.js";
 import * as Log from "./log.js";
 
-process.on("unhandledRejection", (error) => {
-  throw error;
-});
+await Db.runMigrations();
 
 const intervalIterator = setInterval(Duration.millisFromSeconds(4), Date.now());
 
