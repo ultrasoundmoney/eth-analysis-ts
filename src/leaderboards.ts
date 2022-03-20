@@ -1,10 +1,11 @@
 import * as A from "fp-ts/lib/Array.js";
+import * as Log from "./log.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import { sql } from "./db.js";
 import * as FamService from "./fam_service.js";
-import { FamDetails } from "./fam_service.js";
-import { O } from "./fp.js";
+import { TwitterDetails } from "./fam_service.js";
+import { NEA, O, TE } from "./fp.js";
 import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
 // TODO: Move leaderboards... into a folder.
@@ -24,7 +25,7 @@ export type LeaderboardRow = {
   twitterName: string | null;
 };
 
-export type LeaderboardRowWithFamDetails = {
+export type LeaderboardRowWithTwitterDetails = {
   baseFees: BaseFees;
   category: string | null;
   contractAddress: string;
@@ -222,7 +223,7 @@ type BaseFees = {
 };
 
 export const buildLeaderboard = (
-  contractRows: LeaderboardRowWithFamDetails[],
+  contractRows: LeaderboardRowWithTwitterDetails[],
   ethTransferBaseFees: BaseFees,
   contractCreationBaseFees: BaseFees,
 ): LeaderboardEntry[] => {
@@ -271,9 +272,9 @@ export const buildLeaderboard = (
   );
 };
 
-export const extendRowsWithFamDetails = (
+export const extendRowsWithTwitterDetails = (
   leaderboardRows: LeaderboardRow[],
-): T.Task<LeaderboardRowWithFamDetails[]> =>
+): T.Task<LeaderboardRowWithTwitterDetails[]> =>
   pipe(
     leaderboardRows,
     A.map((row) => row.twitterHandle),
@@ -294,11 +295,11 @@ export const extendRowsWithFamDetails = (
         ),
     ),
     T.map(
-      A.reduce(new Map<string, FamDetails>(), (map, details) =>
+      A.reduce(new Map<string, TwitterDetails>(), (map, details) =>
         map.set(details.handle, details),
       ),
     ),
-    T.map((famDetails) =>
+    T.map((twitterDetails) =>
       pipe(
         leaderboardRows,
         A.map((row) => {
@@ -314,7 +315,7 @@ export const extendRowsWithFamDetails = (
             };
           }
 
-          const detail = famDetails.get(row.twitterHandle);
+          const detail = twitterDetails.get(row.twitterHandle);
           if (detail === undefined) {
             // Fam service did not have details for this twitter handle.
             return {
