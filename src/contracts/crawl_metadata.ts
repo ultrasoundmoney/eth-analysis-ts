@@ -358,9 +358,10 @@ export const addTwitterMetadata = async (
     ),
     T.chainFirstIOK(() => () => {
       Log.debug("updating twitter metadata", {
-        name: profile.name,
         description: profile.description,
+        id: profile.id,
         imageUrl: profile.profile_image_url,
+        name: profile.name,
       });
     }),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
