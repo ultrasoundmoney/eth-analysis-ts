@@ -281,7 +281,18 @@ export const extendRowsWithFamDetails = (
     A.compact,
     (list) => new Set(list),
     (set) => Array.from(set),
-    FamService.getDetails,
+    NEA.fromArray,
+    O.matchW(
+      () => T.of([]),
+      (handles) =>
+        pipe(
+          FamService.getDetailsByHandles(handles),
+          TE.getOrElseW((e) => {
+            Log.error("failed to get fam details", e);
+            return T.of([]);
+          }),
+        ),
+    ),
     T.map(
       A.reduce(new Map<string, FamDetails>(), (map, details) =>
         map.set(details.handle, details),
