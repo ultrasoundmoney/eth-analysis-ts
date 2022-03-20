@@ -217,7 +217,7 @@ export const calcLeaderboardAll = () =>
     T.bind("topBaseFeeContracts", () =>
       pipe(
         getTopBaseFeeContracts(),
-        T.chain(Leaderboards.extendRowsWithFamDetails),
+        T.chain(Leaderboards.extendRowsWithTwitterDetails),
       ),
     ),
     T.apS("ethTransferBaseFees", () =>
