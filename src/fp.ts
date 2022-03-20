@@ -79,7 +79,7 @@ export const TAlt = {
 
 export const TEAlt = {
   concatAllVoid: TE.map(Mo.concatAll(Void.Monoid)),
-  errorFromUnknown: (e: unknown): Error =>
+  decodeUnknownError: (e: unknown): Error =>
     e instanceof Error ? e : new Error(String(e)),
   getOrThrow,
   seqSPar: Apply.sequenceS(TE.ApplyPar),

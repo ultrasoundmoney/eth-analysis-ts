@@ -54,28 +54,28 @@ export const getBlocksFromFile = (sample: SupportedSample) =>
   pipe(
     cache[sample],
     O.match(
-      () =>
-        pipe(
-          TE.tryCatch(
-            () => fs.readFile(files[sample], "utf8"),
-            TEAlt.errorFromUnknown,
-          ),
-          TE.chain((file) =>
-            TE.tryCatch(() => neatCsv<BlockCsv>(file), TEAlt.errorFromUnknown),
-          ),
-          TE.map(
-            flow(
-              NEA.fromArray,
-              OAlt.getOrThrow(
-                "failed to read blocks from file, got empty list",
-              ),
-              NEA.map(blockFromRaw),
-            ),
-          ),
-          TE.chainFirstIOK((blocks) => () => {
-            cache[sample] = O.some(blocks);
-          }),
+      flow(
+        TE.tryCatchK(
+          () => fs.readFile(files[sample], "utf8"),
+          TEAlt.decodeUnknownError,
         ),
+        TE.chain(
+          TE.tryCatchK(
+            (file) => neatCsv<BlockCsv>(file),
+            TEAlt.decodeUnknownError,
+          ),
+        ),
+        TE.map(
+          flow(
+            NEA.fromArray,
+            OAlt.getOrThrow("failed to read blocks from file, got empty list"),
+            NEA.map(blockFromRaw),
+          ),
+        ),
+        TE.chainFirstIOK((blocks) => () => {
+          cache[sample] = O.some(blocks);
+        }),
+      ),
       TE.right,
     ),
     TEAlt.getOrThrow,
