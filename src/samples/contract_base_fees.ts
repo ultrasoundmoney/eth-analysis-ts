@@ -44,12 +44,12 @@ export const getContractBaseFeesFromFile = (sample: SupportedSample) =>
         pipe(
           TE.tryCatch(
             () => fs.readFile(files[sample], "utf8"),
-            TEAlt.errorFromUnknown,
+            TEAlt.decodeUnknownError,
           ),
           TE.chain((file) =>
             TE.tryCatch(
               () => neatCsv<RawContractBaseFees>(file),
-              TEAlt.errorFromUnknown,
+              TEAlt.decodeUnknownError,
             ),
           ),
           TE.map(A.map(contractBaseFeesFromRaw)),

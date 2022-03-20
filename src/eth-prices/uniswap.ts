@@ -60,13 +60,13 @@ const getUniPoolSqrtPriceX96 = (
 ): T.Task<BigNumber> =>
   pipe(
     ContractsWeb3.getContract(uniPoolAddress),
-    TE.chain((contract) =>
-      TE.tryCatch(
-        () =>
+    TE.chain(
+      TE.tryCatchK(
+        (contract) =>
           contract.methods.slot0().call({
             defaultBlock: blockHeight ?? "latest",
           }) as Promise<Slot0>,
-        TEAlt.errorFromUnknown,
+        TEAlt.decodeUnknownError,
       ),
     ),
     TE.map((slot0) => new BigNumber(slot0.sqrtPriceX96)),

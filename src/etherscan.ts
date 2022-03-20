@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import { parseHTML } from "linkedom";
-import fetch from "node-fetch";
+import fetch, { Response } from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import * as Retry from "retry-ts";
@@ -14,7 +14,7 @@ import * as Duration from "./duration.js";
 import { EthPrice } from "./eth-prices/eth_prices.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { BadResponseError, FetchError } from "./fetch_alt.js";
-import { E, O, pipe, T, TE, TEAlt } from "./fp.js";
+import { B, E, flow, O, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -50,14 +50,8 @@ export const fetchAbi = (
   address: string,
 ): TE.TaskEither<FetchAbiError, AbiItem[]> =>
   pipe(
-    FetchAlt.fetchWithRetry(makeAbiUrl(address)),
+    FetchAlt.fetchWithRetryJson<AbiResponse>(makeAbiUrl(address)),
     queueApiCall,
-    TE.chain((res) =>
-      TE.tryCatch(
-        () => res.json() as Promise<AbiResponse>,
-        TEAlt.errorFromUnknown,
-      ),
-    ),
     TE.chain((abiRaw): TE.TaskEither<Error, AbiItem[]> => {
       if (abiRaw.status === "1") {
         return TE.right(JSON.parse(abiRaw.result));
@@ -107,7 +101,7 @@ export const getNameTag = async (
   pipe(
     FetchAlt.fetchWithRetry(`https://blockscan.com/address/${address}`),
     queueApiCall,
-    TE.chain((res) => TE.tryCatch(() => res.text(), TEAlt.errorFromUnknown)),
+    TE.chain(TE.tryCatchK((res) => res.text(), TEAlt.decodeUnknownError)),
     TE.map((text) => {
       const { document } = parseHTML(text);
       const etherscanPublicName = document.querySelector(
@@ -134,6 +128,44 @@ const etherscanScrapeRetryPolicy = Retry.Monoid.concat(
   Retry.limitRetries(5),
 );
 
+const decodeResWithHiddenRateLimit = (
+  res: Response,
+  status: Retry.RetryStatus,
+) =>
+  pipe(
+    res.status === 200,
+    B.match(
+      () =>
+        pipe(
+          Log.debugT(
+            `fetch etherscan meta title failed, status: ${res.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms, retrying`,
+          ),
+          TE.fromTask,
+          TE.chain(() =>
+            TE.left(
+              new BadResponseError(
+                `fetch etherscan meta title, got ${res.status}`,
+                res.status,
+              ),
+            ),
+          ),
+        ),
+      // On a 200 response its still possible we hit an etherscan rate-limit. We parse the html to find out.
+      flow(
+        TE.tryCatchK(() => res.text(), TEAlt.decodeUnknownError),
+        TE.chain((html) =>
+          html.includes(
+            "amounts of traffic coming from your network, please try again later",
+          )
+            ? TE.left(
+                new Error("fetch etherscan meta title, hit hidden rate-limit"),
+              )
+            : TE.right(html),
+        ),
+      ),
+    ),
+  );
+
 // This fetch is a special version of our normal retry fetch, it also parses the response html to check if etherscan is replying 200, but telling us to slow down.
 const fetchMetaTitleWithSpecialRetry = (address: string) =>
   retrying(
@@ -144,34 +176,7 @@ const fetchMetaTitleWithSpecialRetry = (address: string) =>
           () => fetch(`https://etherscan.io/address/${address}`),
           (e) => (e instanceof Error ? e : new FetchError(String(e))),
         ),
-        TE.chain((res) => {
-          // On a 200 response its still possible we hit an etherscan rate-limit. We parse the html to find out.
-          if (res.status === 200) {
-            return pipe(
-              TE.tryCatch(() => res.text(), TEAlt.errorFromUnknown),
-              TE.chain((html) =>
-                html.includes(
-                  "amounts of traffic coming from your network, please try again later",
-                )
-                  ? TE.left(
-                      new Error("fetch etherscan meta title, hit rate-limit"),
-                    )
-                  : TE.right(html),
-              ),
-            );
-          }
-
-          Log.debug(
-            `fetch etherscan meta title failed, status: ${res.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms, retrying`,
-          );
-
-          return TE.left(
-            new BadResponseError(
-              `fetch etherscan meta title, got ${res.status}`,
-              res.status,
-            ),
-          );
-        }),
+        TE.chain((res) => decodeResWithHiddenRateLimit(res, status)),
       ),
     E.isLeft,
   );
@@ -311,7 +316,7 @@ export const getEthSupply = () =>
     TE.chain((res) =>
       TE.tryCatch(
         () => res.json() as Promise<EthSupplyResponse>,
-        TEAlt.errorFromUnknown,
+        TEAlt.decodeUnknownError,
       ),
     ),
     TE.chainEitherK((body) => {
