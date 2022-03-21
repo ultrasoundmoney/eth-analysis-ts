@@ -378,7 +378,7 @@ const calcLeaderboardForLimitedTimeframe = (
     TAlt.seqTPar(
       pipe(
         getTopBaseFeeContracts(timeFrame),
-        T.chain(Leaderboards.extendRowsWithFamDetails),
+        T.chain(Leaderboards.extendRowsWithTwitterDetails),
       ),
       () => Leaderboards.getEthTransferFeesForTimeframe(timeFrame),
       () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeFrame),
