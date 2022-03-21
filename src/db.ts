@@ -16,9 +16,19 @@ const connectionsPerServiceProd: Partial<Record<string, number>> = {
 };
 
 const getMax = (env: Config.Env, name: string | undefined) =>
-  env !== "prod" || name === undefined
-    ? 2
-    : connectionsPerServiceProd[name] ?? 2;
+  pipe(
+    env === "prod" && name !== undefined ? O.some(name) : O.none,
+    // Names look something like: analyze-blocks-f49657576-shbc6
+    O.chain(
+      O.fromNullableK((name) =>
+        Object.keys(connectionsPerServiceProd).find((key) =>
+          name.startsWith(key),
+        ),
+      ),
+    ),
+    O.chain(O.fromNullableK((key) => connectionsPerServiceProd[key])),
+    O.getOrElse(() => 2),
+  );
 
 const config = {
   ssl: "prefer",
