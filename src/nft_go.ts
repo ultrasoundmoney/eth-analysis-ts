@@ -31,7 +31,12 @@ type LeaderboardResponse = {
 
 export const getNftLeaderboard = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson<LeaderboardResponse>(leaderboardUrl),
+    FetchAlt.fetchWithRetryJson<LeaderboardResponse>(leaderboardUrl, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.45 Mobile Safari/537.36",
+      },
+    }),
     TE.chainEitherK((res) =>
       pipe(
         res,
@@ -62,7 +67,12 @@ export class UnexpectedNftGoResponse extends Error {}
 
 export const getMarketCap = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson<MarketCapResponse>(marketCapUrl),
+    FetchAlt.fetchWithRetryJson<MarketCapResponse>(marketCapUrl, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.45 Mobile Safari/537.36",
+      },
+    }),
     TE.chainEitherK((res) =>
       pipe(
         res.data?.y,
