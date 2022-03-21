@@ -1,6 +1,7 @@
 import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import * as Retry from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
+import * as Errors from "./errors.js";
 import { E, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -71,6 +72,25 @@ export const fetchWithRetry = (
               true,
         // We have a Right, don't retry.
         () => false,
+      ),
+    ),
+  );
+
+export type FetchWithRetryJsonError =
+  | FetchWithRetryError
+  | Errors.JsonDecodeError;
+
+export const fetchWithRetryJson = <A>(
+  url: RequestInfo,
+  init?: RequestInit,
+  options: RetryOptions = {},
+): TE.TaskEither<FetchWithRetryJsonError, A> =>
+  pipe(
+    fetchWithRetry(url, init, options),
+    TE.chain((res) =>
+      TE.tryCatch(
+        () => res.json() as Promise<A>,
+        Errors.decodeErrorFromUnknown,
       ),
     ),
   );
