@@ -52,7 +52,7 @@ export const getName = (
             `name method present but call failed for ${contract.options.address}`,
           );
 
-          return TEAlt.errorFromUnknown(e);
+          return TEAlt.decodeUnknownError(e);
         },
       )
     : TE.left(new NoNameMethodError());
@@ -80,7 +80,7 @@ export const getSupportedInterface = (
               contract.methods
                 .supportsInterface(signature)
                 .call() as Promise<boolean>,
-            TEAlt.errorFromUnknown,
+            TEAlt.decodeUnknownError,
           ),
         ),
       () => TE.left(new UnsupportedMethodError()),
