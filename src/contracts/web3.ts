@@ -87,24 +87,68 @@ export const getSupportedInterface = (
     ),
   );
 
-type Erc20Contract = Omit<Contract, "methods"> & {
-  methods: { totalSupply: () => { call: () => Promise<number> } };
-};
+interface Erc20Contract extends Contract {
+  methods: {
+    totalSupply: () => {
+      call: () => Promise<number>;
+    };
+  };
+}
 
-type ProxyContract = Omit<Contract, "methods"> & {
-  methods: { implementation: () => { call: () => Promise<string> } };
-};
-
-const getIsProxyContract = (contract: Contract) =>
-  contract.methods.implementation !== undefined;
-
-const getIsErc20Contract = (contract: Contract) =>
+const getIsErc20Contract = (contract: Contract): contract is Erc20Contract =>
   contract.methods.totalSupply !== undefined;
 
-const getErc20TotalSupply = TE.tryCatchK(
+interface Erc20ContractWithDecimals extends Contract {
+  methods: {
+    decimals: () => { call: () => Promise<number> };
+    totalSupply: () => { call: () => Promise<number> };
+  };
+}
+
+const getIsErc20ContractWithDecimals = (
+  contract: Contract,
+): contract is Erc20ContractWithDecimals =>
+  contract.methods.totalSupply !== undefined &&
+  contract.methods.decimals !== undefined;
+
+interface ProxyContract extends Contract {
+  methods: { implementation: () => { call: () => Promise<string> } };
+}
+
+const getIsProxyContract = (contract: Contract): contract is ProxyContract =>
+  contract.methods.implementation !== undefined;
+
+const getErc20TotalSupplyPlain = TE.tryCatchK(
   (erc20Contract: Erc20Contract) => erc20Contract.methods.totalSupply().call(),
   TEAlt.decodeUnknownError,
 );
+
+const getErc20TotalSupplyWithDecimals = (contract: Erc20ContractWithDecimals) =>
+  pipe(
+    TE.Do,
+    TE.apS(
+      "decimals",
+      TE.tryCatch(
+        () => contract.methods.decimals().call(),
+        TEAlt.decodeUnknownError,
+      ),
+    ),
+    TE.apS(
+      "totalSupply",
+      TE.tryCatch(
+        () => contract.methods.totalSupply().call(),
+        TEAlt.decodeUnknownError,
+      ),
+    ),
+    TE.map(({ decimals, totalSupply }) => totalSupply * decimals),
+  );
+
+const getErc20TotalSupply = (contract: Erc20Contract) =>
+  pipe(
+    getIsErc20ContractWithDecimals(contract)
+      ? getErc20TotalSupplyWithDecimals(contract)
+      : getErc20TotalSupplyPlain(contract),
+  );
 
 export class UnsupportedContractError extends Error {}
 export class ExecutionRevertedError extends Error {}
@@ -129,18 +173,13 @@ const getErc20ProxyTotalSupply = flow(
   ),
   TE.chainW((implementationAddress) => getContract(implementationAddress)),
   TE.chainW((implementationContract) =>
-    pipe(
-      getIsErc20Contract(implementationContract),
-      B.match(
-        () =>
-          TE.left(
-            new UnsupportedContractError(
-              `expected ERC20 proxy implementation contract ${implementationContract.options.address} to have an totalSupply method but it didn't`,
-            ),
+    getIsErc20Contract(implementationContract)
+      ? getErc20TotalSupply(implementationContract)
+      : TE.left(
+          new UnsupportedContractError(
+            `expected ERC20 proxy implementation contract ${implementationContract.options.address} to have an totalSupply method but it didn't`,
           ),
-        () => getErc20TotalSupply(implementationContract),
-      ),
-    ),
+        ),
   ),
   TE.mapLeft(
     (e): UnsupportedContractError | Etherscan.FetchAbiError | Error => {
