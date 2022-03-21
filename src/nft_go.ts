@@ -58,7 +58,7 @@ type MarketCapResponse = {
   data: { y: number[] };
 };
 
-class UnexpectedNftGoResponse extends Error {}
+export class UnexpectedNftGoResponse extends Error {}
 
 export const getMarketCap = () =>
   pipe(
