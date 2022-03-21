@@ -9,9 +9,10 @@ import { pipe, TE } from "./fp.js";
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 type UserTwitterApiRaw = {
-  profile_image_url: string;
-  name: string;
   description: string | null;
+  id: string;
+  name: string;
+  profile_image_url: string;
 };
 
 const makeProfileByUsernameUrl = (handle: string) =>
