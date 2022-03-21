@@ -25,6 +25,7 @@ export * as Ord from "fp-ts/lib/Ord.js";
 export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as RA from "fp-ts/lib/ReadonlyArray.js";
 export * as Rec from "fp-ts/lib/Record.js";
+export * as S from "fp-ts/lib/string.js";
 export * as T from "fp-ts/lib/Task.js";
 export * as TE from "fp-ts/lib/TaskEither.js";
 export * as TO from "fp-ts/lib/TaskOption.js";
@@ -78,7 +79,17 @@ export const TAlt = {
 };
 
 export const TEAlt = {
+  chainFirstLog: <A>(level: Log.Level, format: (a: A) => string) =>
+    TE.chainFirstIOK<A, void>((value) => Log.logIO(level, format(value))),
+  chainFirstLogDebug: <A>(format: (a: A) => string) =>
+    TEAlt.chainFirstLog("DEBUG", format),
   concatAllVoid: TE.map(Mo.concatAll(Void.Monoid)),
+  debugTap: TE.chainFirstIOK((value) => () => {
+    Log.debug("debug tap", value);
+  }),
+  debugTapStr: TE.chainFirstIOK((value) => () => {
+    Log.debug(String(value));
+  }),
   decodeUnknownError: (e: unknown): Error =>
     e instanceof Error ? e : new Error(String(e)),
   getOrThrow,
