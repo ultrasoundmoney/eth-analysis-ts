@@ -28,7 +28,7 @@ export const getEnv = (): Env => {
 
 export const getName = () => process.env.NAME || "unknown";
 
-export const getFamServiceUrl = (): string =>
+export const getFamServiceUrl = () =>
   getEnv() === "prod" || getEnv() === "staging"
     ? "http://serve-fam"
     : "https://api.ultrasound.money";
