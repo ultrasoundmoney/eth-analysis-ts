@@ -102,11 +102,9 @@ for (const blockNumber of blocksToCheck) {
   if (missing.length !== 0) {
     Log.debug(`block ${blockNumber}, ${missing.length} missing addresses`);
     await healBlock(block.value, transactionReceipts);
-  } else {
-    if (wrong.length !== 0) {
-      Log.debug(`block ${blockNumber}, ${wrong.length} bad addresses stored`);
-      await healBlock(block.value, transactionReceipts);
-    }
+  } else if (wrong.length !== 0) {
+    Log.debug(`block ${blockNumber}, ${wrong.length} bad addresses stored`);
+    await healBlock(block.value, transactionReceipts);
   }
 
   if (blockNumber % 100 === 0 && blocksDone !== 0) {
