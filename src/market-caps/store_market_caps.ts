@@ -1,6 +1,6 @@
 import { setInterval } from "timers/promises";
-import * as Coingecko from "../coingecko.js";
 import * as Duration from "../duration.js";
+import { BadResponseError } from "../fetch_alt.js";
 import { pipe, TE } from "../fp.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "./market_caps.js";
@@ -18,14 +18,17 @@ const everyMinuteIterator = setInterval(
 for await (const _ of everyMinuteIterator) {
   await pipe(
     MarketCaps.storeCurrentMarketCaps(),
-    TE.mapLeft((e) => {
-      if (e instanceof Coingecko.Timeout || e instanceof Coingecko.RateLimit) {
-        Log.warn("hit rate-limit storing market caps", e);
-        return;
-      }
+    TE.match(
+      (e) => {
+        if (e instanceof BadResponseError && e.status === 429) {
+          Log.warn("hit rate-limit storing market caps", e);
+          return;
+        }
 
-      Log.error("error storing market caps", e);
-    }),
+        Log.error("failed to store market caps", e);
+      },
+      () => undefined,
+    ),
   )();
 }
 
