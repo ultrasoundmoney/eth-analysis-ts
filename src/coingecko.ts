@@ -1,21 +1,13 @@
-import PQueue from "p-queue";
-import QuickLRU from "quick-lru";
-import urlcatM from "urlcat";
-import * as Duration from "./duration.js";
-import { HistoricPrice } from "./eth-prices/eth_prices.js";
-import * as FetchAlt from "./fetch_alt.js";
-import { O, pipe, T, TE, TEAlt } from "./fp.js";
+import * as Retry from "retry-ts";
 import * as UrlSub from "url-sub";
-import * as Log from "./log.js";
-import { decodeErrorFromUnknown } from "./errors.js";
+import * as FetchAlt from "./fetch_alt.js";
 
-// NOTE: import is broken somehow, "urlcat is not a function" without.
-const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
+const coinGeckoApiUrl = "https://api.coingecko.com/api/v3";
 
-class FetchError extends Error {}
-export class Timeout extends Error {}
-export class RateLimit extends Error {}
-export type CoinGeckoApiError = FetchError | Timeout | RateLimit;
+const retryPolicy = Retry.Monoid.concat(
+  Retry.exponentialBackoff(2000),
+  Retry.limitRetries(5),
+);
 
 export type PriceResponse = {
   ethereum: {
@@ -37,32 +29,61 @@ export type PriceResponse = {
   };
 };
 
-const url = UrlSub.formatUrl(
-  "https://api.coingecko.com",
-  "/api/v3/simple/price",
+const simplePriceUrl = UrlSub.formatUrl(coinGeckoApiUrl, "/simple/price", {
+  ids: ["ethereum", "bitcoin", "tether-gold"].join(","),
+  vs_currencies: ["usd", "btc"].join(","),
+  include_market_cap: "true",
+  include_24hr_change: "true",
+});
+
+export const getSimpleCoins = () =>
+  FetchAlt.fetchWithRetryJson<PriceResponse>(simplePriceUrl, undefined, {
+    retryPolicy,
+  });
+
+export type IndexCoin = {
+  id: string;
+  symbol: string;
+  name: string;
+  platforms: Partial<Record<string, string>>;
+};
+
+const coinListUrl = UrlSub.formatUrl(coinGeckoApiUrl, "/coins/list", {
+  include_platform: "true",
+});
+
+export const getCoinList = () =>
+  FetchAlt.fetchWithRetryJson<IndexCoin[]>(coinListUrl, undefined, {
+    retryPolicy,
+  });
+
+type ISO8601String = string;
+
+export type CoinMarket = {
+  circulating_supply: number;
+  current_price: number;
+  id: string;
+  image: string;
+  last_updated: ISO8601String;
+  name: string;
+  symbol: string;
+  total_supply: number;
+  twitter_handle: string | null;
+};
+
+const coinMarketUrl = UrlSub.formatUrl(
+  coinGeckoApiUrl,
+  "/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false",
   {
-    ids: ["ethereum", "bitcoin", "tether-gold"].join(","),
-    vs_currencies: ["usd", "btc"].join(","),
-    include_market_cap: "true",
-    include_24hr_change: "true",
+    vs_currency: "usd",
+    order: "market_cap_desc",
+    per_page: 250,
+    page: 1,
+    sparkline: false,
   },
 );
 
-export const getSimpleCoins = (): TE.TaskEither<
-  CoinGeckoApiError,
-  PriceResponse
-> =>
-  pipe(
-    FetchAlt.fetchWithRetry(url),
-    TE.chain((res) =>
-      TE.tryCatch(
-        () => res.json() as Promise<PriceResponse>,
-        decodeErrorFromUnknown,
-      ),
-    ),
-    TE.chainFirstIOK((pr) => () => {
-      Log.debug(
-        `got CoinGecko simple prices for, btc: ${pr.bitcoin.usd}, eth: ${pr.ethereum.usd}, and gold: ${pr["tether-gold"].usd}`,
-      );
-    }),
-  );
+export const getTopCoinMarkets = () =>
+  FetchAlt.fetchWithRetryJson<CoinMarket[]>(coinMarketUrl, undefined, {
+    retryPolicy,
+  });
