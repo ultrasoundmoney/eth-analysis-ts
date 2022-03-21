@@ -1,4 +1,4 @@
-import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
+import fetch, { RequestInfo, RequestInit } from "node-fetch";
 import * as Retry from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 import * as Errors from "./errors.js";
@@ -13,8 +13,6 @@ export class BadResponseError extends Error {
     this.status = status;
   }
 }
-
-export type FetchWithRetryError = FetchError | BadResponseError | Error;
 
 type RetryOptions = {
   acceptStatuses?: number[];
@@ -35,7 +33,7 @@ export const fetchWithRetry = (
   url: RequestInfo,
   init?: RequestInit,
   options: RetryOptions = {},
-): TE.TaskEither<FetchWithRetryError, Response> =>
+) =>
   pipe({ ...defaultRetryOptions, ...options }, (options) =>
     retrying(
       options.retryPolicy,
@@ -43,9 +41,10 @@ export const fetchWithRetry = (
         pipe(
           TE.tryCatch(
             () => fetch(url, init),
-            (e) => (e instanceof Error ? e : new FetchError(String(e))),
+            (e): Error | FetchError =>
+              e instanceof Error ? e : new FetchError(String(e)),
           ),
-          TE.chain((res) => {
+          TE.chainW((res) => {
             if (options.acceptStatuses.includes(res.status)) {
               return TE.right(res);
             }
@@ -76,15 +75,11 @@ export const fetchWithRetry = (
     ),
   );
 
-export type FetchWithRetryJsonError =
-  | FetchWithRetryError
-  | Errors.JsonDecodeError;
-
 export const fetchWithRetryJson = <A>(
   url: RequestInfo,
   init?: RequestInit,
   options: RetryOptions = {},
-): TE.TaskEither<FetchWithRetryJsonError, A> =>
+) =>
   pipe(
     fetchWithRetry(url, init, options),
     TE.chain((res) =>

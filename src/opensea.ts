@@ -33,14 +33,7 @@ export class MissingStandardError extends Error {
 
 export class NotFoundError extends Error {}
 
-export type GetContractError =
-  | FetchAlt.FetchWithRetryError
-  | MissingStandardError
-  | NotFoundError;
-
-export const getContract = (
-  address: string,
-): TE.TaskEither<GetContractError, OpenseaContract> =>
+export const getContract = (address: string) =>
   pipe(
     FetchAlt.fetchWithRetry(
       makeContractUrl(address),
@@ -56,28 +49,29 @@ export const getContract = (
         ),
       },
     ),
-    TE.chainW((res) => {
-      // For some contracts OpenSea can't figure out the contract standard and returns a 406.
-      if (res.status === 406) {
-        return pipe(
-          () => res.json() as Promise<{ detail: string }>,
-          T.map((body) => {
-            Log.debug(
-              `fetch opensea contract 406, address: ${address}, body detail: ${body.detail}`,
-            );
-            return E.left(new MissingStandardError(address, body.detail));
-          }),
-        );
-      }
-
-      if (res.status === 404) {
-        return TE.left(
-          new NotFoundError("fetch opensea metadata, contract not found"),
-        );
-      }
-
-      return pipe(() => res.json() as Promise<OpenseaContract>, T.map(E.right));
-    }),
+    TE.chainW(
+      (
+        res,
+      ): TE.TaskEither<NotFoundError | MissingStandardError, OpenseaContract> =>
+        res.status === 404
+          ? TE.left(
+              new NotFoundError("fetch opensea metadata, contract not found"),
+            )
+          : res.status === 406
+          ? pipe(
+              () => res.json() as Promise<{ detail: string }>,
+              T.map((body) => {
+                Log.debug(
+                  `fetch opensea contract 406, address: ${address}, body detail: ${body.detail}`,
+                );
+                return E.left(new MissingStandardError(address, body.detail));
+              }),
+            )
+          : pipe(
+              () => res.json() as Promise<OpenseaContract>,
+              (task) => TE.fromTask(task),
+            ),
+    ),
   );
 
 export const getTwitterHandle = (

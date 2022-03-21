@@ -46,15 +46,13 @@ const makeAbiUrl = (address: string) =>
     apiKey: getEtherscanToken(),
   });
 
-export const fetchAbi = (
-  address: string,
-): TE.TaskEither<FetchAbiError, AbiItem[]> =>
+export const fetchAbi = (address: string) =>
   pipe(
     FetchAlt.fetchWithRetryJson<AbiResponse>(makeAbiUrl(address)),
     queueApiCall,
-    TE.chain((abiRaw): TE.TaskEither<Error, AbiItem[]> => {
+    TE.chainW((abiRaw) => {
       if (abiRaw.status === "1") {
-        return TE.right(JSON.parse(abiRaw.result));
+        return TE.right(JSON.parse(abiRaw.result) as AbiItem[]);
       }
 
       if (abiRaw.status === "0") {
