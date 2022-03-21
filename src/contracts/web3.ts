@@ -140,7 +140,7 @@ const getErc20TotalSupplyWithDecimals = (contract: Erc20ContractWithDecimals) =>
         TEAlt.decodeUnknownError,
       ),
     ),
-    TE.map(({ decimals, totalSupply }) => totalSupply * decimals),
+    TE.map(({ decimals, totalSupply }) => totalSupply / 10 ** decimals),
   );
 
 const getErc20TotalSupply = (contract: Erc20Contract) =>
