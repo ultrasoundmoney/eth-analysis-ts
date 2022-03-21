@@ -1,6 +1,5 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
-import * as IO from "fp-ts/lib/IO.js";
 import kleur from "kleur";
 
 const levelMap = {
