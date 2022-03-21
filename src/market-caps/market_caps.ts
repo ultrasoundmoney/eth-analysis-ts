@@ -64,10 +64,10 @@ export const storeCurrentMarketCaps = () =>
     TE.chainW((marketCaps) =>
       pipe(storeMarketCaps(marketCaps), T.map(E.right)),
     ),
-    TE.chainFirstTaskK(() => sqlTNotify("cache-update", marketCapsCacheKey)),
     TE.chainFirstIOK(() => () => {
       Log.debug(`stored market caps at ${new Date().toISOString()}`);
     }),
+    TE.chainFirstTaskK(() => sqlTNotify("cache-update", marketCapsCacheKey)),
   );
 
 type MarketCapsRow = {
