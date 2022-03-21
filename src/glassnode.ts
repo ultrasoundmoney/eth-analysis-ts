@@ -1,13 +1,14 @@
 import * as DateFns from "date-fns";
-import urlcatM from "urlcat";
+import * as UrlSub from "url-sub";
 import * as Config from "./config.js";
 import * as FetchAlt from "./fetch_alt.js";
+import { A, E, O, pipe, TE } from "./fp.js";
+import { UnixTimestamp } from "./time.js";
 
-// NOTE: import is broken somehow, "urlcat is not a function" without.
-const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
-
-const stakedDataUrl = urlcat(
-  "https://api.glassnode.com/v1/metrics/eth2/staking_total_volume_sum",
+const glassnodeApi = "https://api.glassnode.com";
+const stakedDataUrl = UrlSub.formatUrl(
+  glassnodeApi,
+  "/v1/metrics/eth2/staking_total_volume_sum",
   {
     a: "ETH",
     api_key: Config.getGlassnodeApiKey(),
@@ -21,8 +22,40 @@ const stakedDataUrl = urlcat(
 
 export const getStakedData = () => FetchAlt.fetchWithRetryJson(stakedDataUrl);
 
-const circulatingSupplyDataUrl = urlcat(
-  "https://api.glassnode.com/v1/metrics/supply/current",
+const currentStakedUrl = UrlSub.formatUrl(
+  glassnodeApi,
+  "/v1/metrics/eth2/staking_total_volume_sum",
+  {
+    a: "ETH",
+    api_key: Config.getGlassnodeApiKey(),
+    c: "NATIVE",
+    f: "JSON",
+    i: "1h",
+    s: DateFns.getUnixTime(DateFns.subHours(new Date(), 1)),
+    u: DateFns.getUnixTime(new Date()),
+  },
+);
+
+type TotalValueStakedResponse = { t: UnixTimestamp; v: number }[];
+export const getEthStaked = () =>
+  pipe(
+    FetchAlt.fetchWithRetryJson<TotalValueStakedResponse>(currentStakedUrl),
+    TE.chainEitherK((res) =>
+      pipe(
+        res,
+        A.head,
+        O.map((row) => row.v),
+        O.match(
+          () => E.left(new Error("failed to get eth staked from Glassnode")),
+          (ethStaked) => E.right(ethStaked),
+        ),
+      ),
+    ),
+  );
+
+const circulatingSupplyDataUrl = UrlSub.formatUrl(
+  glassnodeApi,
+  "/v1/metrics/supply/current",
   {
     a: "ETH",
     api_key: Config.getGlassnodeApiKey(),
@@ -37,8 +70,9 @@ const circulatingSupplyDataUrl = urlcat(
 export const getCirculatingSupplyData = () =>
   FetchAlt.fetchWithRetryJson(circulatingSupplyDataUrl);
 
-const ethInSmartContractsDataUrl = urlcat(
-  "https://api.glassnode.com/v1/metrics/distribution/supply_contracts",
+const ethInSmartContractsDataUrl = UrlSub.formatUrl(
+  glassnodeApi,
+  "/v1/metrics/distribution/supply_contracts",
   {
     a: "ETH",
     api_key: Config.getGlassnodeApiKey(),
