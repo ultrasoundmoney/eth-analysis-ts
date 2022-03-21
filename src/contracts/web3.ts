@@ -1,5 +1,6 @@
 import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
+import { JsonDecodeError } from "../errors.js";
 import * as Etherscan from "../etherscan.js";
 import * as EthNode from "../eth_node.js";
 import { B, flow, O, pipe, TE, TEAlt } from "../fp.js";
@@ -202,5 +203,10 @@ export const getTotalSupply = (address: string) =>
         : getIsProxyContract(contract)
         ? getErc20ProxyTotalSupply(contract)
         : TE.left(new UnsupportedContractError()),
+    ),
+    TE.mapLeft((e): UnsupportedContractError | JsonDecodeError | Error =>
+      e instanceof Etherscan.AbiNotVerifiedError
+        ? new UnsupportedContractError(e.message)
+        : e,
     ),
   );
