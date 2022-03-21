@@ -17,6 +17,7 @@ import * as MarketCaps from "../market-caps/market_caps.js";
 import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
+import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
 import * as WebSocket from "./websocket.js";
 
 process.on("unhandledRejection", (error) => {
@@ -33,6 +34,8 @@ let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
 let burnCategoriesCache = await BurnCategories.getCategoriesCache()();
 let averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
 let peRatiosCache = await PeRatios.getPeRatiosCache()();
+let oTotalValueSecuredCache =
+  await TotalValueSecured.getCachedTotalValueSecured()();
 
 const handleGetFeeBurns: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=30");
@@ -171,6 +174,22 @@ const handleGetPeRatios: Middleware = async (ctx) => {
   ctx.body = peRatiosCache;
 };
 
+const handleGetTotalValueSecured: Middleware = (ctx) => {
+  pipe(
+    oTotalValueSecuredCache,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (totalValueSecured) => {
+        ctx.set("Cache-Control", "max-age=10, stale-while-revalidate=60");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = totalValueSecured;
+      },
+    ),
+  );
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -224,6 +243,12 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
+  if (payload === TotalValueSecured.totalValueSecuredCacheKey) {
+    oTotalValueSecuredCache =
+      await TotalValueSecured.getCachedTotalValueSecured()();
+    return;
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
@@ -272,6 +297,7 @@ router.get("/fees/burn-records", handleGetBurnRecords);
 router.get("/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
 router.get("/fees/burn-categories", handleGetBurnCategories);
 router.get("/fees/pe-ratios", handleGetPeRatios);
+router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 
 ContractsRoutes.registerRoutes(router);
 
