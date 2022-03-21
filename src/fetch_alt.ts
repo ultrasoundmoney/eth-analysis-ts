@@ -26,7 +26,7 @@ const defaultRetryOptions = {
   acceptStatuses: [200, 201, 202, 204, 206],
   retryPolicy: Retry.Monoid.concat(
     Retry.exponentialBackoff(2000),
-    Retry.limitRetries(3),
+    Retry.limitRetries(2),
   ),
   noRetryStatuses: [400, 403, 404],
 };
