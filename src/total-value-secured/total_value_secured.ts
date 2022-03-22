@@ -3,6 +3,7 @@ import * as CoinGecko from "../coingecko.js";
 import * as Contracts from "../contracts/web3.js";
 import * as Db from "../db.js";
 import * as Duration from "../duration.js";
+import * as NftStatic from "./nft_static.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import * as FamService from "../fam_service.js";
 import {
@@ -620,6 +621,7 @@ const getTotalValueSecured = () =>
       "nftLeaderboard",
       pipe(
         NftGo.getNftLeaderboard(),
+        TE.altW(() => TE.of(NftStatic.nftLeaderboard)),
         TE.map(
           flow(
             A.filter((collection) => collection.blockchain === "ETH"),
@@ -632,7 +634,13 @@ const getTotalValueSecured = () =>
         ),
       ),
     ),
-    TE.apSW("nftTotal", NftGo.getMarketCap()),
+    TE.apSW(
+      "nftTotal",
+      pipe(
+        NftGo.getMarketCap(),
+        TE.altW(() => TE.of(NftStatic.nftMarketCap)),
+      ),
+    ),
     TE.apSW(
       "ethMarketCap",
       pipe(

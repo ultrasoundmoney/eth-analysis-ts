@@ -6,16 +6,21 @@ const leaderboardUrl =
   "https://api.nftgo.io/api/v1/ranking/collections?offset=0&limit=30&by=marketCap&interval=24h&asc=-1&rarity=-1&fields=marketCap,marketCapChange24h";
 
 // collection page https://nftgo.io/collection/blitmap/overview
-type Collection = {
+export type Collection = {
   blockchain: "ETH" | string;
   link: string;
   logo: string;
   longDesc: string;
   marketCap: number;
+  contracts: string[];
   marketCapChange24h: number;
   medias: {
     twitter?: string;
     discord?: string;
+    telegram?: string | null;
+    instagram?: string | null;
+    medium?: string | null;
+    youtube?: string | null;
   };
   name: string;
   slug: string;
