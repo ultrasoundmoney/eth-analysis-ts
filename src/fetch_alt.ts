@@ -82,9 +82,9 @@ export const fetchWithRetryJson = <A>(
 ) =>
   pipe(
     fetchWithRetry(url, init, options),
-    TE.chain((res) =>
-      TE.tryCatch(
-        () => res.json() as Promise<A>,
+    TE.chainW(
+      TE.tryCatchK(
+        (res) => res.json() as Promise<A>,
         Errors.decodeErrorFromUnknown,
       ),
     ),
