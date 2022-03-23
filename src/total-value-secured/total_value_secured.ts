@@ -3,7 +3,6 @@ import * as CoinGecko from "../coingecko.js";
 import * as Contracts from "../contracts/web3.js";
 import * as Db from "../db.js";
 import * as Duration from "../duration.js";
-import * as NftStatic from "./nft_static.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import * as FamService from "../fam_service.js";
 import {
@@ -25,18 +24,13 @@ import * as Glassnode from "../glassnode.js";
 import * as Log from "../log.js";
 import { getStoredMarketCaps } from "../market-caps/market_caps.js";
 import * as NftGo from "../nft_go.js";
+import * as NftStatic from "./nft_static.js";
 
 export const totalValueSecuredCacheKey = "total-value-secured";
 
-type NftLeaderboardRow = {
-  imageUrl: string;
-  marketCap: number;
-  name: string;
-};
-
 type TotalValueSecured = {
-  erc20Leaderboard: Erc20LeaderboardRow[];
-  nftLeaderboard: NftLeaderboardRow[];
+  erc20Leaderboard: TvsRanking[];
+  nftLeaderboard: TvsRanking[];
   erc20Total: number;
   nftTotal: number;
   ethTotal: number;
@@ -326,16 +320,6 @@ const getCoinSupplyMap = () =>
     ),
   );
 
-// Only works for coins that are in one of the erc20Supply maps.
-const coinWithMarketCapOrd: Ord.Ord<{ marketCapEth: number }> = Ord.fromCompare(
-  (first, second) =>
-    first.marketCapEth > second.marketCapEth
-      ? -1
-      : first.marketCapEth < second.marketCapEth
-      ? 1
-      : 0,
-);
-
 type CoinV1 = {
   circulatingSupplyAll: number;
   circulatingSupplyEth: number;
@@ -350,29 +334,17 @@ type CoinV1 = {
   totalSupplyAll: number;
 };
 
-type Erc20LeaderboardRow = {
-  famFollowers: number | null;
-  followers: number | null;
-  imageUrl: string | null;
-  marketCap: number;
-  name: string;
-  symbol: string;
-  twitterDescription: string | null;
-  twitterHandle: string | null;
-};
-
-const coinV2ByMarketCapDesc: Ord.Ord<Erc20LeaderboardRow> = Ord.fromCompare(
+const coinV1ByMarketCapDesc: Ord.Ord<CoinV1> = Ord.fromCompare(
   (first, second) =>
-    first.marketCap > second.marketCap
+    first.marketCapEth > second.marketCapEth
       ? -1
-      : first.marketCap < second.marketCap
+      : first.marketCapEth < second.marketCapEth
       ? 1
       : 0,
 );
 
 /**
  * These are the details we have about a coin from our contracts table.
- *
  */
 type CoinContractDetails = {
   contractAddress: string;
@@ -381,11 +353,13 @@ type CoinContractDetails = {
   twitterHandle: string | null;
 };
 
+type CoinContractDetailsMap = Map<string, CoinContractDetails>;
+
 const coinV2FromCoinAndDetails = (
   coinContractDetailsMap: Map<string, CoinContractDetails>,
   twitterDetailsMap: Map<string, FamService.TwitterDetails>,
   coin: CoinV1,
-): Erc20LeaderboardRow => {
+): TvsRanking => {
   const contractDetails = pipe(
     coinContractDetailsMap.get(coin.contractAddress),
     O.fromNullable,
@@ -398,34 +372,23 @@ const coinV2FromCoinAndDetails = (
     O.chain(
       O.fromNullableK((twitterHandle) => twitterDetailsMap.get(twitterHandle)),
     ),
-    O.alt(() =>
-      pipe(
-        coin.coinGeckoTwitterHandle,
-        O.fromNullable,
-        O.chain(
-          O.fromNullableK((twitterHandle) =>
-            twitterDetailsMap.get(twitterHandle),
-          ),
-        ),
-      ),
-    ),
   );
   return {
-    famFollowers: pipe(
+    famFollowerCount: pipe(
       twitterDetails,
       O.chain(O.fromNullableK((details) => details.famFollowerCount)),
-      O.toNullable,
+      O.toUndefined,
     ),
-    followers: pipe(
+    followerCount: pipe(
       twitterDetails,
-      O.map((details) => details.followersCount),
-      O.toNullable,
+      O.map((details) => details.followerCount),
+      O.toUndefined,
     ),
     imageUrl: pipe(
       contractDetails,
       O.chain(O.fromNullableK((details) => details.imageUrl)),
       O.alt(() => pipe(coin.coinGeckoImageUrl, O.fromNullable)),
-      O.toNullable,
+      O.toUndefined,
     ),
     marketCap: coin.marketCapEth,
     name: pipe(
@@ -433,106 +396,30 @@ const coinV2FromCoinAndDetails = (
       O.chain(O.fromNullableK((details) => details.name)),
       O.getOrElse(() => coin.name),
     ),
-    symbol: coin.symbol,
-    twitterDescription: pipe(
+    detail: coin.symbol,
+    tooltipDescription: pipe(
       twitterDetails,
-      O.map((details) => details.twitterDescription),
-      O.toNullable,
+      O.chain(O.fromNullableK((details) => details.bio)),
+      O.toUndefined,
     ),
-    twitterHandle: pipe(
+    twitterUrl: pipe(
       contractDetails,
       O.chain(O.fromNullableK((details) => details.twitterHandle)),
       O.alt(() => pipe(coin.coinGeckoTwitterHandle, O.fromNullable)),
-      O.toNullable,
+      O.map((handle) => `https://twitter.com/${handle}`),
+      O.toUndefined,
+    ),
+    coinGeckoUrl: coin.coinGeckoUrl,
+    nftGoUrl: undefined,
+    tooltipName: pipe(
+      contractDetails,
+      O.chain(O.fromNullableK((details) => details.name)),
+      O.getOrElse(() => coin.name),
     ),
   };
 };
 
-const getDetailsForCoins = (coins: CoinV1[]) =>
-  pipe(
-    TE.Do,
-    TE.apS(
-      "dbDetails",
-      pipe(
-        coins,
-        A.map((coin: CoinV1) => coin.contractAddress),
-        (addresses) => Db.sqlT<CoinContractDetails[]>`
-          SELECT
-            address as contract_address,
-            image_url,
-            name,
-            twitter_handle
-          FROM contracts
-          WHERE address IN (${addresses})
-        `,
-        (t) => TE.fromTask(t),
-      ),
-    ),
-    TE.apS(
-      "coinDbHandles",
-      pipe(
-        coins,
-        A.map((coin) => coin.contractAddress),
-        (addresses) => Db.sqlT<{ twitterHandle: string }[]>`
-          SELECT twitter_handle FROM contracts WHERE address IN (${addresses})
-        `,
-        T.map(A.map((row) => row.twitterHandle)),
-        (t) => TE.fromTask(t),
-      ),
-    ),
-    TE.apSW(
-      "coinCoinGeckoHandles",
-      pipe(
-        coins,
-        A.map((coin) => coin.coinGeckoTwitterHandle),
-        A.map(O.fromNullable),
-        A.compact,
-        TE.of,
-      ),
-    ),
-    TE.bindW("twitterDetails", ({ coinDbHandles, coinCoinGeckoHandles }) =>
-      pipe(
-        [...coinDbHandles, ...coinCoinGeckoHandles],
-        NEA.fromArray,
-        O.matchW(
-          () => TE.of([]),
-          (handles) => FamService.getDetailsByHandles(handles),
-        ),
-      ),
-    ),
-    TE.map(({ dbDetails, twitterDetails }) => ({
-      coinContractDetailsMap: pipe(
-        dbDetails,
-        A.map(
-          (details) =>
-            [details.contractAddress, details] as [string, CoinContractDetails],
-        ),
-        (entries) => new Map(entries),
-      ),
-      twitterDetailsMap: pipe(
-        twitterDetails,
-        A.map(
-          (details) =>
-            [details.handle, details] as [string, FamService.TwitterDetails],
-        ),
-        (entries) => new Map(entries),
-      ),
-    })),
-    TE.map(({ coinContractDetailsMap, twitterDetailsMap }) =>
-      pipe(
-        coins,
-        A.map((coin) =>
-          coinV2FromCoinAndDetails(
-            coinContractDetailsMap,
-            twitterDetailsMap,
-            coin,
-          ),
-        ),
-      ),
-    ),
-  );
-
-const getErc20Coins = () =>
+const getTopErc20s = () =>
   pipe(
     TE.Do,
     TE.apS("coinSupplyMap", getCoinSupplyMap()),
@@ -574,7 +461,6 @@ const getErc20Coins = () =>
             coinGeckoTwitterHandle: coinMarket.twitter_handle,
           }),
         ),
-        A.sort(coinWithMarketCapOrd),
         A.map((coin) => {
           if (coin.marketCapEth < 1e6) {
             Log.warn(
@@ -614,28 +500,202 @@ const getSecurityRatio = (
     ),
   );
 
-const getTotalValueSecured = () =>
+type TwitterHandle = string;
+
+const getDbDetailsForCoins = flow(
+  A.map((coin: CoinV1) => coin.contractAddress),
+  (addresses) => Db.sqlT<CoinContractDetails[]>`
+      SELECT
+        address as contract_address,
+        image_url,
+        name,
+        twitter_handle
+      FROM contracts
+      WHERE address IN (${addresses})
+    `,
+  T.map(
+    flow(
+      A.map(
+        (details) =>
+          [details.contractAddress, details] as [string, CoinContractDetails],
+      ),
+      (entries) => new Map(entries),
+    ),
+  ),
+);
+
+const getTwitterDetailsForCoins = (
+  contractDetailsMap: CoinContractDetailsMap,
+) =>
   pipe(
     TE.Do,
-    TE.apS("erc20Coins", getErc20Coins()),
-    TE.apSW(
-      "nftLeaderboard",
+    TE.apS(
+      "coinTwitterHandles",
       pipe(
-        NftGo.getNftLeaderboard(),
-        TE.altW(() => TE.of(NftStatic.nftLeaderboard)),
-        TE.map(
-          flow(
-            A.filter((collection) => collection.blockchain === "ETH"),
-            A.takeLeft(20),
-            A.map((row) => ({
-              imageUrl: row.blockchain,
-              marketCap: row.marketCap,
-              name: row.name,
-            })),
-          ),
+        Array.from(contractDetailsMap.values()),
+        A.map(flow(O.fromNullableK((details) => details.twitterHandle))),
+        A.compact,
+        TE.of,
+      ),
+    ),
+    TE.bindW("twitterDetails", ({ coinTwitterHandles }) =>
+      pipe(
+        coinTwitterHandles,
+        NEA.fromArray,
+        O.match(
+          () => TE.of([]),
+          (handles) => FamService.getDetailsByHandles(handles),
         ),
       ),
     ),
+    TE.map(({ twitterDetails }) =>
+      pipe(
+        twitterDetails,
+        A.map(
+          (details) =>
+            [details.handle, details] as [
+              TwitterHandle,
+              FamService.TwitterDetails,
+            ],
+        ),
+        (entries) => new Map(entries),
+      ),
+    ),
+  );
+
+const getTwitterDetailsForCollections = (collections: NftGo.Collection[]) =>
+  pipe(
+    collections,
+    A.map(O.fromNullableK((collection) => collection.medias.twitter)),
+    A.compact,
+    NEA.fromArray,
+    O.match(
+      () => TE.of([]),
+      (handles) => FamService.getDetailsByHandles(handles),
+    ),
+    TE.map((twitterDetails) =>
+      pipe(
+        twitterDetails,
+        A.map(
+          (details) =>
+            [details.handle, details] as [
+              TwitterHandle,
+              FamService.TwitterDetails,
+            ],
+        ),
+        (entries) => new Map(entries),
+      ),
+    ),
+  );
+
+type TvsRanking = {
+  coinGeckoUrl: string | undefined;
+  detail: string | undefined;
+  famFollowerCount: number | undefined;
+  followerCount: number | undefined;
+  imageUrl: string | undefined;
+  marketCap: number;
+  name: string;
+  nftGoUrl: string | undefined;
+  tooltipDescription: string | undefined;
+  tooltipName: string | undefined;
+  twitterUrl: string | undefined;
+};
+
+const getErc20Leaderboard = (topErc20s: CoinV1[]) =>
+  pipe(
+    TE.Do,
+    TE.bind("contractDetailsMap", () =>
+      TE.fromTask(getDbDetailsForCoins(topErc20s)),
+    ),
+    TE.bindW("twitterDetailsMap", ({ contractDetailsMap }) =>
+      getTwitterDetailsForCoins(contractDetailsMap),
+    ),
+    TE.map(({ contractDetailsMap, twitterDetailsMap }) =>
+      pipe(
+        topErc20s,
+        A.sort(coinV1ByMarketCapDesc),
+        A.map(
+          (coin): TvsRanking =>
+            coinV2FromCoinAndDetails(
+              contractDetailsMap,
+              twitterDetailsMap,
+              coin,
+            ),
+        ),
+      ),
+    ),
+  );
+
+const tvsRankingFromNftCollection = (
+  twitterDetailsMap: Map<string, FamService.TwitterDetails>,
+  collection: NftGo.Collection,
+): TvsRanking =>
+  pipe(
+    collection.medias.twitter,
+    O.fromNullable,
+    O.chainNullableK((handle) => twitterDetailsMap.get(handle)),
+    O.matchW(
+      () => ({
+        coinGeckoUrl: undefined,
+        detail: undefined,
+        famFollowerCount: undefined,
+        followerCount: undefined,
+        imageUrl: collection.logo,
+        marketCap: collection.marketCap,
+        name: collection.name,
+        nftGoUrl: collection.link,
+        tooltipDescription: collection.longDesc,
+        tooltipName: collection.name,
+        twitterUrl: undefined,
+      }),
+      (twitterDetails) => ({
+        coinGeckoUrl: undefined,
+        detail: undefined,
+        famFollowerCount: twitterDetails.famFollowerCount,
+        followerCount: twitterDetails.followerCount,
+        imageUrl: collection.logo,
+        marketCap: collection.marketCap,
+        name: collection.name,
+        nftGoUrl: collection.link,
+        tooltipDescription: collection.longDesc,
+        tooltipName: collection.name,
+        twitterUrl: `https://twitter.com/${twitterDetails.handle}`,
+      }),
+    ),
+  );
+
+const getNftLeaderboard = () =>
+  pipe(
+    TE.Do,
+    TE.apS(
+      "rankedCollections",
+      pipe(
+        NftGo.getRankedCollections(),
+        TE.altW(() => TE.of(NftStatic.rankedCollections)),
+      ),
+    ),
+    TE.apS(
+      "twitterDetailsMap",
+      getTwitterDetailsForCollections(NftStatic.rankedCollections),
+    ),
+    TE.map(({ rankedCollections, twitterDetailsMap }) =>
+      pipe(
+        rankedCollections,
+        A.filter((collection) => collection.blockchain === "ETH"),
+        A.takeLeft(20),
+        A.map((collection) =>
+          tvsRankingFromNftCollection(twitterDetailsMap, collection),
+        ),
+      ),
+    ),
+  );
+
+const getTotalValueSecured = () =>
+  pipe(
+    TE.Do,
+    TE.apS("erc20Coins", getTopErc20s()),
+    TE.apSW("nftLeaderboard", getNftLeaderboard()),
     TE.apSW(
       "nftTotal",
       pipe(
@@ -653,11 +713,7 @@ const getTotalValueSecured = () =>
       ),
     ),
     TE.bindW("erc20Leaderboard", ({ erc20Coins }) =>
-      pipe(
-        erc20Coins,
-        getDetailsForCoins,
-        TE.map(flow(A.sort(coinV2ByMarketCapDesc), A.takeLeft(100))),
-      ),
+      getErc20Leaderboard(erc20Coins),
     ),
     TE.bindW("erc20Total", ({ erc20Coins }) =>
       pipe(erc20Coins, getErc20MarketCapSum, TE.of),

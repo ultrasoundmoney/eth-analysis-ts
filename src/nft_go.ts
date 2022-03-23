@@ -34,7 +34,7 @@ type LeaderboardResponse = {
   };
 };
 
-export const getNftLeaderboard = () =>
+export const getRankedCollections = () =>
   pipe(
     FetchAlt.fetchWithRetryJson<LeaderboardResponse>(leaderboardUrl, {
       headers: {
