@@ -4,12 +4,20 @@ import * as FetchAlt from "./fetch_alt.js";
 import { NEA, pipe } from "./fp.js";
 
 export type TwitterDetails = {
-  famFollowerCount: number | null;
+  bio: string | null;
+  famFollowerCount: number;
+  followerCount: number;
+  /**
+   * @deprecated
+   */
   followersCount: number;
   handle: string;
   isInFam: boolean | null;
   name: string;
-  twitterDescription: string;
+  /**
+   * @deprecated
+   */
+  twitterDescription: string | null;
   twitterId: string;
 };
 
