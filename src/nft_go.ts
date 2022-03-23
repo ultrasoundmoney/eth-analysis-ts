@@ -8,11 +8,11 @@ const leaderboardUrl =
 // collection page https://nftgo.io/collection/blitmap/overview
 export type Collection = {
   blockchain: "ETH" | string;
+  contracts: string[];
   link: string;
   logo: string;
   longDesc: string;
   marketCap: number;
-  contracts: string[];
   marketCapChange24h: number;
   medias: {
     twitter?: string;
