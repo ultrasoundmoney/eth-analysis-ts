@@ -29,8 +29,9 @@ import * as NftGo from "../nft_go.js";
 export const totalValueSecuredCacheKey = "total-value-secured";
 
 type NftLeaderboardRow = {
-  name: string;
   imageUrl: string;
+  marketCap: number;
+  name: string;
 };
 
 type TotalValueSecured = {
@@ -627,8 +628,9 @@ const getTotalValueSecured = () =>
             A.filter((collection) => collection.blockchain === "ETH"),
             A.takeLeft(20),
             A.map((row) => ({
-              name: row.name,
               imageUrl: row.blockchain,
+              marketCap: row.marketCap,
+              name: row.name,
             })),
           ),
         ),
