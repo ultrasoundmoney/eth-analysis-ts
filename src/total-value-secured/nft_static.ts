@@ -1,7 +1,7 @@
 import { Collection } from "../nft_go.js";
 
 // 2022-03-22 11:10
-export const nftLeaderboard: Collection[] = [
+export const rankedCollections: Collection[] = [
   {
     marketCap: 1659170490.292795,
     marketCapChange24h: 0.0002,
