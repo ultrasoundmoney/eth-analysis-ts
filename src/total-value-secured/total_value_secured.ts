@@ -385,16 +385,12 @@ const coinV2FromCoinAndDetails = (
       O.toUndefined,
     ),
     imageUrl: pipe(
-      coin.coinGeckoImageUrl,
-      O.fromNullable,
-      O.alt(() =>
-        pipe(
-          contractDetails,
-          O.chain(O.fromNullableK((details) => details.imageUrl)),
-        ),
-      ),
+      contractDetails,
+      O.chain(O.fromNullableK((details) => details.imageUrl)),
+      O.alt(() => pipe(coin.coinGeckoImageUrl, O.fromNullable)),
       O.toUndefined,
     ),
+    imageUrlAlt: pipe(coin.coinGeckoImageUrl, O.fromNullable, O.toUndefined),
     marketCap: coin.marketCapEth,
     name: pipe(
       contractDetails,
@@ -599,6 +595,7 @@ type TvsRanking = {
   famFollowerCount: number | undefined;
   followerCount: number | undefined;
   imageUrl: string | undefined;
+  imageUrlAlt: string | undefined;
   marketCap: number;
   name: string;
   nftGoUrl: string | undefined;
@@ -647,6 +644,7 @@ const tvsRankingFromNftCollection = (
         famFollowerCount: undefined,
         followerCount: undefined,
         imageUrl: collection.logo,
+        imageUrlAlt: undefined,
         marketCap: collection.marketCap,
         name: collection.name,
         nftGoUrl: collection.link,
@@ -660,6 +658,7 @@ const tvsRankingFromNftCollection = (
         famFollowerCount: twitterDetails.famFollowerCount,
         followerCount: twitterDetails.followerCount,
         imageUrl: collection.logo,
+        imageUrlAlt: undefined,
         marketCap: collection.marketCap,
         name: collection.name,
         nftGoUrl: collection.link,
