@@ -385,9 +385,14 @@ const coinV2FromCoinAndDetails = (
       O.toUndefined,
     ),
     imageUrl: pipe(
-      contractDetails,
-      O.chain(O.fromNullableK((details) => details.imageUrl)),
-      O.alt(() => pipe(coin.coinGeckoImageUrl, O.fromNullable)),
+      coin.coinGeckoImageUrl,
+      O.fromNullable,
+      O.alt(() =>
+        pipe(
+          contractDetails,
+          O.chain(O.fromNullableK((details) => details.imageUrl)),
+        ),
+      ),
       O.toUndefined,
     ),
     marketCap: coin.marketCapEth,
