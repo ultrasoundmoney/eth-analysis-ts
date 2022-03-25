@@ -37,7 +37,7 @@ const peRatioUrl = formatUrl("https://yfapi.net", "/v6/finance/quote", {
 const getPeRatios = () =>
   pipe(
     FetchAlt.fetchWithRetry(peRatioUrl, {
-      headers: { "X-API-KEY": "muzty6czcs6YcpxoSb27K5RmzBdXgIO8a33mBs3T" },
+      headers: { "X-API-KEY": "YV30a3hdvZ6orr1vnm68O83gQBW2Si2l6wZLWYke" },
     }),
     TE.chainW((res) =>
       pipe(() => res.json() as Promise<QuoteApiResponse>, T.map(E.right)),
