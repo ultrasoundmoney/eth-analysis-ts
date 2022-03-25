@@ -238,7 +238,7 @@ export const buildLeaderboard = (
     id: row.contractAddress,
     image: row.imageUrl,
     isBot: row.isBot,
-    name: row.name || row.contractAddress,
+    name: row.name,
     twitterDescription: row.twitterDescription,
     twitterHandle: row.twitterHandle,
     twitterName: row.twitterName,
