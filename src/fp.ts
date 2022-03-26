@@ -24,6 +24,7 @@ export * as O from "fp-ts/lib/Option.js";
 export * as Ord from "fp-ts/lib/Ord.js";
 export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as RA from "fp-ts/lib/ReadonlyArray.js";
+export * as RNEA from "fp-ts/lib/ReadonlyNonEmptyArray.js";
 export * as Rec from "fp-ts/lib/Record.js";
 export * as S from "fp-ts/lib/string.js";
 export * as T from "fp-ts/lib/Task.js";
