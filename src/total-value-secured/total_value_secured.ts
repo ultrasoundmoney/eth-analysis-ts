@@ -15,6 +15,7 @@ import {
   Ord,
   pipe,
   RA,
+  RNEA,
   S,
   T,
   TE,
@@ -636,6 +637,7 @@ const tvsRankingFromNftCollection = (
   pipe(
     collection.medias.twitter,
     O.fromNullable,
+    O.map(flow(S.split("/"), RNEA.last)),
     O.chainNullableK((handle) => twitterDetailsMap.get(handle)),
     O.matchW(
       () => ({
