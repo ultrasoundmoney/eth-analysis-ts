@@ -38,8 +38,7 @@ export const getRankedCollections = () =>
   pipe(
     FetchAlt.fetchWithRetryJson<LeaderboardResponse>(leaderboardUrl, {
       headers: {
-        "user-agent":
-          "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.45 Mobile Safari/537.36",
+        "User-Agent": "HTTPie/3.0.2",
       },
     }),
     TE.chainEitherK((res) =>
@@ -74,8 +73,7 @@ export const getMarketCap = () =>
   pipe(
     FetchAlt.fetchWithRetryJson<MarketCapResponse>(marketCapUrl, {
       headers: {
-        "user-agent":
-          "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.45 Mobile Safari/537.36",
+        "User-Agent": "HTTPie/3.0.2",
       },
     }),
     TE.chainEitherK((res) =>
