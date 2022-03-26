@@ -568,7 +568,12 @@ const getTwitterDetailsForCoins = (
 const getTwitterDetailsForCollections = (collections: NftGo.Collection[]) =>
   pipe(
     collections,
-    A.map(O.fromNullableK((collection) => collection.medias.twitter)),
+    A.map(
+      flow(
+        O.fromNullableK((collection) => collection.medias.twitter),
+        O.map(flow(S.split("/"), RNEA.last)),
+      ),
+    ),
     A.compact,
     NEA.fromArray,
     O.match(
