@@ -1,4 +1,4 @@
-import { sql, sqlTNotify, sqlT } from "../db.js";
+import { sql, sqlT, sqlTVoid } from "../db.js";
 import { flow, O, OAlt, pipe, T, TAlt } from "../fp.js";
 import { TimeFrameNext } from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
@@ -24,7 +24,7 @@ export const updateRecordsCache = (blockNumber: number) =>
     }),
     T.chain(
       (burnRecords) =>
-        sqlT`
+        sqlTVoid`
           INSERT INTO key_value_store (
             key, value
           ) VALUES (
@@ -37,8 +37,6 @@ export const updateRecordsCache = (blockNumber: number) =>
             value = excluded.value
         `,
     ),
-    T.chain(() => sqlTNotify("cache-update", burnRecordsCacheKey)),
-    T.map(() => undefined),
   );
 
 export const getRecordsCache = () =>
