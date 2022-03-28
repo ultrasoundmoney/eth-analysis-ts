@@ -374,6 +374,18 @@ const coinV2FromCoinAndDetails = (
       O.fromNullableK((twitterHandle) => twitterDetailsMap.get(twitterHandle)),
     ),
   );
+  if (coin.id === "radio-caca") {
+    console.log(
+      coin,
+      contractDetails,
+      twitterDetails,
+      pipe(
+        twitterDetails,
+        O.map((details) => details.followerCount),
+        O.toUndefined,
+      ),
+    );
+  }
   return {
     famFollowerCount: pipe(
       twitterDetails,
