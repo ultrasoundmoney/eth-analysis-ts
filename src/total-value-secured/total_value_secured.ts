@@ -404,6 +404,11 @@ const coinV2FromCoinAndDetails = (
       O.toUndefined,
     ),
     imageUrlAlt: pipe(coin.coinGeckoImageUrl, O.fromNullable, O.toUndefined),
+    links: pipe(
+      twitterDetails,
+      O.chain(O.fromNullableK((details) => details.links)),
+      O.toUndefined,
+    ),
     marketCap: coin.marketCapEth,
     name: pipe(
       contractDetails,
@@ -614,6 +619,7 @@ type TvsRanking = {
   followerCount: number | undefined;
   imageUrl: string | undefined;
   imageUrlAlt: string | undefined;
+  links: FamService.Linkable[] | undefined;
   marketCap: number;
   name: string;
   nftGoUrl: string | undefined;
@@ -664,6 +670,7 @@ const tvsRankingFromNftCollection = (
         followerCount: undefined,
         imageUrl: collection.logo,
         imageUrlAlt: undefined,
+        links: undefined,
         marketCap: collection.marketCap,
         name: collection.name,
         nftGoUrl: `https://nftgo.io/collection/${collection.slug}/`,
@@ -678,6 +685,7 @@ const tvsRankingFromNftCollection = (
         followerCount: twitterDetails.followerCount,
         imageUrl: collection.logo,
         imageUrlAlt: undefined,
+        links: twitterDetails.links ?? undefined,
         marketCap: collection.marketCap,
         name: collection.name,
         nftGoUrl: `https://nftgo.io/collection/${collection.slug}/`,
