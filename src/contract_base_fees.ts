@@ -72,11 +72,8 @@ export const storeContractBaseFees = (
     ),
   );
 
-export const deleteContractBaseFees = async (
-  blockNumber: number,
-): Promise<void> => {
-  await Db.sql`
+export const deleteContractBaseFees = (blockNumber: number) =>
+  Db.sqlTVoid`
     DELETE FROM contract_base_fees
     WHERE block_number = ${blockNumber}
   `;
-};

@@ -20,20 +20,51 @@ import * as ScarcityCache from "../scarcity/cache.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 
-export type BlocksUpdate = {
-  number: number;
-};
-
 export const headsQueue = new PQueue({
   concurrency: 1,
   autoStart: false,
 });
 
+const rollbackBlocks = (
+  blocksToRollbackNewestFirst: NEA.NonEmptyArray<Blocks.BlockV1>,
+) =>
+  pipe(
+    T.Do,
+    T.apS(
+      "rollbackDeflationaryStreaks",
+      DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
+    ),
+    T.apS(
+      "rollbackBurnRecords",
+      BurnRecordsNewHead.rollbackBlocks(blocksToRollbackNewestFirst),
+    ),
+    T.apS(
+      "rollbackLeaderboardsAll",
+      LeaderboardsAll.rollbackBlocks(blocksToRollbackNewestFirst),
+    ),
+    T.apS(
+      "rollbackLeaderboardsLimitedTimeFrames",
+      LeaderboardsLimitedTimeframe.rollbackBlocks(blocksToRollbackNewestFirst),
+    ),
+    T.chain(() =>
+      pipe(
+        blocksToRollbackNewestFirst,
+        T.traverseSeqArray(({ number }) =>
+          pipe(
+            ContractBaseFees.deleteContractBaseFees(number),
+            T.chain(() => Contracts.deleteContractsMinedAt(number)),
+            T.chain(() => Blocks.deleteBlock(number)),
+          ),
+        ),
+      ),
+    ),
+  );
+
 export const rollbackToIncluding = (
   block: Blocks.BlockV1 | Blocks.BlockNodeV2,
 ) =>
   pipe(
-    Blocks.getBlocksAfter(block.number),
+    Blocks.getBlocksFromAndIncluding(block.number),
     T.map(
       flow(
         NEA.fromArray,
@@ -45,43 +76,12 @@ export const rollbackToIncluding = (
       (blocks) =>
         `rolling back ${blocks.length} blocks to and including: ${block.number}`,
     ),
-    T.chain((blocksToRollbackNewestFirst) =>
-      pipe(
-        T.Do,
-        T.apS(
-          "rollbackDeflationaryStreaks",
-          DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
-        ),
-        T.apS(
-          "rollbackBurnRecords",
-          BurnRecordsNewHead.rollbackBlocks(blocksToRollbackNewestFirst),
-        ),
-        T.apS(
-          "rollbackLeaderboardsAll",
-          LeaderboardsAll.rollbackBlocks(blocksToRollbackNewestFirst),
-        ),
-        T.apS(
-          "rollbackLeaderboardsLimitedTimeFrames",
-          LeaderboardsLimitedTimeframe.rollbackBlocks(
-            blocksToRollbackNewestFirst,
-          ),
-        ),
-        T.bind("rollbackBlock", () =>
-          pipe(
-            blocksToRollbackNewestFirst,
-            T.traverseSeqArray((block) => async () => {
-              const blockNumber = block.number;
-              await ContractBaseFees.deleteContractBaseFees(blockNumber);
-              await Contracts.deleteContractsMinedAt(blockNumber);
-              await Blocks.deleteBlock(blockNumber);
-            }),
-            TAlt.concatAllVoid,
-          ),
-        ),
-        T.map((): void => undefined),
-      ),
-    ),
+    T.chain(rollbackBlocks),
   );
+
+export type BlocksUpdate = {
+  number: number;
+};
 
 const broadcastBlocksUpdate = (block: Blocks.BlockNodeV2) =>
   pipe({ number: block.number }, (blocksUpdate: BlocksUpdate) =>
