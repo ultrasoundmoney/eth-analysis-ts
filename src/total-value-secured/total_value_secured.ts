@@ -388,7 +388,7 @@ const coinV2FromCoinAndDetails = (
     imageUrl: pipe(
       contractDetails,
       O.chain(O.fromNullableK((details) => details.imageUrl)),
-      O.alt(() => pipe(coin.coinGeckoImageUrl, O.fromNullable)),
+      O.alt(O.fromNullableK(() => coin.coinGeckoImageUrl)),
       O.toUndefined,
     ),
     imageUrlAlt: pipe(coin.coinGeckoImageUrl, O.fromNullable, O.toUndefined),
