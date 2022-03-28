@@ -8,6 +8,7 @@ import {
 } from "../base_fees.js";
 import * as Contracts from "../contracts/contracts.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
+import * as Db from "../db.js";
 import { sql, sqlT } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
 import * as EthNode from "../eth_node.js";
@@ -262,12 +263,11 @@ export const storeBlock = async (
   )();
 };
 
-export const deleteBlock = async (blockNumber: number): Promise<void> => {
-  await sql`
+export const deleteBlock = (blockNumber: number) =>
+  Db.sqlTVoid`
     DELETE FROM blocks
     WHERE number = ${blockNumber}
   `;
-};
 
 export const getSyncedBlockHeight = async (): Promise<number> => {
   const rows = await sql<{ max: number }[]>`
@@ -339,7 +339,7 @@ export const getBlocks = (
 export const getBlock = (blockNumber: number) =>
   pipe(getBlocks(blockNumber, blockNumber), T.map(A.head));
 
-export const getBlocksAfter = (blockNumber: number) =>
+export const getBlocksFromAndIncluding = (blockNumber: number) =>
   pipe(
     sqlT<BlockDbRow[]>`
       SELECT

@@ -47,11 +47,10 @@ await pipe(
           pipe(
             T.Do,
             // Contracts marked as mined in a block that was rolled back are possibly wrong. Reanalyze 'contract mined at' data if we want very high confidence.
-            T.bind(
-              "deleteContractBaseFees",
-              () => () => ContractBaseFees.deleteContractBaseFees(blockNumber),
+            T.bind("deleteContractBaseFees", () =>
+              ContractBaseFees.deleteContractBaseFees(blockNumber),
             ),
-            T.bind("deleteBlock", () => () => Blocks.deleteBlock(blockNumber)),
+            T.bind("deleteBlock", () => Blocks.deleteBlock(blockNumber)),
             // Add block
             T.bind("ethPrice", () =>
               pipe(

@@ -1,4 +1,5 @@
 import A from "fp-ts/lib/Array.js";
+import * as Db from "../db.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import { flow, NEA, O, pipe, T, TO } from "../fp.js";
 import * as OpenSea from "../opensea.js";
@@ -237,14 +238,11 @@ export const setContractMinedAtNull = async (address: string) => {
   `;
 };
 
-export const deleteContractsMinedAt = async (
-  blockNumber: number,
-): Promise<void> => {
-  await sql`
+export const deleteContractsMinedAt = (blockNumber: number) =>
+  Db.sqlTVoid`
     DELETE FROM contracts
     WHERE mined_at_block = ${blockNumber}
   `;
-};
 
 export const getTwitterHandle = (address: string) =>
   pipe(
