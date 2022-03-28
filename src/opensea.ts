@@ -77,7 +77,11 @@ export const getContract = (address: string) =>
 export const getTwitterHandle = (
   contract: OpenseaContract,
 ): string | undefined => {
-  const rawTwitterHandle = contract.collection?.twitter_username ?? undefined;
+  const rawTwitterHandle =
+    typeof contract.collection?.twitter_username === "string" &&
+    contract.collection.twitter_username.length !== 0
+      ? contract.collection.twitter_username
+      : undefined;
 
   if (rawTwitterHandle === undefined) {
     Log.debug(
@@ -108,6 +112,7 @@ export const getTwitterHandle = (
   Log.debug(
     `opensea twitter handle regex did not match, returning as is: ${rawTwitterHandle}`,
   );
+
   return rawTwitterHandle;
 };
 

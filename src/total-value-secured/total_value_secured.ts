@@ -552,7 +552,16 @@ const getTwitterDetailsForCoins = (
       "coinTwitterHandles",
       pipe(
         Array.from(contractDetailsMap.values()),
-        A.map(flow(O.fromNullableK((details) => details.twitterHandle))),
+        A.map(
+          flow(
+            O.fromNullableK((details) =>
+              typeof details.twitterHandle === "string" &&
+              details.twitterHandle.length !== 0
+                ? details.twitterHandle
+                : null,
+            ),
+          ),
+        ),
         A.compact,
         TE.of,
       ),

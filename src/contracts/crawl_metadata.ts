@@ -548,7 +548,9 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
     Contracts.setSimpleTextColumn(
       "defi_llama_twitter_handle",
       address,
-      protocol.twitter ?? null,
+      typeof protocol.twitter === "string" && protocol.twitter.length !== 0
+        ? protocol.twitter
+        : null,
     ),
   )();
 
