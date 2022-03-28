@@ -407,7 +407,7 @@ const coinV2FromCoinAndDetails = (
     twitterUrl: pipe(
       contractDetails,
       O.chain(O.fromNullableK((details) => details.twitterHandle)),
-      O.alt(() => pipe(coin.coinGeckoTwitterHandle, O.fromNullable)),
+      O.alt(O.fromNullableK(() => coin.coinGeckoTwitterHandle)),
       O.map((handle) => `https://twitter.com/${handle}`),
       O.toUndefined,
     ),
