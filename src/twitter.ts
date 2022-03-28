@@ -118,6 +118,7 @@ export const getProfileByHandle = (handle: string) =>
 export const getProfileImage = (
   profile: UserTwitterApiRaw,
 ): string | undefined =>
-  typeof profile?.profile_image_url === "string"
+  typeof profile?.profile_image_url === "string" &&
+  profile.profile_image_url.length !== 0
     ? profile.profile_image_url.replace("normal", "reasonably_small")
     : undefined;
