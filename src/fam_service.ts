@@ -3,6 +3,13 @@ import * as Config from "./config.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { NEA, pipe } from "./fp.js";
 
+export type Linkable = {
+  display_url: string;
+  end: number;
+  expanded_url: string;
+  start: number;
+};
+
 export type TwitterDetails = {
   bio: string | null;
   famFollowerCount: number;
@@ -13,6 +20,7 @@ export type TwitterDetails = {
   followersCount: number;
   handle: string;
   isInFam: boolean | null;
+  links: Linkable[] | null;
   name: string;
   /**
    * @deprecated
