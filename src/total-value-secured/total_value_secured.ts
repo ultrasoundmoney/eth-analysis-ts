@@ -480,13 +480,15 @@ const getTopErc20s = () =>
             coinGeckoTwitterHandle: coinMarket.twitter_handle,
           }),
         ),
-        A.map((coin) => {
+        A.filter((coin) => {
           if (coin.marketCapEth < 1e6) {
             Log.warn(
-              `coin ${coin.symbol} market cap suspiciously low: ${coin.marketCapEth}, contract: ${coin.contractAddress}`,
+              `coin ${coin.symbol} market cap suspiciously low: ${coin.marketCapEth}, contract: ${coin.contractAddress}, skipping`,
             );
+            return false;
           }
-          return coin;
+
+          return true;
         }),
       ),
     ),
