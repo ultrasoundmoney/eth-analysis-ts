@@ -1,14 +1,15 @@
 import { sqlT, sqlTVoid } from "../db.js";
-import { A, pipe, T } from "../fp.js";
+import { A, O, pipe, T } from "../fp.js";
 import * as Contracts from "./contracts.js";
 import * as ContractsMetadata from "./crawl_metadata.js";
 
-export const setTwitterHandle = (
-  address: string,
-  handle: string,
-): T.Task<void> =>
+export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
   pipe(
-    Contracts.setSimpleTextColumn("manual_twitter_handle", address, handle),
+    Contracts.setSimpleTextColumn(
+      "manual_twitter_handle",
+      address,
+      O.toNullable(handle),
+    ),
     T.chain(() => () => ContractsMetadata.addTwitterMetadata(address)),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   );
