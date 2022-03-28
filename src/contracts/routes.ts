@@ -1,7 +1,7 @@
 import Router from "@koa/router";
 import { Middleware } from "koa";
 import * as Config from "../config.js";
-import { pipe, T } from "../fp.js";
+import { O, pipe, T } from "../fp.js";
 import * as Admin from "./admin.js";
 
 export const handleSetContractTwitterHandle: Middleware = async (ctx) => {
@@ -20,7 +20,11 @@ export const handleSetContractTwitterHandle: Middleware = async (ctx) => {
     return undefined;
   }
 
-  await Admin.setTwitterHandle(address, handle)();
+  if (handle === "") {
+    await Admin.setTwitterHandle(address, O.none)();
+  } else {
+    await Admin.setTwitterHandle(address, O.some(handle))();
+  }
   ctx.status = 200;
   return undefined;
 };
