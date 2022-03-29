@@ -85,12 +85,6 @@ export const TEAlt = {
   chainFirstLogDebug: <A>(format: (a: A) => string) =>
     TEAlt.chainFirstLog("DEBUG", format),
   concatAllVoid: TE.map(Mo.concatAll(Void.Monoid)),
-  debugTap: TE.chainFirstIOK((value) => () => {
-    Log.debug("debug tap", value);
-  }),
-  debugTapStr: TE.chainFirstIOK((value) => () => {
-    Log.debug(String(value));
-  }),
   decodeUnknownError: (e: unknown): Error =>
     e instanceof Error ? e : new Error(String(e)),
   getOrThrow,
