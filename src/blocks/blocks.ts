@@ -246,7 +246,10 @@ export const storeBlock = async (
 
   // Right before we store a block we check it is not breaking the logical chain. Every block should have a known parent in our DB. We have a check earlier on to store any missing parents that should take care of this. Remove this condition if it reliably does.
   if (!isParentKnown) {
-    Log.alert("tried to store a block with no known parent");
+    const lastStoredBlock = await getLastStoredBlock()();
+    Log.alert(
+      `tried to store a block with no known parent, last stored: ${lastStoredBlock.number} - ${lastStoredBlock.hash}, trying to store: ${block.number} - ${block.hash}`,
+    );
     throw new Error("tried to store a block with no known parent");
   }
 
