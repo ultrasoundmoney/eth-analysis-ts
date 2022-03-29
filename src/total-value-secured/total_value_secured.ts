@@ -378,6 +378,7 @@ const coinV2FromCoinAndDetails = (
       O.map((handle) => `https://twitter.com/${handle}`),
       O.toUndefined,
     ),
+    coinGeckoTwitterHandle: coin.coinGeckoTwitterHandle ?? undefined,
     coinGeckoUrl: coin.coinGeckoUrl,
     nftGoUrl: undefined,
     tooltipName: pipe(
@@ -574,6 +575,7 @@ const getTwitterDetailsForCollections = (collections: NftGo.Collection[]) =>
   );
 
 type TvsRanking = {
+  coinGeckoTwitterHandle: string | undefined;
   coinGeckoUrl: string | undefined;
   contractAddresses: NEA.NonEmptyArray<string>;
   detail: string | undefined;
@@ -626,6 +628,7 @@ const tvsRankingFromNftCollection = (
     O.chainNullableK((handle) => twitterDetailsMap.get(handle)),
     O.matchW(
       () => ({
+        coinGeckoTwitterHandle: undefined,
         coinGeckoUrl: undefined,
         contractAddresses: pipe(
           collection.contracts,
@@ -648,6 +651,7 @@ const tvsRankingFromNftCollection = (
         twitterUrl: undefined,
       }),
       (twitterDetails) => ({
+        coinGeckoTwitterHandle: undefined,
         coinGeckoUrl: undefined,
         contractAddresses: pipe(
           collection.contracts,
