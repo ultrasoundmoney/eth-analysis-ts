@@ -633,7 +633,7 @@ type TvsRanking = {
   followerCount: number | undefined;
   imageUrl: string | undefined;
   imageUrlAlt: string | undefined;
-  links: FamService.Linkable[] | undefined;
+  links: FamService.Linkables | undefined;
   marketCap: number;
   name: string;
   nftGoUrl: string | undefined;
