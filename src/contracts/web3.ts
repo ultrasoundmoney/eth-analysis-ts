@@ -264,6 +264,11 @@ const unstructuredProxyMap: Map<ProxyAddress, ImplementationAddress> = new Map([
     "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
     "0xe5e8e834086f1a964f9a089eb6ae11796862e4ce",
   ],
+  // tusd
+  [
+    "0x0000000000085d4780B73119b644AE5ecd22b376",
+    "0xd8d59c59ab40b880b54c969920e8d9172182ad7b",
+  ],
 ]);
 
 const getIsErc20UnstructuredProxy = (contract: Contract) =>
