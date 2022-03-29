@@ -142,7 +142,6 @@ const getErc20TotalSupplyWithDecimals = (contract: Erc20ContractWithDecimals) =>
         TEAlt.decodeUnknownError,
       ),
     ),
-    TE.chainFirstIOK((value) => Log.debugIO("debug", value)),
     TE.map(({ decimals, totalSupply }) => totalSupply / 10 ** decimals),
   );
 
@@ -221,10 +220,6 @@ const getErc20ProxyTotalSupply = (proxyContract: ProxyContract) =>
               return e;
             },
           ),
-          TE.map((supply) => {
-            console.log("found one!", supply);
-            return supply;
-          }),
         ),
     ),
   );
