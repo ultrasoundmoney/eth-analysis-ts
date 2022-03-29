@@ -2,8 +2,10 @@ import * as Coingecko from "../coingecko.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as EthUnits from "../eth_units.js";
 import { E, flow, O, pipe, T, TE } from "../fp.js";
 import * as Log from "../log.js";
+import * as EthSupply from "../scarcity/eth_supply.js";
 
 export type MarketCaps = {
   btcMarketCap: number;
@@ -28,10 +30,12 @@ const insertableFromCoinData = (
   ethPrice: EthPrices.EthPrice,
 ) => {
   const btcMarketCap = coins.bitcoin.usd_market_cap;
-  const coingeckoMarketCap = coins.ethereum.usd_market_cap;
-  const coingeckoEthPrice = coins.ethereum.usd;
-  const ethCirculatingSupply = coingeckoMarketCap / coingeckoEthPrice;
-  const ethMarketCap = ethCirculatingSupply * ethPrice.ethusd;
+  const ethMarketCap = pipe(
+    EthSupply.getLastEthSupply().ethSupply,
+    Number,
+    EthUnits.ethFromWei,
+    (ethSupply) => ethSupply * ethPrice.ethusd,
+  );
   // See: https://www.gold.org/goldhub/data/above-ground-stocks which many appear to use.
   // In tonnes.
   const goldCirculatingSupply = 201296.1;
