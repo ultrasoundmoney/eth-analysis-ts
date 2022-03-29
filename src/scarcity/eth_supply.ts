@@ -6,6 +6,7 @@ import * as Log from "../log.js";
 
 export type EthSupply = {
   timestamp: Date;
+  /** eth supply in Wei */
   ethSupply: bigint;
 };
 

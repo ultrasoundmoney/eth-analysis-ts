@@ -307,6 +307,9 @@ const makeEthSupplyUrl = () =>
     apiKey: Config.getEtherscanToken(),
   });
 
+/**
+ * Returns the current eth supply in Wei as a bigint.
+ */
 export const getEthSupply = () =>
   pipe(
     FetchAlt.fetchWithRetry(makeEthSupplyUrl()),

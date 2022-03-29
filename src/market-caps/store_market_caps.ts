@@ -3,6 +3,7 @@ import * as Duration from "../duration.js";
 import { BadResponseError } from "../fetch_alt.js";
 import { pipe, TE } from "../fp.js";
 import * as Log from "../log.js";
+import * as EthSupply from "../scarcity/eth_supply.js";
 import * as MarketCaps from "./market_caps.js";
 
 process.on("unhandledRejection", (error) => {
@@ -32,4 +33,5 @@ for await (const _ of everyMinuteIterator) {
   )();
 }
 
+await EthSupply.init();
 await MarketCaps.storeCurrentMarketCaps()();
