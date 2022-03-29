@@ -12,6 +12,7 @@ import {
   MapF,
   NEA,
   O,
+  OAlt,
   Ord,
   pipe,
   RA,
@@ -387,6 +388,7 @@ const coinV2FromCoinAndDetails = (
     );
   }
   return {
+    contractAddresses: NEA.of(coin.contractAddress),
     famFollowerCount: pipe(
       twitterDetails,
       O.chain(O.fromNullableK((details) => details.famFollowerCount)),
@@ -625,6 +627,7 @@ const getTwitterDetailsForCollections = (collections: NftGo.Collection[]) =>
 
 type TvsRanking = {
   coinGeckoUrl: string | undefined;
+  contractAddresses: NEA.NonEmptyArray<string>;
   detail: string | undefined;
   famFollowerCount: number | undefined;
   followerCount: number | undefined;
@@ -676,6 +679,13 @@ const tvsRankingFromNftCollection = (
     O.matchW(
       () => ({
         coinGeckoUrl: undefined,
+        contractAddresses: pipe(
+          collection.contracts,
+          NEA.fromArray,
+          OAlt.getOrThrow(
+            "expected nft collection to have at least one contract",
+          ),
+        ),
         detail: undefined,
         famFollowerCount: undefined,
         followerCount: undefined,
@@ -691,6 +701,13 @@ const tvsRankingFromNftCollection = (
       }),
       (twitterDetails) => ({
         coinGeckoUrl: undefined,
+        contractAddresses: pipe(
+          collection.contracts,
+          NEA.fromArray,
+          OAlt.getOrThrow(
+            "expected nft collection to have at least one contract",
+          ),
+        ),
         detail: undefined,
         famFollowerCount: twitterDetails.famFollowerCount,
         followerCount: twitterDetails.followerCount,
