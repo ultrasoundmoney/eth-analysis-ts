@@ -266,8 +266,13 @@ const unstructuredProxyMap: Map<ProxyAddress, ImplementationAddress> = new Map([
   ],
   // tusd
   [
-    "0x0000000000085d4780B73119b644AE5ecd22b376",
+    "0x0000000000085d4780b73119b644ae5ecd22b376",
     "0xd8d59c59ab40b880b54c969920e8d9172182ad7b",
+  ],
+  // okb
+  [
+    "0x75231f58b43240c9718dd58b4967c5114342a86c",
+    "0x5dba7dfcdbfb8812d30fdd99d9441f8b7a605621",
   ],
 ]);
 
