@@ -3,7 +3,7 @@ import { Contract } from "web3-eth-contract";
 import { JsonDecodeError } from "../errors.js";
 import * as Etherscan from "../etherscan.js";
 import * as EthNode from "../eth_node.js";
-import { B, flow, O, OAlt, pipe, TE, TEAlt } from "../fp.js";
+import { B, O, OAlt, pipe, TE, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
 
 // NOTE: We already cache ABIs and creating contracts is cheap, but it turns out web3js leaks memory when creating new contracts. There's a _years_ old issue describing the problem here: https://github.com/ChainSafe/web3.js/issues/3042 . We'd like to switch to ethers-js for this and various other reasons. Until then, we cache contracts to alleviate the problem a little.
@@ -146,11 +146,16 @@ const getErc20TotalSupplyWithDecimals = (contract: Erc20ContractWithDecimals) =>
     TE.map(({ decimals, totalSupply }) => totalSupply / 10 ** decimals),
   );
 
-const getErc20TotalSupply = (contract: Erc20Contract) =>
+const getErc20TotalSupply = (contract: Contract) =>
   pipe(
-    getIsErc20ContractWithDecimals(contract)
-      ? getErc20TotalSupplyWithDecimals(contract)
-      : getErc20TotalSupplyPlain(contract),
+    getIsErc20Contract(contract),
+    B.match(
+      () => TE.left(new UnsupportedContractError()),
+      () =>
+        getIsErc20ContractWithDecimals(contract)
+          ? getErc20TotalSupplyWithDecimals(contract)
+          : getErc20TotalSupplyPlain(contract),
+    ),
   );
 
 export class UnsupportedContractError extends Error {}
@@ -170,44 +175,58 @@ const decodeContractCallError = (e: unknown) => {
 
 const getErc20ProxyTotalSupply = (proxyContract: ProxyContract) =>
   pipe(
-    TE.tryCatch(
-      () => proxyContract.methods.implementation().call(),
-      decodeContractCallError,
-    ),
-    TE.chainW((implementationAddress) => getContract(implementationAddress)),
-    TE.chainW((implementationContract) =>
-      getIsErc20Contract(implementationContract)
-        ? getErc20TotalSupply(implementationContract)
-        : TE.left(
-            new UnsupportedContractError(
-              `expected ERC20 proxy implementation contract ${implementationContract.options.address} to have an totalSupply method but it didn't`,
-            ),
+    getIsProxyContract(proxyContract),
+    B.match(
+      () =>
+        TE.left(
+          new UnsupportedContractError(
+            `contract ${proxyContract.options.address} is not a proxy contract`,
           ),
-    ),
-    // Unstructured proxies should not be passed to this method, if it does happen the contract might return a bad value of a correct type. We try to protect against this a little.
-    TE.chainW((totalSupply) =>
-      totalSupply === 0
-        ? TE.left(
-            new ZeroSupplyError(
-              `proxy contract ${proxyContract.options.address} total supply came back 0, and is probably wrong`,
-            ),
-          )
-        : TE.right(totalSupply),
-    ),
-    TE.mapLeft(
-      (e): UnsupportedContractError | Etherscan.FetchAbiError | Error => {
-        // We expect for this to happen on some proxy contracts that make their implementation method adminOnly, consider them simply unsupported.
-        if (e instanceof ExecutionRevertedError) {
-          return new UnsupportedContractError(e.message);
-        }
+        ),
+      () =>
+        pipe(
+          TE.tryCatch(
+            () => proxyContract.methods.implementation().call(),
+            decodeContractCallError,
+          ),
+          TE.chainW((implementationAddress) =>
+            getContract(implementationAddress),
+          ),
+          TE.chainW((implementationContract) =>
+            getIsErc20Contract(implementationContract)
+              ? getErc20TotalSupply(implementationContract)
+              : TE.left(
+                  new UnsupportedContractError(
+                    `expected ERC20 proxy implementation contract ${implementationContract.options.address} to have an totalSupply method but it didn't`,
+                  ),
+                ),
+          ),
+          // Unstructured proxies should not be passed to this method, if it does happen the contract might return a bad value of a correct type. We try to protect against this a little.
+          TE.chainW((totalSupply) =>
+            totalSupply === 0
+              ? TE.left(
+                  new ZeroSupplyError(
+                    `proxy contract ${proxyContract.options.address} total supply came back 0, and is probably wrong`,
+                  ),
+                )
+              : TE.right(totalSupply),
+          ),
+          TE.mapLeft(
+            (e): UnsupportedContractError | Etherscan.FetchAbiError | Error => {
+              // We expect for this to happen on some proxy contracts that make their implementation method adminOnly, consider them simply unsupported.
+              if (e instanceof ExecutionRevertedError) {
+                return new UnsupportedContractError(e.message);
+              }
 
-        return e;
-      },
+              return e;
+            },
+          ),
+          TE.map((supply) => {
+            console.log("found one!", supply);
+            return supply;
+          }),
+        ),
     ),
-    TE.map((supply) => {
-      console.log("found one!", supply);
-      return supply;
-    }),
   );
 
 // Some proxy contracts expose an 'implementation' method that returns the address of the implementation that we can then call. Some do not, and only report their implementation address to Etherscan in an API call. Some we encountered here we've looked up there by hand.
@@ -279,7 +298,6 @@ export const getTotalSupply = (address: string) =>
             pipe(
               getErc20TotalSupply(contract),
               TE.alt(() => getErc20ProxyTotalSupply(contract)),
-              TE.alt(() => TE.left(new UnsupportedContractError())),
             ),
           // When the contract is an unstructured proxy, _don't_ call it as a normal proxy. The contract will answer fine but have no access to its storage, returning wrong values of the correct type.
           () => getErc20UnstructuredProxyTotalSupply(contract),
