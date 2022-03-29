@@ -155,45 +155,6 @@ const getSupplyForOnlyOnEthCoins = (
     (entries) => new Map(entries),
   );
 
-// Some proxy contracts expose an 'implementation' method that returns the address of the implementation that we can then call. Some do not, and only report their implementation address to Etherscan in an API call. Some we encountered here we've looked up there by hand.
-const proxyImplementationMap = new Map([
-  // usdc
-  [
-    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-    "0xa2327a938febf5fec13bacfb16ae10ecbc4cbdcf",
-  ],
-  // busd
-  // [
-  //   "0x4fabb145d64652a948d72533023f6e7a623c7c53",
-  //   "0x5864c777697bf9881220328bf2f16908c9afcd7e",
-  // ],
-  // aave
-  [
-    "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
-    "0xc13eac3b4f9eed480045113b7af00f7b5655ece8",
-  ],
-  // rndr
-  [
-    "0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24",
-    "0x1a1fdf27c5e6784d1cebf256a8a5cc0877e73af0",
-  ],
-  // paxg
-  [
-    "0x45804880de22913dafe09f4980848ece6ecbaf78",
-    "0x74271f2282ed7ee35c166122a60c9830354be42a",
-  ],
-  // renbtc
-  [
-    "0xeb4c2781e4eba804ce9a9803c67d0893436bb27d",
-    "0xe2d6ccac3ee3a21abf7bedbe2e107ffc0c037e80",
-  ],
-  // knc
-  [
-    "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
-    "0xe5e8e834086f1a964f9a089eb6ae11796862e4ce",
-  ],
-]);
-
 type CoinSupply = {
   circulatingSupply: number;
   contractAddress: string;
@@ -205,8 +166,6 @@ const getSupplyForOnEthAndOthersCoins = (
 ) =>
   pipe(
     coinMarkets,
-    // A.takeLeft(10),
-    // A.filter((coin) => coin.id === "tether"),
     A.map((coinMarket) =>
       pipe(
         coinsOnEthAndOthers,
@@ -218,14 +177,6 @@ const getSupplyForOnEthAndOthersCoins = (
       ),
     ),
     A.compact,
-    A.map(([contractAddress, coinMarket]) =>
-      proxyImplementationMap.has(contractAddress)
-        ? ([proxyImplementationMap.get(contractAddress)!, coinMarket] as [
-            string,
-            CoinGecko.CoinMarket,
-          ])
-        : ([contractAddress, coinMarket] as [string, CoinGecko.CoinMarket]),
-    ),
     T.traverseSeqArray(([contractAddress, coinMarket]) =>
       pipe(
         Contracts.getTotalSupply(contractAddress),
@@ -248,9 +199,18 @@ const getSupplyForOnEthAndOthersCoins = (
         // We won't successfully retrieve an on chain total supply for all coins. We log what happened to the rest..
         TE.match(
           (e) => {
+            if (e instanceof Contracts.ZeroSupplyError) {
+              Log.warn(
+                `coin ${coinMarket.symbol} returned zero supply, skipping`,
+                e,
+              );
+              return O.none;
+            }
+
             if (e instanceof Contracts.UnsupportedContractError) {
               Log.warn(
-                `coin ${coinMarket.symbol}'s contract ${contractAddress} does not support the 'totalSupply' method, skipping!`,
+                `coin ${coinMarket.symbol}'s is unsupported, skipping`,
+                e,
               );
               return O.none;
             }
