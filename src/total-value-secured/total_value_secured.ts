@@ -285,15 +285,15 @@ const getCoinSupplyMap = () =>
 type CoinV1 = {
   circulatingSupplyAll: number;
   circulatingSupplyEth: number;
-  coinGeckoImageUrl: string | null;
-  coinGeckoTwitterHandle: string | null;
   coinGeckoUrl: string;
   contractAddress: string;
   id: string;
+  imageUrl: string | null;
   marketCapEth: number;
   name: string;
   symbol: string;
   totalSupplyAll: number;
+  twitterHandle: string | undefined;
 };
 
 const coinV1ByMarketCapDesc: Ord.Ord<CoinV1> = Ord.fromCompare(
@@ -308,18 +308,70 @@ const coinV1ByMarketCapDesc: Ord.Ord<CoinV1> = Ord.fromCompare(
 /**
  * These are the details we have about a coin from our contracts table.
  */
-type CoinContractDetails = {
+type ContractDetailsRow = {
   contractAddress: string;
   name: string | null;
   imageUrl: string | null;
   twitterHandle: string | null;
 };
 
-type CoinContractDetailsMap = Map<string, CoinContractDetails>;
+type ContractDetails = {
+  contractAddress: string;
+  name: string | undefined;
+  imageUrl: string | undefined;
+  twitterHandle: string | undefined;
+};
+
+type ContractDetailsMap = Map<string, ContractDetails>;
+type TwitterDetailsMap = Map<TwitterHandle, FamService.TwitterDetails>;
+
+const buildRankingFromCoin = (coin: CoinV1): TvsRanking => ({
+  coinGeckoName: coin.name,
+  coinGeckoTwitterHandle: coin.twitterHandle,
+  coinGeckoUrl: `https://www.coingecko.com/en/coins/${coin.id}`,
+  contractAddresses: NEA.of(coin.contractAddress),
+  detail: coin.symbol,
+  famFollowerCount: undefined,
+  followerCount: undefined,
+  imageUrl: undefined,
+  links: undefined,
+  marketCap: coin.marketCapEth,
+  name: undefined,
+  nftGoName: undefined,
+  nftGoTwitterHandle: undefined,
+  nftGoUrl: undefined,
+  tooltipDescription: undefined,
+  tooltipName: undefined,
+  twitterUrl: undefined,
+});
+
+const buildRankingWithContractDetailsFromCoin = (
+  contractDetails: ContractDetails,
+  coin: CoinV1,
+): TvsRanking => ({
+  ...buildRankingFromCoin(coin),
+  contractAddresses: NEA.of(contractDetails.contractAddress),
+  name: contractDetails.name,
+  imageUrl: contractDetails.imageUrl,
+});
+
+const buildRankingWithAllDetailsFromCoin = (
+  contractDetails: ContractDetails,
+  twitterDetails: FamService.TwitterDetails,
+  coin: CoinV1,
+): TvsRanking => ({
+  ...buildRankingWithContractDetailsFromCoin(contractDetails, coin),
+  famFollowerCount: twitterDetails.famFollowerCount,
+  followerCount: twitterDetails.followerCount,
+  links: twitterDetails.links,
+  tooltipDescription: twitterDetails.bio,
+  tooltipName: twitterDetails.name,
+  twitterUrl: `https://twitter.com/${twitterDetails.handle}`,
+});
 
 const coinV2FromCoinAndDetails = (
-  coinContractDetailsMap: Map<string, CoinContractDetails>,
-  twitterDetailsMap: Map<string, FamService.TwitterDetails>,
+  coinContractDetailsMap: Map<string, ContractDetails>,
+  twitterDetailsMap: TwitterDetailsMap,
   coin: CoinV1,
 ): TvsRanking => {
   const contractDetails = pipe(
@@ -335,58 +387,27 @@ const coinV2FromCoinAndDetails = (
       O.fromNullableK((twitterHandle) => twitterDetailsMap.get(twitterHandle)),
     ),
   );
-  return {
-    contractAddresses: NEA.of(coin.contractAddress),
-    famFollowerCount: pipe(
-      twitterDetails,
-      O.chain(O.fromNullableK((details) => details.famFollowerCount)),
-      O.toUndefined,
+
+  return pipe(
+    contractDetails,
+    O.match(
+      () => buildRankingFromCoin(coin),
+      (contractDetails) =>
+        pipe(
+          twitterDetails,
+          O.match(
+            () =>
+              buildRankingWithContractDetailsFromCoin(contractDetails, coin),
+            (twitterDetails) =>
+              buildRankingWithAllDetailsFromCoin(
+                contractDetails,
+                twitterDetails,
+                coin,
+              ),
+          ),
+        ),
     ),
-    followerCount: pipe(
-      twitterDetails,
-      O.map((details) => details.followerCount),
-      O.toUndefined,
-    ),
-    imageUrl: pipe(
-      contractDetails,
-      O.chain(O.fromNullableK((details) => details.imageUrl)),
-      O.alt(O.fromNullableK(() => coin.coinGeckoImageUrl)),
-      O.toUndefined,
-    ),
-    imageUrlAlt: pipe(coin.coinGeckoImageUrl, O.fromNullable, O.toUndefined),
-    links: pipe(
-      twitterDetails,
-      O.chain(O.fromNullableK((details) => details.links)),
-      O.toUndefined,
-    ),
-    marketCap: coin.marketCapEth,
-    name: pipe(
-      contractDetails,
-      O.chain(O.fromNullableK((details) => details.name)),
-      O.getOrElse(() => coin.name),
-    ),
-    detail: coin.symbol,
-    tooltipDescription: pipe(
-      twitterDetails,
-      O.chain(O.fromNullableK((details) => details.bio)),
-      O.toUndefined,
-    ),
-    twitterUrl: pipe(
-      contractDetails,
-      O.chain(O.fromNullableK((details) => details.twitterHandle)),
-      O.alt(O.fromNullableK(() => coin.coinGeckoTwitterHandle)),
-      O.map((handle) => `https://twitter.com/${handle}`),
-      O.toUndefined,
-    ),
-    coinGeckoTwitterHandle: coin.coinGeckoTwitterHandle ?? undefined,
-    coinGeckoUrl: coin.coinGeckoUrl,
-    nftGoUrl: undefined,
-    tooltipName: pipe(
-      contractDetails,
-      O.chain(O.fromNullableK((details) => details.name)),
-      O.getOrElse(() => coin.name),
-    ),
-  };
+  );
 };
 
 const getTopErc20s = () =>
@@ -419,7 +440,7 @@ const getTopErc20s = () =>
           ([coinSupply, coinMarket]): CoinV1 => ({
             circulatingSupplyAll: coinMarket.circulating_supply,
             circulatingSupplyEth: coinSupply.circulatingSupply,
-            coinGeckoImageUrl: coinMarket.image,
+            imageUrl: coinMarket.image,
             coinGeckoUrl: `https://www.coingecko.com/en/coins/${coinMarket.id}`,
             contractAddress: coinSupply.contractAddress,
             id: coinMarket.id,
@@ -428,7 +449,7 @@ const getTopErc20s = () =>
             symbol: coinMarket.symbol,
             totalSupplyAll: coinMarket.total_supply,
             name: coinMarket.name,
-            coinGeckoTwitterHandle: coinMarket.twitter_handle,
+            twitterHandle: coinMarket.twitter_handle ?? undefined,
           }),
         ),
         A.filter((coin) => {
@@ -474,9 +495,9 @@ const getSecurityRatio = (
 
 type TwitterHandle = string;
 
-const getDbDetailsForCoins = flow(
-  A.map((coin: CoinV1) => coin.contractAddress),
-  (addresses) => Db.sqlT<CoinContractDetails[]>`
+const getContractDetailsForAddresses = (addresses: string[]) =>
+  pipe(
+    Db.sqlT<ContractDetailsRow[]>`
       SELECT
         address as contract_address,
         image_url,
@@ -485,20 +506,24 @@ const getDbDetailsForCoins = flow(
       FROM contracts
       WHERE address IN (${addresses})
     `,
-  T.map(
-    flow(
-      A.map(
-        (details) =>
-          [details.contractAddress, details] as [string, CoinContractDetails],
+    T.map(
+      flow(
+        A.map((details) => ({
+          ...details,
+          name: details.name ?? undefined,
+          imageUrl: details.imageUrl ?? undefined,
+          twitterHandle: details.twitterHandle ?? undefined,
+        })),
+        A.map(
+          (details) =>
+            [details.contractAddress, details] as [string, ContractDetails],
+        ),
+        (entries) => new Map(entries),
       ),
-      (entries) => new Map(entries),
     ),
-  ),
-);
+  );
 
-const getTwitterDetailsForCoins = (
-  contractDetailsMap: CoinContractDetailsMap,
-) =>
+const getTwitterDetailsForCoins = (contractDetailsMap: ContractDetailsMap) =>
   pipe(
     TE.Do,
     TE.apS(
@@ -575,6 +600,7 @@ const getTwitterDetailsForCollections = (collections: NftGo.Collection[]) =>
   );
 
 type TvsRanking = {
+  coinGeckoName: string | undefined;
   coinGeckoTwitterHandle: string | undefined;
   coinGeckoUrl: string | undefined;
   contractAddresses: NEA.NonEmptyArray<string>;
@@ -582,10 +608,11 @@ type TvsRanking = {
   famFollowerCount: number | undefined;
   followerCount: number | undefined;
   imageUrl: string | undefined;
-  imageUrlAlt: string | undefined;
   links: FamService.Linkables | undefined;
   marketCap: number;
-  name: string;
+  name: string | undefined;
+  nftGoName: string | undefined;
+  nftGoTwitterHandle: string | undefined;
   nftGoUrl: string | undefined;
   tooltipDescription: string | undefined;
   tooltipName: string | undefined;
@@ -596,7 +623,11 @@ const getErc20Leaderboard = (topErc20s: CoinV1[]) =>
   pipe(
     TE.Do,
     TE.bind("contractDetailsMap", () =>
-      TE.fromTask(getDbDetailsForCoins(topErc20s)),
+      pipe(
+        topErc20s,
+        A.map((coin) => coin.contractAddress),
+        (addresses) => TE.fromTask(getContractDetailsForAddresses(addresses)),
+      ),
     ),
     TE.bindW("twitterDetailsMap", ({ contractDetailsMap }) =>
       getTwitterDetailsForCoins(contractDetailsMap),
@@ -617,64 +648,100 @@ const getErc20Leaderboard = (topErc20s: CoinV1[]) =>
     ),
   );
 
-const tvsRankingFromNftCollection = (
-  twitterDetailsMap: Map<string, FamService.TwitterDetails>,
+const buildRankingFromCollection = (
   collection: NftGo.Collection,
-): TvsRanking =>
-  pipe(
-    collection.medias.twitter,
-    O.fromNullable,
-    O.map(flow(S.split("/"), RNEA.last)),
-    O.chainNullableK((handle) => twitterDetailsMap.get(handle)),
-    O.matchW(
-      () => ({
-        coinGeckoTwitterHandle: undefined,
-        coinGeckoUrl: undefined,
-        contractAddresses: pipe(
-          collection.contracts,
-          NEA.fromArray,
-          OAlt.getOrThrow(
-            "expected nft collection to have at least one contract",
-          ),
-        ),
-        detail: undefined,
-        famFollowerCount: undefined,
-        followerCount: undefined,
-        imageUrl: collection.logo,
-        imageUrlAlt: undefined,
-        links: undefined,
-        marketCap: collection.marketCap,
-        name: collection.name,
-        nftGoUrl: `https://nftgo.io/collection/${collection.slug}/`,
-        tooltipDescription: collection.longDesc,
-        tooltipName: collection.name,
-        twitterUrl: undefined,
-      }),
-      (twitterDetails) => ({
-        coinGeckoTwitterHandle: undefined,
-        coinGeckoUrl: undefined,
-        contractAddresses: pipe(
-          collection.contracts,
-          NEA.fromArray,
-          OAlt.getOrThrow(
-            "expected nft collection to have at least one contract",
-          ),
-        ),
-        detail: undefined,
-        famFollowerCount: twitterDetails.famFollowerCount,
-        followerCount: twitterDetails.followerCount,
-        imageUrl: collection.logo,
-        imageUrlAlt: undefined,
-        links: twitterDetails.links ?? undefined,
-        marketCap: collection.marketCap,
-        name: collection.name,
-        nftGoUrl: `https://nftgo.io/collection/${collection.slug}/`,
-        tooltipDescription: collection.longDesc,
-        tooltipName: collection.name,
-        twitterUrl: `https://twitter.com/${twitterDetails.handle}`,
-      }),
+): TvsRanking => ({
+  coinGeckoName: undefined,
+  coinGeckoTwitterHandle: undefined,
+  coinGeckoUrl: undefined,
+  contractAddresses: pipe(
+    collection.contracts,
+    NEA.fromArray,
+    OAlt.getOrThrow(
+      "expected collection to contain at least one contract address",
+    ),
+  ),
+  detail: undefined,
+  famFollowerCount: undefined,
+  followerCount: undefined,
+  imageUrl: undefined,
+  links: undefined,
+  marketCap: collection.marketCap,
+  name: undefined,
+  nftGoName: undefined,
+  nftGoTwitterHandle: undefined,
+  nftGoUrl: undefined,
+  tooltipDescription: undefined,
+  tooltipName: undefined,
+  twitterUrl: undefined,
+});
+
+const buildRankingWithContractDetailsFromCollection = (
+  contractDetails: ContractDetails,
+  collection: NftGo.Collection,
+): TvsRanking => ({
+  ...buildRankingFromCollection(collection),
+  name: contractDetails.name,
+  imageUrl: contractDetails.imageUrl,
+});
+
+const buildRankingWithAllDetailsFromCollection = (
+  contractDetails: ContractDetails,
+  twitterDetails: FamService.TwitterDetails,
+  collection: NftGo.Collection,
+): TvsRanking => ({
+  ...buildRankingWithContractDetailsFromCollection(contractDetails, collection),
+  famFollowerCount: twitterDetails.famFollowerCount,
+  followerCount: twitterDetails.followerCount,
+  links: twitterDetails.links,
+  tooltipDescription: twitterDetails.bio,
+  tooltipName: twitterDetails.name,
+  twitterUrl: `https://twitter.com/${twitterDetails.handle}`,
+});
+
+const tvsRankingFromNftCollection = (
+  contractDetailsMap: ContractDetailsMap,
+  twitterDetailsMap: TwitterDetailsMap,
+  collection: NftGo.Collection,
+): TvsRanking => {
+  const contractDetails = pipe(
+    collection.contracts,
+    A.map(O.fromNullableK((address) => contractDetailsMap.get(address))),
+    A.compact,
+    A.head,
+  );
+  const twitterDetails = pipe(
+    contractDetails,
+    O.chain(O.fromNullableK((details) => details.twitterHandle)),
+    O.chain(
+      O.fromNullableK((twitterHandle) => twitterDetailsMap.get(twitterHandle)),
     ),
   );
+
+  return pipe(
+    contractDetails,
+    O.match(
+      () => buildRankingFromCollection(collection),
+      (contractDetails) =>
+        pipe(
+          twitterDetails,
+          O.match(
+            () =>
+              buildRankingWithContractDetailsFromCollection(
+                contractDetails,
+                collection,
+              ),
+            (twitterDetails) =>
+              buildRankingWithAllDetailsFromCollection(
+                contractDetails,
+                twitterDetails,
+                collection,
+              ),
+          ),
+        ),
+    ),
+  );
+};
 
 const getNftLeaderboard = () =>
   pipe(
@@ -690,13 +757,24 @@ const getNftLeaderboard = () =>
       "twitterDetailsMap",
       getTwitterDetailsForCollections(NftStatic.rankedCollections),
     ),
-    TE.map(({ rankedCollections, twitterDetailsMap }) =>
+    TE.bind("contractDetailsMap", ({ rankedCollections }) =>
+      pipe(
+        rankedCollections,
+        A.chain((collection) => collection.contracts),
+        (addresses) => TE.fromTask(getContractDetailsForAddresses(addresses)),
+      ),
+    ),
+    TE.map(({ contractDetailsMap, rankedCollections, twitterDetailsMap }) =>
       pipe(
         rankedCollections,
         A.filter((collection) => collection.blockchain === "ETH"),
         A.takeLeft(20),
         A.map((collection) =>
-          tvsRankingFromNftCollection(twitterDetailsMap, collection),
+          tvsRankingFromNftCollection(
+            contractDetailsMap,
+            twitterDetailsMap,
+            collection,
+          ),
         ),
       ),
     ),
