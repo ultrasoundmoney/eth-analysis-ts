@@ -3,15 +3,32 @@ import * as Config from "./config.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { NEA, pipe } from "./fp.js";
 
-export type Linkable = {
+export type LinkableUrl = {
   display_url: string;
   end: number;
   expanded_url: string;
   start: number;
 };
 
+export type LinkableMention = {
+  start: number;
+  end: number;
+  username: string;
+};
+
+export type LinkableCashtag = { start: number; end: number; tag: string };
+
+export type LinkableHashtag = { start: number; end: number; tag: string };
+
+export type Linkables = {
+  cashtags?: LinkableCashtag[];
+  hashtags?: LinkableHashtag[];
+  mentions?: LinkableMention[];
+  urls?: LinkableUrl[];
+};
+
 export type TwitterDetails = {
-  bio: string | null;
+  bio: string | undefined;
   famFollowerCount: number;
   followerCount: number;
   /**
@@ -19,8 +36,8 @@ export type TwitterDetails = {
    */
   followersCount: number;
   handle: string;
-  isInFam: boolean | null;
-  links: Linkable[] | null;
+  isInFam: boolean | undefined;
+  links: Linkables | undefined;
   name: string;
   /**
    * @deprecated
