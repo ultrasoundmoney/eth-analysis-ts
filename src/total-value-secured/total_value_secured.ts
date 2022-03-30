@@ -383,7 +383,9 @@ const coinV2FromCoinAndDetails = (
       O.fromNullableK((contractDetails) => contractDetails.twitterHandle),
     ),
     O.chain(
-      O.fromNullableK((twitterHandle) => twitterDetailsMap.get(twitterHandle)),
+      O.fromNullableK((twitterHandle) =>
+        twitterDetailsMap.get(twitterHandle.toLowerCase()),
+      ),
     ),
   );
 
@@ -522,7 +524,9 @@ const getContractDetailsForAddresses = (addresses: string[]) =>
     ),
   );
 
-const getTwitterDetailsForCoins = (contractDetailsMap: ContractDetailsMap) =>
+const getTwitterDetailsForContractDetails = (
+  contractDetailsMap: ContractDetailsMap,
+) =>
   pipe(
     TE.Do,
     TE.apS(
@@ -534,7 +538,7 @@ const getTwitterDetailsForCoins = (contractDetailsMap: ContractDetailsMap) =>
             O.fromNullableK((details) =>
               typeof details.twitterHandle === "string" &&
               details.twitterHandle.length !== 0
-                ? details.twitterHandle
+                ? details.twitterHandle.toLowerCase()
                 : null,
             ),
           ),
@@ -558,37 +562,7 @@ const getTwitterDetailsForCoins = (contractDetailsMap: ContractDetailsMap) =>
         twitterDetails,
         A.map(
           (details) =>
-            [details.handle, details] as [
-              TwitterHandle,
-              FamService.TwitterDetails,
-            ],
-        ),
-        (entries) => new Map(entries),
-      ),
-    ),
-  );
-
-const getTwitterDetailsForCollections = (collections: NftGo.Collection[]) =>
-  pipe(
-    collections,
-    A.map(
-      flow(
-        O.fromNullableK((collection) => collection.medias.twitter),
-        O.map(flow(S.split("/"), RNEA.last)),
-      ),
-    ),
-    A.compact,
-    NEA.fromArray,
-    O.match(
-      () => TE.of([]),
-      (handles) => FamService.getDetailsByHandles(handles),
-    ),
-    TE.map((twitterDetails) =>
-      pipe(
-        twitterDetails,
-        A.map(
-          (details) =>
-            [details.handle, details] as [
+            [details.handle.toLowerCase(), details] as [
               TwitterHandle,
               FamService.TwitterDetails,
             ],
@@ -629,7 +603,7 @@ const getErc20Leaderboard = (topErc20s: CoinV1[]) =>
       ),
     ),
     TE.bindW("twitterDetailsMap", ({ contractDetailsMap }) =>
-      getTwitterDetailsForCoins(contractDetailsMap),
+      getTwitterDetailsForContractDetails(contractDetailsMap),
     ),
     TE.map(({ contractDetailsMap, twitterDetailsMap }) =>
       pipe(
@@ -723,7 +697,9 @@ const tvsRankingFromNftCollection = (
     contractDetails,
     O.chain(O.fromNullableK((details) => details.twitterHandle)),
     O.chain(
-      O.fromNullableK((twitterHandle) => twitterDetailsMap.get(twitterHandle)),
+      O.fromNullableK((twitterHandle) =>
+        twitterDetailsMap.get(twitterHandle.toLowerCase()),
+      ),
     ),
   );
 
@@ -762,16 +738,15 @@ const getNftLeaderboard = () =>
         TE.altW(() => TE.of(NftStatic.rankedCollections)),
       ),
     ),
-    TE.apS(
-      "twitterDetailsMap",
-      getTwitterDetailsForCollections(NftStatic.rankedCollections),
-    ),
     TE.bind("contractDetailsMap", ({ rankedCollections }) =>
       pipe(
         rankedCollections,
         A.chain((collection) => collection.contracts),
         (addresses) => TE.fromTask(getContractDetailsForAddresses(addresses)),
       ),
+    ),
+    TE.bind("twitterDetailsMap", ({ contractDetailsMap }) =>
+      getTwitterDetailsForContractDetails(contractDetailsMap),
     ),
     TE.map(({ contractDetailsMap, rankedCollections, twitterDetailsMap }) =>
       pipe(
