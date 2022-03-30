@@ -136,7 +136,7 @@ const handleGetTotalValueSecured: Middleware = (ctx) => {
         ctx.status = 503;
       },
       (totalValueSecured) => {
-        ctx.set("Cache-Control", "max-age=10, stale-while-revalidate=60");
+        ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=600");
         ctx.set("Content-Type", "application/json");
         ctx.body = totalValueSecured;
       },
