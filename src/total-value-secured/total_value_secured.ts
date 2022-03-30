@@ -336,7 +336,7 @@ const buildRankingFromCoin = (coin: CoinV1): TvsRanking => ({
   imageUrl: undefined,
   links: undefined,
   marketCap: coin.marketCapEth,
-  name: undefined,
+  name: coin.name,
   nftGoName: undefined,
   nftGoTwitterHandle: undefined,
   nftGoUrl: undefined,
@@ -351,7 +351,6 @@ const buildRankingWithContractDetailsFromCoin = (
 ): TvsRanking => ({
   ...buildRankingFromCoin(coin),
   contractAddresses: NEA.of(contractDetails.contractAddress),
-  name: contractDetails.name,
   imageUrl: contractDetails.imageUrl,
 });
 
