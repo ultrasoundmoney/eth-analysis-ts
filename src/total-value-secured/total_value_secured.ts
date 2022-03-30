@@ -668,22 +668,33 @@ const buildRankingFromCollection = (
   links: undefined,
   marketCap: collection.marketCap,
   name: undefined,
-  nftGoName: undefined,
-  nftGoTwitterHandle: undefined,
-  nftGoUrl: undefined,
+  nftGoName: collection.name,
+  nftGoTwitterHandle:
+    collection.medias.twitter !== undefined
+      ? pipe(collection.medias.twitter, S.split("/"), RNEA.last)
+      : undefined,
+  nftGoUrl: collection.link,
   tooltipDescription: undefined,
   tooltipName: undefined,
-  twitterUrl: undefined,
+  twitterUrl: collection.medias.twitter,
 });
 
 const buildRankingWithContractDetailsFromCollection = (
   contractDetails: ContractDetails,
   collection: NftGo.Collection,
-): TvsRanking => ({
-  ...buildRankingFromCollection(collection),
-  name: contractDetails.name,
-  imageUrl: contractDetails.imageUrl,
-});
+): TvsRanking => {
+  const details = buildRankingFromCollection(collection);
+  return {
+    ...buildRankingFromCollection(collection),
+    name: contractDetails.name,
+    imageUrl: contractDetails.imageUrl,
+    twitterUrl:
+      details.twitterUrl === undefined &&
+      contractDetails.twitterHandle !== undefined
+        ? `https://twitter.com/${contractDetails.twitterHandle}`
+        : undefined,
+  };
+};
 
 const buildRankingWithAllDetailsFromCollection = (
   contractDetails: ContractDetails,
