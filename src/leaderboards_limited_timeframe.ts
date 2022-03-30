@@ -306,7 +306,7 @@ type ContractRow = {
   imageUrl: string | null;
   isBot: boolean;
   name: string;
-  twitterDescription: string | null;
+  twitterBio: string | null;
   twitterHandle: string | null;
   twitterName: string | null;
 };
@@ -339,9 +339,9 @@ const getTopBaseFeeContracts = (
         image_url,
         is_bot,
         name,
+        twitter_description AS twitter_bio,
         twitter_handle,
-        twitter_name,
-        twitter_description
+        twitter_name
       FROM contracts
       WHERE address IN (${topAddresses})
     `,
@@ -363,8 +363,8 @@ const getTopBaseFeeContracts = (
         imageUrl: row.imageUrl,
         isBot: row.isBot,
         name: row.name,
+        twitterBio: row.twitterBio,
         twitterHandle: row.twitterHandle,
-        twitterDescription: row.twitterDescription,
         twitterName: row.twitterName,
       })),
     ),

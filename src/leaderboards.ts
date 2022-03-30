@@ -20,7 +20,7 @@ export type LeaderboardRow = {
   imageUrl: string | null;
   isBot: boolean;
   name: string | null;
-  twitterDescription: string | null;
+  twitterBio: string | null;
   twitterHandle: string | null;
   twitterName: string | null;
 };
@@ -30,22 +30,24 @@ export type LeaderboardRowWithTwitterDetails = {
   category: string | null;
   contractAddress: string;
   detail: string | null;
-  famFollowerCount: number | null;
-  followersCount: number | null;
+  famFollowerCount: number | undefined;
+  followerCount: number | undefined;
   imageUrl: string | null;
   isBot: boolean;
   name: string | null;
-  twitterDescription: string | null;
-  twitterHandle: string | null;
-  twitterName: string | null;
+  twitterBio: string | undefined;
+  twitterHandle: string | undefined;
+  twitterName: string | undefined;
 };
 
 type ContractEntry = {
   address: string;
   category: string | null;
   detail: string | null;
+  famFollowerCount: number | undefined;
   fees: number;
   feesUsd: number;
+  followerCount: number | undefined;
   /**
    * @deprecated
    */
@@ -54,7 +56,8 @@ type ContractEntry = {
   isBot: boolean;
   name: string | null;
   type: "contract";
-  twitterHandle: string | null;
+  twitterBio: string | undefined;
+  twitterHandle: string | undefined;
 };
 
 type EthTransfersEntry = {
@@ -234,12 +237,12 @@ export const buildLeaderboard = (
     famFollowerCount: row.famFollowerCount,
     fees: Number(row.baseFees.eth),
     feesUsd: Number(row.baseFees.usd),
-    followersCount: row.followersCount,
+    followerCount: row.followerCount,
     id: row.contractAddress,
     image: row.imageUrl,
     isBot: row.isBot,
     name: row.name,
-    twitterDescription: row.twitterDescription,
+    twitterBio: row.twitterBio,
     twitterHandle: row.twitterHandle,
     twitterName: row.twitterName,
     type: "contract",
@@ -272,6 +275,37 @@ export const buildLeaderboard = (
   );
 };
 
+const buildRanking = (
+  row: LeaderboardRow,
+): LeaderboardRowWithTwitterDetails => ({
+  ...row,
+  baseFees: {
+    eth: row.baseFees,
+    usd: row.baseFeesUsd,
+  },
+  famFollowerCount: undefined,
+  followerCount: undefined,
+  twitterBio: undefined,
+  twitterHandle: row.twitterHandle ?? undefined,
+  twitterName: row.twitterName ?? undefined,
+});
+
+const buildRankingWithTwitterDetails = (
+  row: LeaderboardRow,
+  twitterDetails: TwitterDetails,
+): LeaderboardRowWithTwitterDetails => ({
+  ...row,
+  baseFees: {
+    eth: row.baseFees,
+    usd: row.baseFeesUsd,
+  },
+  famFollowerCount: twitterDetails.famFollowerCount,
+  followerCount: twitterDetails.followersCount,
+  twitterBio: twitterDetails.bio,
+  twitterHandle: row.twitterHandle ?? undefined,
+  twitterName: row.twitterName ?? undefined,
+});
+
 export const extendRowsWithTwitterDetails = (
   leaderboardRows: LeaderboardRow[],
 ): T.Task<LeaderboardRowWithTwitterDetails[]> =>
@@ -299,45 +333,21 @@ export const extendRowsWithTwitterDetails = (
         map.set(details.handle, details),
       ),
     ),
-    T.map((twitterDetails) =>
+    T.map((twitterDetailsMap) =>
       pipe(
         leaderboardRows,
         A.map((row) => {
           if (row.twitterHandle === null) {
-            return {
-              ...row,
-              baseFees: {
-                eth: row.baseFees,
-                usd: row.baseFeesUsd,
-              },
-              followersCount: null,
-              famFollowerCount: null,
-            };
+            return buildRanking(row);
           }
 
-          const detail = twitterDetails.get(row.twitterHandle);
-          if (detail === undefined) {
+          const twitterDetails = twitterDetailsMap.get(row.twitterHandle);
+          if (twitterDetails === undefined) {
             // Fam service did not have details for this twitter handle.
-            return {
-              ...row,
-              baseFees: {
-                eth: row.baseFees,
-                usd: row.baseFeesUsd,
-              },
-              famFollowerCount: null,
-              followersCount: null,
-            };
+            return buildRanking(row);
           }
 
-          return {
-            ...row,
-            baseFees: {
-              eth: row.baseFees,
-              usd: row.baseFeesUsd,
-            },
-            famFollowerCount: detail.famFollowerCount,
-            followersCount: detail.followersCount,
-          };
+          return buildRankingWithTwitterDetails(row, twitterDetails);
         }),
       ),
     ),

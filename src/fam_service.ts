@@ -32,7 +32,7 @@ export type TwitterDetails = {
   famFollowerCount: number;
   followerCount: number;
   /**
-   * @deprecated
+   * @deprecated use followerCount
    */
   followersCount: number;
   handle: string;
@@ -40,7 +40,7 @@ export type TwitterDetails = {
   links: Linkables | undefined;
   name: string;
   /**
-   * @deprecated
+   * @deprecated use bio
    */
   twitterDescription: string | null;
   twitterId: string;
