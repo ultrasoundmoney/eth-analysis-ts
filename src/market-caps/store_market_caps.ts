@@ -6,9 +6,8 @@ import * as Log from "../log.js";
 import * as EthSupply from "../scarcity/eth_supply.js";
 import * as MarketCaps from "./market_caps.js";
 
-process.on("unhandledRejection", (error) => {
-  throw error;
-});
+await EthSupply.init();
+await MarketCaps.storeCurrentMarketCaps()();
 
 const everyMinuteIterator = setInterval(
   Duration.millisFromMinutes(1),
