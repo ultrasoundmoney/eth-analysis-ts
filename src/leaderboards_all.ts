@@ -189,9 +189,9 @@ const getTopBaseFeeContracts = () =>
         image_url,
         is_bot,
         name,
+        twitter_description AS twitter_bio,
         twitter_handle,
-        twitter_name,
-        twitter_description
+        twitter_name
       FROM top_base_fee_contracts
       JOIN contracts ON address = contract_address
     `,
