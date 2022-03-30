@@ -31,6 +31,3 @@ for await (const _ of everyMinuteIterator) {
     ),
   )();
 }
-
-await EthSupply.init();
-await MarketCaps.storeCurrentMarketCaps()();
