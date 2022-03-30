@@ -666,7 +666,7 @@ const buildRankingFromCollection = (
   imageUrl: undefined,
   links: undefined,
   marketCap: collection.marketCap,
-  name: undefined,
+  name: collection.name,
   nftGoName: collection.name,
   nftGoTwitterHandle:
     collection.medias.twitter !== undefined
@@ -685,7 +685,6 @@ const buildRankingWithContractDetailsFromCollection = (
   const details = buildRankingFromCollection(collection);
   return {
     ...buildRankingFromCollection(collection),
-    name: contractDetails.name,
     imageUrl: contractDetails.imageUrl,
     twitterUrl:
       details.twitterUrl === undefined &&
