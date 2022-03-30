@@ -32,7 +32,7 @@ for await (const _ of intervalIterator) {
     latestStats.leaderboards,
     ContractsMetadata.getAddressesForMetadata,
     // Make sure contracts we want to refetch are fetched.
-    (leaderboardAddresses) => [...leaderboardAddresses, ...addressesToRefetch],
+    (leaderboardAddresses) => [...addressesToRefetch, ...leaderboardAddresses],
     (set) => Array.from(set),
   );
 
