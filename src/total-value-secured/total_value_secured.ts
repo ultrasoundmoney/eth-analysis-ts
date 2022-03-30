@@ -718,6 +718,23 @@ const tvsRankingFromNftCollection = (
     ),
   );
 
+  // For Mutant Ape Yacht Club we want a different image.
+  if (
+    O.isSome(contractDetails) &&
+    O.isSome(twitterDetails) &&
+    contractDetails.value.contractAddress ===
+      "0x60e4d786628fea6478f785a6d7e704777c86a7c6"
+  ) {
+    return {
+      ...buildRankingWithAllDetailsFromCollection(
+        contractDetails.value,
+        twitterDetails.value,
+        collection,
+      ),
+      imageUrl: collection.logo,
+    };
+  }
+
   return pipe(
     contractDetails,
     O.match(
