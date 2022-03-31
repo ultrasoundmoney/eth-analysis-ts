@@ -20,6 +20,7 @@ import * as TimeFrames from "../time_frames.js";
 import * as Transactions from "../transactions.js";
 
 export const londonHardForkBlockNumber = 12965000;
+export const londonHarkForkBlockDate = new Date("2021-08-05T12:33:42Z");
 
 /**
  * This is a block as we get it from an eth node, after we drop fields we don't need and decode ones we use.
