@@ -217,16 +217,14 @@ export const calcLeaderboardAll = () =>
     T.Do,
     T.bind("topBaseFeeContracts", () =>
       pipe(
-        Performance.measureTaskPerf(
-          "    get ranked contracts for leaderboard all",
-          getTopBaseFeeContracts(),
-        ),
-        T.chain((rows) =>
+        getTopBaseFeeContracts(),
+        (task) =>
           Performance.measureTaskPerf(
-            "    add twitter details",
-            Leaderboards.extendRowsWithTwitterDetails(rows),
+            "    get ranked contracts for leaderboard all",
+            task,
           ),
-        ),
+        T.chain((rows) => Leaderboards.extendRowsWithTwitterDetails(rows)),
+        (task) => Performance.measureTaskPerf("    add twitter details", task),
       ),
     ),
     T.bind("ethTransferBaseFees", () =>
