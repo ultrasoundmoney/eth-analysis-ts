@@ -163,9 +163,9 @@ const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.LimitedTimeFrame) =>
 export const addAllBlocksForAllTimeframes = () =>
   pipe(
     TimeFrames.limitedTimeFrames,
-    T.traverseArray((timeFrame) =>
+    T.traverseSeqArray((timeFrame) =>
       Performance.measureTaskPerf(
-        `loading leaderboard ${timeFrame}`,
+        `init leaderboard ${timeFrame}`,
         addAllBlocksForTimeFrame(timeFrame),
       ),
     ),
@@ -396,14 +396,20 @@ const calcLeaderboardForLimitedTimeframe = (
       pipe(
         () => Leaderboards.getEthTransferFeesForTimeframe(timeFrame),
         (task) =>
-          Performance.measureTaskPerf("    add eth transfer fees", task),
+          Performance.measureTaskPerf(
+            `    add eth transfer fees for time frame ${timeFrame}`,
+            task,
+          ),
       ),
     ),
     T.bind("contractCreation", () =>
       pipe(
         () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeFrame),
         (task) =>
-          Performance.measureTaskPerf("    add contract creation fees", task),
+          Performance.measureTaskPerf(
+            `    add contract creation fees for time frame ${timeFrame}`,
+            task,
+          ),
       ),
     ),
     T.map(({ topBaseFeeContracts, ethTransfer, contractCreation }) =>
@@ -418,7 +424,7 @@ const calcLeaderboardForLimitedTimeframe = (
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
   Record<LimitedTimeFrame, LeaderboardEntry[]>
 > =>
-  TAlt.seqSPar({
+  TAlt.seqSSeq({
     "5m": calcLeaderboardForLimitedTimeframe("5m"),
     "1h": calcLeaderboardForLimitedTimeframe("1h"),
     "24h": calcLeaderboardForLimitedTimeframe("24h"),
