@@ -375,16 +375,43 @@ const calcLeaderboardForLimitedTimeframe = (
   timeFrame: LimitedTimeFrame,
 ): T.Task<LeaderboardEntry[]> =>
   pipe(
-    TAlt.seqTPar(
+    T.Do,
+    T.bind("topBaseFeeContracts", () =>
       pipe(
         getTopBaseFeeContracts(timeFrame),
+        (task) =>
+          Performance.measureTaskPerf(
+            `    get ranked contracts for time frame ${timeFrame}`,
+            task,
+          ),
         T.chain(Leaderboards.extendRowsWithTwitterDetails),
+        (task) =>
+          Performance.measureTaskPerf(
+            `    add twitter details for time frame ${timeFrame}`,
+            task,
+          ),
       ),
-      () => Leaderboards.getEthTransferFeesForTimeframe(timeFrame),
-      () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeFrame),
     ),
-    T.map(([contractUse, ethTransfer, contractCreation]) =>
-      Leaderboards.buildLeaderboard(contractUse, ethTransfer, contractCreation),
+    T.bind("ethTransfer", () =>
+      pipe(
+        () => Leaderboards.getEthTransferFeesForTimeframe(timeFrame),
+        (task) =>
+          Performance.measureTaskPerf("    add eth transfer fees", task),
+      ),
+    ),
+    T.bind("contractCreation", () =>
+      pipe(
+        () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeFrame),
+        (task) =>
+          Performance.measureTaskPerf("    add contract creation fees", task),
+      ),
+    ),
+    T.map(({ topBaseFeeContracts, ethTransfer, contractCreation }) =>
+      Leaderboards.buildLeaderboard(
+        topBaseFeeContracts,
+        ethTransfer,
+        contractCreation,
+      ),
     ),
   );
 
