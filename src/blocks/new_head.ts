@@ -186,10 +186,16 @@ export const addBlock = async (head: Head): Promise<void> => {
     ethPrice.ethusd,
   );
 
+  const t0LeaderboardLimitedTimeFrames = performance.now();
   LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
     blockDb,
     feeSegments.contractSumsEth,
     feeSegments.contractSumsUsd!,
+  );
+  await LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()();
+  Performance.logPerf(
+    "add block to leaderboard limited time frames",
+    t0LeaderboardLimitedTimeFrames,
   );
 
   const addToLeaderboardAllTask = () =>
@@ -199,16 +205,19 @@ export const addBlock = async (head: Head): Promise<void> => {
       feeSegments.contractSumsUsd!,
     );
 
-  const addBlockToBurnRecords = Performance.withPerfLogT(
-    "add block to burn record all",
-    BurnRecordsNewHead.onNewBlock,
-  );
-
-    LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
-    addToLeaderboardAllTask,
-    addBlockToBurnRecords(blockDb),
-    DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
   await TAlt.seqTSeq(
+    Performance.measureTaskPerf(
+      "add block to leaderboard all",
+      addToLeaderboardAllTask,
+    ),
+    Performance.measureTaskPerf(
+      "add block to burn record all",
+      BurnRecordsNewHead.onNewBlock(blockDb),
+    ),
+    Performance.measureTaskPerf(
+      "add block to deflationary streaks",
+      DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
+    ),
   )();
 
   Log.debug(`heads queue: ${headsQueue.size}`);
