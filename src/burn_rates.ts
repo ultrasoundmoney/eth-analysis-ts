@@ -1,28 +1,21 @@
-import { BlockV1 } from "./blocks/blocks.js";
-import { sql } from "./db.js";
-import { pipe, T, TAlt } from "./fp.js";
+import * as DateFns from "date-fns";
+import * as Blocks from "./blocks/blocks.js";
+import { FeesBurnedT } from "./fee_burn.js";
 import { LimitedTimeFrame } from "./time_frames.js";
 
 export type BurnRatesT = {
   burnRate5m: number;
+  burnRate5mUsd: number;
   burnRate1h: number;
+  burnRate1hUsd: number;
   burnRate24h: number;
+  burnRate24hUsd: number;
   burnRate7d: number;
+  burnRate7dUsd: number;
   burnRate30d: number;
+  burnRate30dUsd: number;
   burnRateAll: number;
-};
-
-type BurnRate = {
-  eth: number;
-  usd: number;
-};
-
-const timeframeIntervalMap: Record<LimitedTimeFrame, string> = {
-  "5m": "5 minutes",
-  "1h": "1 hours",
-  "24h": "24 hours",
-  "7d": "7 days",
-  "30d": "30 days",
+  burnRateAllUsd: number;
 };
 
 const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
@@ -33,57 +26,21 @@ const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
   "30d": 30 * 24 * 60,
 };
 
-const getTimeframeBurnRate = (block: BlockV1, timeframe: LimitedTimeFrame) =>
-  pipe(
-    () => sql<BurnRate[]>`
-      SELECT
-        SUM(base_fee_sum) / ${timeframeMinutesMap[timeframe]} AS eth,
-        SUM(base_fee_sum * eth_price / 1e18) / ${timeframeMinutesMap[timeframe]} AS usd
-      FROM blocks
-      WHERE mined_at >= now() - ${timeframeIntervalMap[timeframe]}::interval
-    `,
-    T.map((rows) => ({ eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 })),
-  );
-
-const getBurnRate = (block: BlockV1) =>
-  pipe(
-    () => sql`
-      SELECT
-        SUM(base_fee_sum) / (
-          EXTRACT(epoch FROM now() - '2021-08-05 12:33:42+00') / 60
-        ) AS eth,
-        SUM(base_fee_sum * eth_price / 1e18) / (
-          EXTRACT(epoch FROM now() - '2021-08-05 12:33:42+00') / 60
-        ) AS usd
-      FROM blocks
-      WHERE number <= ${block.number}
-`,
-    T.map((rows) => ({ eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 })),
-  );
-
-export const calcBurnRates = (block: BlockV1): T.Task<BurnRatesT> => {
-  return pipe(
-    TAlt.seqSPar({
-      burnRate5m: getTimeframeBurnRate(block, "5m"),
-      burnRate1h: getTimeframeBurnRate(block, "1h"),
-      burnRate24h: getTimeframeBurnRate(block, "24h"),
-      burnRate7d: getTimeframeBurnRate(block, "7d"),
-      burnRate30d: getTimeframeBurnRate(block, "30d"),
-      burnRateAll: getBurnRate(block),
-    }),
-    T.map((burnRates) => ({
-      burnRate5m: burnRates.burnRate5m.eth,
-      burnRate5mUsd: burnRates.burnRate5m.usd,
-      burnRate1h: burnRates.burnRate1h.eth,
-      burnRate1hUsd: burnRates.burnRate1h.usd,
-      burnRate24h: burnRates.burnRate24h.eth,
-      burnRate24hUsd: burnRates.burnRate24h.usd,
-      burnRate7d: burnRates.burnRate7d.eth,
-      burnRate7dUsd: burnRates.burnRate7d.usd,
-      burnRate30d: burnRates.burnRate30d.eth,
-      burnRate30dUsd: burnRates.burnRate30d.usd,
-      burnRateAll: burnRates.burnRateAll.eth,
-      burnRateAllUsd: burnRates.burnRateAll.usd,
-    })),
-  );
-};
+export const calcBurnRates = (feeBurns: FeesBurnedT): BurnRatesT => ({
+  burnRate5m: feeBurns.feesBurned5m / timeframeMinutesMap["5m"],
+  burnRate5mUsd: feeBurns.feesBurned5mUsd / timeframeMinutesMap["5m"],
+  burnRate1h: feeBurns.feesBurned1h / timeframeMinutesMap["1h"],
+  burnRate1hUsd: feeBurns.feesBurned1hUsd / timeframeMinutesMap["1h"],
+  burnRate24h: feeBurns.feesBurned24h / timeframeMinutesMap["24h"],
+  burnRate24hUsd: feeBurns.feesBurned24hUsd / timeframeMinutesMap["24h"],
+  burnRate7d: feeBurns.feesBurned7d / timeframeMinutesMap["7d"],
+  burnRate7dUsd: feeBurns.feesBurned7dUsd / timeframeMinutesMap["7d"],
+  burnRate30d: feeBurns.feesBurned30d / timeframeMinutesMap["30d"],
+  burnRate30dUsd: feeBurns.feesBurned30dUsd / timeframeMinutesMap["30d"],
+  burnRateAll:
+    feeBurns.feesBurnedAll /
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHarkForkBlockDate),
+  burnRateAllUsd:
+    feeBurns.feesBurnedAllUsd /
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHarkForkBlockDate),
+});
