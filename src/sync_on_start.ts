@@ -1,6 +1,7 @@
 import * as Blocks from "./blocks/blocks.js";
+import * as Performance from "./performance.js";
 import * as DeflationaryStreaks from "./deflationary_streaks.js";
-import { flow, NEA, OAlt, pipe, T } from "./fp.js";
+import { flow, NEA, OAlt, pipe, T, TO } from "./fp.js";
 
 // Unify syncing of blocks here. Only retrieve blocks to sync once.
 export const sync = (_from: number, upToIncluding: number) =>
@@ -8,21 +9,33 @@ export const sync = (_from: number, upToIncluding: number) =>
     T.Do,
     T.apS(
       "deflationaryStreakNextBlockToAdd",
-      DeflationaryStreaks.getNextBlockToAdd(),
+      Performance.measureTaskPerf(
+        "  get deflationary streak next block to add",
+        DeflationaryStreaks.getNextBlockToAdd(),
+      ),
     ),
     // Sync deflationary streaks
     T.chain(({ deflationaryStreakNextBlockToAdd }) =>
-      pipe(
-        Blocks.getBlocks(deflationaryStreakNextBlockToAdd, upToIncluding),
-        T.map(
-          flow(
-            NEA.fromArray,
-            OAlt.getOrThrow(
-              `failed to retrieve blocks ${deflationaryStreakNextBlockToAdd} to ${upToIncluding} to sync deflationary streaks, expected one or more blocks`,
+      Performance.measureTaskPerf(
+        "  sync deflationary streak",
+        pipe(
+          deflationaryStreakNextBlockToAdd,
+          TO.fromOption,
+          TO.chainTaskK((deflationaryStreakNextBlockToAdd) =>
+            Blocks.getBlocks(deflationaryStreakNextBlockToAdd, upToIncluding),
+          ),
+          TO.map(
+            flow(
+              NEA.fromArray,
+              OAlt.getOrThrow(
+                `failed to retrieve blocks ${deflationaryStreakNextBlockToAdd} to ${upToIncluding} to sync deflationary streaks, expected one or more blocks`,
+              ),
             ),
           ),
+          TO.chainTaskK((blocks) =>
+            DeflationaryStreaks.analyzeNewBlocks(blocks),
+          ),
         ),
-        T.chain((blocks) => DeflationaryStreaks.analyzeNewBlocks(blocks)),
       ),
     ),
   );
