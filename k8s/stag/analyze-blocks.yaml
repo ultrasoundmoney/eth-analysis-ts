@@ -38,6 +38,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: LOG_PERF
+              value: "true"
           resources:
             requests:
               cpu: 250m
