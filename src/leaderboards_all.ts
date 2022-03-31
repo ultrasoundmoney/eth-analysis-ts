@@ -224,17 +224,23 @@ export const calcLeaderboardAll = () =>
             task,
           ),
         T.chain((rows) => Leaderboards.extendRowsWithTwitterDetails(rows)),
-        (task) => Performance.measureTaskPerf("    add twitter details", task),
+        (task) =>
+          Performance.measureTaskPerf(
+            "    add twitter details leaderboard all",
+            task,
+          ),
       ),
     ),
     T.bind("ethTransferBaseFees", () =>
-      Performance.measureTaskPerf("    add eth transfer fees", () =>
-        Leaderboards.getEthTransferFeesForTimeframe("all"),
+      Performance.measureTaskPerf(
+        "    add eth transfer fees leaderboard all",
+        () => Leaderboards.getEthTransferFeesForTimeframe("all"),
       ),
     ),
     T.bind("contractCreationBaseFees", () =>
-      Performance.measureTaskPerf("    add contract creation fees", () =>
-        Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
+      Performance.measureTaskPerf(
+        "    add contract creation fees leaderboard all",
+        () => Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
       ),
     ),
     T.map(
