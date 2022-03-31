@@ -42,11 +42,11 @@ const getLeaderboards = () =>
   pipe(
     TAlt.seqTPar(
       Performance.measureTaskPerf(
-        "calc leaderboard all",
+        "  per-refresh leaderboard all",
         LeaderboardsAll.calcLeaderboardAll(),
       ),
       Performance.measureTaskPerf(
-        "calc leaderboard limited timeframes",
+        "  per-refresh leaderboard limited timeframes",
         LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
       ),
     ),
