@@ -107,14 +107,20 @@ export const getLastAnalyzed = () =>
 
 export const getNextBlockToAdd = () =>
   pipe(
-    getLastAnalyzed(),
-    TO.matchE(
-      () =>
-        pipe(
-          Blocks.getLastStoredBlock(),
-          T.map((block) => block.number),
+    T.Do,
+    T.apS("lastStoredBlock", Blocks.getLastStoredBlock()),
+    T.apS("lastAnalyzed", getLastAnalyzed()),
+    T.map(({ lastStoredBlock, lastAnalyzed }) =>
+      pipe(
+        lastAnalyzed,
+        O.match(
+          () => O.some(lastStoredBlock.number),
+          (lastAnalyzed) =>
+            lastAnalyzed === lastStoredBlock.number
+              ? O.none
+              : O.some(lastAnalyzed + 1),
         ),
-      (lastAnalyzed) => T.of(lastAnalyzed + 1),
+      ),
     ),
   );
 
