@@ -1,4 +1,5 @@
 import { pipe } from "fp-ts/lib/function.js";
+import * as Performance from "./performance.js";
 import * as Blocks from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
 import { A, NEA, O, T } from "./fp.js";
@@ -216,15 +217,29 @@ export const calcLeaderboardAll = () =>
     T.Do,
     T.bind("topBaseFeeContracts", () =>
       pipe(
-        getTopBaseFeeContracts(),
-        T.chain(Leaderboards.extendRowsWithTwitterDetails),
+        Performance.measureTaskPerf(
+          "  get top burn contracts for all",
+          getTopBaseFeeContracts(),
+        ),
+        T.chain((rows) =>
+          Performance.measureTaskPerf(
+            "  extend top burn contracts all with twitter details",
+            Leaderboards.extendRowsWithTwitterDetails(rows),
+          ),
+        ),
       ),
     ),
-    T.apS("ethTransferBaseFees", () =>
-      Leaderboards.getEthTransferFeesForTimeframe("all"),
+    T.bind("ethTransferBaseFees", () =>
+      Performance.measureTaskPerf(
+        "  get eth transfer fees for leaderboard all",
+        () => Leaderboards.getEthTransferFeesForTimeframe("all"),
+      ),
     ),
-    T.apS("contractCreationBaseFees", () =>
-      Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
+    T.bind("contractCreationBaseFees", () =>
+      Performance.measureTaskPerf(
+        "  get contract creation fees for leaderboard all",
+        () => Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
+      ),
     ),
     T.map(
       ({

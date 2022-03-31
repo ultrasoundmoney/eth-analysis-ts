@@ -64,18 +64,21 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
   pipe(
     Log.debug("computing grouped analysis 1"),
     () => T.Do,
-    T.apS(
-      "burnRates",
+    T.bind("feeBurns", () =>
       Performance.measureTaskPerf(
-        "calc burn rates",
-        BurnRates.calcBurnRates(block),
+        "  per-refresh fee burns",
+        FeeBurn.getFeeBurnsOld(),
       ),
     ),
-    T.apS("leaderboards", getLeaderboards()),
-    T.apS(
-      "burnRecords",
+    T.bind("burnRates", ({ feeBurns }) =>
+      pipe(BurnRates.calcBurnRates(feeBurns), T.of, (task) =>
+        Performance.measureTaskPerf("  per-refresh burn rates", task),
+      ),
+    ),
+    T.bind("leaderboards", () => getLeaderboards()),
+    T.bind("burnRecords", () =>
       Performance.measureTaskPerf(
-        "calc burn records",
+        "  per-refresh burn records",
         pipe(
           BurnRecordsCache.updateRecordsCache(block.number),
           T.chain(() =>
@@ -87,28 +90,30 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         ),
       ),
     ),
-    T.apS("latestBlockFees", LatestBlockFees.getLatestBlockFees(block.number)),
-    T.apS(
-      "ethPrice",
-      pipe(
-        EthPrices.getEthStats(),
-        TE.match(
-          (e) => {
-            Log.error("failed to compute eth stats", e);
-            return null;
-          },
-          (v) => v,
+    T.bind("latestBlockFees", () =>
+      Performance.measureTaskPerf(
+        "  per-refresh latest blocks",
+        LatestBlockFees.getLatestBlockFees(block.number),
+      ),
+    ),
+    T.bind("ethPrice", () =>
+      Performance.measureTaskPerf(
+        "  per-refresh eth price + 24h change",
+        pipe(
+          EthPrices.getEthStats(),
+          TE.match(
+            (e) => {
+              Log.error("failed to compute eth stats", e);
+              return null;
+            },
+            (v) => v,
+          ),
         ),
       ),
     ),
-    T.apS(
-      "feeBurns",
-      Performance.measureTaskPerf("get fee burns", FeeBurn.getFeeBurnsOld()),
-    ),
-    T.apS(
-      "deflationaryStreak",
+    T.bind("deflationaryStreak", () =>
       Performance.measureTaskPerf(
-        "get deflationary streak",
+        "  per-refresh deflationary streak",
         DeflationaryStreak.getStreakForSite(block),
       ),
     ),

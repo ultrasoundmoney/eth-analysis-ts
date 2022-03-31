@@ -42,7 +42,7 @@ try {
   await BlocksSync.syncBlocks(chainHeadOnStart);
   Log.info("fast-sync blocks done");
 
-  await TAlt.seqTPar(
+  await TAlt.seqTSeq(
     Performance.measureTaskPerf("sync burn records", BurnRecordsSync.sync()),
     EthLocked.init(),
     () => EthStaked.init(),

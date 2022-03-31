@@ -1,4 +1,5 @@
 import { performance } from "perf_hooks";
+import * as Config from "./config.js";
 import { pipe, T } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -7,6 +8,10 @@ export const logPerf = (
   t0: number,
   level: Log.Level = "DEBUG",
 ): void => {
+  if (!Config.getLogPerformance()) {
+    return;
+  }
+
   const t1 = performance.now();
   const took = ((t1 - t0) / 1000).toFixed(2);
   Log.log(level, `${name} took ${took}s`);

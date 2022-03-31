@@ -90,8 +90,10 @@ const broadcastBlocksUpdate = (block: Blocks.BlockNodeV2) =>
 
 export const addBlock = async (head: Head): Promise<void> => {
   const t0 = performance.now();
-  Log.debug(`add block from new head ${head.number}`);
+  Log.info(`add block from new head ${head.number}`);
+  const t0GetBlock = performance.now();
   const oBlock = await Blocks.getBlockByHash(head.hash)();
+  Performance.logPerf("getting the block from the node", t0GetBlock);
 
   if (O.isNone(oBlock)) {
     Log.info("queued head is no longer valid, skipping");
@@ -100,6 +102,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   const block = oBlock.value;
 
+  const t0Rollback = performance.now();
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 
   // After this step the chain to the current head should be unbroken to the received head.
@@ -124,13 +127,17 @@ export const addBlock = async (head: Head): Promise<void> => {
     )();
     await addBlock(previousBlock);
   }
+  Performance.logPerf("missing parent rollback", t0Rollback);
 
+  const t0PresentParentRollback = performance.now();
   // This block rolls back the chain.
   const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
   if (block.number <= syncedBlockHeight) {
     await rollbackToIncluding(block)();
   }
+  Performance.logPerf("present parent rollback", t0PresentParentRollback);
 
+  const t0GetTransactions = performance.now();
   const oTransactionReceipts = await Transactions.getTransactionReceiptsSafe(
     block,
   )();
@@ -144,15 +151,25 @@ export const addBlock = async (head: Head): Promise<void> => {
   }
 
   const transactionReceipts = oTransactionReceipts.value;
+  Performance.logPerf(
+    `get ${transactionReceipts.length} transactions from node`,
+    t0GetTransactions,
+  );
 
+  const t0EthPrice = performance.now();
   const ethPrice = await pipe(
     EthPrices.getEthPrice(block.timestamp, Duration.millisFromMinutes(5)),
     TEAlt.getOrThrow,
   )();
+  Performance.logPerf("getting eth price", t0EthPrice);
 
+  const t0StoreBlock = performance.now();
   await Blocks.storeBlock(block, transactionReceipts, ethPrice.ethusd);
+  Performance.logPerf("storing block after node fetch", t0StoreBlock);
 
+  const t0Broadcast = performance.now();
   await broadcastBlocksUpdate(block)();
+  Performance.logPerf("broadcast new block", t0Broadcast);
 
   const feeSegments = sumFeeSegments(
     block,
@@ -187,11 +204,11 @@ export const addBlock = async (head: Head): Promise<void> => {
     BurnRecordsNewHead.onNewBlock,
   );
 
-  await TAlt.seqTPar(
     LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes(),
     addToLeaderboardAllTask,
     addBlockToBurnRecords(blockDb),
     DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
+  await TAlt.seqTSeq(
   )();
 
   Log.debug(`heads queue: ${headsQueue.size}`);
@@ -218,7 +235,7 @@ export const addBlock = async (head: Head): Promise<void> => {
   } else {
     Log.debug("more than one head queued, skipping some computation");
   }
-  Performance.logPerf("add block", t0);
+  Performance.logPerf("completely process new head", t0, "INFO");
 };
 
 export const onNewBlock = async (head: Head): Promise<void> =>
