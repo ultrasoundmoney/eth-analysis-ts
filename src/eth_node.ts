@@ -1,4 +1,5 @@
 import PQueue from "p-queue";
+import * as DateFns from "date-fns";
 import Web3 from "web3";
 import web3Core from "web3-core";
 import { Contract } from "web3-eth-contract";
@@ -355,6 +356,17 @@ export const subscribeNewHeads = (
     Log.debug(
       `new head, number: ${head.number}, hash: ${head.hash}, parent: ${head.parentHash}`,
     );
+
+    const formatter = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
+    Log.debug(
+      `miner to api block staleness ${formatter.format(
+        DateFns.differenceInSeconds(
+          new Date(),
+          DateFns.fromUnixTime(Number(rawHead.timestamp)),
+        ),
+      )}s, timestamp: ${new Date().toISOString()}`,
+    );
+
     handleNewHead(head);
     return undefined;
   });
