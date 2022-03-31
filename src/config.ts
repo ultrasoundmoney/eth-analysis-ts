@@ -56,3 +56,6 @@ export const getOpenseaApiKey = (): string =>
 
 export const getGlassnodeApiKey = (): string =>
   parseSimpleEnvVar("GLASSNODE_API_KEY");
+
+export const getLogPerformance = (): boolean =>
+  process.env["LOG_PERF"] === "true";
