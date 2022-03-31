@@ -1,8 +1,7 @@
 import { BlockV1 } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
-import { sqlTNotify, sqlT, sqlTVoid } from "../db.js";
+import { sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
-import * as FeeBurn from "../fee_burn.js";
 import { E, flow, O, OAlt, pipe, T, TE } from "../fp.js";
 import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";
@@ -91,9 +90,19 @@ export const updateScarcityCache = (block: BlockV1): T.Task<void> =>
         T.map(OAlt.getOrThrow("can't update scarcity, eth locked is missing")),
       ),
     ),
-    T.apS("ethBurned", FeeBurn.getFeeBurnAll()),
+    // TODO: replace this with a call to the fees burned module when its fast.
+    T.apS(
+      "ethBurned",
+      pipe(
+        sqlT<{ feesBurnedAll: string }[]>`
+        SELECT value::jsonb#>'{feeBurns,feesBurnedAll}' AS fees_burned_all FROM key_value_store kvs WHERE key = 'grouped-analysis-1'
+      `,
+
+        T.map((rows) => BigInt(rows[0]?.feesBurnedAll)),
+      ),
+    ),
     T.map(({ ethBurned, ethLocked }) =>
-      buildScarcity(block, ethLocked, ethBurned.eth),
+      buildScarcity(block, ethLocked, ethBurned),
     ),
     TE.chainTaskK(
       (scarcity) =>
