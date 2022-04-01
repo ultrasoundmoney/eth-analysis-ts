@@ -26,7 +26,7 @@ export type Collection = {
   slug: string;
 };
 
-type LeaderboardResponse = {
+export type LeaderboardResponse = {
   errorCode: number;
   data: {
     total: number;
@@ -62,7 +62,7 @@ export const getRankedCollections = () =>
 const marketCapUrl =
   "https://api.nftgo.io/api/v1/data/chart/marketcap?from=1647804665000&to=1647804665000&interval=1h";
 
-type MarketCapResponse = {
+export type MarketCapResponse = {
   errorCode: 0;
   data: { y: number[] };
 };
