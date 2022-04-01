@@ -1,9 +1,15 @@
+import * as DateFns from "date-fns";
+import { formatUrl } from "url-sub";
 import * as FetchAlt from "./fetch_alt.js";
 import { A, E, O, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 
-const leaderboardUrl =
-  "https://api.nftgo.io/api/v1/ranking/collections?offset=0&limit=30&by=marketCap&interval=24h&asc=-1&rarity=-1&fields=marketCap,marketCapChange24h";
+const nftGoApi = "https://api.nftgo.io/api/v1";
+const leaderboardUrl = formatUrl(
+  nftGoApi,
+  "/ranking/collections?offset=0&limit=30&by=marketCap&interval=24h&asc=-1&rarity=-1&fields=marketCap,marketCapChange24h",
+  {},
+);
 
 // collection page https://nftgo.io/collection/blitmap/overview
 export type Collection = {
@@ -59,8 +65,12 @@ export const getRankedCollections = () =>
     ),
   );
 
-const marketCapUrl =
-  "https://api.nftgo.io/api/v1/data/chart/marketcap?from=1647804665000&to=1647804665000&interval=1h";
+const getMarketCapUrl = () =>
+  formatUrl(nftGoApi, "/data/chart/marketcap", {
+    from: DateFns.getTime(new Date()),
+    to: DateFns.getTime(new Date()),
+    interval: "1h",
+  });
 
 export type MarketCapResponse = {
   errorCode: 0;
@@ -71,7 +81,7 @@ export class UnexpectedNftGoResponse extends Error {}
 
 export const getMarketCap = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson<MarketCapResponse>(marketCapUrl, {
+    FetchAlt.fetchWithRetryJson<MarketCapResponse>(getMarketCapUrl(), {
       headers: {
         "User-Agent": "HTTPie/3.0.2",
       },
