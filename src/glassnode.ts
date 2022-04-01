@@ -1,9 +1,11 @@
 import * as DateFns from "date-fns";
+import QuickLRU from "quick-lru";
 import * as UrlSub from "url-sub";
 import * as Config from "./config.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { A, E, O, pipe, TE } from "./fp.js";
 import { UnixTimestamp } from "./time.js";
+import * as Duration from "./duration.js";
 
 const glassnodeApi = "https://api.glassnode.com";
 const stakedDataUrl = UrlSub.formatUrl(
@@ -37,19 +39,38 @@ const currentStakedUrl = UrlSub.formatUrl(
 );
 
 type TotalValueStakedResponse = { t: UnixTimestamp; v: number }[];
+const ethStakedCache = new QuickLRU<string, number>({
+  maxSize: 1,
+  maxAge: Duration.millisFromHours(4),
+});
+const ethStakedCacheKey = "eth-staked-cache-key";
 export const getEthStaked = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson<TotalValueStakedResponse>(currentStakedUrl),
-    TE.chainEitherK((res) =>
-      pipe(
-        res,
-        A.head,
-        O.map((row) => row.v),
-        O.match(
-          () => E.left(new Error("failed to get eth staked from Glassnode")),
-          (ethStaked) => E.right(ethStaked),
+    ethStakedCache.get(ethStakedCacheKey),
+    O.fromNullable,
+    O.match(
+      () =>
+        pipe(
+          FetchAlt.fetchWithRetryJson<TotalValueStakedResponse>(
+            currentStakedUrl,
+          ),
+          TE.chainEitherK((res) =>
+            pipe(
+              res,
+              A.head,
+              O.map((row) => row.v),
+              O.match(
+                () =>
+                  E.left(new Error("failed to get eth staked from Glassnode")),
+                (ethStaked) => E.right(ethStaked),
+              ),
+            ),
+          ),
+          TE.chainFirstIOK((ethStaked) => () => {
+            ethStakedCache.set(ethStakedCacheKey, ethStaked);
+          }),
         ),
-      ),
+      (ethStaked) => TE.of(ethStaked),
     ),
   );
 
