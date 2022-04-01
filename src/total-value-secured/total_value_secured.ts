@@ -4,6 +4,7 @@ import * as Contracts from "../contracts/web3.js";
 import * as Db from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as NftGoSnapshot from "../nft_go_snapshot.js";
 import * as FamService from "../fam_service.js";
 import {
   A,
@@ -26,7 +27,6 @@ import * as Glassnode from "../glassnode.js";
 import * as Log from "../log.js";
 import { getStoredMarketCaps } from "../market-caps/market_caps.js";
 import * as NftGo from "../nft_go.js";
-import * as NftStatic from "./nft_static.js";
 
 export const totalValueSecuredCacheKey = "total-value-secured";
 
@@ -735,7 +735,7 @@ const getNftLeaderboard = () =>
       "rankedCollections",
       pipe(
         NftGo.getRankedCollections(),
-        TE.altW(() => TE.of(NftStatic.rankedCollections)),
+        TE.altW(() => NftGoSnapshot.getCollections()),
       ),
     ),
     TE.bind("contractDetailsMap", ({ rankedCollections }) =>
@@ -773,7 +773,7 @@ const getTotalValueSecured = () =>
       "nftTotal",
       pipe(
         NftGo.getMarketCap(),
-        TE.altW(() => TE.of(NftStatic.nftMarketCap)),
+        TE.altW(() => NftGoSnapshot.getMarketCap()),
       ),
     ),
     TE.apSW(
