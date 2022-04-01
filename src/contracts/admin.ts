@@ -10,7 +10,7 @@ export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
       address,
       O.toNullable(handle),
     ),
-    T.chain(() => () => ContractsMetadata.addTwitterMetadata(address)),
+    T.chain(() => () => ContractsMetadata.addTwitterMetadata(address, true)),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   );
 
