@@ -1,14 +1,47 @@
+import { setInterval } from "timers/promises";
+import * as Db from "./db.js";
+import * as Duration from "./duration.js";
 import * as EthNode from "./eth_node.js";
-import { pipe, T } from "./fp.js";
+import { O, pipe, T, TO } from "./fp.js";
+import { getLatestGroupedAnalysisNumber } from "./grouped_analysis_1.js";
+import * as KeyValueStore from "./key_value_store.js";
 
-export const getCurrentBlockLag = (currentBlock: { number: number }) =>
+export const blockLagCacheKey = "block-lag-cache-key";
+
+const updateCurrentBlockLag = () =>
   pipe(
-    () => EthNode.getLatestBlockNumber(),
-    T.map((latestBlockNumber) =>
-      pipe(latestBlockNumber, (latestBlockNumber) =>
-        latestBlockNumber - currentBlock.number < 0
-          ? 1
-          : latestBlockNumber - currentBlock.number,
+    T.Do,
+    T.apS("latestBlockNumber", () => EthNode.getLatestBlockNumber()),
+    T.apS("latestGroupedAnalysisNumber", getLatestGroupedAnalysisNumber()),
+    T.map(({ latestBlockNumber, latestGroupedAnalysisNumber }) =>
+      pipe(
+        latestGroupedAnalysisNumber,
+        O.map((latestGroupedAnalysisNumber) =>
+          latestBlockNumber - latestGroupedAnalysisNumber < 0
+            ? 1
+            : latestBlockNumber - latestGroupedAnalysisNumber,
+        ),
       ),
     ),
+    TO.chainTaskK((blockLag) =>
+      KeyValueStore.storeValue(blockLagCacheKey, blockLag),
+    ),
+    TO.chainTaskK(() => Db.sqlTNotify("cache-update", blockLagCacheKey)),
   );
+
+const intervalIterator = setInterval(
+  Duration.millisFromSeconds(10),
+  Date.now(),
+);
+
+const continuouslyUpdate = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for await (const _ of intervalIterator) {
+    await updateCurrentBlockLag()();
+  }
+};
+
+export const init = async () => {
+  await updateCurrentBlockLag()();
+  continuouslyUpdate();
+};
