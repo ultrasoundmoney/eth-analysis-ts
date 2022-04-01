@@ -33,7 +33,7 @@ const currentStakedUrl = UrlSub.formatUrl(
     c: "NATIVE",
     f: "JSON",
     i: "1h",
-    s: DateFns.getUnixTime(DateFns.subHours(new Date(), 1)),
+    s: DateFns.getUnixTime(DateFns.subHours(new Date(), 2)),
     u: DateFns.getUnixTime(new Date()),
   },
 );
@@ -57,7 +57,7 @@ export const getEthStaked = () =>
           TE.chainEitherK((res) =>
             pipe(
               res,
-              A.head,
+              A.last,
               O.map((row) => row.v),
               O.match(
                 () =>
