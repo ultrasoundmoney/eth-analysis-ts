@@ -2,7 +2,6 @@ import * as Blocks from "./blocks/blocks.js";
 import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
-import * as BlockLag from "./block_lag.js";
 import * as DeflationaryStreak from "./deflationary_streaks.js";
 import * as EthPrices from "./eth-prices/eth_prices.js";
 import * as FeeBurn from "./fee_burn.js";
@@ -20,7 +19,6 @@ export const groupedAnalysis1CacheKey = "grouped-analysis-1";
 
 export type GroupedAnalysis1 = {
   baseFeePerGas: number;
-  blockLag: number;
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   deflationaryStreak: DeflationaryStreak.StreakForSite;
@@ -119,14 +117,8 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         DeflationaryStreak.getStreakForSite(block),
       ),
     ),
-    T.bind("blockLag", () =>
-      pipe(BlockLag.getCurrentBlockLag(block), (task) =>
-        Performance.measureTaskPerf("  per-refresh block lag", task),
-      ),
-    ),
     T.map(
       ({
-        blockLag,
         burnRates,
         burnRecords,
         deflationaryStreak,
@@ -136,7 +128,6 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         leaderboards,
       }): GroupedAnalysis1 => ({
         baseFeePerGas: Number(block.baseFeePerGas),
-        blockLag,
         burnRates: burnRates,
         burnRecords,
         deflationaryStreak,
@@ -183,4 +174,14 @@ export const getLatestLeaderboards = (): T.Task<{
         ),
       ),
     ),
+  );
+
+export const getLatestGroupedAnalysisNumber = () =>
+  pipe(
+    sqlT<{ number: number }[]>`
+      SELECT value::json->'number' AS number
+      FROM key_value_store
+      WHERE key = ${groupedAnalysis1CacheKey}
+    `,
+    T.map(O.fromNullableK((rows) => rows[0]?.number)),
   );

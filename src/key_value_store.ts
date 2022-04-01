@@ -16,7 +16,7 @@ export const getValueUnsafe = <A>(key: string) =>
     TOAlt.getOrThrow(`expected a value to exist for key ${key}`),
   );
 
-export const setValue = (key: string, value: unknown) =>
+export const storeValue = (key: string, value: unknown) =>
   Db.sqlTVoid`
     INSERT INTO key_value_store
       ${Db.values({

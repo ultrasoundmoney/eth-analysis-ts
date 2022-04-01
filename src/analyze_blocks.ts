@@ -1,4 +1,5 @@
 import * as Blocks from "./blocks/blocks.js";
+import * as BlockLag from "./block_lag.js";
 import * as BlocksNewBlock from "./blocks/new_head.js";
 import * as BlocksSync from "./blocks/sync.js";
 import * as BurnRecordsSync from "./burn-records/sync.js";
@@ -57,6 +58,7 @@ try {
       "sync-next on start",
       SyncOnStart.sync(lastStoredBlockOnStart.number + 1, chainHeadOnStart),
     ),
+    Performance.measureTaskPerf("init block lag", BlockLag.init),
   )();
 
   BlocksNewBlock.headsQueue.start();

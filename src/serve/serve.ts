@@ -17,6 +17,8 @@ import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
 import * as WebSocket from "./websocket.js";
+import * as BlockLag from "../block_lag.js";
+import * as KeyValueStore from "../key_value_store.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -33,6 +35,7 @@ let averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
 let peRatiosCache = await PeRatios.getPeRatiosCache()();
 let oTotalValueSecuredCache =
   await TotalValueSecured.getCachedTotalValueSecured()();
+let blockLag = await KeyValueStore.getValue(BlockLag.blockLagCacheKey)();
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
@@ -144,6 +147,12 @@ const handleGetTotalValueSecured: Middleware = (ctx) => {
   );
 };
 
+const handleGetBlockLag: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=5");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = { blockLag };
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -198,6 +207,11 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
+  if (payload === BlockLag.blockLagCacheKey) {
+    blockLag = await KeyValueStore.getValue(BlockLag.blockLagCacheKey)();
+    return;
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
@@ -240,6 +254,7 @@ router.get("/fees/scarcity", handleGetScarcity);
 router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 router.get("/fees/pe-ratios", handleGetPeRatios);
 router.get("/fees/total-value-secured", handleGetTotalValueSecured);
+router.get("/fees/block-lag", handleGetBlockLag);
 
 // endpoints for dev
 
