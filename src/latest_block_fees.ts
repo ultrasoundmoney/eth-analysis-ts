@@ -31,7 +31,7 @@ export const getLatestBlockFees = (
       FROM blocks
       WHERE number <= ${blockNumber}
       ORDER BY (number) DESC
-      LIMIT 5
+      LIMIT 20
     `,
     T.map(
       A.map((row) => ({
