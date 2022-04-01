@@ -296,16 +296,16 @@ data:
 kind: ConfigMap
 metadata:
   annotations:
-    meta.helm.sh/release-name: loki
+    meta.helm.sh/release-name: loki-stack
     meta.helm.sh/release-namespace: loki-stack
-  creationTimestamp: "2021-08-23T11:04:39Z"
+  creationTimestamp: "2022-03-31T21:28:34Z"
   labels:
     app: promtail
     app.kubernetes.io/managed-by: Helm
     chart: promtail-2.2.0
     heritage: Helm
-    release: loki
-  name: loki-promtail
+    release: loki-stack
+  name: loki-stack-promtail
   namespace: loki-stack
-  resourceVersion: "23496192"
-  uid: 43729c81-dd0b-4e5d-93bd-7b08ad9c03ee
+  resourceVersion: "33362499"
+  uid: 3bd1426f-86fd-4210-b575-152d107d7c2c
