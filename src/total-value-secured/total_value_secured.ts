@@ -735,7 +735,7 @@ const getNftLeaderboard = () =>
       "rankedCollections",
       pipe(
         NftGo.getRankedCollections(),
-        TE.altW(() => NftGoSnapshot.getCollections()),
+        TE.altW(() => NftGoSnapshot.getRankedCollections()),
       ),
     ),
     TE.bind("contractDetailsMap", ({ rankedCollections }) =>
