@@ -148,9 +148,19 @@ const handleGetTotalValueSecured: Middleware = (ctx) => {
 };
 
 const handleGetBlockLag: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=5");
-  ctx.set("Content-Type", "application/json");
-  ctx.body = { blockLag };
+  pipe(
+    blockLag,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (blockLag) => {
+        ctx.set("Cache-Control", "max-age=5");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = { blockLag };
+      },
+    ),
+  );
 };
 
 sql.listen("cache-update", async (payload) => {
