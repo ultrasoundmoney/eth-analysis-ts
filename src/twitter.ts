@@ -3,7 +3,8 @@ import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
 import { decodeErrorFromUnknown } from "./errors.js";
 import * as FetchAlt from "./fetch_alt.js";
-import { pipe, TE } from "./fp.js";
+import { B, O, pipe, TE, TO } from "./fp.js";
+import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
@@ -115,10 +116,42 @@ export const getProfileByHandle = (handle: string) =>
     }),
   );
 
-export const getProfileImage = (
-  profile: UserTwitterApiRaw,
-): string | undefined =>
-  typeof profile?.profile_image_url === "string" &&
-  profile.profile_image_url.length !== 0
-    ? profile.profile_image_url.replace("normal", "reasonably_small")
-    : undefined;
+export const getProfileImage = (profile: UserTwitterApiRaw) =>
+  pipe(
+    typeof profile?.profile_image_url === "string" &&
+      profile.profile_image_url.length !== 0,
+    B.match(
+      () => TO.none,
+      () =>
+        (console.log(profile) as any) ||
+        pipe(
+          FetchAlt.fetchTE(
+            profile.profile_image_url.replace("normal", "400x400"),
+          ),
+          TE.map(() => profile.profile_image_url.replace("normal", "400x400")),
+          TE.alt(() =>
+            pipe(
+              FetchAlt.fetchTE(
+                profile.profile_image_url.replace("normal", "reasonably_small"),
+              ),
+              TE.map(() =>
+                profile.profile_image_url.replace("normal", "reasonably_small"),
+              ),
+            ),
+          ),
+          TE.alt(() =>
+            pipe(
+              FetchAlt.fetchTE(profile.profile_image_url),
+              TE.map(() => profile.profile_image_url),
+            ),
+          ),
+          TE.match(
+            (e) => {
+              Log.error("expected to find at least one working image", e);
+              return O.none;
+            },
+            (profileImageUrl) => O.some(profileImageUrl),
+          ),
+        ),
+    ),
+  );

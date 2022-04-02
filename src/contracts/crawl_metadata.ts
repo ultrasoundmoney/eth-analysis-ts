@@ -337,32 +337,48 @@ const getShouldRetry = (
 
 export const addTwitterMetadata = (address: string) =>
   pipe(
-    Contracts.getTwitterHandle(address),
-    TE.fromTaskOption(() => new NoKnownTwitterHandleError()),
-    TE.chainW((twitterHandle) =>
-      twitterHandle.length === 0
-        ? TE.left(new EmptyTwitterHandleError())
-        : TE.right(twitterHandle),
+    TE.Do,
+    TE.apS(
+      "twitterHandle",
+      pipe(
+        Contracts.getTwitterHandle(address),
+        TE.fromTaskOption(() => new NoKnownTwitterHandleError()),
+        TE.chainW((twitterHandle) =>
+          twitterHandle.length === 0
+            ? TE.left(new EmptyTwitterHandleError())
+            : TE.right(twitterHandle),
+        ),
+      ),
     ),
-    TE.chainW(Twitter.getProfileByHandle),
-    queueOnQueue(twitterProfileQueue),
+    TE.bindW("profile", ({ twitterHandle }) =>
+      pipe(
+        Twitter.getProfileByHandle(twitterHandle),
+        queueOnQueue(twitterProfileQueue),
+      ),
+    ),
+    TE.bindW("imageUrl", ({ profile }) =>
+      pipe(Twitter.getProfileImage(profile), (task) =>
+        TE.fromTask<O.Option<string>, never>(task),
+      ),
+    ),
+    (task) => task,
     TE.chainFirstIOK(() => () => {
       twitterProfileLastAttemptMap.set(address, new Date());
     }),
-    TE.chainFirstIOK((profile) => () => {
+    TE.chainFirstIOK(({ profile, imageUrl }) => () => {
       Log.debug("updating twitter metadata", {
         description: profile.description,
         id: profile.id,
-        imageUrl: profile.profile_image_url,
+        imageUrl: imageUrl,
         name: profile.name,
       });
     }),
-    TE.chainTaskK((profile) =>
+    TE.chainTaskK(({ profile, imageUrl }) =>
       TAlt.seqTPar(
         Contracts.setSimpleTextColumn(
           "twitter_image_url",
           address,
-          Twitter.getProfileImage(profile) ?? null,
+          O.toNullable(imageUrl),
         ),
         Contracts.setSimpleTextColumn("twitter_name", address, profile.name),
         Contracts.setSimpleTextColumn(

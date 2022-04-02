@@ -89,3 +89,29 @@ export const fetchWithRetryJson = <A>(
       ),
     ),
   );
+
+export const fetchTE = (
+  url: RequestInfo,
+  init?: RequestInit,
+  options: RetryOptions = {},
+) =>
+  pipe({ ...defaultRetryOptions, ...options }, (options) =>
+    pipe(
+      TE.tryCatch(
+        () => fetch(url, init),
+        (e): Error | FetchError =>
+          e instanceof Error ? e : new FetchError(String(e)),
+      ),
+      TE.chainW((res) => {
+        if (options.acceptStatuses.includes(res.status)) {
+          return TE.right(res);
+        }
+
+        Log.debug(`fetch ${url} failed, status: ${res.status}`);
+
+        return TE.left(
+          new BadResponseError(`fetch ${url}, got ${res.status}`, res.status),
+        );
+      }),
+    ),
+  );
