@@ -335,7 +335,7 @@ const getShouldRetry = (
     O.getOrElseW(() => true),
   );
 
-const addTwitterMetadata = (address: string) =>
+export const addTwitterMetadata = (address: string) =>
   pipe(
     Contracts.getTwitterHandle(address),
     TE.fromTaskOption(() => new NoKnownTwitterHandleError()),
