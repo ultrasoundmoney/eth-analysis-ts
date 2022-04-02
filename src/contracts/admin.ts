@@ -11,13 +11,25 @@ export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
       address,
       O.toNullable(handle),
     ),
-    T.chain(() => ContractsMetadata.addTwitterMetadata(address)),
-    TE.chainTaskK(() => Contracts.updatePreferredMetadata(address)),
-    TE.match(
-      (e) => {
-        Log.error("failed to update twitter metadata", e);
-      },
-      () => undefined,
+    T.chain(() => Contracts.updatePreferredMetadata(address)),
+    T.chain(() =>
+      pipe(
+        handle,
+        O.match(
+          () => T.of(undefined),
+          () =>
+            pipe(
+              ContractsMetadata.addTwitterMetadata(address),
+              TE.chainTaskK(() => Contracts.updatePreferredMetadata(address)),
+              TE.match(
+                (e) => {
+                  Log.error("failed to update twitter metadata", e);
+                },
+                () => undefined,
+              ),
+            ),
+        ),
+      ),
     ),
   );
 
