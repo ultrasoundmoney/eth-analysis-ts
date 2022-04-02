@@ -1,5 +1,6 @@
 import { sqlT, sqlTVoid } from "../db.js";
-import { A, O, pipe, T } from "../fp.js";
+import { A, O, pipe, T, TE } from "../fp.js";
+import * as Log from "../log.js";
 import * as Contracts from "./contracts.js";
 import * as ContractsMetadata from "./crawl_metadata.js";
 
@@ -10,8 +11,14 @@ export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
       address,
       O.toNullable(handle),
     ),
-    T.chain(() => () => ContractsMetadata.addTwitterMetadata(address, true)),
-    T.chain(() => Contracts.updatePreferredMetadata(address)),
+    T.chain(() => ContractsMetadata.addTwitterMetadata(address)),
+    TE.chainTaskK(() => Contracts.updatePreferredMetadata(address)),
+    TE.match(
+      (e) => {
+        Log.error("failed to update twitter metadata", e);
+      },
+      () => undefined,
+    ),
   );
 
 export const setName = (address: string, name: string): T.Task<void> =>
