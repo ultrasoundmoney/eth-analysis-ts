@@ -1,4 +1,3 @@
-export class RateLimitError extends Error {}
 export class JsonDecodeError extends Error {}
 
 export const decodeErrorFromUnknown = (e: unknown): JsonDecodeError =>

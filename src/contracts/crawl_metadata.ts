@@ -2,10 +2,9 @@ import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import * as DefiLlama from "../defi_llama.js";
 import * as Duration from "../duration.js";
-import { RateLimitError } from "../errors.js";
 import * as Etherscan from "../etherscan.js";
 import * as FetchAlt from "../fetch_alt.js";
-import { A, B, E, flow, O, pipe, T, TAlt, TE, TO } from "../fp.js";
+import { A, B, E, flow, MapS, O, OAlt, pipe, T, TAlt, TE, TO } from "../fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as Opensea from "../opensea.js";
@@ -14,6 +13,23 @@ import * as Twitter from "../twitter.js";
 import * as Contracts from "./contracts.js";
 import { addMetadataFromSimilar } from "./metadata_similar.js";
 import * as ContractsWeb3 from "./web3.js";
+
+const getIsPQueueTimeoutError = (error: unknown): boolean =>
+  typeof (error as TimeoutError)?.name === "string" &&
+  (error as TimeoutError).name === "TimeoutError";
+
+const queueOnQueue =
+  <E, A>(queue: PQueue) =>
+  (task: TE.TaskEither<E, A>) =>
+    pipe(
+      TE.tryCatch(
+        () => queue.add<E.Either<E, A>>(task as never),
+        (error) =>
+          getIsPQueueTimeoutError(error) ? new TimeoutError() : (error as E),
+      ),
+      // tryCatch expects a simple () => Promise<A> but we're passing a () => Promise<Either<E, A>>, tryCatch then wraps the return value in a TaskEither for us creating a TaskEither<E1, Either<E2, A>>, we want TaskEither<E1 | E2, A>, the below fn achieves just that.
+      TE.chainEitherKW((either) => either),
+    );
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;
@@ -282,91 +298,120 @@ const addEtherscanNameTag = async (
 //   await Contracts.updatePreferredMetadata(address)();
 // };
 
-const twitterProfileLastAttemptMap: Record<string, Date | undefined> = {};
+const twitterProfileLastAttemptMap = new Map<string, Date>();
 
 export const twitterProfileQueue = new PQueue({
   concurrency: 1,
   timeout: Duration.millisFromSeconds(60),
 });
 
-export const addTwitterMetadata = async (
-  address: string,
-  forceRefetch = false,
-): Promise<void> => {
-  const lastAttempted = twitterProfileLastAttemptMap[address];
+class RecentlyAttemptedError extends Error {}
+class NoKnownTwitterHandleError extends Error {}
+class EmptyTwitterHandleError extends Error {}
 
-  if (
-    forceRefetch === false &&
-    lastAttempted !== undefined &&
-    DateFns.differenceInHours(new Date(), lastAttempted) < 6
-  ) {
-    return undefined;
-  }
-
-  const handle = await Contracts.getTwitterHandle(address)();
-
-  if (O.isNone(handle)) {
-    return undefined;
-  }
-
-  if (O.isSome(handle) && handle.value.length === 0) {
-    Log.warn(`contract twitter handle is empty string, ${address}`);
-    return undefined;
-  }
-
-  const profile = await twitterProfileQueue.add(
-    pipe(
-      Twitter.getProfileByHandle(handle.value),
-      TE.match(
-        (e) => {
-          if (
-            e instanceof Twitter.InvalidHandleError ||
-            e instanceof RateLimitError ||
-            e instanceof Twitter.ProfileNotFoundError ||
-            (e instanceof FetchAlt.BadResponseError && e.status === 429)
-          ) {
-            Log.warn(e.message, e);
-          } else {
-            Log.error(e.message, e);
-          }
-
-          return undefined;
-        },
-        (profile) => profile,
-      ),
+const getLastAttempt = (retryMap: Map<string, Date>, address: string) =>
+  pipe(
+    retryMap,
+    MapS.lookup(address),
+    O.map(
+      (lastAttempted) =>
+        DateFns.differenceInHours(new Date(), lastAttempted) < 6,
     ),
   );
 
-  twitterProfileLastAttemptMap[address] = new Date();
-
-  if (profile === undefined) {
-    return undefined;
-  }
-
-  const imageUrl = Twitter.getProfileImage(profile) ?? null;
-
-  return pipe(
-    TAlt.seqTPar(
-      Contracts.setSimpleTextColumn("twitter_image_url", address, imageUrl),
-      Contracts.setSimpleTextColumn("twitter_name", address, profile.name),
-      Contracts.setSimpleTextColumn(
-        "twitter_description",
-        address,
-        profile.description,
-      ),
-      Contracts.setSimpleTextColumn("twitter_id", address, profile.id),
+const getShouldRetry = (
+  retryMap: Map<string, Date>,
+  address: string,
+  forceRefetch: boolean,
+) =>
+  forceRefetch ||
+  pipe(
+    retryMap,
+    MapS.lookup(address),
+    O.map(
+      (lastAttempted) =>
+        DateFns.differenceInHours(new Date(), lastAttempted) < 6,
     ),
-    T.chainFirstIOK(() => () => {
-      Log.debug("updating contract metadata", {
+    O.getOrElseW(() => true),
+  );
+
+const addTwitterMetadata = (address: string) =>
+  pipe(
+    Contracts.getTwitterHandle(address),
+    TE.fromTaskOption(() => new NoKnownTwitterHandleError()),
+    TE.chainW((twitterHandle) =>
+      twitterHandle.length === 0
+        ? TE.left(new EmptyTwitterHandleError())
+        : TE.right(twitterHandle),
+    ),
+    TE.chainW(Twitter.getProfileByHandle),
+    queueOnQueue(twitterProfileQueue),
+    TE.chainFirstIOK(() => () => {
+      twitterProfileLastAttemptMap.set(address, new Date());
+    }),
+    TE.chainFirstIOK((profile) => () => {
+      Log.debug("updating twitter metadata", {
         description: profile.description,
         id: profile.id,
         imageUrl: profile.profile_image_url,
         name: profile.name,
       });
     }),
-    T.chain(() => Contracts.updatePreferredMetadata(address)),
-  )();
-};
+    TE.chainTaskK((profile) =>
+      TAlt.seqTPar(
+        Contracts.setSimpleTextColumn(
+          "twitter_image_url",
+          address,
+          Twitter.getProfileImage(profile) ?? null,
+        ),
+        Contracts.setSimpleTextColumn("twitter_name", address, profile.name),
+        Contracts.setSimpleTextColumn(
+          "twitter_description",
+          address,
+          profile.description,
+        ),
+        Contracts.setSimpleTextColumn("twitter_id", address, profile.id),
+      ),
+    ),
+    TE.chainTaskK(() => Contracts.updatePreferredMetadata(address)),
+  );
+
+export const addTwitterMetadataMaybe = (
+  address: string,
+  forceRefetch = false,
+): T.Task<void> =>
+  pipe(
+    getShouldRetry(twitterProfileLastAttemptMap, address, forceRefetch),
+    B.match(
+      () =>
+        TE.left(
+          new RecentlyAttemptedError(
+            `contract attempted recently at ${pipe(
+              getLastAttempt(twitterProfileLastAttemptMap, address),
+              OAlt.getOrThrow(
+                `expected a last attempt to exist for ${address}`,
+              ),
+            )} ${address}`,
+          ),
+        ),
+      () => addTwitterMetadata(address),
+    ),
+    TE.match(
+      (e) => {
+        if (
+          e instanceof Twitter.InvalidHandleError ||
+          e instanceof Twitter.ProfileNotFoundError ||
+          (e instanceof FetchAlt.BadResponseError && e.status === 429)
+        ) {
+          Log.warn(e.message, e);
+          return;
+        }
+
+        Log.error(e.message, e);
+      },
+      () => undefined,
+    ),
+  );
 
 export const openseaContractQueue = new PQueue({
   concurrency: 2,
@@ -571,7 +616,7 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
     // Subtly, the updatePreferredMetadata call may uncover a manually set twitter handle.
-    T.chain(() => () => addTwitterMetadata(address, forceRefetch)),
+    T.chain(() => addTwitterMetadataMaybe(address, forceRefetch)),
     T.chainFirst(() =>
       forceRefetch
         ? Contracts.setSimpleBooleanColumn(

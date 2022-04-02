@@ -2,8 +2,10 @@ import * as Apply from "fp-ts/lib/Apply.js";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as IO from "fp-ts/lib/IO.js";
+import * as MapF from "fp-ts/lib/Map.js";
 import * as Mo from "fp-ts/lib/Monoid.js";
 import * as O from "fp-ts/lib/Option.js";
+import * as S from "fp-ts/lib/string.js";
 import * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import * as TO from "fp-ts/lib/TaskOption.js";
@@ -127,4 +129,8 @@ export const EAlt = {
     E.getOrElse(() => {
       throw new Error(message);
     }),
+};
+
+export const MapS = {
+  lookup: MapF.lookup(S.Eq),
 };
