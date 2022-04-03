@@ -463,7 +463,6 @@ const getTopErc20s = () =>
 
           return true;
         }),
-        A.takeLeft(100),
       ),
     ),
   );
@@ -610,6 +609,7 @@ const getErc20Leaderboard = (topErc20s: CoinV1[]) =>
       pipe(
         topErc20s,
         A.sort(coinV1ByMarketCapDesc),
+        A.takeLeft(100),
         A.map(
           (coin): TvsRanking =>
             coinV2FromCoinAndDetails(
