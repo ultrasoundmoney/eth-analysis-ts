@@ -463,6 +463,7 @@ const getTopErc20s = () =>
 
           return true;
         }),
+        A.takeLeft(100),
       ),
     ),
   );
