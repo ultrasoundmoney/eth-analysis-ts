@@ -123,7 +123,6 @@ export const getProfileImage = (profile: UserTwitterApiRaw) =>
     B.match(
       () => TO.none,
       () =>
-        (console.log(profile) as any) ||
         pipe(
           FetchAlt.fetchTE(
             profile.profile_image_url.replace("normal", "400x400"),
