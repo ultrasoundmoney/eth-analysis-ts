@@ -6,7 +6,6 @@ import postgres, {
   PendingQuery,
   Row,
   SerializableParameter,
-  TransactionSql,
 } from "postgres";
 import * as Config from "./config.js";
 import { A, O, pipe, T } from "./fp.js";
@@ -55,12 +54,6 @@ export const sqlTVoid = flow(
   sqlT,
   T.map((): void => undefined),
 );
-
-export type SqlArg =
-  | typeof sql
-  | TransactionSql<{
-      bigint: (number: bigint) => string;
-    }>;
 
 export const runMigrations = () =>
   Ley.up({

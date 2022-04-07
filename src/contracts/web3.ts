@@ -1,8 +1,8 @@
 import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
-import { JsonDecodeError } from "../errors.js";
 import * as Etherscan from "../etherscan.js";
 import * as EthNode from "../eth_node.js";
+import * as FetchAlt from "../fetch_alt.js";
 import { B, O, OAlt, pipe, TE, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
 
@@ -309,9 +309,19 @@ export const getTotalSupply = (address: string) =>
         ),
       ),
     ),
-    TE.mapLeft((e): UnsupportedContractError | JsonDecodeError | Error =>
-      e instanceof Etherscan.AbiNotVerifiedError
-        ? new UnsupportedContractError(e.message)
-        : e,
+    TE.mapLeft(
+      (
+        e,
+      ):
+        | FetchAlt.FetchError
+        | Error
+        | FetchAlt.BadResponseError
+        | FetchAlt.DecodeJsonError
+        | UnsupportedContractError => {
+        if (e instanceof Etherscan.AbiNotVerifiedError) {
+          return new UnsupportedContractError(e.message);
+        }
+        return e;
+      },
     ),
   );

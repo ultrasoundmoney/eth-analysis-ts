@@ -42,11 +42,12 @@ export type LeaderboardResponse = {
 
 export const getRankedCollections = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson<LeaderboardResponse>(leaderboardUrl, {
+    FetchAlt.fetchWithRetryJson(leaderboardUrl, {
       headers: {
         "User-Agent": "HTTPie/3.0.2",
       },
     }),
+    TE.map((u) => u as LeaderboardResponse),
     TE.chainEitherK((res) =>
       pipe(
         res,
@@ -81,11 +82,12 @@ export class UnexpectedNftGoResponse extends Error {}
 
 export const getMarketCap = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson<MarketCapResponse>(getMarketCapUrl(), {
+    FetchAlt.fetchWithRetryJson(getMarketCapUrl(), {
       headers: {
         "User-Agent": "HTTPie/3.0.2",
       },
     }),
+    TE.map((u) => u as MarketCapResponse),
     TE.chainEitherK((res) =>
       pipe(
         res.data?.y,

@@ -1,7 +1,6 @@
 import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
-import { decodeErrorFromUnknown } from "./errors.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { B, O, pipe, TE, TO } from "./fp.js";
 import * as Log from "./log.js";
@@ -89,9 +88,9 @@ export const getProfileByHandle = (handle: string) =>
         );
       }
 
-      return TE.tryCatch(
-        () => res.json() as Promise<ApiWrapper<UserTwitterApiRaw>>,
-        decodeErrorFromUnknown,
+      return pipe(
+        FetchAlt.decodeJsonResponse(res),
+        TE.map((body) => body as ApiWrapper<UserTwitterApiRaw>),
       );
     }),
     TE.chainW((body) => {
@@ -124,13 +123,13 @@ export const getProfileImage = (profile: UserTwitterApiRaw) =>
       () => TO.none,
       () =>
         pipe(
-          FetchAlt.fetchTE(
+          FetchAlt.fetch(
             profile.profile_image_url.replace("normal", "400x400"),
           ),
           TE.map(() => profile.profile_image_url.replace("normal", "400x400")),
           TE.alt(() =>
             pipe(
-              FetchAlt.fetchTE(
+              FetchAlt.fetch(
                 profile.profile_image_url.replace("normal", "reasonably_small"),
               ),
               TE.map(() =>
@@ -140,7 +139,7 @@ export const getProfileImage = (profile: UserTwitterApiRaw) =>
           ),
           TE.alt(() =>
             pipe(
-              FetchAlt.fetchTE(profile.profile_image_url),
+              FetchAlt.fetch(profile.profile_image_url),
               TE.map(() => profile.profile_image_url),
             ),
           ),

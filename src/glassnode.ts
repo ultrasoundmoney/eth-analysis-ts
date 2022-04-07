@@ -51,9 +51,8 @@ export const getEthStaked = () =>
     O.match(
       () =>
         pipe(
-          FetchAlt.fetchWithRetryJson<TotalValueStakedResponse>(
-            currentStakedUrl,
-          ),
+          FetchAlt.fetchWithRetryJson(currentStakedUrl),
+          TE.map((u) => u as TotalValueStakedResponse),
           TE.chainEitherK((res) =>
             pipe(
               res,

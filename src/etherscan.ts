@@ -6,7 +6,7 @@ import QuickLRU from "quick-lru";
 import * as Retry from "retry-ts";
 import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
-import urlcatM from "urlcat";
+import { formatUrl } from "url-sub";
 import type { AbiItem } from "web3-utils";
 import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
@@ -16,9 +16,6 @@ import * as FetchAlt from "./fetch_alt.js";
 import { BadResponseError, FetchError } from "./fetch_alt.js";
 import { B, E, flow, O, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
-
-// NOTE: import is broken somehow, "urlcat is not a function" without.
-const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
 export const apiQueue = new PQueue({
   concurrency: 2,
@@ -39,7 +36,7 @@ export class AbiNotVerifiedError extends Error {}
 export type FetchAbiError = AbiApiError | AbiNotVerifiedError | Error;
 
 const makeAbiUrl = (address: string) =>
-  urlcat("https://api.etherscan.io/api", {
+  formatUrl("https://api.etherscan.io", "/api", {
     module: "contract",
     action: "getabi",
     address,
@@ -48,8 +45,9 @@ const makeAbiUrl = (address: string) =>
 
 export const fetchAbi = (address: string) =>
   pipe(
-    FetchAlt.fetchWithRetryJson<AbiResponse>(makeAbiUrl(address)),
+    FetchAlt.fetchWithRetryJson(makeAbiUrl(address)),
     queueApiCall,
+    TE.map((u) => u as AbiResponse),
     TE.chainW((abiRaw) => {
       if (abiRaw.status === "1") {
         return TE.right(JSON.parse(abiRaw.result) as AbiItem[]);
@@ -253,7 +251,7 @@ type EthPriceResponse =
     };
 
 const fetchEthPrice = (): TE.TaskEither<string, EthPrice> => {
-  const url = urlcat("https://api.etherscan.io/api", {
+  const url = formatUrl("https://api.etherscan.io", "/api", {
     module: "stats",
     action: "ethprice",
     apiKey: Config.getEtherscanToken(),
@@ -301,7 +299,7 @@ type EthSupplyResponse =
     };
 
 const makeEthSupplyUrl = () =>
-  urlcat("https://api.etherscan.io/api", {
+  formatUrl("https://api.etherscan.io", "/api", {
     module: "stats",
     action: "ethsupply",
     apiKey: Config.getEtherscanToken(),
