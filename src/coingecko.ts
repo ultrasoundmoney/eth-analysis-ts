@@ -1,6 +1,7 @@
 import * as Retry from "retry-ts";
 import * as UrlSub from "url-sub";
 import * as FetchAlt from "./fetch_alt.js";
+import { pipe, TE } from "./fp.js";
 
 const coinGeckoApiUrl = "https://api.coingecko.com/api/v3";
 
@@ -37,9 +38,12 @@ const simplePriceUrl = UrlSub.formatUrl(coinGeckoApiUrl, "/simple/price", {
 });
 
 export const getSimpleCoins = () =>
-  FetchAlt.fetchWithRetryJson<PriceResponse>(simplePriceUrl, undefined, {
-    retryPolicy,
-  });
+  pipe(
+    FetchAlt.fetchWithRetryJson(simplePriceUrl, undefined, {
+      retryPolicy,
+    }),
+    TE.map((u) => u as PriceResponse),
+  );
 
 export type IndexCoin = {
   id: string;
@@ -53,9 +57,12 @@ const coinListUrl = UrlSub.formatUrl(coinGeckoApiUrl, "/coins/list", {
 });
 
 export const getCoinList = () =>
-  FetchAlt.fetchWithRetryJson<IndexCoin[]>(coinListUrl, undefined, {
-    retryPolicy,
-  });
+  pipe(
+    FetchAlt.fetchWithRetryJson(coinListUrl, undefined, {
+      retryPolicy,
+    }),
+    TE.map((u) => u as IndexCoin[]),
+  );
 
 type ISO8601String = string;
 
@@ -84,6 +91,9 @@ const coinMarketUrl = UrlSub.formatUrl(
 );
 
 export const getTopCoinMarkets = () =>
-  FetchAlt.fetchWithRetryJson<CoinMarket[]>(coinMarketUrl, undefined, {
-    retryPolicy,
-  });
+  pipe(
+    FetchAlt.fetchWithRetryJson(coinMarketUrl, undefined, {
+      retryPolicy,
+    }),
+    TE.map((u) => u as CoinMarket[]),
+  );

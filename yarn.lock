@@ -5577,6 +5577,11 @@ ts-node@^10.4.0:
     make-error "^1.1.1"
     yn "3.1.1"
 
+ts-pattern@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/ts-pattern/-/ts-pattern-4.0.1.tgz#3b395d6be7112a542d79443c2f577bd89bdba24e"
+  integrity sha512-UaEFiG0xvCAa0tXBi242rD2WU28RlurzQe27t7vc2+3difhtA58Q6BiFl3YQbDlDiWfantdP05YICJPpGo/ulg==
+
 tslib@^1.8.1, tslib@^1.9.0:
   version "1.14.1"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-1.14.1.tgz#cf2d38bdc34a134bcaf1091c41f6619e2f672d00"
