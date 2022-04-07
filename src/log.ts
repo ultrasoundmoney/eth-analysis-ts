@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
 import kleur from "kleur";
@@ -86,6 +87,13 @@ export const log = (
         error_stack: meta.stack,
         level,
         message: message,
+        // Log whatever extra properties meta still contains.
+        meta: {
+          ...meta,
+          stack: undefined,
+          message: undefined,
+          name: undefined,
+        },
         timestamp: new Date(),
       }),
     );
