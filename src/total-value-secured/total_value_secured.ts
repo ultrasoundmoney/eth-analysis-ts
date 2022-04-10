@@ -647,7 +647,7 @@ const buildRankingFromCollection = (
     collection.medias.twitter !== undefined
       ? pipe(collection.medias.twitter, S.split("/"), RNEA.last)
       : undefined,
-  nftGoUrl: collection.link,
+  nftGoUrl: `https://nftgo.io/collection/${collection.slug}`,
   tooltipDescription: undefined,
   tooltipName: undefined,
   twitterUrl: collection.medias.twitter,
