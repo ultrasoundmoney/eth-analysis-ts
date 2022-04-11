@@ -11,7 +11,6 @@ import * as Opensea from "../opensea.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Twitter from "../twitter.js";
 import * as Contracts from "./contracts.js";
-import { addMetadataFromSimilar } from "./metadata_similar.js";
 import * as ContractsWeb3 from "./web3.js";
 
 const getIsPQueueTimeoutError = (error: unknown): boolean =>
@@ -193,46 +192,46 @@ export const refreshWeb3Metadata = (address: string, forceRefetch = false) =>
     (shouldAttempt) => TAlt.when(shouldAttempt, addWeb3Metadata(address)),
   );
 
-const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
+// const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
 
-export const etherscanNameTagQueue = new PQueue({
-  concurrency: 4,
-  timeout: Duration.millisFromSeconds(60),
-});
+// export const etherscanNameTagQueue = new PQueue({
+//   concurrency: 4,
+//   timeout: Duration.millisFromSeconds(60),
+// });
 
-const addEtherscanNameTag = async (
-  address: string,
-  forceRefetch = false,
-): Promise<void> => {
-  const lastAttempted = etherscanNameTagLastAttemptMap[address];
+// const addEtherscanNameTag = async (
+//   address: string,
+//   forceRefetch = false,
+// ): Promise<void> => {
+//   const lastAttempted = etherscanNameTagLastAttemptMap[address];
 
-  if (
-    forceRefetch === false &&
-    lastAttempted !== undefined &&
-    DateFns.differenceInHours(new Date(), lastAttempted) < 6
-  ) {
-    return undefined;
-  }
+//   if (
+//     forceRefetch === false &&
+//     lastAttempted !== undefined &&
+//     DateFns.differenceInHours(new Date(), lastAttempted) < 6
+//   ) {
+//     return undefined;
+//   }
 
-  const name = await etherscanNameTagQueue.add(() =>
-    Etherscan.getNameTag(address),
-  );
+//   const name = await etherscanNameTagQueue.add(() =>
+//     Etherscan.getNameTag(address),
+//   );
 
-  etherscanNameTagLastAttemptMap[address] = new Date();
+//   etherscanNameTagLastAttemptMap[address] = new Date();
 
-  if (name === undefined) {
-    return undefined;
-  }
+//   if (name === undefined) {
+//     return undefined;
+//   }
 
-  // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
-  if (name.indexOf(":") !== -1) {
-    const nameStartsWith = name.split(":")[0];
-    await addMetadataFromSimilar(address, nameStartsWith)();
-  }
+//   // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
+//   if (name.indexOf(":") !== -1) {
+//     const nameStartsWith = name.split(":")[0];
+//     await addMetadataFromSimilar(address, nameStartsWith)();
+//   }
 
-  await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
-  await Contracts.updatePreferredMetadata(address)();
-};
+//   await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
+//   await Contracts.updatePreferredMetadata(address)();
+// };
 
 // const etherscanMetaTitleLastAttemptMap: Record<string, Date | undefined> = {};
 
@@ -626,7 +625,8 @@ const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
   pipe(
     TAlt.seqTPar(
       () => addDefiLlamaMetadata(address),
-      () => addEtherscanNameTag(address, forceRefetch),
+      // Turn off name tag as blockscan is returning 503 again.
+      // () => addEtherscanNameTag(address, forceRefetch),
       refreshWeb3Metadata(address, forceRefetch),
       addOpenseaMetadataMaybe(address, forceRefetch),
     ),
