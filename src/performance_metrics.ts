@@ -60,9 +60,6 @@ export const logQueueSizes = () => {
     );
     Log.debug(`on chain name queue size: ${ContractsMetadata.web3Queue.size}`);
     Log.debug(
-      `etherscan name tag queue size: ${ContractsMetadata.etherscanNameTagQueue.size}`,
-    );
-    Log.debug(
       `twitter profile queue size: ${ContractsMetadata.twitterProfileQueue.size}`,
     );
     Log.debug(`etherscan api queue size: ${Etherscan.apiQueue.size}`);
