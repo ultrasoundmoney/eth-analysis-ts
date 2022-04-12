@@ -422,6 +422,11 @@ export const addTwitterMetadataMaybe = (
           return;
         }
 
+        if (e instanceof NoKnownTwitterHandleError) {
+          Log.debug(`no known twitter handle for contract ${address}`);
+          return;
+        }
+
         Log.error(e.message, e);
       },
       () => undefined,
