@@ -74,7 +74,7 @@ export const fetch = (
     ),
   );
 
-const decodeJsonResponse = TE.tryCatchK(
+export const decodeJsonResponse = TE.tryCatchK(
   (res: NodeFetch.Response) => res.json(),
   (e) =>
     e instanceof Error
