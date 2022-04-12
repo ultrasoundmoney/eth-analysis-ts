@@ -250,7 +250,7 @@ export const getTwitterHandle = (address: string) =>
       SELECT twitter_handle FROM contracts
       WHERE address = ${address}
     `,
-    T.map(flow((rows) => rows[0]?.twitterHandle ?? undefined, O.fromNullable)),
+    T.map(flow((rows) => rows[0]?.twitterHandle, O.fromNullable)),
   );
 
 export const getAddressesToRefetch = (): T.Task<Set<string>> =>
