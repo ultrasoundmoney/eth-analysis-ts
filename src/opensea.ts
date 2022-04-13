@@ -4,7 +4,7 @@ import urlcatM from "urlcat";
 import * as Config from "./config.js";
 import { readOptionalFromFirstRow, sqlT } from "./db.js";
 import * as FetchAlt from "./fetch_alt.js";
-import { A, E, flow, O, pipe, T, TE, TO } from "./fp.js";
+import { A, flow, O, pipe, T, TE, TO } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -33,6 +33,10 @@ export class MissingStandardError extends Error {
 
 export class NotFoundError extends Error {}
 
+type BodyWithDetail = { detail: string };
+const getIsBodyWithDetail = (u: unknown): u is BodyWithDetail =>
+  typeof (u as BodyWithDetail)?.detail === "string";
+
 export const getContract = (address: string) =>
   pipe(
     FetchAlt.fetchWithRetry(
@@ -59,12 +63,22 @@ export const getContract = (address: string) =>
             )
           : res.status === 406
           ? pipe(
-              () => res.json() as Promise<{ detail: string }>,
-              T.map((body) => {
-                Log.debug(
-                  `fetch opensea contract 406, address: ${address}, body detail: ${body.detail}`,
+              FetchAlt.decodeJsonResponse(res),
+              // TE.tryCatch(
+              // )
+              TE.chain((body) => {
+                if (getIsBodyWithDetail(body)) {
+                  Log.debug(
+                    `fetch opensea contract 406, address: ${address}, body detail: ${body.detail}`,
+                  );
+                  return TE.left(
+                    new MissingStandardError(address, body.detail),
+                  );
+                }
+
+                return TE.left(
+                  new Error("failed to get opensea contract, unexpected error"),
                 );
-                return E.left(new MissingStandardError(address, body.detail));
               }),
             )
           : pipe(
