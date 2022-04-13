@@ -455,7 +455,7 @@ const getTopErc20s = () =>
         ),
         A.filter((coin) => {
           if (coin.marketCapEth < 1e6) {
-            Log.warn(
+            Log.debug(
               `coin ${coin.symbol} market cap suspiciously low: ${coin.marketCapEth}, contract: ${coin.contractAddress}, skipping`,
             );
             return false;
