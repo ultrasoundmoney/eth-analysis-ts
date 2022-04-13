@@ -16,11 +16,13 @@ import * as FetchAlt from "./fetch_alt.js";
 import { BadResponseError, FetchError } from "./fetch_alt.js";
 import { B, E, flow, O, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
+import { queueOnQueue } from "./queues.js";
 
 export const apiQueue = new PQueue({
   concurrency: 2,
   interval: Duration.millisFromSeconds(4),
   intervalCap: 4,
+  throwOnTimeout: true,
 });
 
 const queueApiCall =
@@ -256,7 +258,7 @@ const makeEthSupplyUrl = () =>
 export const getEthSupply = () =>
   pipe(
     FetchAlt.fetchWithRetry(makeEthSupplyUrl()),
-    queueApiCall,
+    queueOnQueue(apiQueue),
     TE.chain((res) =>
       TE.tryCatch(
         () => res.json() as Promise<EthSupplyResponse>,
