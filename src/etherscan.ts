@@ -1,20 +1,17 @@
-import * as DateFns from "date-fns";
 import { parseHTML } from "linkedom";
 import fetch, { Response } from "node-fetch";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
 import * as Retry from "retry-ts";
-import { constantDelay, limitRetries, Monoid } from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 import { formatUrl } from "url-sub";
 import type { AbiItem } from "web3-utils";
 import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
 import * as Duration from "./duration.js";
-import { EthPrice } from "./eth-prices/eth_prices.js";
 import * as FetchAlt from "./fetch_alt.js";
 import { BadResponseError, FetchError } from "./fetch_alt.js";
-import { B, E, flow, O, pipe, T, TE, TEAlt } from "./fp.js";
+import { B, E, flow, O, pipe, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 import { queueOnQueue } from "./queues.js";
 
@@ -24,11 +21,6 @@ export const apiQueue = new PQueue({
   intervalCap: 4,
   throwOnTimeout: true,
 });
-
-const queueApiCall =
-  <A>(task: T.Task<A>): T.Task<A> =>
-  () =>
-    apiQueue.add(task);
 
 type AbiResponse = { status: "0" | "1"; result: string; message: string };
 
@@ -48,7 +40,7 @@ const makeAbiUrl = (address: string) =>
 export const fetchAbi = (address: string) =>
   pipe(
     FetchAlt.fetchWithRetryJson(makeAbiUrl(address)),
-    queueApiCall,
+    queueOnQueue(apiQueue),
     TE.map((u) => u as AbiResponse),
     TE.chainW((abiRaw) => {
       if (abiRaw.status === "1") {
@@ -93,14 +85,22 @@ export const getAbi = (address: string) =>
     O.match(() => fetchAndCacheAbi(address), TE.right),
   );
 
-export const getNameTag = async (
-  address: string,
-): Promise<string | undefined> =>
+const blockscanRetryPolicy = Retry.Monoid.concat(
+  Retry.exponentialBackoff(2000),
+  Retry.limitRetries(5),
+);
+
+export class NoNameTagInHtmlError extends Error {}
+
+export const getNameTag = (address: string) =>
   pipe(
-    FetchAlt.fetchWithRetry(`https://blockscan.com/address/${address}`),
-    queueApiCall,
-    TE.chain(TE.tryCatchK((res) => res.text(), TEAlt.decodeUnknownError)),
-    TE.map((text) => {
+    FetchAlt.fetchWithRetry(
+      `https://blockscan.com/address/${address}`,
+      undefined,
+      { retryPolicy: blockscanRetryPolicy },
+    ),
+    TE.chainW(TE.tryCatchK((res) => res.text(), TEAlt.decodeUnknownError)),
+    TE.chainEitherKW((text) => {
       const { document } = parseHTML(text);
       const etherscanPublicName = document.querySelector(
         ".badge-secondary",
@@ -108,16 +108,12 @@ export const getNameTag = async (
         innerText: string;
       } | null;
 
-      return etherscanPublicName?.innerText;
+      return pipe(
+        etherscanPublicName?.innerText,
+        E.fromNullable(new NoNameTagInHtmlError()),
+      );
     }),
-    TE.match(
-      (e) => {
-        Log.error("error fetching etherscan name tag through blockscan", e);
-        return undefined;
-      },
-      (v) => v,
-    ),
-  )();
+  );
 
 // Etherscan is behind cloudflare. Locally cloudflare seems fine with our scraping requests, but from the digital ocean IPs it appears we get refused with a 403, perhaps failing some challenge.
 
