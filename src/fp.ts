@@ -94,6 +94,18 @@ export const TEAlt = {
   seqSSeq: Apply.sequenceS(TE.ApplySeq),
   seqTPar: Apply.sequenceT(TE.ApplyPar),
   seqTSeq: Apply.sequenceT(TE.ApplySeq),
+  tap: <E, A>(task: TE.TaskEither<E, A>) =>
+    pipe(
+      task,
+      TE.chainFirstIOK((u) => Log.debugIO("tap", u)),
+    ),
+  tapWithMessage:
+    <E, A>(message: string) =>
+    (task: TE.TaskEither<E, A>) =>
+      pipe(
+        task,
+        TE.chainFirstIOK((u) => Log.debugIO(message, u)),
+      ),
 };
 
 export const OAlt = {
