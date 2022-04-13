@@ -235,61 +235,6 @@ export const getMetaTitle = (
     }),
   );
 
-type UnixTimestampStr = string;
-
-type EthPriceResponse =
-  | { status: "0"; message: string }
-  | {
-      status: "1";
-      message: string;
-      result: {
-        ethbtc: string;
-        ethbtc_timestamp: UnixTimestampStr;
-        ethusd: string;
-        ethusd_timestamp: UnixTimestampStr;
-      };
-    };
-
-const fetchEthPrice = (): TE.TaskEither<string, EthPrice> => {
-  const url = formatUrl("https://api.etherscan.io", "/api", {
-    module: "stats",
-    action: "ethprice",
-    apiKey: Config.getEtherscanToken(),
-  });
-
-  return pipe(
-    TE.tryCatch(() => apiQueue.add(() => fetch(url)), String),
-    TE.chain((res) => {
-      if (res.status !== 200) {
-        return TE.left(`fetch etherscan eth price status: ${res.status}`);
-      }
-
-      return TE.fromTask(() => res.json() as Promise<EthPriceResponse>);
-    }),
-    TE.chain((ethPriceResponse: EthPriceResponse) => {
-      if (ethPriceResponse.status !== "1") {
-        return TE.left(
-          `fetch etherscan eth price, api error, status: ${ethPriceResponse.status}, message: ${ethPriceResponse.message}`,
-        );
-      }
-
-      return TE.right({
-        timestamp: DateFns.fromUnixTime(
-          Number(ethPriceResponse.result.ethusd_timestamp),
-        ),
-        ethusd: Number(ethPriceResponse.result.ethusd),
-      });
-    }),
-  );
-};
-
-export const getEthPrice = () =>
-  retrying(
-    Monoid.concat(constantDelay(2000), limitRetries(2)),
-    () => fetchEthPrice(),
-    E.isLeft,
-  );
-
 type EthSupplyResponse =
   | { status: "0"; message: string }
   | {
