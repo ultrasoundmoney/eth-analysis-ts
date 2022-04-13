@@ -4,31 +4,16 @@ import * as DefiLlama from "../defi_llama.js";
 import * as Duration from "../duration.js";
 import * as Etherscan from "../etherscan.js";
 import * as FetchAlt from "../fetch_alt.js";
-import { A, B, E, flow, MapS, O, OAlt, pipe, T, TAlt, TE, TO } from "../fp.js";
+import { A, B, flow, MapS, O, OAlt, pipe, T, TAlt, TE, TO } from "../fp.js";
 import { LeaderboardEntries, LeaderboardEntry } from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as Opensea from "../opensea.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
+import { queueOnQueue, TimeoutError } from "../queues.js";
 import * as Twitter from "../twitter.js";
 import * as Contracts from "./contracts.js";
+import { addMetadataFromSimilar } from "./metadata_similar.js";
 import * as ContractsWeb3 from "./web3.js";
-
-const getIsPQueueTimeoutError = (error: unknown): boolean =>
-  typeof (error as TimeoutError)?.name === "string" &&
-  (error as TimeoutError).name === "TimeoutError";
-
-const queueOnQueue =
-  <E, A>(queue: PQueue) =>
-  (task: TE.TaskEither<E, A>) =>
-    pipe(
-      TE.tryCatch(
-        () => queue.add<E.Either<E, A>>(task as never),
-        (error) =>
-          getIsPQueueTimeoutError(error) ? new TimeoutError() : (error as E),
-      ),
-      // tryCatch expects a simple () => Promise<A> but we're passing a () => Promise<Either<E, A>>, tryCatch then wraps the return value in a TaskEither for us creating a TaskEither<E1, Either<E2, A>>, we want TaskEither<E1 | E2, A>, the below fn achieves just that.
-      TE.chainEitherKW((either) => either),
-    );
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;
@@ -67,17 +52,9 @@ export const addMetadataForLeaderboards = (
 
 export const web3Queue = new PQueue({
   concurrency: 4,
+  throwOnTimeout: true,
   timeout: Duration.millisFromSeconds(60),
 });
-
-const queueWeb3Fetch = <E, A>(task: TE.TaskEither<E, A>) =>
-  pipe(
-    TE.tryCatch(
-      () => web3Queue.add(task),
-      () => new TimeoutError(),
-    ),
-    TE.chainW((e) => (E.isLeft(e) ? TE.left(e.left) : TE.right(e.right))),
-  );
 const web3LastAttemptMap: Record<string, Date | undefined> = {};
 
 const getIsBackoffPast = (
@@ -112,7 +89,7 @@ const handleGetSupportedInterfaceError = (
 const addWeb3Metadata = (address: string) =>
   pipe(
     ContractsWeb3.getContract(address),
-    queueWeb3Fetch,
+    queueOnQueue(web3Queue),
     TE.chainFirstIOK(() => () => {
       web3LastAttemptMap[address] = new Date();
     }),
@@ -171,10 +148,13 @@ const addWeb3Metadata = (address: string) =>
       (e) => {
         if (e instanceof TimeoutError) {
           // Timeouts are expected.
+          Log.debug(`web3 metadata fetch timed out for ${address}`);
           return undefined;
         }
+
         if (e instanceof Etherscan.AbiNotVerifiedError) {
           // Not all contracts we see are verified, that's okay.
+          Log.debug(`contract ABI not known to Etherscan ${address}`);
           return undefined;
         }
 
@@ -192,46 +172,65 @@ export const refreshWeb3Metadata = (address: string, forceRefetch = false) =>
     (shouldAttempt) => TAlt.when(shouldAttempt, addWeb3Metadata(address)),
   );
 
-// const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
+const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
 
-// export const etherscanNameTagQueue = new PQueue({
-//   concurrency: 4,
-//   timeout: Duration.millisFromSeconds(60),
-// });
+export const etherscanNameTagQueue = new PQueue({
+  concurrency: 4,
+  throwOnTimeout: true,
+  timeout: Duration.millisFromSeconds(60),
+});
 
-// const addEtherscanNameTag = async (
-//   address: string,
-//   forceRefetch = false,
-// ): Promise<void> => {
-//   const lastAttempted = etherscanNameTagLastAttemptMap[address];
+const addEtherscanNameTag = (address: string, forceRefetch = false) =>
+  pipe(
+    forceRefetch || getIsBackoffPast(etherscanNameTagLastAttemptMap, address),
+    (shouldRefetch) =>
+      TAlt.when(
+        shouldRefetch,
+        pipe(
+          Etherscan.getNameTag(address),
+          queueOnQueue(etherscanNameTagQueue),
+          TE.chainFirstIOK(() => () => {
+            etherscanNameTagLastAttemptMap[address] = new Date();
+          }),
+          TE.chainTaskK((name) =>
+            pipe(
+              // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
+              name.indexOf(":") === -1,
+              B.match(
+                () => addMetadataFromSimilar(address, name.split(":")[0]),
+                () => TO.of(undefined),
+              ),
+              T.chain(() =>
+                Contracts.setSimpleTextColumn(
+                  "etherscan_name_tag",
+                  address,
+                  name,
+                ),
+              ),
+              T.chain(() => Contracts.updatePreferredMetadata(address)),
+            ),
+          ),
+          TE.match(
+            (e) => {
+              if (e instanceof Etherscan.NoNameTagInHtmlError) {
+                Log.warn("failed to read name tag from HTML", e);
+                return;
+              }
 
-//   if (
-//     forceRefetch === false &&
-//     lastAttempted !== undefined &&
-//     DateFns.differenceInHours(new Date(), lastAttempted) < 6
-//   ) {
-//     return undefined;
-//   }
+              if (e instanceof TimeoutError) {
+                Log.debug(
+                  `Etherscan get name tag request timed out for contract ${address}`,
+                );
+                return;
+              }
 
-//   const name = await etherscanNameTagQueue.add(() =>
-//     Etherscan.getNameTag(address),
-//   );
-
-//   etherscanNameTagLastAttemptMap[address] = new Date();
-
-//   if (name === undefined) {
-//     return undefined;
-//   }
-
-//   // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
-//   if (name.indexOf(":") !== -1) {
-//     const nameStartsWith = name.split(":")[0];
-//     await addMetadataFromSimilar(address, nameStartsWith)();
-//   }
-
-//   await Contracts.setSimpleTextColumn("etherscan_name_tag", address, name)();
-//   await Contracts.updatePreferredMetadata(address)();
-// };
+              Log.error("failed to get etherscan name tag", e);
+            },
+            (): void => undefined,
+          ),
+        ),
+      ),
+  );
 
 // const etherscanMetaTitleLastAttemptMap: Record<string, Date | undefined> = {};
 
@@ -301,6 +300,7 @@ const twitterProfileLastAttemptMap = new Map<string, Date>();
 
 export const twitterProfileQueue = new PQueue({
   concurrency: 1,
+  throwOnTimeout: true,
   timeout: Duration.millisFromSeconds(60),
 });
 
@@ -427,6 +427,13 @@ export const addTwitterMetadataMaybe = (
           return;
         }
 
+        if (e instanceof TimeoutError) {
+          Log.debug(
+            `twitter metadata request timed out for contract ${address}`,
+          );
+          return;
+        }
+
         Log.error(e.message, e);
       },
       () => undefined,
@@ -435,20 +442,9 @@ export const addTwitterMetadataMaybe = (
 
 export const openseaContractQueue = new PQueue({
   concurrency: 2,
-  timeout: Duration.millisFromSeconds(120),
   throwOnTimeout: true,
+  timeout: Duration.millisFromSeconds(120),
 });
-
-class TimeoutError extends Error {}
-
-const queueOpenseaFetch = <E, A>(task: TE.TaskEither<E, A>) =>
-  pipe(
-    TE.tryCatch(
-      () => openseaContractQueue.add(task),
-      () => new TimeoutError(),
-    ),
-    TE.chainW((e) => (E.isLeft(e) ? TE.left(e.left) : TE.right(e.right))),
-  );
 
 const getShouldFetchOpenseaMetadata = (
   address: string,
@@ -541,25 +537,28 @@ const updateOpenseaMetadataFromContract = (
 const addOpenseaMetadata = (address: string) =>
   pipe(
     Opensea.getContract(address),
-    queueOpenseaFetch,
+    queueOnQueue(openseaContractQueue),
     TE.chainW((contract) =>
       TE.fromTaskK(updateOpenseaMetadataFromContract)(address, contract),
     ),
     TE.match(
       (error) => {
-        if (error instanceof TimeoutError) {
-          // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
-          return undefined;
-        }
-
         if (error instanceof Opensea.MissingStandardError) {
-          // Opensea returns a 406 for some contracts. Not clear why this isn't a 200. We do nothing as a result.
+          // Contracts Opensea doesn't have are fine.
           return undefined;
         }
 
         if (error instanceof Opensea.NotFoundError) {
           // Opensea doesn't know all contracts.
           return undefined;
+        }
+
+        if (error instanceof TimeoutError) {
+          // Timeouts are expected here. The API we rely on is not fast enough to return us all contract metadata we'd like, so we sort by importance and let requests time out.
+          Log.debug(
+            `twitter metadata request timed out for contract ${address}`,
+          );
+          return;
         }
 
         Log.error("failed to get OpenSea metadata", error);
@@ -626,12 +625,12 @@ const addDefiLlamaMetadata = async (address: string): Promise<void> => {
   await Contracts.updatePreferredMetadata(address)();
 };
 
-const addMetadata = (address: string, forceRefetch = false): T.Task<void> =>
+const addMetadata = (address: string, forceRefetch = false) =>
   pipe(
     TAlt.seqTPar(
       () => addDefiLlamaMetadata(address),
       // Turn off name tag as blockscan is returning 503 again.
-      // () => addEtherscanNameTag(address, forceRefetch),
+      addEtherscanNameTag(address, forceRefetch),
       refreshWeb3Metadata(address, forceRefetch),
       addOpenseaMetadataMaybe(address, forceRefetch),
     ),

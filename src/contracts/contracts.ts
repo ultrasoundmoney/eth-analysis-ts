@@ -54,7 +54,7 @@ export const setSimpleTextColumn = (
             address = ${address}
         `,
     ),
-    T.map(() => undefined),
+    T.map((): void => undefined),
   );
 
 export type SimpleBooleanColumn =
