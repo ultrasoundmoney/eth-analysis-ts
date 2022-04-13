@@ -66,7 +66,7 @@ export const getProfileByHandle = (handle: string) =>
         acceptStatuses: [200, 404],
         retryPolicy: Retry.Monoid.concat(
           Retry.exponentialBackoff(2000),
-          Retry.limitRetries(6),
+          Retry.limitRetries(9),
         ),
       },
     ),
