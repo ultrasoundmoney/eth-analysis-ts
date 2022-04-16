@@ -238,11 +238,32 @@ export const setContractMinedAtNull = async (address: string) => {
   `;
 };
 
+const deleteContractBaseFeeSums = (
+  addresses: NEA.NonEmptyArray<string>,
+) => Db.sqlTVoid`
+  DELETE FROM contract_base_fee_sums
+  WHERE contract_address IN (${addresses})
+`;
+
+// Clean up sums when cleaning up contracts.
 export const deleteContractsMinedAt = (blockNumber: number) =>
-  Db.sqlTVoid`
-    DELETE FROM contracts
-    WHERE mined_at_block = ${blockNumber}
-  `;
+  pipe(
+    Db.sqlT<{ address: string }[]>`
+      SELECT address FROM contracts
+      WHERE mined_at_block = ${blockNumber}
+    `,
+    T.map(
+      flow(
+        A.map((row) => row.address),
+        NEA.fromArray,
+      ),
+    ),
+    TO.chainTaskK((addresses) => deleteContractBaseFeeSums(addresses)),
+    T.apSecond(Db.sqlTVoid`
+      DELETE FROM contracts
+      WHERE mined_at_block = ${blockNumber}
+    `),
+  );
 
 export const getTwitterHandle = (address: string) =>
   pipe(
