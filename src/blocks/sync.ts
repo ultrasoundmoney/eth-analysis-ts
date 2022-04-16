@@ -69,7 +69,7 @@ export const syncBlocks = async (upToIncluding: number): Promise<void> => {
   // Happens sometimes when multiple instances of analyze-blocks are running.
   if (syncedBlockHeight > upToIncluding) {
     throw new Error(
-      "blocks table has advanced since start, is there another analyze-blocks instance running?",
+      "failed to sync, blocks table is further ahead than requested sync point",
     );
   }
 
