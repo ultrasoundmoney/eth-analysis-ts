@@ -1,11 +1,14 @@
+import { O, OAlt, pipe } from "./fp.js";
 import * as Log from "./log.js";
 
-const parseSimpleEnvVar = (name: string): string => {
-  const rawVar = process.env[name];
-  if (typeof rawVar !== "string") {
-    throw new Error(`missing ${name} env var`);
-  }
-  return rawVar;
+const parseSimpleEnvVar = (name: string) =>
+  pipe(process.env[name], O.fromNullable);
+
+const parseSimpleEnvVarUnsafe = (name: string): string => {
+  return pipe(
+    parseSimpleEnvVar(name),
+    OAlt.getOrThrow(`failed to parse ${name} env var`),
+  );
 };
 
 export type Env = "dev" | "prod" | "staging";
@@ -34,17 +37,18 @@ export const getFamServiceUrl = () =>
     : "https://api.ultrasound.money";
 
 export const getEtherscanToken = (): string =>
-  parseSimpleEnvVar("ETHERSCAN_TOKEN");
+  parseSimpleEnvVarUnsafe("ETHERSCAN_TOKEN");
 
 export const getTwitterToken = (): string =>
-  parseSimpleEnvVar("TWITTER_BEARER_TOKEN_USM");
+  parseSimpleEnvVarUnsafe("TWITTER_BEARER_TOKEN_USM");
 
-export const getAdminToken = (): string => parseSimpleEnvVar("ADMIN_TOKEN");
+export const getAdminToken = (): string =>
+  parseSimpleEnvVarUnsafe("ADMIN_TOKEN");
 
-export const getGethUrl = (): string => parseSimpleEnvVar("GETH_URL");
+export const getGethUrl = (): string => parseSimpleEnvVarUnsafe("GETH_URL");
 
 export const getGethFallbackUrl = (): string =>
-  parseSimpleEnvVar("GETH_FALLBACK_URL");
+  parseSimpleEnvVarUnsafe("GETH_FALLBACK_URL");
 
 export const ensureCriticalBlockAnalysisConfig = (): void => {
   getGethUrl();
@@ -52,10 +56,17 @@ export const ensureCriticalBlockAnalysisConfig = (): void => {
 };
 
 export const getOpenseaApiKey = (): string =>
-  parseSimpleEnvVar("OPENSEA_API_KEY");
+  parseSimpleEnvVarUnsafe("OPENSEA_API_KEY");
 
 export const getGlassnodeApiKey = (): string =>
-  parseSimpleEnvVar("GLASSNODE_API_KEY");
+  parseSimpleEnvVarUnsafe("GLASSNODE_API_KEY");
 
 export const getLogPerformance = (): boolean =>
   process.env["LOG_PERF"] === "true";
+
+export const getUseNodeFallback = () =>
+  pipe(
+    parseSimpleEnvVar("USE_NODE_FALLBACK"),
+    O.map((useNodeFallbackStr) => useNodeFallbackStr.toLowerCase() === "true"),
+    O.getOrElse(() => false),
+  );
