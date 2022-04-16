@@ -126,7 +126,7 @@ export const getWeb3 = (): Web3 => {
   };
   // Try our own node three times then try our third party fallback.
   const provider =
-    web3Attempt < 3
+    web3Attempt < 3 && !Config.getUseNodeFallback()
       ? new Web3.providers.WebsocketProvider(
           Config.getGethUrl(),
           providerOptions,
