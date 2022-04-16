@@ -44,8 +44,8 @@ export const releaseCanary = (): void => {
 export const resetCanary = () => {
   Log.debug("resetting block canary");
 
-  const timerId = cage.block;
-  if (timerId) {
-    timerId.refresh();
+  const timeout = cage.block;
+  if (timeout) {
+    timeout.refresh();
   }
 };
