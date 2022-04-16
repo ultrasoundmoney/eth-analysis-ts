@@ -28,7 +28,7 @@ let wsAttempt = 0;
 const connect = async (): Promise<WebSocket> => {
   // Try our own node three times then try our third part fallback
   const ws =
-    wsAttempt < 3 || Config.getUseNodeFallback()
+    wsAttempt < 3 && !Config.getUseNodeFallback()
       ? new WebSocket(Config.getGethUrl())
       : new WebSocket(Config.getGethFallbackUrl());
 
