@@ -314,7 +314,7 @@ export const subscribeNewHeads = (
   handleNewHead: (head: Head) => Promise<void>,
 ) => {
   const headsWs =
-    subscribeHeadsAttempt < 3
+    subscribeHeadsAttempt < 3 && !Config.getUseNodeFallback()
       ? new WebSocket(Config.getGethUrl())
       : new WebSocket(Config.getGethFallbackUrl());
 
