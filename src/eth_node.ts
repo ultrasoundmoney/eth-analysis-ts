@@ -26,7 +26,7 @@ const messageListners = new Map();
 let wsAttempt = 0;
 
 const connect = async (): Promise<WebSocket> => {
-  // Try our own node three times then try our third part fallback
+  // Try our own node three times then try our third party fallback
   const ws =
     wsAttempt < 3 && !Config.getUseNodeFallback()
       ? new WebSocket(Config.getGethUrl())
