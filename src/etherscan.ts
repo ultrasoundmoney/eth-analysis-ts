@@ -13,7 +13,7 @@ import * as Fetch from "./fetch.js";
 import { BadResponseError, FetchError } from "./fetch.js";
 import { B, E, flow, O, pipe, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
-import { queueOnQueue } from "./queues.js";
+import { queueOnQueueWithTimeoutThrown } from "./queues.js";
 
 export const apiQueue = new PQueue({
   concurrency: 2,
@@ -40,7 +40,7 @@ const makeAbiUrl = (address: string) =>
 export const fetchAbi = (address: string) =>
   pipe(
     Fetch.fetchWithRetryJson(makeAbiUrl(address)),
-    queueOnQueue(apiQueue),
+    queueOnQueueWithTimeoutThrown(apiQueue),
     TE.map((u) => u as AbiResponse),
     TE.chainW((abiRaw) => {
       if (abiRaw.status === "1") {
@@ -254,7 +254,7 @@ const makeEthSupplyUrl = () =>
 export const getEthSupply = () =>
   pipe(
     Fetch.fetchWithRetry(makeEthSupplyUrl()),
-    queueOnQueue(apiQueue),
+    queueOnQueueWithTimeoutThrown(apiQueue),
     TE.chain((res) =>
       TE.tryCatch(
         () => res.json() as Promise<EthSupplyResponse>,
