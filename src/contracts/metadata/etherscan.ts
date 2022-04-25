@@ -1,65 +1,70 @@
 import PQueue from "p-queue";
-import * as Duration from "../duration.js";
-import { pipe, TAlt } from "../fp.js";
+import * as Duration from "../../duration.js";
+import * as Etherscan from "../../etherscan.js";
+import { B, pipe, T, TAlt, TE, TO } from "../../fp.js";
+import * as Log from "../../log.js";
+import * as Queues from "../../queues.js";
+import * as Contracts from "../contracts.js";
+import { getShouldRetry } from "./attempts.js";
+import * as CopyFromSimilar from "./copy_from_similar.js";
 
-const etherscanNameTagLastAttemptMap: Record<string, Date | undefined> = {};
+const etherscanNameTagLastAttemptMap = new Map<string, Date>();
 
 export const etherscanNameTagQueue = new PQueue({
-  concurrency: 4,
+  carryoverConcurrencyCount: true,
+  concurrency: 2,
+  interval: Duration.millisFromSeconds(10),
+  intervalCap: 3,
   throwOnTimeout: true,
   timeout: Duration.millisFromSeconds(60),
 });
 
-export const addEtherscanNameTag = (address: string, forceRefetch = false) =>
+const addMetadata = (address: string) =>
   pipe(
-    forceRefetch || getIsBackoffPast(etherscanNameTagLastAttemptMap, address),
-    (shouldRefetch) =>
-      TAlt.when(
-        shouldRefetch,
-        pipe(
-          Etherscan.getNameTag(address),
-          queueOnQueue(etherscanNameTagQueue),
-          TE.chainFirstIOK(() => () => {
-            etherscanNameTagLastAttemptMap[address] = new Date();
-          }),
-          TE.chainTaskK((name) =>
-            pipe(
-              // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
-              name.indexOf(":") === -1,
-              B.match(
-                () => addMetadataFromSimilar(address, name.split(":")[0]),
-                () => TO.of(undefined),
-              ),
-              T.chain(() =>
-                Contracts.setSimpleTextColumn(
-                  "etherscan_name_tag",
-                  address,
-                  name,
-                ),
-              ),
-              T.chain(() => Contracts.updatePreferredMetadata(address)),
-            ),
-          ),
-          TE.match(
-            (e) => {
-              if (e instanceof Etherscan.NoNameTagInHtmlError) {
-                Log.warn("failed to read name tag from HTML", e);
-                return;
-              }
-
-              if (e instanceof TimeoutError) {
-                Log.debug(
-                  `Etherscan get name tag request timed out for contract ${address}`,
-                );
-                return;
-              }
-
-              Log.error("failed to get etherscan name tag", e);
-            },
-            (): void => undefined,
-          ),
+    Etherscan.getNameTag(address),
+    Queues.queueOnQueueWithTimeoutThrown(etherscanNameTagQueue),
+    TE.chainFirstIOK(() => () => {
+      etherscanNameTagLastAttemptMap.set(address, new Date());
+    }),
+    TE.chainTaskK((name) =>
+      pipe(
+        // The name is something like "Compound: cCOMP Token", we attempt to copy metadata from contracts starting with the same name before the colon i.e. /^compound.*/i.
+        name.indexOf(":") === -1,
+        B.match(
+          () =>
+            CopyFromSimilar.addMetadataFromSimilar(address, name.split(":")[0]),
+          () => TO.of(undefined),
         ),
+        T.chain(() =>
+          Contracts.setSimpleTextColumn("etherscan_name_tag", address, name),
+        ),
+        T.chain(() => Contracts.updatePreferredMetadata(address)),
       ),
+    ),
+    TE.match(
+      (e) => {
+        if (e instanceof Etherscan.NoNameTagInHtmlError) {
+          Log.warn("failed to read name tag from HTML", e);
+          return;
+        }
+
+        if (e instanceof Queues.TimeoutError) {
+          Log.debug(
+            `Etherscan get name tag request timed out for contract ${address}`,
+          );
+          return;
+        }
+
+        Log.error("failed to get etherscan name tag", e);
+      },
+      (): void => undefined,
+    ),
+  );
+
+export const checkForMetadata = (address: string, forceRefetch = false) =>
+  pipe(
+    getShouldRetry(etherscanNameTagLastAttemptMap, address, forceRefetch),
+    (shouldRefetch) => TAlt.when(shouldRefetch, addMetadata(address)),
   );
 
 // const etherscanMetaTitleLastAttemptMap: Record<string, Date | undefined> = {};

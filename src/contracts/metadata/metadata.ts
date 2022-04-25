@@ -3,12 +3,12 @@ import { LeaderboardEntries, LeaderboardEntry } from "../../leaderboards.js";
 import * as Log from "../../log.js";
 import * as PerformanceMetrics from "../../performance_metrics.js";
 import * as Contracts from "../contracts.js";
-import { addCoingeckoMetadata } from "./coingecko.js";
 import { addDefiLlamaMetadata } from "./defi_llama.js";
-import { addEtherscanNameTag } from "./etherscan.js";
+import * as Etherscan from "./etherscan.js";
 import { addOpenseaMetadataMaybe } from "./opensea.js";
 import { addTwitterMetadataMaybe } from "./twitter.js";
 import { refreshWeb3Metadata } from "./web3.js";
+import * as Coingecko from "./coingecko.js";
 
 const getAddressFromEntry = (entry: LeaderboardEntry): string | undefined =>
   entry.type === "contract" ? entry.address : undefined;
@@ -36,12 +36,12 @@ export const getAddressesForMetadata = (
 export const addMetadata = (address: string, forceRefetch = false) =>
   pipe(
     TAlt.seqTPar(
+      Coingecko.checkForMetadata(address, forceRefetch),
       addDefiLlamaMetadata(address),
       // Turn off name tag as blockscan is returning 503 again.
-      addEtherscanNameTag(address, forceRefetch),
-      refreshWeb3Metadata(address, forceRefetch),
+      Etherscan.checkForMetadata(address, forceRefetch),
       addOpenseaMetadataMaybe(address, forceRefetch),
-      addCoingeckoMetadata(address, forceRefetch),
+      refreshWeb3Metadata(address, forceRefetch),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
     // In addition, any updatePreferredMetadata call may uncover a manually set twitter handle. This should probably be more explicit.

@@ -24,6 +24,7 @@ type HistoricPriceMap = Map<JsTimestamp, number>;
 
 // FTX says they allow 6 requests per second. Haven't tested this limit.
 export const ftxApiQueue = new PQueue({
+  carryoverConcurrencyCount: true,
   concurrency: 2,
   interval: Duration.millisFromSeconds(1),
   intervalCap: 3,

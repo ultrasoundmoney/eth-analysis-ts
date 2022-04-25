@@ -50,9 +50,12 @@ const protocolMapCache = new QuickLRU<string, DefiLlamaProtocolMap>({
   maxSize: 1,
   maxAge: Duration.millisFromHours(1),
 });
+
 const protocolsCacheKey = "protocols-cache-key";
+
 const getCachedProtocolMap = () =>
   pipe(protocolMapCache.get(protocolsCacheKey), O.fromNullable);
+
 const setCachedProtocolMap = (protocolMap: DefiLlamaProtocolMap) => () => {
   protocolMapCache.set(protocolsCacheKey, protocolMap);
 };
