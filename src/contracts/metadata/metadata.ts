@@ -36,7 +36,7 @@ export const getAddressesForMetadata = (
 export const addMetadata = (address: string, forceRefetch = false) =>
   pipe(
     TAlt.seqTPar(
-      () => addDefiLlamaMetadata(address),
+      addDefiLlamaMetadata(address),
       // Turn off name tag as blockscan is returning 503 again.
       addEtherscanNameTag(address, forceRefetch),
       refreshWeb3Metadata(address, forceRefetch),

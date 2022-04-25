@@ -1,9 +1,9 @@
-import * as DateFns from "date-fns";
-import fetch from "node-fetch";
 import PQueue from "p-queue";
+import QuickLRU from "quick-lru";
 import * as Duration from "./duration.js";
-import { A, D, E, pipe } from "./fp.js";
-import * as Log from "./log.js";
+import * as Fetch from "./fetch.js";
+import { A, D, flow, O, pipe, TE } from "./fp.js";
+import * as Queues from "./queues.js";
 
 const DefiLlamaProtocol = pipe(
   D.struct({
@@ -44,65 +44,48 @@ type DefiLlamaProtocol = D.TypeOf<typeof DefiLlamaProtocol>;
 
 const DefiLlamaProtocols = D.array(DefiLlamaProtocol);
 
-type DefiLlamaProtocols = D.TypeOf<typeof DefiLlamaProtocols>;
-
 export type DefiLlamaProtocolMap = Map<string, DefiLlamaProtocol>;
 
-let protocolsLastFetched: Date | undefined = undefined;
-
-let cachedProtocols: DefiLlamaProtocolMap | undefined = undefined;
-
-export const fetchProtocolsQueue = new PQueue({
-  concurrency: 1,
+const protocolMapCache = new QuickLRU<string, DefiLlamaProtocolMap>({
+  maxSize: 1,
+  maxAge: Duration.millisFromHours(1),
 });
+const protocolsCacheKey = "protocols-cache-key";
+const getCachedProtocolMap = () =>
+  pipe(protocolMapCache.get(protocolsCacheKey), O.fromNullable);
+const setCachedProtocolMap = (protocolMap: DefiLlamaProtocolMap) => () => {
+  protocolMapCache.set(protocolsCacheKey, protocolMap);
+};
 
-const getProtocolsWithCache = async (): Promise<
-  DefiLlamaProtocolMap | undefined
-> => {
-  const shouldRefetch =
-    protocolsLastFetched === undefined ||
-    DateFns.differenceInSeconds(new Date(), protocolsLastFetched) >
-      Duration.secondsFromHours(1);
-
-  if (cachedProtocols !== undefined && !shouldRefetch) {
-    return cachedProtocols;
-  }
-
-  const res = await fetch("https://api.llama.fi/protocols");
-
-  if (res.status !== 200) {
-    Log.error(`fetch defi llama protocols bad response: ${res.status}`);
-    return undefined;
-  }
-
-  protocolsLastFetched = new Date();
-
-  const protocols = (await res.json()) as DefiLlamaProtocol[];
-  const protocolMap = pipe(
-    protocols,
-    DefiLlamaProtocols.decode,
-    E.match(
-      (e) => {
-        Log.error(D.draw(e));
-        return undefined;
-      },
-      (protocols) =>
+const getProtocolsWithCache = () =>
+  pipe(
+    getCachedProtocolMap(),
+    O.match(
+      () =>
         pipe(
-          protocols,
-          A.filter((protocol) => typeof protocol.address === "string"),
-          A.reduce(new Map(), (map, protocol) =>
-            // We filter out protocols without an address above.
-            map.set(protocol.address!.toLowerCase(), protocol),
+          Fetch.fetchWithRetryJson("https://api.llama.fi/protocols"),
+          TE.chainEitherKW(DefiLlamaProtocols.decode),
+          TE.map(
+            flow(
+              A.filter(
+                (
+                  protocol,
+                ): protocol is DefiLlamaProtocol & { address: string } =>
+                  typeof protocol.address === "string",
+              ),
+              A.reduce(new Map() as DefiLlamaProtocolMap, (map, protocol) =>
+                map.set(protocol.address.toLowerCase(), protocol),
+              ),
+            ),
           ),
+          TE.chainFirstIOK(setCachedProtocolMap),
         ),
+      (protocolMap) => TE.of(protocolMap),
     ),
   );
 
-  cachedProtocols = protocolMap;
+// To optimize cache hits we answer sequentially.
+const seqQueue = new PQueue({ concurrency: 1 });
 
-  return protocolMap;
-};
-
-// In order to fetch protocols once and return the cached map otherwise we need to execute serially.
-export const getProtocols = (): Promise<DefiLlamaProtocolMap | undefined> =>
-  fetchProtocolsQueue.add(getProtocolsWithCache);
+export const getProtocols = () =>
+  pipe(getProtocolsWithCache(), Queues.queueOnQueue(seqQueue));

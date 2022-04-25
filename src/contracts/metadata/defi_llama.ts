@@ -1,40 +1,56 @@
 import * as DefiLlama from "../../defi_llama.js";
-import { TAlt } from "../../fp.js";
-import * as Contracts from "../contracts.js";
+import { E, flow, MapS, pipe, T, TAlt, TE } from "../../fp.js";
 import * as Log from "../../log.js";
+import * as Contracts from "../contracts.js";
 
-export const addDefiLlamaMetadata = async (address: string): Promise<void> => {
-  // Doing this is fast. We can cache the response for 1h. We therefore do not need a queue.
-  const protocols = await DefiLlama.getProtocols();
+class UnknownContractError extends Error {}
 
-  if (protocols === undefined) {
-    return undefined;
-  }
-
-  const protocol = protocols.get(address);
-
-  if (protocol === undefined) {
-    return undefined;
-  }
-
-  await TAlt.seqTPar(
-    Contracts.setSimpleTextColumn(
-      "defi_llama_category",
-      address,
-      protocol.category,
+export const addDefiLlamaMetadata = (address: string) =>
+  pipe(
+    DefiLlama.getProtocols(),
+    TE.chainEitherKW(
+      flow(
+        MapS.lookup(address),
+        E.fromOption(() => new UnknownContractError()),
+      ),
     ),
-    Contracts.setSimpleTextColumn(
-      "defi_llama_twitter_handle",
-      address,
-      typeof protocol.twitter === "string" && protocol.twitter.length !== 0
-        ? protocol.twitter
-        : null,
+    TE.chainTaskK((protocol) =>
+      pipe(
+        TAlt.seqTPar(
+          Contracts.setSimpleTextColumn(
+            "defi_llama_category",
+            address,
+            protocol.category,
+          ),
+          Contracts.setSimpleTextColumn(
+            "defi_llama_twitter_handle",
+            address,
+            typeof protocol.twitter === "string" &&
+              protocol.twitter.length !== 0
+              ? protocol.twitter
+              : null,
+          ),
+        ),
+        T.chainFirstIOK(() =>
+          Log.debugIO(
+            `updated defi llama metadata, category: ${protocol.category}, twitterHandle: ${protocol.twitter}`,
+          ),
+        ),
+        T.chain(() => Contracts.updatePreferredMetadata(address)),
+      ),
     ),
-  )();
+    TE.match(
+      (e) => {
+        if (e instanceof UnknownContractError) {
+          // Skip silently
+          return;
+        }
 
-  Log.debug(
-    `updated defi llama metadata, category: ${protocol.category}, twitterHandle: ${protocol.twitter}`,
+        Log.error(
+          `failed to get defi llama metadata for contract ${address}`,
+          e,
+        );
+      },
+      (): void => undefined,
+    ),
   );
-
-  await Contracts.updatePreferredMetadata(address)();
-};
