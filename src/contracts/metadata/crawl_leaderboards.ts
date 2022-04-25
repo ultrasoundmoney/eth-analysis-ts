@@ -1,11 +1,11 @@
 import { setInterval } from "timers/promises";
-import * as Contracts from "./contracts/contracts.js";
-import * as ContractsMetadata from "./contracts/crawl_metadata.js";
-import * as Db from "./db.js";
-import * as Duration from "./duration.js";
-import { pipe, T } from "./fp.js";
-import * as GroupedAnalysis1 from "./grouped_analysis_1.js";
-import * as Log from "./log.js";
+import * as Db from "../../db.js";
+import * as Duration from "../../duration.js";
+import { pipe, T } from "../../fp.js";
+import * as GroupedAnalysis1 from "../../grouped_analysis_1.js";
+import * as Log from "../../log.js";
+import * as Contracts from "../contracts.js";
+import * as Metadata from "./metadata.js";
 
 await Db.runMigrations();
 
@@ -30,7 +30,7 @@ for await (const _ of intervalIterator) {
   const addressesToRefetch = await Contracts.getAddressesToRefetch()();
   const addresses = pipe(
     latestStats.leaderboards,
-    ContractsMetadata.getAddressesForMetadata,
+    Metadata.getAddressesForMetadata,
     // Make sure contracts we want to refetch are fetched.
     (leaderboardAddresses) => [...addressesToRefetch, ...leaderboardAddresses],
     (set) => Array.from(set),
@@ -40,10 +40,7 @@ for await (const _ of intervalIterator) {
     `adding metadata for ${addresses.length} addresses in leaderboard for block ${latestStats.number}`,
   );
 
-  await ContractsMetadata.addMetadataForLeaderboards(
-    addresses,
-    addressesToRefetch,
-  )();
+  await Metadata.addMetadataForAddresses(addresses, addressesToRefetch)();
   await Contracts.setLastLeaderboardEntryToNow(addresses);
 
   lastAnalyzed = latestStats.number;

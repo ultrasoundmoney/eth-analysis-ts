@@ -19,7 +19,7 @@ spec:
       containers:
         - name: contract-metadata
           image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/add_contract_metadata.js"]
+          command: ["node", "src/contracts/metadata/crawl_leaderboards.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
