@@ -7,7 +7,7 @@ import * as Queues from "../../queues.js";
 import * as Contracts from "../contracts.js";
 
 export const openseaContractQueue = new PQueue({
-  concurrency: 2,
+  concurrency: 1,
   throwOnTimeout: true,
   timeout: Duration.millisFromSeconds(120),
 });
