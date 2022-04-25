@@ -8,7 +8,7 @@ loki:
     enabled: true
     storageClassName: do-block-storage
     accessModes: ["ReadWriteOnce"]
-    size: 40Gi
+    size: 100Gi
   config:
     query_scheduler:
       max_outstanding_requests_per_tenant: 2048
