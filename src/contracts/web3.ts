@@ -2,7 +2,7 @@ import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
 import * as Etherscan from "../etherscan.js";
 import * as EthNode from "../eth_node.js";
-import * as FetchAlt from "../fetch_alt.js";
+import * as Fetch from "../fetch.js";
 import { B, O, OAlt, pipe, TE, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
 
@@ -313,10 +313,10 @@ export const getTotalSupply = (address: string) =>
       (
         e,
       ):
-        | FetchAlt.FetchError
+        | Fetch.FetchError
         | Error
-        | FetchAlt.BadResponseError
-        | FetchAlt.DecodeJsonError
+        | Fetch.BadResponseError
+        | Fetch.DecodeJsonError
         | UnsupportedContractError => {
         if (e instanceof Etherscan.AbiNotVerifiedError) {
           return new UnsupportedContractError(e.message);

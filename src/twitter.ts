@@ -1,7 +1,7 @@
 import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import { getTwitterToken } from "./config.js";
-import * as FetchAlt from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
 import { B, O, pipe, TE, TO } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -55,7 +55,7 @@ export type GetProfileByHandleError =
 
 export const getProfileByHandle = (handle: string) =>
   pipe(
-    FetchAlt.fetchWithRetry(
+    Fetch.fetchWithRetry(
       makeProfileByUsernameUrl(handle),
       {
         headers: {
@@ -89,7 +89,7 @@ export const getProfileByHandle = (handle: string) =>
       }
 
       return pipe(
-        FetchAlt.decodeJsonResponse(res),
+        Fetch.decodeJsonResponse(res),
         TE.map((body) => body as ApiWrapper<UserTwitterApiRaw>),
       );
     }),
@@ -123,13 +123,11 @@ export const getProfileImage = (profile: UserTwitterApiRaw) =>
       () => TO.none,
       () =>
         pipe(
-          FetchAlt.fetch(
-            profile.profile_image_url.replace("normal", "400x400"),
-          ),
+          Fetch.fetch(profile.profile_image_url.replace("normal", "400x400")),
           TE.map(() => profile.profile_image_url.replace("normal", "400x400")),
           TE.alt(() =>
             pipe(
-              FetchAlt.fetch(
+              Fetch.fetch(
                 profile.profile_image_url.replace("normal", "reasonably_small"),
               ),
               TE.map(() =>
@@ -139,7 +137,7 @@ export const getProfileImage = (profile: UserTwitterApiRaw) =>
           ),
           TE.alt(() =>
             pipe(
-              FetchAlt.fetch(profile.profile_image_url),
+              Fetch.fetch(profile.profile_image_url),
               TE.map(() => profile.profile_image_url),
             ),
           ),

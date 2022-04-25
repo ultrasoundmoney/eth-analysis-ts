@@ -3,7 +3,7 @@ import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import * as Config from "./config.js";
 import { readOptionalFromFirstRow, sqlT } from "./db.js";
-import * as FetchAlt from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
 import { A, flow, O, pipe, T, TE, TO } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -39,7 +39,7 @@ const getIsBodyWithDetail = (u: unknown): u is BodyWithDetail =>
 
 export const getContract = (address: string) =>
   pipe(
-    FetchAlt.fetchWithRetry(
+    Fetch.fetchWithRetry(
       makeContractUrl(address),
       {
         headers: { "X-API-KEY": Config.getOpenseaApiKey() },
@@ -63,7 +63,7 @@ export const getContract = (address: string) =>
             )
           : res.status === 406
           ? pipe(
-              FetchAlt.decodeJsonResponse(res),
+              Fetch.decodeJsonResponse(res),
               // TE.tryCatch(
               // )
               TE.chain((body) => {

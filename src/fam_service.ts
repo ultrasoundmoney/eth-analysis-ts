@@ -1,6 +1,6 @@
 import * as Retry from "retry-ts";
 import * as Config from "./config.js";
-import * as FetchAlt from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
 import { NEA, pipe, TE } from "./fp.js";
 
 export type LinkableUrl = {
@@ -50,7 +50,7 @@ const detailsByIdsUrl = `${Config.getFamServiceUrl()}/fam/leaderboards-details/i
 
 export const getDetailsByIds = (twitterIds: NEA.NonEmptyArray<string>) =>
   pipe(
-    FetchAlt.fetchWithRetryJson(
+    Fetch.fetchWithRetryJson(
       detailsByIdsUrl,
       {
         body: JSON.stringify({ twitterIds }),
@@ -71,7 +71,7 @@ const detailsByHandlesUrl = `${Config.getFamServiceUrl()}/fam/leaderboards-detai
 
 export const getDetailsByHandles = (handles: NEA.NonEmptyArray<string>) =>
   pipe(
-    FetchAlt.fetchWithRetryJson(
+    Fetch.fetchWithRetryJson(
       detailsByHandlesUrl,
       {
         body: JSON.stringify({ handles }),

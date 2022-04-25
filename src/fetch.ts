@@ -92,7 +92,7 @@ const defaultRetryPolicy = Retry.Monoid.concat(
   Retry.exponentialBackoff(2000),
   Retry.limitRetries(2),
 );
-const defaultNoRetryStatuses = [400, 401, 403, 404];
+const defaultNoRetryStatuses = [400, 401, 403, 404, 405];
 
 type FetchWithRetryOptions = {
   retryPolicy?: Retry.RetryPolicy;
@@ -117,7 +117,11 @@ export const fetchWithRetry = (
         T.chainFirstIOK(
           E.match(
             (e) =>
-              e instanceof BadResponseError
+              e instanceof BadResponseError &&
+              noRetryStatuses.includes(e.status)
+                ? // Status is a no retry status, i.e. expected, nothing to log.
+                  IO.of(undefined)
+                : e instanceof BadResponseError
                 ? Log.debugIO(
                     `retrying request ${url}, last status was: ${e.status}, attempt: ${status.iterNumber}, wait sum: ${status.cumulativeDelay}ms`,
                   )

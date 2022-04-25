@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import { formatUrl } from "url-sub";
-import * as FetchAlt from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
 import { A, E, O, pipe, TE } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -42,7 +42,7 @@ export type LeaderboardResponse = {
 
 export const getRankedCollections = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson(leaderboardUrl, {
+    Fetch.fetchWithRetryJson(leaderboardUrl, {
       headers: {
         "User-Agent": "HTTPie/3.0.2",
       },
@@ -82,7 +82,7 @@ export class UnexpectedNftGoResponse extends Error {}
 
 export const getMarketCap = () =>
   pipe(
-    FetchAlt.fetchWithRetryJson(getMarketCapUrl(), {
+    Fetch.fetchWithRetryJson(getMarketCapUrl(), {
       headers: {
         "User-Agent": "HTTPie/3.0.2",
       },

@@ -9,8 +9,8 @@ import type { AbiItem } from "web3-utils";
 import * as Config from "./config.js";
 import { getEtherscanToken } from "./config.js";
 import * as Duration from "./duration.js";
-import * as FetchAlt from "./fetch_alt.js";
-import { BadResponseError, FetchError } from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
+import { BadResponseError, FetchError } from "./fetch.js";
 import { B, E, flow, O, pipe, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 import { queueOnQueue } from "./queues.js";
@@ -39,7 +39,7 @@ const makeAbiUrl = (address: string) =>
 
 export const fetchAbi = (address: string) =>
   pipe(
-    FetchAlt.fetchWithRetryJson(makeAbiUrl(address)),
+    Fetch.fetchWithRetryJson(makeAbiUrl(address)),
     queueOnQueue(apiQueue),
     TE.map((u) => u as AbiResponse),
     TE.chainW((abiRaw) => {
@@ -94,7 +94,7 @@ export class NoNameTagInHtmlError extends Error {}
 
 export const getNameTag = (address: string) =>
   pipe(
-    FetchAlt.fetchWithRetry(
+    Fetch.fetchWithRetry(
       `https://blockscan.com/address/${address}`,
       undefined,
       { retryPolicy: blockscanRetryPolicy },
@@ -253,7 +253,7 @@ const makeEthSupplyUrl = () =>
  */
 export const getEthSupply = () =>
   pipe(
-    FetchAlt.fetchWithRetry(makeEthSupplyUrl()),
+    Fetch.fetchWithRetry(makeEthSupplyUrl()),
     queueOnQueue(apiQueue),
     TE.chain((res) =>
       TE.tryCatch(
