@@ -155,14 +155,13 @@ const addMetadata = (address: string) =>
     Queues.queueOnQueueWithTimeoutThrown(coingekcoLimitQueue),
     TE.chainTaskK((metadata) =>
       pipe(
-        pipe(
-          TAlt.seqTPar(
-            Contracts.setSimpleTextColumn(
-              "coingecko_name",
-              address,
-              metadata.name,
-            ),
-            Db.sqlTVoid`
+        TAlt.seqTPar(
+          Contracts.setSimpleTextColumn(
+            "coingecko_name",
+            address,
+            metadata.name,
+          ),
+          Db.sqlTVoid`
               UPDATE contracts
               SET coingecko_categories = ${
                 metadata.categories === null
@@ -171,24 +170,23 @@ const addMetadata = (address: string) =>
               }
               WHERE address = ${address}
             `,
-            Contracts.setSimpleTextColumn(
-              "coingecko_image_url",
-              address,
-              metadata.image_url,
-            ),
-            Contracts.setSimpleTextColumn(
-              "coingecko_twitter_handle",
-              address,
-              metadata.twitter_handle,
-            ),
+          Contracts.setSimpleTextColumn(
+            "coingecko_image_url",
+            address,
+            metadata.image_url,
           ),
-          T.chainFirstIOK(() =>
-            Log.debugIO(
-              `updated coingecko metadata, name: ${metadata.name}, twitterHandle: ${metadata.twitter_handle}`,
-            ),
+          Contracts.setSimpleTextColumn(
+            "coingecko_twitter_handle",
+            address,
+            metadata.twitter_handle,
           ),
-          T.chain(() => Contracts.updatePreferredMetadata(address)),
         ),
+        T.chainFirstIOK(() =>
+          Log.debugIO(
+            `updated coingecko metadata, name: ${metadata.name}, twitterHandle: ${metadata.twitter_handle}`,
+          ),
+        ),
+        T.chain(() => Contracts.updatePreferredMetadata(address)),
       ),
     ),
     TE.match(

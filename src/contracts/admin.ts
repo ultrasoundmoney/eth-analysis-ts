@@ -2,7 +2,7 @@ import { sqlT, sqlTVoid } from "../db.js";
 import { A, O, pipe, T, TE } from "../fp.js";
 import * as Log from "../log.js";
 import * as Contracts from "./contracts.js";
-import * as ContractsMetadata from "./crawl_metadata.js";
+import * as MetadataTwitter from "./metadata/twitter.js";
 
 export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
   pipe(
@@ -19,7 +19,7 @@ export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
           () => T.of(undefined),
           () =>
             pipe(
-              ContractsMetadata.addTwitterMetadata(address),
+              MetadataTwitter.addTwitterMetadata(address),
               TE.chainTaskK(() => Contracts.updatePreferredMetadata(address)),
               TE.match(
                 (e) => {
