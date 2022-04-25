@@ -16,6 +16,10 @@ export const storeContracts = flow(
 
 export type SimpleTextColumn =
   | "category"
+  | "coingecko_categories"
+  | "coingecko_image_url"
+  | "coingecko_name"
+  | "coingecko_twitter_handle"
   | "defi_llama_category"
   | "defi_llama_twitter_handle"
   | "etherscan_name_tag"
@@ -80,6 +84,9 @@ export const setSimpleBooleanColumn = (
 
 type MetadataComponents = {
   category: string | null;
+  coingeckoImageUrl: string | null;
+  coingeckoName: string | null;
+  coingeckoTwitterHandle: string | null;
   defiLlamaCategory: string | null;
   defiLlamaTwitterHandle: string | null;
   etherscanNameTag: string | null;
@@ -129,6 +136,7 @@ const getPreferredName = (metadata: MetadataComponents): string | null => {
     metadata.etherscanNameToken ||
     openseaName ||
     metadata.twitterName ||
+    metadata.coingeckoName ||
     metadata.name
   );
 };
@@ -146,17 +154,25 @@ const getPreferredTwitterHandle = (
 ): string | null =>
   metadata.manualTwitterHandle ||
   metadata.openseaTwitterHandle ||
+  metadata.coingeckoTwitterHandle ||
   metadata.defiLlamaTwitterHandle ||
   metadata.twitterHandle;
 
 const getPreferredImageUrl = (metadata: MetadataComponents): string | null =>
-  metadata.twitterImageUrl || metadata.openseaImageUrl || metadata.imageUrl;
+  metadata.twitterImageUrl ||
+  metadata.openseaImageUrl ||
+  metadata.coingeckoImageUrl ||
+  metadata.imageUrl;
 
 export const updatePreferredMetadata = (address: string): T.Task<void> =>
   pipe(
-    () => sql<MetadataComponents[]>`
+    Db.sqlT<MetadataComponents[]>`
       SELECT
         category,
+        coingecko_categories
+        coingecko_image_url,
+        coingecko_name,
+        coingecko_twitter_handle,
         defi_llama_category,
         defi_llama_twitter_handle,
         etherscan_name_tag,
