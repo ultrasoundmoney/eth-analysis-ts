@@ -1,8 +1,8 @@
 import * as DateFns from "date-fns";
 import { parseHTML } from "linkedom";
 import * as Contracts from "../contracts/contracts.js";
-import * as ContractsMetadata from "../contracts/crawl_metadata.js";
-import { addMetadataFromSimilar } from "../contracts/metadata_similar.js";
+import { addMetadataFromSimilar } from "../contracts/metadata/copy_from_similar.js";
+import { getAddressesForMetadata } from "../contracts/metadata/crawl_new_leaderboards.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as Fetch from "../fetch.js";
@@ -183,9 +183,7 @@ const updateLeaderboardMetadata = () =>
         T.map(
           flow(
             (groupedAnalysis) =>
-              ContractsMetadata.getAddressesForMetadata(
-                groupedAnalysis.leaderboards,
-              ),
+              getAddressesForMetadata(groupedAnalysis.leaderboards),
             (addresses) => Array.from(addresses.values()),
           ),
         ),

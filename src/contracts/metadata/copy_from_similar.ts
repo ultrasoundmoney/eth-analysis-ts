@@ -1,7 +1,7 @@
-import * as Contracts from "./contracts.js";
-import * as Log from "../log.js";
-import { A, NEA, O, pipe, T, TO, TOAlt } from "../fp.js";
-import * as Db from "../db.js";
+import * as Contracts from "../contracts.js";
+import * as Log from "../../log.js";
+import { A, NEA, O, pipe, T, TO, TOAlt } from "../../fp.js";
+import * as Db from "../../db.js";
 
 type SimilarContract = {
   address: string;
