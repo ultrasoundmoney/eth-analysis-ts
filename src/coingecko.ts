@@ -1,7 +1,8 @@
 import * as Retry from "retry-ts";
 import * as UrlSub from "url-sub";
-import { pipe, TE } from "./fp.js";
+import { decodeEmptyString } from "./decoding.js";
 import * as Fetch from "./fetch.js";
+import { A, D, NEA, O, pipe, TE } from "./fp.js";
 
 const coinGeckoApiUrl = "https://api.coingecko.com/api/v3";
 
@@ -96,4 +97,43 @@ export const getTopCoinMarkets = () =>
       retryPolicy,
     }),
     TE.map((u) => u as CoinMarket[]),
+  );
+
+const CoinResponse = D.struct({
+  name: D.string,
+  categories: pipe(decodeEmptyString, D.nullable, D.array),
+  image: D.struct({
+    large: D.string,
+  }),
+  links: D.struct({
+    twitter_screen_name: decodeEmptyString,
+  }),
+});
+
+const makeCoinUrl = (id: string) =>
+  UrlSub.formatUrl(coinGeckoApiUrl, "/coins/:id", {
+    id,
+    localization: false,
+    tickers: false,
+    market_data: false,
+  });
+
+export const getCoin = (id: string) =>
+  pipe(
+    Fetch.fetchWithRetryJson(makeCoinUrl(id), undefined, {
+      retryPolicy,
+    }),
+    TE.chainEitherKW(CoinResponse.decode),
+    TE.map((res) => ({
+      name: res.name,
+      categories: pipe(
+        res.categories,
+        A.map(O.fromNullable),
+        A.compact,
+        NEA.fromArray,
+        O.toNullable,
+      ),
+      image_url: res.image.large,
+      twitter_handle: res.links.twitter_screen_name,
+    })),
   );
