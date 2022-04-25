@@ -4,7 +4,7 @@ import * as Log from "../../log.js";
 import * as PerformanceMetrics from "../../performance_metrics.js";
 import * as Contracts from "../contracts.js";
 import { addDefiLlamaMetadata } from "./defi_llama.js";
-import * as Etherscan from "./etherscan.js";
+// import * as Etherscan from "./etherscan.js";
 import { addOpenseaMetadataMaybe } from "./opensea.js";
 import { addTwitterMetadataMaybe } from "./twitter.js";
 import { refreshWeb3Metadata } from "./web3.js";
@@ -39,7 +39,7 @@ export const addMetadata = (address: string, forceRefetch = false) =>
       Coingecko.checkForMetadata(address, forceRefetch),
       addDefiLlamaMetadata(address),
       // Turn off name tag as blockscan is returning 503 again.
-      Etherscan.checkForMetadata(address, forceRefetch),
+      // Etherscan.checkForMetadata(address, forceRefetch),
       addOpenseaMetadataMaybe(address, forceRefetch),
       refreshWeb3Metadata(address, forceRefetch),
     ),
