@@ -1,4 +1,5 @@
 import * as DateFns from "date-fns";
+import { coingekcoLimitQueue } from "./contracts/metadata/coingecko.js";
 import { etherscanNameTagQueue } from "./contracts/metadata/etherscan.js";
 import { openseaContractQueue } from "./contracts/metadata/opensea.js";
 import { twitterProfileQueue } from "./contracts/metadata/twitter.js";
@@ -55,5 +56,6 @@ export const logQueueSizes = () => {
     Log.debug(`on chain name queue size: ${web3Queue.size}`);
     Log.debug(`twitter profile queue size: ${twitterProfileQueue.size}`);
     Log.debug(`etherscan api queue size: ${Etherscan.apiQueue.size}`);
+    Log.debug(`coingecko meta queue size: ${coingekcoLimitQueue.size}`);
   }
 };

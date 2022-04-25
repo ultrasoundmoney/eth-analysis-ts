@@ -139,7 +139,7 @@ const getContractId = (address: string) =>
     ),
   );
 
-const coingekcoLimitQueue = new PQueue({
+export const coingekcoLimitQueue = new PQueue({
   carryoverConcurrencyCount: true,
   concurrency: 2,
   interval: Duration.millisFromSeconds(10),
