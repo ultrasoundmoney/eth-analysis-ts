@@ -125,10 +125,9 @@ export const getCoinMaps = () =>
         TE.of,
       ),
     ),
-    TE.map(({ onEthOnly, onEthAndOthers }) => {
-      return { onEthOnly, onEthAndOthers };
-    }),
+    TE.map(({ onEthOnly, onEthAndOthers }) => ({ onEthOnly, onEthAndOthers })),
   );
+
 const getSupplyForOnlyOnEthCoins = (
   topCoinMarkets: CoinGecko.CoinMarket[],
   coinsOnlyOnEth: CoinIdContractMap,

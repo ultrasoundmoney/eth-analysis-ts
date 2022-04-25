@@ -2,7 +2,7 @@ import * as DateFns from "date-fns";
 import { parseHTML } from "linkedom";
 import * as Contracts from "../contracts/contracts.js";
 import { addMetadataFromSimilar } from "../contracts/metadata/copy_from_similar.js";
-import { getAddressesForMetadata } from "../contracts/metadata/crawl_new_leaderboards.js";
+import { getAddressesForMetadata } from "../contracts/metadata/metadata.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import * as Fetch from "../fetch.js";
