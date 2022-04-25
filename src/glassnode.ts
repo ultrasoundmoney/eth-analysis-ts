@@ -2,7 +2,7 @@ import * as DateFns from "date-fns";
 import QuickLRU from "quick-lru";
 import * as UrlSub from "url-sub";
 import * as Config from "./config.js";
-import * as FetchAlt from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
 import { A, E, O, pipe, TE } from "./fp.js";
 import { UnixTimestamp } from "./time.js";
 import * as Duration from "./duration.js";
@@ -22,7 +22,7 @@ const stakedDataUrl = UrlSub.formatUrl(
   },
 );
 
-export const getStakedData = () => FetchAlt.fetchWithRetryJson(stakedDataUrl);
+export const getStakedData = () => Fetch.fetchWithRetryJson(stakedDataUrl);
 
 const currentStakedUrl = UrlSub.formatUrl(
   glassnodeApi,
@@ -51,7 +51,7 @@ export const getEthStaked = () =>
     O.match(
       () =>
         pipe(
-          FetchAlt.fetchWithRetryJson(currentStakedUrl),
+          Fetch.fetchWithRetryJson(currentStakedUrl),
           TE.map((u) => u as TotalValueStakedResponse),
           TE.chainEitherK((res) =>
             pipe(
@@ -88,7 +88,7 @@ const circulatingSupplyDataUrl = UrlSub.formatUrl(
 );
 
 export const getCirculatingSupplyData = () =>
-  FetchAlt.fetchWithRetryJson(circulatingSupplyDataUrl);
+  Fetch.fetchWithRetryJson(circulatingSupplyDataUrl);
 
 const ethInSmartContractsDataUrl = UrlSub.formatUrl(
   glassnodeApi,
@@ -104,4 +104,4 @@ const ethInSmartContractsDataUrl = UrlSub.formatUrl(
 );
 
 export const getLockedEthData = () =>
-  FetchAlt.fetchWithRetryJson(ethInSmartContractsDataUrl);
+  Fetch.fetchWithRetryJson(ethInSmartContractsDataUrl);

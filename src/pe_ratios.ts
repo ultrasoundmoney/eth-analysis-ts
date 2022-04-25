@@ -1,6 +1,6 @@
 import { formatUrl } from "url-sub";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
-import * as FetchAlt from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
 import { A, E, flow, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -38,7 +38,7 @@ const peRatioUrl = formatUrl("https://yfapi.net", "/v6/finance/quote", {
 
 const getPeRatios = () =>
   pipe(
-    FetchAlt.fetchWithRetry(peRatioUrl, {
+    Fetch.fetchWithRetry(peRatioUrl, {
       headers: { "X-API-KEY": yahooFinanceApiKey },
     }),
     TE.chainW((res) =>

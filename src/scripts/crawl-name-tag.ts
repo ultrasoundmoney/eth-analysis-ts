@@ -5,7 +5,7 @@ import * as ContractsMetadata from "../contracts/crawl_metadata.js";
 import { addMetadataFromSimilar } from "../contracts/metadata_similar.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
-import * as FetchAlt from "../fetch_alt.js";
+import * as Fetch from "../fetch.js";
 import { flow, O, pipe, Rec, T, TE, TEAlt, TO } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Log from "../log.js";
@@ -20,7 +20,7 @@ class NameNotFoundError extends Error {}
 
 const fetchNameTag = (address: string) =>
   pipe(
-    FetchAlt.fetchWithRetry(`https://blockscan.com/address/${address}`, {
+    Fetch.fetchWithRetry(`https://blockscan.com/address/${address}`, {
       headers: {
         cookie: process.env.CF_COOKIE!,
         "user-agent":
@@ -107,7 +107,7 @@ const getNameTag = (address: string) =>
                   return O.none;
                 }
 
-                if (e instanceof FetchAlt.BadResponseError) {
+                if (e instanceof Fetch.BadResponseError) {
                   Log.error(e.message, e);
                   return O.none;
                 }

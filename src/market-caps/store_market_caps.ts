@@ -1,6 +1,6 @@
 import { setInterval } from "timers/promises";
 import * as Duration from "../duration.js";
-import { BadResponseError } from "../fetch_alt.js";
+import { BadResponseError } from "../fetch.js";
 import { pipe, TE } from "../fp.js";
 import * as Log from "../log.js";
 import * as EthSupply from "../scarcity/eth_supply.js";

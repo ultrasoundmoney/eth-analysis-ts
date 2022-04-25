@@ -1,4 +1,4 @@
-import * as FetchAlt from "./fetch_alt.js";
+import * as Fetch from "./fetch.js";
 import { E, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -19,8 +19,9 @@ type MarketData = {
 // Uses 5 API credits per call, we have 2000 per month.
 export const getEthLocked = () =>
   pipe(
-    Log.debug("getting ETH locked from DefiPulse"),
-    () => FetchAlt.fetchWithRetry(marketDataApi),
+    Log.debugIO("getting ETH locked from DefiPulse"),
+    T.fromIO,
+    T.chain(() => Fetch.fetchWithRetry(marketDataApi)),
     TE.chainW((res) =>
       pipe(() => res.json() as Promise<MarketData>, T.map(E.right)),
     ),

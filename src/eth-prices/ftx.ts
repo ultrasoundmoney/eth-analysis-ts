@@ -4,7 +4,7 @@ import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import { JsTimestamp } from "../date_fns_alt.js";
 import * as Duration from "../duration.js";
-import * as FetchAlt from "../fetch_alt.js";
+import * as Fetch from "../fetch.js";
 import { A, E, O, pipe, T, TE } from "../fp.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
@@ -61,13 +61,9 @@ export const getFtxPrices = (startDateTime: Date, endDateTime: Date) => {
   }
 
   return pipe(
-    FetchAlt.fetchWithRetry(
-      makeEthPriceUrl(startMinute, endMinute),
-      undefined,
-      {
-        retryPolicy,
-      },
-    ),
+    Fetch.fetchWithRetry(makeEthPriceUrl(startMinute, endMinute), undefined, {
+      retryPolicy,
+    }),
     queueApiCall,
     TE.chainW((res) =>
       pipe(() => res.json() as Promise<IndexPriceResponse>, T.map(E.right)),
