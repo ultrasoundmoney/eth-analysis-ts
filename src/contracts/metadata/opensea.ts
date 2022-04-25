@@ -53,11 +53,6 @@ const getShouldFetchOpenseaMetadata = (
 
   return pipe(
     shouldSkip,
-    T.chainFirstIOK((shouldSkip) => () => {
-      if (shouldSkip) {
-        Log.debug(`opensea metadata, skipping ${address}`);
-      }
-    }),
     T.chain((shouldSkip) => (shouldSkip ? T.of(false) : T.of(true))),
   );
 };
@@ -104,8 +99,17 @@ const addOpenseaMetadata = (address: string) =>
   pipe(
     Opensea.getContract(address),
     Queues.queueOnQueueWithTimeoutThrown(openseaContractQueue),
-    TE.chainW((contract) =>
-      TE.fromTaskK(updateOpenseaMetadataFromContract)(address, contract),
+    TE.chainTaskK((contract) =>
+      pipe(
+        updateOpenseaMetadataFromContract(address, contract),
+        T.chain(() =>
+          TAlt.seqTPar(
+            Contracts.updatePreferredMetadata(address),
+            Opensea.setContractLastFetchNow(address),
+          ),
+        ),
+        TAlt.concatAllVoid,
+      ),
     ),
     TE.match(
       (error) => {
@@ -132,13 +136,6 @@ const addOpenseaMetadata = (address: string) =>
       },
       () => undefined,
     ),
-    T.chain(() =>
-      TAlt.seqTPar(
-        Contracts.updatePreferredMetadata(address),
-        Opensea.setContractLastFetchNow(address),
-      ),
-    ),
-    TAlt.concatAllVoid,
   );
 
 export const addOpenseaMetadataMaybe = (

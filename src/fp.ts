@@ -67,6 +67,11 @@ export const TAlt = {
   seqTSeq: Apply.sequenceT(T.ApplySeq),
   when: (shouldExecute: boolean, task: T.Task<void>) =>
     shouldExecute ? task : T.of(undefined as void),
+  whenT: (conditionalTask: T.Task<void>) => (ta: T.Task<boolean>) =>
+    pipe(
+      ta,
+      T.chain((shouldRetry) => TAlt.when(shouldRetry, conditionalTask)),
+    ),
   debugTap: <A>(message: string) =>
     T.chainFirstIOK<A, void>((value) => () => {
       Log.debug(message, value);

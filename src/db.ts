@@ -92,3 +92,5 @@ export const closeConnection = () => sql.end();
 export const query = sql;
 
 export const values = sql;
+
+export const array = sql.array;

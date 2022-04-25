@@ -16,6 +16,7 @@ import * as Log from "./log.js";
 import { queueOnQueueWithTimeoutThrown } from "./queues.js";
 
 export const apiQueue = new PQueue({
+  carryoverConcurrencyCount: true,
   concurrency: 2,
   interval: Duration.millisFromSeconds(4),
   intervalCap: 4,

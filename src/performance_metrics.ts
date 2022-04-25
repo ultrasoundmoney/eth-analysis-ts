@@ -1,7 +1,8 @@
 import * as DateFns from "date-fns";
-import * as ContractsMetadata from "./contracts/crawl_metadata.js";
-import * as DefiLlama from "./defi_llama.js";
-import * as EthPricesFtx from "./eth-prices/ftx.js";
+import { etherscanNameTagQueue } from "./contracts/metadata/etherscan.js";
+import { openseaContractQueue } from "./contracts/metadata/opensea.js";
+import { twitterProfileQueue } from "./contracts/metadata/twitter.js";
+import { web3Queue } from "./contracts/metadata/web3.js";
 import * as Etherscan from "./etherscan.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
@@ -49,20 +50,10 @@ export const logQueueSizes = () => {
 
   if (secondsSinceLastReport >= 30) {
     lastLogQueueSizeTimestamp = new Date();
-    Log.debug(
-      `fetch defi llama protocols queue size: ${DefiLlama.fetchProtocolsQueue.size}`,
-    );
-    // Log.debug(
-    //   `etherscan meta title queue size: ${ContractsMetadata.etherscanMetaTitleQueue.size}`,
-    // );
-    Log.debug(
-      `opensea metadata queue size: ${ContractsMetadata.openseaContractQueue.size}`,
-    );
-    Log.debug(`on chain name queue size: ${ContractsMetadata.web3Queue.size}`);
-    Log.debug(
-      `twitter profile queue size: ${ContractsMetadata.twitterProfileQueue.size}`,
-    );
+    Log.debug(`etherscan meta title queue size: ${etherscanNameTagQueue.size}`);
+    Log.debug(`opensea metadata queue size: ${openseaContractQueue.size}`);
+    Log.debug(`on chain name queue size: ${web3Queue.size}`);
+    Log.debug(`twitter profile queue size: ${twitterProfileQueue.size}`);
     Log.debug(`etherscan api queue size: ${Etherscan.apiQueue.size}`);
-    Log.debug(`ftx api queue size: ${EthPricesFtx.ftxApiQueue.size}`);
   }
 };
