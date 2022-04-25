@@ -103,7 +103,7 @@ const updateOpenseaMetadataFromContract = (
 const addOpenseaMetadata = (address: string) =>
   pipe(
     Opensea.getContract(address),
-    Queues.queueOnQueue(openseaContractQueue),
+    Queues.queueOnQueueWithTimeoutThrown(openseaContractQueue),
     TE.chainW((contract) =>
       TE.fromTaskK(updateOpenseaMetadataFromContract)(address, contract),
     ),

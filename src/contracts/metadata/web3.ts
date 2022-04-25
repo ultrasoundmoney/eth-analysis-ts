@@ -47,7 +47,7 @@ const handleGetSupportedInterfaceError = (
 const addWeb3Metadata = (address: string) =>
   pipe(
     ContractsWeb3.getContract(address),
-    Queues.queueOnQueue(web3Queue),
+    Queues.queueOnQueueWithTimeoutThrown(web3Queue),
     TE.chainFirstIOK(() => () => {
       web3LastAttemptMap[address] = new Date();
     }),
