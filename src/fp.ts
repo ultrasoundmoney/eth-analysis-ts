@@ -135,6 +135,14 @@ export const TOAlt = {
   seqSSeq: Apply.sequenceS(TO.ApplySeq),
   seqTPar: Apply.sequenceT(TO.ApplyPar),
   seqTSeq: Apply.sequenceT(TO.ApplySeq),
+  doOrSkipVoid: (ta: TO.TaskOption<void>) =>
+    pipe(
+      ta,
+      TO.match(
+        (): void => undefined,
+        (): void => undefined,
+      ),
+    ),
 };
 
 export const IOAlt = {

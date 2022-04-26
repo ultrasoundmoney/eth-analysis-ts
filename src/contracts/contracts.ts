@@ -1,7 +1,7 @@
 import A from "fp-ts/lib/Array.js";
 import * as Db from "../db.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
-import { flow, NEA, O, pipe, T, TO } from "../fp.js";
+import { flow, NEA, O, pipe, T, TO, TOAlt } from "../fp.js";
 import * as OpenSea from "../opensea.js";
 
 export const storeContracts = flow(
@@ -164,7 +164,7 @@ const getPreferredImageUrl = (metadata: MetadataComponents): string | null =>
   metadata.coingeckoImageUrl ||
   metadata.imageUrl;
 
-export const updatePreferredMetadata = (address: string): T.Task<void> =>
+export const updatePreferredMetadata = (address: string) =>
   pipe(
     Db.sqlT<MetadataComponents[]>`
       SELECT
@@ -195,26 +195,20 @@ export const updatePreferredMetadata = (address: string): T.Task<void> =>
       FROM contracts
       WHERE address = ${address}
     `,
-    T.map((rows) => rows[0]),
-    T.map(O.fromNullable),
-    T.chain(
-      O.match(
-        () => T.of(undefined),
-        (metadataComponents) =>
-          pipe(
-            () => sql`
-            UPDATE contracts
-            SET
-              name = ${getPreferredName(metadataComponents)},
-              category = ${getPreferredCategory(metadataComponents)},
-              twitter_handle = ${getPreferredTwitterHandle(metadataComponents)},
-              image_url = ${getPreferredImageUrl(metadataComponents)}
-            WHERE address = ${address}
-          `,
-            T.map(() => undefined),
-          ),
-      ),
+    T.map(O.fromNullableK((rows) => rows[0])),
+    TO.chainTaskK(
+      (metadataComponents) =>
+        Db.sqlTVoid`
+          UPDATE contracts
+          SET
+            name = ${getPreferredName(metadataComponents)},
+            category = ${getPreferredCategory(metadataComponents)},
+            twitter_handle = ${getPreferredTwitterHandle(metadataComponents)},
+            image_url = ${getPreferredImageUrl(metadataComponents)}
+          WHERE address = ${address}
+        `,
     ),
+    TOAlt.doOrSkipVoid,
   );
 
 export const setLastLeaderboardEntryToNow = async (
