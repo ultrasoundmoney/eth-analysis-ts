@@ -169,7 +169,6 @@ export const updatePreferredMetadata = (address: string) =>
     Db.sqlT<MetadataComponents[]>`
       SELECT
         category,
-        coingecko_categories
         coingecko_image_url,
         coingecko_name,
         coingecko_twitter_handle,
