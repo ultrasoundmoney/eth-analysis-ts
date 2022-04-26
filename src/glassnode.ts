@@ -8,10 +8,8 @@ import { UnixTimestamp } from "./time.js";
 import * as Duration from "./duration.js";
 
 const glassnodeApi = "https://api.glassnode.com";
-const stakedDataUrl = UrlSub.formatUrl(
-  glassnodeApi,
-  "/v1/metrics/eth2/staking_total_volume_sum",
-  {
+const makeStakedDataUrl = () =>
+  UrlSub.formatUrl(glassnodeApi, "/v1/metrics/eth2/staking_total_volume_sum", {
     a: "ETH",
     api_key: Config.getGlassnodeApiKey(),
     c: "NATIVE",
@@ -19,15 +17,13 @@ const stakedDataUrl = UrlSub.formatUrl(
     i: "24h",
     s: DateFns.getUnixTime(new Date("2020-11-03T00:00:00Z")),
     u: DateFns.getUnixTime(new Date()),
-  },
-);
+  });
 
-export const getStakedData = () => Fetch.fetchWithRetryJson(stakedDataUrl);
+export const getStakedData = () =>
+  Fetch.fetchWithRetryJson(makeStakedDataUrl());
 
-const currentStakedUrl = UrlSub.formatUrl(
-  glassnodeApi,
-  "/v1/metrics/eth2/staking_total_volume_sum",
-  {
+const makeCurrentStakedUrl = () =>
+  UrlSub.formatUrl(glassnodeApi, "/v1/metrics/eth2/staking_total_volume_sum", {
     a: "ETH",
     api_key: Config.getGlassnodeApiKey(),
     c: "NATIVE",
@@ -35,8 +31,7 @@ const currentStakedUrl = UrlSub.formatUrl(
     i: "1h",
     s: DateFns.getUnixTime(DateFns.subHours(new Date(), 2)),
     u: DateFns.getUnixTime(new Date()),
-  },
-);
+  });
 
 type TotalValueStakedResponse = { t: UnixTimestamp; v: number }[];
 const ethStakedCache = new QuickLRU<string, number>({
@@ -51,7 +46,7 @@ export const getEthStaked = () =>
     O.match(
       () =>
         pipe(
-          Fetch.fetchWithRetryJson(currentStakedUrl),
+          Fetch.fetchWithRetryJson(makeCurrentStakedUrl()),
           TE.map((u) => u as TotalValueStakedResponse),
           TE.chainEitherK((res) =>
             pipe(
@@ -73,10 +68,8 @@ export const getEthStaked = () =>
     ),
   );
 
-const circulatingSupplyDataUrl = UrlSub.formatUrl(
-  glassnodeApi,
-  "/v1/metrics/supply/current",
-  {
+const makeCirculatingSupplyDataUrl = () =>
+  UrlSub.formatUrl(glassnodeApi, "/v1/metrics/supply/current", {
     a: "ETH",
     api_key: Config.getGlassnodeApiKey(),
     c: "NATIVE",
@@ -84,24 +77,20 @@ const circulatingSupplyDataUrl = UrlSub.formatUrl(
     i: "24h",
     s: DateFns.getUnixTime(new Date("2015-07-30T00:00:00Z")),
     u: DateFns.getUnixTime(new Date()),
-  },
-);
+  });
 
 export const getCirculatingSupplyData = () =>
-  Fetch.fetchWithRetryJson(circulatingSupplyDataUrl);
+  Fetch.fetchWithRetryJson(makeCirculatingSupplyDataUrl());
 
-const ethInSmartContractsDataUrl = UrlSub.formatUrl(
-  glassnodeApi,
-  "/v1/metrics/distribution/supply_contracts",
-  {
+const makeEthInSmartContractsDataUrl = () =>
+  UrlSub.formatUrl(glassnodeApi, "/v1/metrics/distribution/supply_contracts", {
     a: "ETH",
     api_key: Config.getGlassnodeApiKey(),
     f: "JSON",
     i: "24h",
     s: DateFns.getUnixTime(new Date("2015-08-07T00:00:00Z")),
     u: DateFns.getUnixTime(new Date()),
-  },
-);
+  });
 
 export const getLockedEthData = () =>
-  Fetch.fetchWithRetryJson(ethInSmartContractsDataUrl);
+  Fetch.fetchWithRetryJson(makeEthInSmartContractsDataUrl());
