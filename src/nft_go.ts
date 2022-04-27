@@ -1,36 +1,50 @@
-import * as DateFns from "date-fns";
-import { formatUrl } from "url-sub";
-import * as Fetch from "./fetch.js";
-import { A, E, O, pipe, TE } from "./fp.js";
+import { decodeWithError } from "./decoding.js";
+import { A, D, E, O, pipe, TE } from "./fp.js";
+import * as Fs from "./fs.js";
 import * as Log from "./log.js";
 
-const nftGoApi = "https://api.nftgo.io/api/v1";
-const leaderboardUrl = formatUrl(
-  nftGoApi,
-  "/ranking/collections?offset=0&limit=30&by=marketCap&interval=24h&asc=-1&rarity=-1&fields=marketCap,marketCapChange24h",
-  {},
-);
+// const nftGoApi = "https://api.nftgo.io/api/v1";
+// const leaderboardUrl = formatUrl(nftGoApi, "/ranking/collections", {
+//   offset: 0,
+//   limit: 30,
+//   by: "marketCap",
+//   interval: "24h",
+//   asc: -1,
+//   rarity: -1,
+//   fields: ["marketCap", "marketCapChange24h"].join(","),
+// });
 
 // collection page https://nftgo.io/collection/blitmap/overview
-export type Collection = {
-  blockchain: "ETH" | string;
-  contracts: string[];
-  link: string;
-  logo: string;
-  longDesc: string;
-  marketCap: number;
-  marketCapChange24h: number;
-  medias: {
-    twitter?: string;
-    discord?: string;
-    telegram?: string | null;
-    instagram?: string | null;
-    medium?: string | null;
-    youtube?: string | null;
-  };
-  name: string;
-  slug: string;
-};
+const Collection = D.struct({
+  /** ETH | string */
+  blockchain: D.string,
+  contracts: D.array(D.string),
+  link: D.string,
+  logo: D.string,
+  longDesc: D.string,
+  marketCap: D.number,
+  marketCapChange24h: D.number,
+  medias: D.partial({
+    twitter: D.nullable(D.string),
+    discord: D.nullable(D.string),
+    telegram: D.nullable(D.string),
+    instagram: D.nullable(D.string),
+    medium: D.nullable(D.string),
+    youtube: D.nullable(D.string),
+  }),
+  name: D.string,
+  slug: D.string,
+});
+
+export type Collection = D.TypeOf<typeof Collection>;
+
+const LeaderboardResponse = D.struct({
+  errorCode: D.literal(0),
+  data: D.struct({
+    total: D.number,
+    list: D.array(Collection),
+  }),
+});
 
 export type LeaderboardResponse = {
   errorCode: number;
@@ -42,13 +56,11 @@ export type LeaderboardResponse = {
 
 export const getRankedCollections = () =>
   pipe(
-    Fetch.fetchWithRetryJson(leaderboardUrl, {
-      headers: {
-        "User-Agent": "HTTPie/3.0.2",
-      },
-    }),
-    TE.map((u) => u as LeaderboardResponse),
-    TE.chainEitherK((res) =>
+    // Blocked by CF
+    // Fetch.fetchWithRetryJson(leaderboardUrl),
+    Fs.readFileJson("./nftCollections.json"),
+    TE.chainEitherKW(decodeWithError(LeaderboardResponse)),
+    TE.chainEitherKW((res) =>
       pipe(
         res,
         (res) => res.data?.list,
@@ -66,29 +78,34 @@ export const getRankedCollections = () =>
     ),
   );
 
-const getMarketCapUrl = () =>
-  formatUrl(nftGoApi, "/data/chart/marketcap", {
-    from: DateFns.getTime(new Date()),
-    to: DateFns.getTime(new Date()),
-    interval: "1h",
-  });
+// const getMarketCapUrl = () =>
+//   formatUrl(nftGoApi, "/data/chart/marketcap", {
+//     from: DateFns.getTime(new Date()),
+//     to: DateFns.getTime(new Date()),
+//     interval: "1h",
+//   });
 
-export type MarketCapResponse = {
-  errorCode: 0;
-  data: { y: number[] };
-};
+const MarketCapResponse = D.struct({
+  errorCode: D.literal(0),
+  data: D.struct({
+    /** jsTimestamp */
+    x: D.array(D.number),
+    /** market cap in USD */
+    y: D.array(D.number),
+  }),
+});
+
+export type MarketCapResponse = D.TypeOf<typeof MarketCapResponse>;
 
 export class UnexpectedNftGoResponse extends Error {}
 
 export const getMarketCap = () =>
   pipe(
-    Fetch.fetchWithRetryJson(getMarketCapUrl(), {
-      headers: {
-        "User-Agent": "HTTPie/3.0.2",
-      },
-    }),
-    TE.map((u) => u as MarketCapResponse),
-    TE.chainEitherK((res) =>
+    // Blocked by CF
+    // Fetch.fetchWithRetryJson(getMarketCapUrl()),
+    Fs.readFileJson("./nftMarketCap.json"),
+    TE.chainEitherKW(decodeWithError(MarketCapResponse)),
+    TE.chainEitherKW((res) =>
       pipe(
         res.data?.y,
         O.fromNullable,
