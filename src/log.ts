@@ -35,10 +35,14 @@ const prettySeverityMap: Record<Level, string> = {
   ALERT: `${kleur.bgRed().white("alert")} - `,
 };
 
+const resolveAliasses = (level: string) =>
+  level === "WARN" ? "WARNING" : level;
+
 const logLevel = pipe(
-  process.env["LOG_LEVEL"] as Level | undefined,
+  process.env["LOG_LEVEL"] as string | undefined,
   (logLevel) => logLevel ?? "WARNING",
-  (level) => level.toUpperCase() as Level,
+  (level) => level.toUpperCase(),
+  (level) => resolveAliasses(level) as Level,
 );
 
 const logFnMap: Record<Level, (...data: unknown[]) => void> = {
@@ -86,7 +90,7 @@ export const log = (
         error_name: meta.name,
         error_stack: meta.stack,
         level,
-        message: message,
+        message,
         // Log whatever extra properties meta still contains.
         meta: {
           ...meta,
@@ -101,7 +105,7 @@ export const log = (
     console.log(
       JSON.stringify({
         level,
-        message: message,
+        message,
         meta,
         timestamp: new Date(),
       }),
