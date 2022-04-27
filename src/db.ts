@@ -1,6 +1,5 @@
 import { camelCase } from "change-case";
-import { flow, Lazy } from "fp-ts/lib/function.js";
-import * as Ley from "ley";
+import Ley from "ley";
 import postgres, {
   AsRowList,
   PendingQuery,
@@ -8,7 +7,7 @@ import postgres, {
   SerializableParameter,
 } from "postgres";
 import * as Config from "./config.js";
-import { A, O, pipe, T } from "./fp.js";
+import { A, flow, O, pipe, T } from "./fp.js";
 
 const connectionsPerServiceProd: Partial<Record<string, number>> = {
   "analyze-blocks": 8,
@@ -31,6 +30,8 @@ const getMax = (env: Config.Env, name: string | undefined) =>
 
 const config = {
   ssl: "prefer",
+  // Consider removing manual conversions in favor of v3 automatic.
+  // transform: { column: { to: postgres.fromCamel, from: postgres.toCamel } },
   transform: { column: camelCase },
   max: getMax(Config.getEnv(), Config.getName()),
   connection: {
@@ -45,7 +46,7 @@ export const sqlT =
   <A extends any[] = Row[]>(
     template: TemplateStringsArray,
     ...args: SerializableParameter[]
-  ): Lazy<PendingQuery<AsRowList<A>>> =>
+  ): (() => PendingQuery<AsRowList<A>>) =>
   () =>
     sql(template, ...args);
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -54,12 +55,6 @@ export const sqlTVoid = flow(
   sqlT,
   T.map((): void => undefined),
 );
-
-export const runMigrations = () =>
-  Ley.up({
-    dir: "migrations",
-    config: config,
-  });
 
 export const readOptionalFromFirstRow =
   <A>(field: keyof A) =>
@@ -86,6 +81,12 @@ export const sqlTNotify = (channel: string, payload: string) =>
     () => sql.notify(channel, payload),
     T.map((): void => undefined),
   );
+
+export const runMigrations = () =>
+  Ley.up({
+    dir: "migrations",
+    config: config,
+  });
 
 export const closeConnection = () => sql.end();
 
