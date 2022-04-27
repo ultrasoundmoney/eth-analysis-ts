@@ -643,13 +643,13 @@ const buildRankingFromCollection = (
   name: collection.name,
   nftGoName: collection.name,
   nftGoTwitterHandle:
-    collection.medias.twitter !== undefined
+    typeof collection.medias.twitter === "string"
       ? pipe(collection.medias.twitter, S.split("/"), RNEA.last)
       : undefined,
   nftGoUrl: `https://nftgo.io/collection/${collection.slug}`,
   tooltipDescription: undefined,
   tooltipName: undefined,
-  twitterUrl: collection.medias.twitter,
+  twitterUrl: collection.medias.twitter ?? undefined,
 });
 
 const buildRankingWithContractDetailsFromCollection = (
