@@ -207,7 +207,7 @@ const getSupplyForOnEthAndOthersCoins = (
             }
 
             if (e instanceof Contracts.UnsupportedContractError) {
-              Log.warn(
+              Log.info(
                 `coin ${coinMarket.symbol}'s is unsupported, skipping`,
                 e,
               );
