@@ -16,7 +16,7 @@ let lastEthStaked: O.Option<EthStaked> = O.none;
 
 const updateEthStaked = () =>
   pipe(
-    EthNode.getBalance(eth2DepositAddress),
+    () => EthNode.getBalance(eth2DepositAddress),
     TAlt.chainFirstLogDebug(
       (balance) =>
         `got eth staked from deposit contract, balance: ${Format.ethFromWei(

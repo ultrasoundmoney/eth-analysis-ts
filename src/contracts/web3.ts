@@ -14,13 +14,14 @@ const contractsCache = new QuickLRU<string, Contract>({
 const getCachedContract = (address: string) =>
   pipe(contractsCache.get(address), O.fromNullable);
 
+const setCachedContract = (address: string, contract: Contract) => () =>
+  contractsCache.set(address, contract);
+
 const fetchAndCacheContract = (address: string) =>
   pipe(
     Etherscan.getAbi(address),
-    TE.map((abi) => EthNode.makeContract(address, abi)),
-    TE.chainFirstIOK((contract) => () => {
-      contractsCache.set(address, contract);
-    }),
+    TE.chainTaskK((abi) => () => EthNode.makeContract(address, abi)),
+    TE.chainFirstIOK((contract) => setCachedContract(address, contract)),
   );
 
 export const getContract = (address: string) =>
@@ -286,8 +287,9 @@ const getErc20UnstructuredProxyTotalSupply = (contract: Contract) =>
     OAlt.getOrThrow("expected contract to be present in unstructuredProxy map"),
     (implementationAddress) => Etherscan.getAbi(implementationAddress),
     // To call unstructured proxies we create a contract with the proxy address, but the implementation ABI.
-    TE.map((abi) =>
-      EthNode.makeContract(contract.options.address.toLowerCase(), abi),
+    TE.chainTaskK(
+      (abi) => () =>
+        EthNode.makeContract(contract.options.address.toLowerCase(), abi),
     ),
     TE.chainW(getErc20TotalSupply),
   );
