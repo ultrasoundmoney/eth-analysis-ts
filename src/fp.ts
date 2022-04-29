@@ -158,4 +158,5 @@ export const EAlt = {
 
 export const MapS = {
   lookup: MapF.lookup(S.Eq),
+  upsertAt: MapF.upsertAt(S.Eq),
 };
