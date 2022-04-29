@@ -57,11 +57,15 @@ let managedGethWs: WebSocket | undefined = undefined;
 
 const messageCallbackMap = new Map();
 
-const makeWs = (url: string) => {
+const makeGethWs = (url: string) => {
   const ws = new WebSocket(url);
 
   return new Promise<WebSocket>((resolve, reject) => {
-    ws.on("reject", (error) => {
+    ws.on("close", () => {
+      Log.info("geth node websocket closed");
+    });
+
+    ws.on("error", (error) => {
       reject(error);
     });
 
@@ -72,12 +76,25 @@ const makeWs = (url: string) => {
   });
 };
 
-const connect = async (): Promise<WebSocket> => {
-  const ws = await makeWs(
-    Config.getUseNodeFallback()
-      ? Config.getGethFallbackUrl()
-      : Config.getGethUrl(),
-  );
+const connectWithFallback = async () => {
+  if (Config.getUseNodeFallback()) {
+    Log.warn("using geth node fallback");
+    const ws = await makeGethWs(Config.getGethFallbackUrl());
+    return ws;
+  }
+
+  try {
+    const ws = await makeGethWs(Config.getGethUrl());
+    return ws;
+  } catch (error) {
+    Log.alert("failed to connect to own node ws, using fallback", error);
+    const ws = await makeGethWs(Config.getGethFallbackUrl());
+    return ws;
+  }
+};
+
+const connectGeth = async (): Promise<WebSocket> => {
+  const ws = await connectWithFallback();
 
   ws.on("message", (event) => {
     const message = JSON.parse(event.toString()) as {
@@ -98,10 +115,6 @@ const connect = async (): Promise<WebSocket> => {
     } else {
       cb(null, message.result);
     }
-  });
-
-  ws.on("close", () => {
-    Log.info("geth node websocket closed");
   });
 
   return ws;
@@ -126,7 +139,7 @@ const getOpenSocketOrReconnect = async (): Promise<WebSocket> => {
     );
   }
 
-  const ws = await connect();
+  const ws = await connectGeth();
   managedGethWs = ws;
   return ws;
 };
@@ -141,12 +154,10 @@ const connectWeb3 = (url: string) =>
       timeout: 8000,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onError: any = (error: unknown) => {
+    provider.on("error", ((error: unknown) => {
       reject(error);
-    };
-
-    provider.on("error", onError);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any);
 
     provider.on("connect", () => {
       resolve(provider);
@@ -171,6 +182,10 @@ export const getExistingWeb3OrReconnect = async (): Promise<Web3> => {
     managedWeb3Obj = web3;
     return managedWeb3Obj;
   } catch (error) {
+    Log.alert(
+      "failed to connect to own node for web3js, using fallback",
+      error,
+    );
     const provider = await connectWeb3(Config.getGethFallbackUrl());
     const web3 = new Web3(provider);
     managedWeb3Obj = web3;
