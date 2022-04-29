@@ -33,9 +33,9 @@
     "url-sub": "^0.10.0",
     "urlcat": "^2.0.4",
     "utf-8-validate": "^5.0.8",
-    "web3": "^1.6.1",
-    "web3-eth-contract": "^1.6.1",
-    "web3-utils": "^1.6.1",
+    "web3": "^1.7.3",
+    "web3-eth-contract": "^1.7.3",
+    "web3-utils": "^1.7.3",
     "ws": "^8.4.0"
   },
   "devDependencies": {
