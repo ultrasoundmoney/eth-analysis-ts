@@ -58,6 +58,7 @@ type ContractEntry = {
   type: "contract";
   twitterBio: string | undefined;
   twitterHandle: string | undefined;
+  twitterUrl: string | undefined;
 };
 
 type EthTransfersEntry = {
@@ -245,6 +246,12 @@ export const buildLeaderboard = (
     twitterBio: row.twitterBio,
     twitterHandle: row.twitterHandle,
     twitterName: row.twitterName,
+    twitterUrl: pipe(
+      row.twitterName,
+      O.fromNullable,
+      O.map((handle) => `https://twitter.com/${handle}`),
+      O.toUndefined,
+    ),
     type: "contract",
   }));
 
