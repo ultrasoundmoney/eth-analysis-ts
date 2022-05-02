@@ -19,42 +19,17 @@
     ]
   },
   "editable": true,
-  "gnetId": null,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "alert": {
-        "alertRuleTags": {},
-        "conditions": [
-          {
-            "evaluator": {
-              "params": [1],
-              "type": "gt"
-            },
-            "operator": {
-              "type": "and"
-            },
-            "query": {
-              "params": ["A", "5m", "now"]
-            },
-            "reducer": {
-              "params": [],
-              "type": "avg"
-            },
-            "type": "query"
-          }
-        ],
-        "executionErrorState": "alerting",
-        "for": "5m",
-        "frequency": "1m",
-        "handler": 1,
-        "name": "alert per hour alert",
-        "noDataState": "no_data",
-        "notifications": []
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
       },
-      "datasource": "Loki",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -141,36 +116,10 @@
       "type": "timeseries"
     },
     {
-      "alert": {
-        "alertRuleTags": {},
-        "conditions": [
-          {
-            "evaluator": {
-              "params": [20],
-              "type": "gt"
-            },
-            "operator": {
-              "type": "and"
-            },
-            "query": {
-              "params": ["A", "5m", "now"]
-            },
-            "reducer": {
-              "params": [],
-              "type": "avg"
-            },
-            "type": "query"
-          }
-        ],
-        "executionErrorState": "alerting",
-        "for": "5m",
-        "frequency": "1m",
-        "handler": 1,
-        "name": "error per hour alert",
-        "noDataState": "no_data",
-        "notifications": []
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
       },
-      "datasource": "Loki",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -211,10 +160,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 20
               }
             ]
           }
@@ -257,36 +202,10 @@
       "type": "timeseries"
     },
     {
-      "alert": {
-        "alertRuleTags": {},
-        "conditions": [
-          {
-            "evaluator": {
-              "params": [30],
-              "type": "gt"
-            },
-            "operator": {
-              "type": "and"
-            },
-            "query": {
-              "params": ["A", "5m", "now"]
-            },
-            "reducer": {
-              "params": [],
-              "type": "avg"
-            },
-            "type": "query"
-          }
-        ],
-        "executionErrorState": "alerting",
-        "for": "5m",
-        "frequency": "1m",
-        "handler": 1,
-        "name": "warning per hour alert",
-        "noDataState": "no_data",
-        "notifications": []
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
       },
-      "datasource": "Loki",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -373,7 +292,10 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Loki",
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -452,7 +374,6 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Loki",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -493,10 +414,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 20
               }
             ]
           }
@@ -522,7 +439,11 @@
       },
       "targets": [
         {
-          "expr": "sum(count_over_time({level=\"DEBUG\"}[1h])) by (container)",
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "expr": "sum(count_over_time({level=\"DEBUG\",app!=\"canary\"}[1h])) by (container)",
           "legendFormat": "{{container}}",
           "refId": "A"
         }
@@ -531,19 +452,21 @@
       "type": "timeseries"
     }
   ],
-  "schemaVersion": 30,
+  "refresh": "",
+  "schemaVersion": 34,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Log Rates",
   "uid": "0s9374snk",
-  "version": 3
+  "version": 6,
+  "weekStart": ""
 }
