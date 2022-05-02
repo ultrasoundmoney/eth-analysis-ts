@@ -65,7 +65,7 @@ for (const blockNumber of blocksToStore) {
       () => T.of(undefined),
       (insertables) =>
         pipe(
-          // Not all contracts are known?! Store all blocks and block_contract_fees again.
+          // Not all contracts are known?! Store all blocks and contract_base_fees again.
           Contracts.storeContracts(
             pipe(
               insertables,

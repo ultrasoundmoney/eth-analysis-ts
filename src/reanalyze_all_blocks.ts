@@ -8,7 +8,7 @@ import { pipe, TEAlt, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
 import * as Transactions from "./transactions.js";
 
-// After this process has run, all calculations based on blocks or block_contract_base_fees will be wrong and need to be recalculated.
+// After this process has run, all calculations based on blocks or contract_base_fees will be wrong and need to be recalculated.
 
 const lastStoredBlock = await Blocks.getLastStoredBlock()();
 
