@@ -23,7 +23,7 @@ const Collection = D.struct({
   logo: D.string,
   longDesc: D.string,
   marketCap: D.number,
-  marketCapChange24h: D.number,
+  marketCapChange24h: D.nullable(D.number),
   medias: D.partial({
     twitter: D.nullable(D.string),
     discord: D.nullable(D.string),
