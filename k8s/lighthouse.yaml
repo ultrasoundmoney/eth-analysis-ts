@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lighthouse
+spec:
+  serviceName: lighthouse
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lighthouse
+  template:
+    metadata:
+      labels:
+        app: lighthouse
+    spec:
+      containers:
+        - name: lighthouse
+          image: sigp/lighthouse
+          args:
+            [
+              "lighthouse",
+              "--network",
+              "mainnet",
+              "beacon",
+              "--http",
+              "--http-address",
+              "0.0.0.0",
+              "--metrics",
+              "--metrics-address",
+              "0.0.0.0",
+            ]
+          env:
+          ports:
+            - containerPort: 9000
+              name: lighthousepeers
+            - containerPort: 5052
+              name: lighthousehttp
+            - containerPort: 5052
+              name: metrics
+          volumeMounts:
+            - name: lighthouse-data
+              mountPath: "/root/.lighthouse"
+          resources:
+            limits:
+              cpu: "4000m"
+              memory: 8000Mi
+            requests:
+              cpu: "2000m"
+              memory: 1000Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: lighthouse-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage
+        resources:
+          requests:
+            storage: 256Gi
