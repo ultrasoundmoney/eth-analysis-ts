@@ -198,20 +198,22 @@ const addMetadata = (address: string) =>
 
         Log.error(`failed to get coingecko metadata for ${address}`, e);
       },
-      () => undefined,
+      (): void => undefined,
     ),
   );
 
 export const checkForMetadata = (address: string, forceRefetch = false) =>
   pipe(
     getLastAttempt(address),
-    T.chainFirst((lastAttempt) =>
+    T.chain((lastAttempt) =>
       TAlt.when(
         forceRefetch || getIsPastBackoff(lastAttempt),
-        addMetadata(address),
+        pipe(
+          addMetadata(address),
+          T.chain(() =>
+            setContractLastAttemptToNow(address, lastAttempt.totalAttempts + 1),
+          ),
+        ),
       ),
-    ),
-    T.chain((lastAttempt) =>
-      setContractLastAttemptToNow(address, lastAttempt.totalAttempts + 1),
     ),
   );
