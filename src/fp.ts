@@ -94,6 +94,14 @@ export const TEAlt = {
   concatAllVoid: TE.map(Mo.concatAll(Void.Monoid)),
   decodeUnknownError: (e: unknown): Error =>
     e instanceof Error ? e : new Error(String(e)),
+  debugTap: <A>(message: string) =>
+    TE.chainFirstIOK<A, void>((value) => () => {
+      Log.debug(message, value);
+    }),
+  debugTapStr: <A>(message: string) =>
+    TE.chainFirstIOK<A, void>((value) => () => {
+      Log.debug(message + String(value));
+    }),
   getOrThrow,
   seqSPar: Apply.sequenceS(TE.ApplyPar),
   seqSSeq: Apply.sequenceS(TE.ApplySeq),
