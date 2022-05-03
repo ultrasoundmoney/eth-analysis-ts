@@ -2,7 +2,7 @@ import PQueue from "p-queue";
 import { setTimeout } from "timers/promises";
 import * as Blocks from "./blocks/blocks.js";
 import * as Duration from "./duration.js";
-import * as EthNode from "./eth_node.js";
+import * as EthNode from "./eth_execution_node.js";
 import { A, flow, NEA, O, pipe, RA, T, TO } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";

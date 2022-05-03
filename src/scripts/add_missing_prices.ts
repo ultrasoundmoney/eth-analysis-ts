@@ -5,7 +5,7 @@ import * as Blocks from "../blocks/blocks.js";
 import { sql, sqlTVoid } from "../db.js";
 import { EthPrice } from "../eth-prices/eth_prices.js";
 import * as EthPricesFtx from "../eth-prices/ftx.js";
-import * as EthNode from "../eth_node.js";
+import * as EthNode from "../eth_execution_node.js";
 import { E, pipe, RA, T, TE } from "../fp.js";
 import * as Log from "../log.js";
 

@@ -1,6 +1,6 @@
 import { setInterval } from "timers/promises";
 import * as Duration from "../duration.js";
-import * as EthNode from "../eth_node.js";
+import * as EthNode from "../eth_execution_node.js";
 import { WeiBI } from "../eth_units.js";
 import * as Format from "../format.js";
 import { O, OAlt, pipe, T, TAlt } from "../fp.js";

@@ -167,7 +167,10 @@ const connectWeb3 = (url: string) =>
   });
 
 export const getExistingWeb3OrReconnect = async (): Promise<Web3> => {
-  if (managedWeb3Obj !== undefined) {
+  if (
+    managedWeb3Obj !== undefined &&
+    (managedWeb3Obj.currentProvider as { connected: boolean }).connected
+  ) {
     return Promise.resolve(managedWeb3Obj);
   }
 

@@ -1,7 +1,7 @@
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import * as Db from "../db.js";
-import * as EthNode from "../eth_node.js";
+import * as EthNode from "../eth_execution_node.js";
 import { pipe, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 
