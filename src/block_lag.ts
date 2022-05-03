@@ -1,7 +1,7 @@
 import { setInterval } from "timers/promises";
 import * as Db from "./db.js";
 import * as Duration from "./duration.js";
-import * as EthNode from "./eth_node.js";
+import * as EthNode from "./eth_execution_node.js";
 import { O, pipe, T, TO } from "./fp.js";
 import { getLatestGroupedAnalysisNumber } from "./grouped_analysis_1.js";
 import * as KeyValueStore from "./key_value_store.js";

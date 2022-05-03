@@ -1,7 +1,7 @@
 import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
 import * as Etherscan from "../etherscan.js";
-import * as EthNode from "../eth_node.js";
+import * as EthNode from "../eth_execution_node.js";
 import * as Fetch from "../fetch.js";
 import { B, O, OAlt, pipe, TE, TEAlt } from "../fp.js";
 import * as Log from "../log.js";

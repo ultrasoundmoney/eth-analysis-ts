@@ -11,7 +11,7 @@ import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Db from "../db.js";
 import { sql, sqlT } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
-import * as EthNode from "../eth_node.js";
+import * as EthNode from "../eth_execution_node.js";
 import { A, flow, NEA, O, Ord, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";

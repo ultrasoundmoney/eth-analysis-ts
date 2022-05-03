@@ -9,7 +9,7 @@ import * as DeflationaryStreaks from "../deflationary_streaks.js";
 import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import { Head } from "../eth_node.js";
+import { Head } from "../eth_execution_node.js";
 import { flow, NEA, O, OAlt, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
