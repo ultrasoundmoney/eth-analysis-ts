@@ -1,7 +1,7 @@
 import QuickLRU from "quick-lru";
 import { Contract } from "web3-eth-contract";
 import * as Etherscan from "../etherscan.js";
-import * as EthNode from "../eth_execution_node.js";
+import * as ExecutionNode from "../execution_node.js";
 import * as Fetch from "../fetch.js";
 import { B, O, OAlt, pipe, TE, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
@@ -20,7 +20,7 @@ const setCachedContract = (address: string, contract: Contract) => () =>
 const fetchAndCacheContract = (address: string) =>
   pipe(
     Etherscan.getAbi(address),
-    TE.chainTaskK((abi) => () => EthNode.makeContract(address, abi)),
+    TE.chainTaskK((abi) => () => ExecutionNode.makeContract(address, abi)),
     TE.chainFirstIOK((contract) => setCachedContract(address, contract)),
   );
 
@@ -289,7 +289,7 @@ const getErc20UnstructuredProxyTotalSupply = (contract: Contract) =>
     // To call unstructured proxies we create a contract with the proxy address, but the implementation ABI.
     TE.chainTaskK(
       (abi) => () =>
-        EthNode.makeContract(contract.options.address.toLowerCase(), abi),
+        ExecutionNode.makeContract(contract.options.address.toLowerCase(), abi),
     ),
     TE.chainW(getErc20TotalSupply),
   );

@@ -2,7 +2,7 @@ import PQueue from "p-queue";
 import { setTimeout } from "timers/promises";
 import * as Blocks from "./blocks/blocks.js";
 import * as Duration from "./duration.js";
-import * as EthNode from "./eth_execution_node.js";
+import * as ExecutionNode from "./execution_node.js";
 import { A, flow, NEA, O, pipe, RA, T, TO } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
@@ -23,7 +23,7 @@ export type TransactionReceiptV1 = {
 };
 
 export const transactionReceiptFromRaw = (
-  rawTrx: EthNode.RawTxr,
+  rawTrx: ExecutionNode.RawTxr,
 ): TransactionReceiptV1 => ({
   blockNumber: Hexadecimal.numberFromHex(rawTrx.blockNumber),
   contractAddress: O.fromNullable(rawTrx.contractAddress),
@@ -61,7 +61,7 @@ export const getTxrsWithRetry = async (
     await fetchReceiptQueue.addAll(
       tryBlock.transactions.map(
         (txHash) => () =>
-          EthNode.getTransactionReceipt(txHash).then((txr) => {
+          ExecutionNode.getTransactionReceipt(txHash).then((txr) => {
             if (txr === null) {
               missingHashes.push(txHash);
             } else {
@@ -117,7 +117,7 @@ export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
     block.transactions,
     TO.traverseArray((hash) =>
       pipe(
-        () => EthNode.getTransactionReceipt(hash),
+        () => ExecutionNode.getTransactionReceipt(hash),
         queueFetchReceipt,
         T.map(O.fromNullable),
       ),

@@ -11,7 +11,7 @@ import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Db from "../db.js";
 import { sql, sqlT } from "../db.js";
 import { millisFromSeconds } from "../duration.js";
-import * as EthNode from "../eth_execution_node.js";
+import * as ExecutionNode from "../execution_node.js";
 import { A, flow, NEA, O, Ord, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
@@ -41,7 +41,7 @@ export type BlockNodeV2 = {
 };
 
 export const blockV1FromNode = (
-  blockNode: EthNode.BlockNodeV1,
+  blockNode: ExecutionNode.BlockNodeV1,
 ): BlockNodeV2 => ({
   baseFeePerGas: Number(blockNode.baseFeePerGas),
   baseFeePerGasBI: BigInt(blockNode.baseFeePerGas),
@@ -129,7 +129,7 @@ export const getBlockWithRetry = async (
   while (true) {
     tries += tries + 1;
 
-    const maybeBlock = await EthNode.getBlock(blockNumber);
+    const maybeBlock = await ExecutionNode.getBlock(blockNumber);
 
     if (typeof maybeBlock?.hash === "string") {
       PerformanceMetrics.onBlockReceived();
@@ -155,14 +155,14 @@ export const getBlockSafe = (
   blockNumber: number | "latest" | string,
 ): TO.TaskOption<BlockNodeV2> =>
   pipe(
-    () => EthNode.getBlock(blockNumber),
+    () => ExecutionNode.getBlock(blockNumber),
     T.map(O.fromNullable),
     TO.map(blockV1FromNode),
   );
 
 export const getBlockByHash = (hash: string) =>
   pipe(
-    () => EthNode.getRawBlockByHash(hash),
+    () => ExecutionNode.getRawBlockByHash(hash),
     T.map(O.fromNullable),
     TO.map(blockV1FromNode),
   );
