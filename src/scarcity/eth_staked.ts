@@ -1,6 +1,6 @@
 import { setInterval } from "timers/promises";
 import * as Duration from "../duration.js";
-import * as EthNode from "../eth_execution_node.js";
+import * as ExecutionNode from "../execution_node.js";
 import { WeiBI } from "../eth_units.js";
 import * as Format from "../format.js";
 import { O, OAlt, pipe, T, TAlt } from "../fp.js";
@@ -16,7 +16,7 @@ let lastEthStaked: O.Option<EthStaked> = O.none;
 
 const updateEthStaked = () =>
   pipe(
-    () => EthNode.getBalance(eth2DepositAddress),
+    () => ExecutionNode.getBalance(eth2DepositAddress),
     TAlt.chainFirstLogDebug(
       (balance) =>
         `got eth staked from deposit contract, balance: ${Format.ethFromWei(

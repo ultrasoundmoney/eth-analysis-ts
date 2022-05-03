@@ -5,7 +5,7 @@ import * as BlocksSync from "./blocks/sync.js";
 import * as BurnRecordsSync from "./burn-records/sync.js";
 import * as Config from "./config.js";
 import { runMigrations, sql } from "./db.js";
-import * as EthNode from "./eth_execution_node.js";
+import * as ExecutionNode from "./execution_node.js";
 import { TAlt } from "./fp.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
@@ -36,9 +36,9 @@ try {
   await runMigrations();
 
   const lastStoredBlockOnStart = await Blocks.getLastStoredBlock()();
-  const chainHeadOnStart = await EthNode.getLatestBlockNumber();
+  const chainHeadOnStart = await ExecutionNode.getLatestBlockNumber();
   Log.debug(`fast-sync blocks up to ${chainHeadOnStart}`);
-  EthNode.subscribeNewHeads(BlocksNewBlock.onNewBlock);
+  ExecutionNode.subscribeNewHeads(BlocksNewBlock.onNewBlock);
   Log.debug("listening and queuing new chain heads for analysis");
   await BlocksSync.syncBlocks(chainHeadOnStart);
   Log.info("fast-sync blocks done");
@@ -64,7 +64,7 @@ try {
   BlocksNewBlock.headsQueue.start();
   Log.info("started analyzing new blocks from queue");
 } catch (error) {
-  EthNode.closeConnections();
+  ExecutionNode.closeConnections();
   sql.end();
   throw error;
 }

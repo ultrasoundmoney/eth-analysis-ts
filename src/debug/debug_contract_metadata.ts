@@ -1,6 +1,6 @@
 import { addMetadataForAddresses } from "../contracts/metadata/metadata.js";
 import { sql } from "../db.js";
-import * as EthNode from "../eth_execution_node.js";
+import * as ExecutionNode from "../execution_node.js";
 import * as Log from "../log.js";
 
 const main = async () => {
@@ -15,7 +15,7 @@ const main = async () => {
     Log.error("error adding metadata", { error });
   }
 
-  EthNode.closeConnections();
+  ExecutionNode.closeConnections();
   sql.end();
 };
 
