@@ -397,6 +397,11 @@
   dependencies:
     "@types/node" "*"
 
+"@types/eventsource@^1.1.8":
+  version "1.1.8"
+  resolved "https://registry.yarnpkg.com/@types/eventsource/-/eventsource-1.1.8.tgz#48ae1f3aaf9bb84c713038f354112cc7ceaad519"
+  integrity sha512-fJQNt9LijJCZwYvM6O30uLzdpAK9zs52Uc9iUW9M2Zsg0HQM6DLf6QysjC/wuFX+0798B8AppVMvgdO6IftPKQ==
+
 "@types/express-serve-static-core@^4.17.18":
   version "4.17.24"
   resolved "https://registry.yarnpkg.com/@types/express-serve-static-core/-/express-serve-static-core-4.17.24.tgz#ea41f93bf7e0d59cd5a76665068ed6aab6815c07"
@@ -2441,6 +2446,11 @@ eventemitter3@^4.0.7:
   version "4.0.7"
   resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-4.0.7.tgz#2de9b68f6528d5644ef5c59526a1b4a07306169f"
   integrity sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==
+
+eventsource@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/eventsource/-/eventsource-2.0.1.tgz#a8e6bbc18d96276788d81cb4bc2ea9e728540ab2"
+  integrity sha512-bb20JedDs4VD32Nh/B8CHxUDC2AbjR4aLRpfSHZGqWwzytK68YNHPDvyqVLESqZftNkMgNfZSsmk6Jt1Vw4FUg==
 
 evp_bytestokey@^1.0.0, evp_bytestokey@^1.0.3:
   version "1.0.3"
