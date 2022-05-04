@@ -62,7 +62,7 @@ export const getGlassnodeApiKey = (): string =>
   parseSimpleEnvVarUnsafe("GLASSNODE_API_KEY");
 
 export const getLogPerformance = (): boolean =>
-  process.env["LOG_PERF"] === "true";
+  process.env["LOG_PERF"]?.toLowerCase() === "true";
 
 export const getUseNodeFallback = () =>
   pipe(
