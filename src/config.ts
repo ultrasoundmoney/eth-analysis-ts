@@ -70,3 +70,5 @@ export const getUseNodeFallback = () =>
     O.map((useNodeFallbackStr) => useNodeFallbackStr.toLowerCase() === "true"),
     O.getOrElse(() => false),
   );
+
+export const getBeaconUrl = (): string => parseSimpleEnvVarUnsafe("BEACON_URL");
