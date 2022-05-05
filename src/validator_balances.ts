@@ -1,5 +1,6 @@
 import * as DateFns from "date-fns";
 import * as Db from "./db.js";
+import { ethFromGwei } from "./eth_units.js";
 import { A, pipe, T } from "./fp.js";
 
 const genesisTimestamp = DateFns.fromUnixTime(1606824023);
@@ -30,7 +31,7 @@ export const getEthInValidatorsByDay = () =>
     T.map(
       A.map((row) => ({
         t: DateFns.getUnixTime(row.dateAt),
-        v: Number(row.gwei),
+        v: pipe(row.gwei, Number, ethFromGwei),
       })),
     ),
   );
