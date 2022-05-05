@@ -1,8 +1,8 @@
 import * as BeaconNode from "./beacon_node.js";
-import * as BeaconBlocks from "./beacon_states.js";
+import * as BeaconStates from "./beacon_states.js";
 import * as Config from "./config.js";
 import * as Db from "./db.js";
-import { A, B, flow, NEA, O, OAlt, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
+import { A, B, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
 await Db.runMigrations();
@@ -37,18 +37,12 @@ const sumValidatorBalances = (
     A.reduce(0n, (sum, validatorBalance) => sum + validatorBalance.balance),
   );
 
-const getDepositSumAggregated = (
-  header: BeaconNode.BeaconHeader,
-  block: BeaconNode.BeaconBlock,
-) =>
+const getDepositSumAggregated = (block: BeaconNode.BeaconBlock) =>
   pipe(
-    BeaconBlocks.getParentDepositSumAggregated(header),
+    BeaconStates.getParentDepositSumAggregated(block),
     TE.map(
-      flow(
-        (parentDepositSumAggregated) =>
-          parentDepositSumAggregated + getDepositsSumFromBlock(block),
-        O.some,
-      ),
+      (parentDepositSumAggregated) =>
+        parentDepositSumAggregated + getDepositsSumFromBlock(block),
     ),
   );
 
@@ -60,18 +54,18 @@ const storeBeaconBlockWithBlockData = (
   depositSumAggregated: bigint,
 ) =>
   pipe(
-    BeaconBlocks.getBlockExists(block.parent_root),
+    BeaconStates.getBlockExists(block.parent_root),
     T.chain(
       B.match(
         () =>
           TE.left(
-            new BeaconBlocks.MissingParentError(
+            new BeaconStates.MissingParentError(
               `failed to store block ${header.root}, slot: ${header.header.message.slot}, parent ${header.header.message.parent_root} is missing`,
             ),
           ),
         () =>
           pipe(
-            BeaconBlocks.storeBeaconStateWithBlock(
+            BeaconStates.storeBeaconStateWithBlock(
               stateRoot,
               header.header.message.slot,
               validatorBalanceSum,
@@ -91,23 +85,27 @@ const syncSlot = (slot: number) =>
   pipe(
     TE.Do,
     TE.apS("stateRoot", BeaconNode.getStateRootBySlot(slot)),
-    TE.apSW("header", BeaconNode.getHeaderBySlot(slot)),
-    TE.bindW("block", ({ header }) =>
+    TE.apSW(
+      "headerBlockDeposits",
       pipe(
-        header,
-        O.match(
-          () => TE.right(O.none),
-          (header) =>
-            pipe(BeaconNode.getBlockByRoot(header.root), TE.map(O.some)),
-        ),
-      ),
-    ),
-    TE.bindW("depositSumAggregated", ({ header, block }) =>
-      pipe(
-        OAlt.seqT(header, block),
-        O.match(
-          () => TE.right(O.none),
-          ([header, block]) => getDepositSumAggregated(header, block),
+        BeaconNode.getHeaderBySlot(slot),
+        TE.chain(
+          O.match(
+            // No header, no block or depositSumAggregated.
+            () => TE.right(O.none),
+            // Header, so there must be a block and depositSumAggregated.
+            (header) =>
+              pipe(
+                TE.Do,
+                TE.apS("block", BeaconNode.getBlockByRoot(header.root)),
+                TE.bindW("depositSumAggregated", ({ block }) =>
+                  getDepositSumAggregated(block),
+                ),
+                TE.map(({ block, depositSumAggregated }) =>
+                  O.some({ header, block, depositSumAggregated }),
+                ),
+              ),
+          ),
         ),
       ),
     ),
@@ -117,36 +115,29 @@ const syncSlot = (slot: number) =>
         TE.map(sumValidatorBalances),
       ),
     ),
-    TE.chainW(
-      ({
-        block,
-        depositSumAggregated,
-        header,
-        stateRoot,
-        validatorBalanceSum,
-      }) =>
-        pipe(
-          OAlt.seqT(header, depositSumAggregated, block),
-          O.match(
-            () =>
-              pipe(
-                BeaconBlocks.storeBeaconState(
-                  stateRoot,
-                  slot,
-                  validatorBalanceSum,
-                ),
-                (task) => TE.fromTask<void, never>(task),
-              ),
-            ([header, depositSumAggregated, block]) =>
-              storeBeaconBlockWithBlockData(
-                header,
-                block,
+    TE.chainW(({ headerBlockDeposits, stateRoot, validatorBalanceSum }) =>
+      pipe(
+        headerBlockDeposits,
+        O.match(
+          () =>
+            pipe(
+              BeaconStates.storeBeaconState(
                 stateRoot,
+                slot,
                 validatorBalanceSum,
-                depositSumAggregated,
               ),
-          ),
+              (task) => TE.fromTask<void, never>(task),
+            ),
+          ({ header, depositSumAggregated, block }) =>
+            storeBeaconBlockWithBlockData(
+              header,
+              block,
+              stateRoot,
+              validatorBalanceSum,
+              depositSumAggregated,
+            ),
         ),
+      ),
     ),
   );
 
@@ -160,7 +151,7 @@ const fastSyncSlots = (slotRange: SlotRange) =>
   );
 
 const fastSyncFromLastSlot = (
-  lastState: BeaconBlocks.BeaconState,
+  lastState: BeaconStates.BeaconState,
   lastFinalizedBlock: BeaconNode.BeaconBlock,
 ) =>
   fastSyncSlots({
@@ -174,7 +165,7 @@ const fastSyncFromGenesis = (lastFinalizedBlock: BeaconNode.BeaconBlock) =>
     to: lastFinalizedBlock.slot,
   });
 
-// To be sure we're syncing the right chain, we'd have to start at the current head, find our common parent, rollback blocks we have outside that chain, and roll forward to the head. This simple approach always work. To do this with few or no blocks in our table, one would traverse ~4M slots to confirm what our current common parent is. That would be slow, to speed things along, we have a fast sync mode that syncs to the current finalized checkpoint from genisis if our DB is empty or assumes the latest block in our DB is a common parent if our DB is not empty.
+// To be sure we're syncing the right chain, we'd have to start at the current head, find our common parent, rollback blocks we have outside that chain, and then roll forward from the common parent to the head. How to find the common parent is unclear. Instead, we assume slots before the last finalized checkpoint are stable, and sync by slot.
 await TAlt.when(
   Config.getUseFastBeaconSync(),
   pipe(
@@ -182,11 +173,11 @@ await TAlt.when(
     TE.apS("lastFinalizedBlock", BeaconNode.getLastFinalizedBlock()),
     TE.apSW(
       "lastState",
-      pipe(BeaconBlocks.getLastBeaconState(), (task) =>
-        TE.fromTask<O.Option<BeaconBlocks.BeaconState>, never>(task),
+      pipe(BeaconStates.getLastState(), (task) =>
+        TE.fromTask<O.Option<BeaconStates.BeaconState>, never>(task),
       ),
     ),
-    TE.chain(({ lastState: lastState, lastFinalizedBlock }) =>
+    TE.chainW(({ lastState, lastFinalizedBlock }) =>
       pipe(
         lastState,
         O.match(

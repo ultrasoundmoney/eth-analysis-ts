@@ -247,6 +247,31 @@ export const getHeaderBySlot = (slot: number) =>
     ),
   );
 
+const makeHeaderByBlockRootUrl = (blockRoot: string) =>
+  formatUrl(beaconNodeApi, "/eth/v1/beacon/headers/:block_id", {
+    block_id: blockRoot,
+  });
+
+export const getHeaderByRoot = (blockRoot: string) =>
+  pipe(
+    Fetch.fetchJson(makeHeaderByBlockRootUrl(blockRoot)),
+    T.map(
+      E.matchW(
+        (e): E.Either<typeof e, O.Option<BeaconHeader>> =>
+          e instanceof Fetch.BadResponseError && e.status === 404
+            ? // No header at this slot, either this slot doesn't exist or there is no header at this slot. We assume the slot exists but is headerless.
+              E.right(O.none)
+            : E.left(e),
+        (u) =>
+          pipe(
+            u,
+            decodeWithError(BeaconHeaderEnvelope),
+            E.map((envelope) => O.some(envelope.data)),
+          ),
+      ),
+    ),
+  );
+
 const makeValidatorBalancesByStateUrl = (stateRoot: string) =>
   formatUrl(
     beaconNodeApi,
