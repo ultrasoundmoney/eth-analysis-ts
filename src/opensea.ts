@@ -149,9 +149,9 @@ export const getSchemaName = (
 
   if (typeof schemaName === "string") {
     Log.warn(
-      `found unknown opensea schema name: ${schemaName} for ${contract.address}, please explicitly handle, setting schema name undefined`,
+      `adding unknown opensea schema name: ${schemaName} for ${contract.address}`,
     );
-    return undefined;
+    return schemaName;
   }
 
   return undefined;
