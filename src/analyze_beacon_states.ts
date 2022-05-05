@@ -2,7 +2,8 @@ import * as BeaconNode from "./beacon_node.js";
 import * as BeaconStates from "./beacon_states.js";
 import * as Config from "./config.js";
 import * as Db from "./db.js";
-import { A, B, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
+import { A, B, E, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
+import { traverseGenSeq } from "./gen.js";
 import * as Log from "./log.js";
 
 Log.info("analyze beacon states starting");
@@ -146,10 +147,30 @@ const syncSlot = (slot: number) =>
 
 type SlotRange = { from: number; to: number };
 
+// const fastSyncSlots = (slotRange: SlotRange) => async () => {
+//   for (const slot of NEA.range(slotRange.from, slotRange.to)) {
+//     const eRes = await syncSlot(slot)();
+//     if (E.isLeft(eRes)) {
+//       return eRes;
+//     }
+
+//     continue;
+//   }
+
+//   return E.right(undefined);
+// };
+
+const genRange = async function* (slotRange: SlotRange) {
+  for (const slot of NEA.range(slotRange.from, slotRange.to)) {
+    yield E.right(slot);
+  }
+};
+
+// We run out of memory when we create a range and build a list of tasks for millions of slots, we use a generator instead.
 const fastSyncSlots = (slotRange: SlotRange) =>
   pipe(
-    NEA.range(slotRange.from, slotRange.to),
-    TE.traverseSeqArray((slot) => syncSlot(slot)),
+    genRange(slotRange),
+    (gen) => traverseGenSeq(gen, (num) => syncSlot(num)),
     TEAlt.concatAllVoid,
   );
 
