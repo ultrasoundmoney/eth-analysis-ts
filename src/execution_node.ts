@@ -152,6 +152,11 @@ const connectWeb3 = (url: string) =>
   new Promise<web3Core.WebsocketProvider>((resolve, reject) => {
     const provider = new Web3.providers.WebsocketProvider(url, {
       timeout: 8000,
+      reconnect: {
+        auto: true,
+        delay: 3000,
+        maxAttempts: 3,
+      },
     });
 
     provider.on("error", ((error: unknown) => {
