@@ -11,6 +11,13 @@ const parseSimpleEnvVarUnsafe = (name: string): string => {
   );
 };
 
+const parseEnvBoolean = (key: string): boolean =>
+  pipe(
+    parseSimpleEnvVar(key),
+    O.map((boolStr) => boolStr.toLowerCase() === "true"),
+    O.getOrElseW(() => false),
+  );
+
 export type Env = "dev" | "prod" | "staging";
 
 export const getEnv = (): Env => {
@@ -61,14 +68,8 @@ export const getOpenseaApiKey = (): string =>
 export const getGlassnodeApiKey = (): string =>
   parseSimpleEnvVarUnsafe("GLASSNODE_API_KEY");
 
-export const getLogPerformance = (): boolean =>
-  process.env["LOG_PERF"]?.toLowerCase() === "true";
+export const getLogPerformance = (): boolean => parseEnvBoolean("LOG_PERF");
 
-export const getUseNodeFallback = () =>
-  pipe(
-    parseSimpleEnvVar("USE_NODE_FALLBACK"),
-    O.map((useNodeFallbackStr) => useNodeFallbackStr.toLowerCase() === "true"),
-    O.getOrElse(() => false),
-  );
+export const getUseNodeFallback = () => parseEnvBoolean("USE_NODE_FALLBACK");
 
 export const getBeaconUrl = (): string => parseSimpleEnvVarUnsafe("BEACON_URL");
