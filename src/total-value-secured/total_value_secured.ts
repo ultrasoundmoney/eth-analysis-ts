@@ -1,14 +1,12 @@
-import * as DateFns from "date-fns";
+import QuickLRU from "quick-lru";
 import * as CoinGecko from "../coingecko.js";
 import * as Contracts from "../contracts/web3.js";
 import * as Db from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import * as NftGoSnapshot from "../nft_go_snapshot.js";
 import * as FamService from "../fam_service.js";
 import {
   A,
-  B,
   flow,
   MapF,
   NEA,
@@ -21,12 +19,14 @@ import {
   S,
   T,
   TE,
+  TEAlt,
   TO,
 } from "../fp.js";
 import * as Glassnode from "../glassnode.js";
 import * as Log from "../log.js";
 import { getStoredMarketCaps } from "../market-caps/market_caps.js";
 import * as NftGo from "../nft_go.js";
+import * as NftGoSnapshot from "../nft_go_snapshot.js";
 
 export const totalValueSecuredCacheKey = "total-value-secured";
 
@@ -229,13 +229,23 @@ const getSupplyForOnEthAndOthersCoins = (
   );
 
 type CoinSupplyMap = Map<CoinId, CoinSupply>;
-type CoinSupplyMapCache = {
-  timestamp: Date;
-  erc20Supplies: CoinSupplyMap;
-};
-let coinSupplyMapCache: O.Option<CoinSupplyMapCache> = O.none;
 
-const getFreshErc20Supplies = () =>
+const coinSupplyMapCacheKey = "coin-supply-map-cache-key";
+
+type CoinSupplyMapCacheKey = typeof coinSupplyMapCacheKey;
+
+const coinSupplyMapCache = new QuickLRU<CoinSupplyMapCacheKey, CoinSupplyMap>({
+  maxAge: Duration.millisFromHours(12),
+  maxSize: 1,
+});
+
+const getCachedCoinSupplyMap = () =>
+  pipe(coinSupplyMapCache.get(coinSupplyMapCacheKey), O.fromNullable);
+
+const setCachedCoinSupplyMap = (coinSupplyMap: CoinSupplyMap) => () =>
+  coinSupplyMapCache.set(coinSupplyMapCacheKey, coinSupplyMap);
+
+const getCoinSupplyMap = () =>
   pipe(
     TE.Do,
     TE.apS("coinMaps", getCoinMaps()),
@@ -253,31 +263,24 @@ const getFreshErc20Supplies = () =>
       ({ onEthOnlySupplyMap, onEthAndOthersSupplyMap }) =>
         new Map([...onEthOnlySupplyMap, ...onEthAndOthersSupplyMap]),
     ),
-    TE.chainFirstIOK((freshErc20Supplies) => () => {
-      coinSupplyMapCache = O.some({
-        timestamp: new Date(),
-        erc20Supplies: freshErc20Supplies,
-      });
-    }),
+    TE.chainFirstIOK(setCachedCoinSupplyMap),
+    TEAlt.chainFirstLogDebug(
+      (map) =>
+        `built and cached new erc20 supply map with ${map.size} erc20 supply counts`,
+    ),
   );
 
-const getIsErc20SuppliesCacheFresh = (coinSupplyMapCache: CoinSupplyMapCache) =>
-  DateFns.differenceInMilliseconds(new Date(), coinSupplyMapCache.timestamp) <
-  Duration.millisFromHours(12);
-
-const getCoinSupplyMap = () =>
+const getCoinSupplyMapWithCache = () =>
   pipe(
-    coinSupplyMapCache,
+    getCachedCoinSupplyMap(),
     O.match(
-      () => getFreshErc20Supplies(),
-      (erc20SuppliesCache) =>
+      () =>
         pipe(
-          getIsErc20SuppliesCacheFresh(erc20SuppliesCache),
-          B.match(
-            () => getFreshErc20Supplies(),
-            () => TE.of(erc20SuppliesCache.erc20Supplies),
-          ),
+          Log.debugIO("no coin supply map in cache, fetching erc20 supplies"),
+          TE.fromIO,
+          TE.chain(() => getCoinSupplyMap()),
         ),
+      (erc20Supplies) => TE.right(erc20Supplies),
     ),
   );
 
@@ -413,7 +416,7 @@ const coinV2FromCoinAndDetails = (
 const getTopErc20s = () =>
   pipe(
     TE.Do,
-    TE.apS("coinSupplyMap", getCoinSupplyMap()),
+    TE.apS("coinSupplyMap", getCoinSupplyMapWithCache()),
     TE.apSW("coinMarkets", CoinGecko.getTopCoinMarkets()),
     TE.map(({ coinSupplyMap, coinMarkets }) =>
       pipe(
@@ -432,7 +435,7 @@ const getTopErc20s = () =>
         ({ left, right }) =>
           pipe(
             Log.debug(
-              `out of top 250 coins, ${left.length} were not on ETH or are on ETH but we haven't fetched their circulating supply yet`,
+              `got ${coinMarkets.length} coin markets from CoinGecko, ${left.length} were not on ETH or are on ETH but we haven't fetched their circulating supply yet, ${right.length} supplies matched with a current top market`,
             ),
             () => A.compact(right),
           ),
@@ -455,7 +458,7 @@ const getTopErc20s = () =>
         A.filter((coin) => {
           if (coin.marketCapEth < 1e6) {
             Log.debug(
-              `coin ${coin.symbol} market cap suspiciously low: ${coin.marketCapEth}, contract: ${coin.contractAddress}, skipping`,
+              `coin ${coin.symbol} market cap suspiciously low (< 1,000,000): ${coin.marketCapEth}, contract: ${coin.contractAddress}, skipping`,
             );
             return false;
           }
