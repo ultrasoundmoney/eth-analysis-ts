@@ -1,4 +1,4 @@
-import { BeaconHeader } from "./beacon_node.js";
+import * as BeaconNode from "./beacon_node.js";
 import * as Db from "./db.js";
 import { A, E, flow, O, pipe, T, TE } from "./fp.js";
 
@@ -8,7 +8,7 @@ export type BeaconState = {
   blockRoot: string;
 };
 
-export const getLastBeaconState = () =>
+export const getLastState = () =>
   pipe(
     Db.sqlT<BeaconState[]>`
       SELECT state_root, slot, block_root FROM beacon_states
@@ -61,13 +61,13 @@ const genesisParentRoot =
 
 export class MissingParentError extends Error {}
 
-export const getParentDepositSumAggregated = (header: BeaconHeader) =>
-  header.header.message.parent_root === genesisParentRoot
+export const getParentDepositSumAggregated = (block: BeaconNode.BeaconBlock) =>
+  block.parent_root === genesisParentRoot
     ? TE.right(0n)
     : pipe(
         Db.sqlT<{ depositSumAggregated: string }[]>`
           SELECT deposit_sum_aggregated FROM beacon_states
-          WHERE block_root = ${header.header.message.parent_root}
+          WHERE block_root = ${block.parent_root}
         `,
         T.map(
           flow(
@@ -76,7 +76,7 @@ export const getParentDepositSumAggregated = (header: BeaconHeader) =>
             E.fromOption(
               () =>
                 new MissingParentError(
-                  `failed to get deposit_sum_aggregated for parent ${header.header.message.parent_root} of block ${header.root}`,
+                  `failed to get deposit_sum_aggregated for parent ${block.parent_root} of block in slot ${block.slot}, with state root ${block.state_root}`,
                 ),
             ),
           ),
