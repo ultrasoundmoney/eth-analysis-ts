@@ -126,6 +126,8 @@ export const OAlt = {
     O.getOrElseW(() => {
       throw new Error(message);
     }),
+  seqS: Apply.sequenceS(O.Apply),
+  seqT: Apply.sequenceT(O.Apply),
 };
 
 export const TOAlt = {
