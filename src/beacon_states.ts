@@ -18,30 +18,43 @@ export const getLastBeaconState = () =>
     T.map(A.head),
   );
 
-export const storeBeaconBlock = (
+export const storeBeaconState = (
   stateRoot: string,
   slot: number,
   validatorBalanceSum: bigint,
-  blockRoot?: string,
-  depositSumAggregated?: bigint,
-  depositsSum?: bigint,
 ) =>
-  pipe(
-    Db.sqlTVoid`
-      INSERT INTO beacon_states
-        ${Db.values({
-          state_root: stateRoot,
-          slot,
-          block_root: blockRoot ?? null,
-          validator_balance_sum: String(validatorBalanceSum),
-          deposit_sum: depositsSum === undefined ? null : String(depositsSum),
-          deposit_sum_aggregated:
-            depositSumAggregated === undefined
-              ? null
-              : String(depositSumAggregated),
-        })}
-      `,
-  );
+  Db.sqlTVoid`
+    INSERT INTO beacon_states
+      ${Db.values({
+        state_root: stateRoot,
+        slot,
+        validator_balance_sum: String(validatorBalanceSum),
+      })}
+    `;
+
+export const storeBeaconStateWithBlock = (
+  stateRoot: string,
+  slot: number,
+  validatorBalanceSum: bigint,
+  blockRoot: string,
+  parentRoot: string,
+  depositSumAggregated: bigint,
+  depositsSum: bigint,
+) => Db.sqlTVoid`
+  INSERT INTO beacon_states
+    ${Db.values({
+      state_root: stateRoot,
+      slot,
+      block_root: blockRoot ?? null,
+      parent_root: parentRoot ?? null,
+      validator_balance_sum: String(validatorBalanceSum),
+      deposit_sum: depositsSum === undefined ? null : String(depositsSum),
+      deposit_sum_aggregated:
+        depositSumAggregated === undefined
+          ? null
+          : String(depositSumAggregated),
+    })}
+`;
 
 const genesisParentRoot =
   "0x0000000000000000000000000000000000000000000000000000000000000000";

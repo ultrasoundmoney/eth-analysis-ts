@@ -66,16 +66,17 @@ const storeBeaconBlockWithBlockData = (
         () =>
           TE.left(
             new BeaconBlocks.MissingParentError(
-              `failed to store block ${header.root}, slot: ${block.slot}, parent ${block.parent_root} is missing`,
+              `failed to store block ${header.root}, slot: ${header.header.message.slot}, parent ${header.header.message.parent_root} is missing`,
             ),
           ),
         () =>
           pipe(
-            BeaconBlocks.storeBeaconBlock(
+            BeaconBlocks.storeBeaconStateWithBlock(
               stateRoot,
               header.header.message.slot,
               validatorBalanceSum,
               header.root,
+              header.header.message.parent_root,
               depositSumAggregated,
               getDepositsSumFromBlock(block),
             ),
@@ -129,7 +130,7 @@ const syncSlot = (slot: number) =>
           O.match(
             () =>
               pipe(
-                BeaconBlocks.storeBeaconBlock(
+                BeaconBlocks.storeBeaconState(
                   stateRoot,
                   slot,
                   validatorBalanceSum,
