@@ -5,6 +5,8 @@ import * as Db from "./db.js";
 import { A, B, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 
+Log.info("analyze beacon states starting");
+
 await Db.runMigrations();
 
 // const getIsBeaconBlocksEmpty = () =>
@@ -139,6 +141,7 @@ const syncSlot = (slot: number) =>
         ),
       ),
     ),
+    TEAlt.chainFirstLogDebug(() => `synced slot ${slot}`),
   );
 
 type SlotRange = { from: number; to: number };
