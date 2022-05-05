@@ -73,3 +73,6 @@ export const getLogPerformance = (): boolean => parseEnvBoolean("LOG_PERF");
 export const getUseNodeFallback = () => parseEnvBoolean("USE_NODE_FALLBACK");
 
 export const getBeaconUrl = (): string => parseSimpleEnvVarUnsafe("BEACON_URL");
+
+export const getUseFastBeaconSync = (): boolean =>
+  parseEnvBoolean("USE_FAST_BEACON_SYNC");
