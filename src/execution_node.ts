@@ -135,7 +135,7 @@ const getOpenSocketOrReconnect = async (): Promise<WebSocket> => {
     const isClosing = managedGethWs.readyState === WebSocket.CLOSING;
     const isClosed = managedGethWs.readyState === WebSocket.CLOSED;
     Log.warn(
-      `ws initialized but not open, not initial connect, closing=${isClosing}, closed=${isClosed}, connecting=${isConnecting}`,
+      `ws initialized but not open, closing=${isClosing}, closed=${isClosed}, connecting=${isConnecting}`,
     );
   }
 
@@ -171,6 +171,25 @@ const connectWeb3 = (url: string) =>
     provider.connect();
   });
 
+const connectWeb3WithFallback = async () => {
+  if (Config.getUseNodeFallback()) {
+    const provider = await connectWeb3(Config.getGethFallbackUrl());
+    return new Web3(provider);
+  }
+
+  try {
+    const provider = await connectWeb3(Config.getGethUrl());
+    return new Web3(provider);
+  } catch (error) {
+    Log.alert(
+      "failed to connect to own node for web3js, using fallback",
+      error,
+    );
+    const provider = await connectWeb3(Config.getGethFallbackUrl());
+    return new Web3(provider);
+  }
+};
+
 export const getExistingWeb3OrReconnect = async (): Promise<Web3> => {
   if (
     managedWeb3Obj !== undefined &&
@@ -179,26 +198,25 @@ export const getExistingWeb3OrReconnect = async (): Promise<Web3> => {
     return Promise.resolve(managedWeb3Obj);
   }
 
-  if (Config.getUseNodeFallback()) {
-    const provider = await connectWeb3(Config.getGethFallbackUrl());
-    return new Web3(provider);
+  if (managedWeb3Obj === undefined) {
+    Log.debug("web3 client undefined, initializing");
+  } else {
+    const readyState = (
+      managedWeb3Obj.currentProvider as { connection: { _readyState?: number } }
+    ).connection._readyState;
+    const isConnecting = readyState === WebSocket.CONNECTING;
+    const isClosing = readyState === WebSocket.CLOSING;
+    const isClosed = readyState === WebSocket.CLOSED;
+    const isOpen = readyState === WebSocket.OPEN;
+    // It seems we get the "connected" web3 client before the connection open event has fired. In other words, it may show "connecting" here, although we may treat it as "open".
+    Log.warn(
+      `web3 client initialized but not open, closing=${isClosing}, closed=${isClosed}, connecting=${isConnecting}, isOpen=${isOpen}`,
+    );
   }
 
-  try {
-    const provider = await connectWeb3(Config.getGethUrl());
-    const web3 = new Web3(provider);
-    managedWeb3Obj = web3;
-    return managedWeb3Obj;
-  } catch (error) {
-    Log.alert(
-      "failed to connect to own node for web3js, using fallback",
-      error,
-    );
-    const provider = await connectWeb3(Config.getGethFallbackUrl());
-    const web3 = new Web3(provider);
-    managedWeb3Obj = web3;
-    return managedWeb3Obj;
-  }
+  const web3 = await connectWeb3WithFallback();
+  managedWeb3Obj = web3;
+  return managedWeb3Obj;
 };
 
 const web3SeqQueue = new PQueue({ concurrency: 1 });
