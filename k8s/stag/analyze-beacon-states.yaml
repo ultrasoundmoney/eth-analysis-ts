@@ -32,6 +32,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: USE_FAST_BEACON_SYNC
+              value: true
           resources:
             requests:
               cpu: 100m
