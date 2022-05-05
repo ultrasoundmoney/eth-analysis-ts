@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lighthouse-ingress
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: beacon.ultrasound.money
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lighthouse
+                port:
+                  number: 5052
