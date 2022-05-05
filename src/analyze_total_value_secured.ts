@@ -18,7 +18,9 @@ const everyMinuteDo = async () => {
         (e) => {
           Log.error("falied to update total value secured", e);
         },
-        (): void => undefined,
+        (): void => {
+          Log.info("successfully updated total value secured");
+        },
       ),
     )();
   }
