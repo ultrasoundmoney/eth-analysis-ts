@@ -5,6 +5,7 @@ import * as Db from "./db.js";
 import { A, B, E, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import { traverseGenSeq } from "./gen.js";
 import * as Log from "./log.js";
+import * as ValidatorRewards from "./validator_rewards.js";
 
 Log.info("analyze beacon states starting");
 
@@ -118,6 +119,9 @@ const syncSlot = (slot: number) =>
         TE.map(sumValidatorBalances),
       ),
     ),
+    TE.chainFirstTaskK(({ validatorBalanceSum }) =>
+      ValidatorRewards.storeValidatorSumForDay(slot, validatorBalanceSum),
+    ),
     TE.chainW(({ headerBlockDeposits, stateRoot, validatorBalanceSum }) =>
       pipe(
         headerBlockDeposits,
@@ -146,19 +150,6 @@ const syncSlot = (slot: number) =>
   );
 
 type SlotRange = { from: number; to: number };
-
-// const fastSyncSlots = (slotRange: SlotRange) => async () => {
-//   for (const slot of NEA.range(slotRange.from, slotRange.to)) {
-//     const eRes = await syncSlot(slot)();
-//     if (E.isLeft(eRes)) {
-//       return eRes;
-//     }
-
-//     continue;
-//   }
-
-//   return E.right(undefined);
-// };
 
 const genRange = async function* (slotRange: SlotRange) {
   for (const slot of NEA.range(slotRange.from, slotRange.to)) {
