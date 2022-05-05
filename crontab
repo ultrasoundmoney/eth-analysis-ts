@@ -1,3 +1,0 @@
-0 * * * *  cd ~/code/gas-analysis && source ~/code/gas-analysis/set-env-dev.sh && /Users/alextes/Library/Caches/fnm_multishells/75549_1648814169713/bin/node --loader ts-node/esm src/update_nft_go_snapshot.ts >/tmp/cronout.log 2>/tmp/cronerr.log
-0 * * * *  cd ~/code/gas-analysis && source ~/code/gas-analysis/set-env-staging.sh && /Users/alextes/Library/Caches/fnm_multishells/75549_1648814169713/bin/node --loader ts-node/esm src/update_nft_go_snapshot.ts >/tmp/cronout.log 2>/tmp/cronerr.log
-0 * * * *  cd ~/code/gas-analysis && source ~/code/gas-analysis/set-env-prod.sh && /Users/alextes/Library/Caches/fnm_multishells/75549_1648814169713/bin/node --loader ts-node/esm src/update_nft_go_snapshot.ts >/tmp/cronout.log 2>/tmp/cronerr.log
