@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyze-beacon-states-dev
+  labels:
+    app: analyze-beacon-states-dev
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: analyze-beacon-states-dev
+  template:
+    metadata:
+      labels:
+        app: analyze-beacon-states-dev
+    spec:
+      containers:
+        - name: analyze-beacon-states-dev
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          command: ["node", "src/analyze_beacon_states.js"]
+          envFrom:
+            - configMapRef:
+                name: gas-analysis-env
+            - secretRef:
+                name: pg-password-anton
+            - secretRef:
+                name: node-urls
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PGDATABASE
+              value: devdb
+            - name: LOG_LEVEL
+              value: debug
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
