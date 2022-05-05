@@ -2,9 +2,11 @@
 
 Analyze and serve data on gas use.
 
-## Node
-
-This service depends on a node. To run the node we currently use the following command:
-```sh
-./geth --datadir /geth-data/ --cache 12288 --ws --ws.addr "0.0.0.0"
-```
+## Dependencies
+* an execution node (we use Geth)
+* a consensus/beacon node (we use lighthouse)
+* postgres
+* etherscan API
+* twitter API
+* opensea API (slower without a key)
+* coingecko API (no key needed)
