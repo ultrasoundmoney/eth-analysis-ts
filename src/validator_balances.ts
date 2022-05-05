@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import * as Db from "./db.js";
-import { pipe } from "./fp.js";
+import { A, pipe, T } from "./fp.js";
 
 const genesisTimestamp = DateFns.fromUnixTime(1606824023);
 
@@ -20,4 +20,17 @@ export const storeValidatorSumForDay = (
         })}
       ON CONFLICT (date_at) DO NOTHING
     `,
+  );
+
+export const getEthInValidatorsByDay = () =>
+  pipe(
+    Db.sqlT<{ dateAt: Date; gwei: string }[]>`
+      SELECT date_at, gwei FROM eth_in_validators
+    `,
+    T.map(
+      A.map((row) => ({
+        t: DateFns.getUnixTime(row.dateAt),
+        v: Number(row.gwei),
+      })),
+    ),
   );

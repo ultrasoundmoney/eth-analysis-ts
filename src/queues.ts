@@ -41,3 +41,9 @@ export const queueOnQueue =
   (task: TE.TaskEither<E, A>) =>
   () =>
     queue.add<E.Either<E, A>>(task as never);
+
+export const queueOnQueueT =
+  <A>(queue: PQueue) =>
+  (task: T.Task<A>) =>
+  () =>
+    queue.add<A>(task as never);
