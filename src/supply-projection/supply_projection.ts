@@ -8,6 +8,9 @@ import { queueOnQueue } from "../queues.js";
 import { getEthInValidatorsByDay } from "../validator_balances.js";
 import { serializeBigInt } from "../json.js";
 
+// Update this module to store results periodically in our DB.
+// Have serving services pull them out and serve only.
+
 const inputsCache = new QuickLRU<"inputs", string>({
   maxSize: 1,
   maxAge: Duration.millisFromHours(4),
