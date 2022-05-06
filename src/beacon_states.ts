@@ -1,9 +1,6 @@
 import * as BeaconNode from "./beacon_node.js";
-import * as DateFns from "date-fns";
 import * as Db from "./db.js";
-import { A, E, flow, O, OAlt, pipe, T, TE, TOAlt } from "./fp.js";
-import { getLastEthSupply } from "./scarcity/eth_supply.js";
-import { genesisTimestamp } from "./validator_balances.js";
+import { A, E, flow, O, pipe, T, TE } from "./fp.js";
 
 export type BeaconState = {
   stateRoot: string;
