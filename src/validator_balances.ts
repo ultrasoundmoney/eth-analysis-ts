@@ -19,32 +19,32 @@ export const storeValidatorSumForDay = (
   pipe(
     getDayTimestampFromSlot(slot),
     T.of,
-    T.chainFirstIOK((dateAt) =>
+    T.chainFirstIOK((timestamp) =>
       Log.debugIO(
-        `storing validator sum for day, slot: ${slot}, date_at: ${dateAt.toISOString()}, gwei: ${validatorBalanceSum}`,
+        `storing validator sum for day, slot: ${slot}, timestamp: ${timestamp.toISOString()}, gwei: ${validatorBalanceSum}`,
       ),
     ),
     T.chain(
-      (dateAt) =>
+      (timestamp) =>
         Db.sqlTVoid`
             INSERT INTO eth_in_validators
               ${Db.values({
-                date_at: dateAt,
+                timestamp: timestamp,
                 gwei: validatorBalanceSum,
               })}
-            ON CONFLICT (date_at) DO NOTHING
+            ON CONFLICT (timestamp) DO NOTHING
           `,
     ),
   );
 
 export const getEthInValidatorsByDay = () =>
   pipe(
-    Db.sqlT<{ dateAt: Date; gwei: string }[]>`
-      SELECT date_at, gwei FROM eth_in_validators
+    Db.sqlT<{ timestamp: Date; gwei: string }[]>`
+      SELECT timestamp, gwei FROM eth_in_validators
     `,
     T.map(
       A.map((row) => ({
-        t: DateFns.getUnixTime(row.dateAt),
+        t: DateFns.getUnixTime(row.timestamp),
         v: pipe(row.gwei, Number, ethFromGwei),
       })),
     ),
