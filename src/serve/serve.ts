@@ -8,7 +8,7 @@ import * as ContractsRoutes from "../contracts/routes.js";
 import { runMigrations, sql } from "../db.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import { O, pipe, TE } from "../fp.js";
+import { O, pipe, T, TE } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
@@ -19,6 +19,7 @@ import * as TotalValueSecured from "../total-value-secured/total_value_secured.j
 import * as WebSocket from "./websocket.js";
 import * as BlockLag from "../block_lag.js";
 import * as KeyValueStore from "../key_value_store.js";
+import { getValidatorRewards } from "../validator_rewards.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -163,6 +164,17 @@ const handleGetBlockLag: Middleware = async (ctx) => {
   );
 };
 
+const handleGetValidatorRewards: Middleware = async (ctx) => {
+  await pipe(
+    getValidatorRewards(),
+    T.map((validatorRewards) => {
+      ctx.set("Cache-Control", "max-age=14400, stale-while-revalidate=86400");
+      ctx.set("Content-Type", "application/json");
+      ctx.body = validatorRewards;
+    }),
+  )();
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -267,6 +279,9 @@ router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 router.get("/fees/block-lag", handleGetBlockLag);
 
 // endpoints for dev
+
+// TODO: should be stored in DB and read from there
+router.get("/fees/validator-rewards", handleGetValidatorRewards);
 
 // to be deprecated soon
 // deprecate as soon as frontend is switched over to /fees/grouped-analysis-1

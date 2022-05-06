@@ -3,7 +3,7 @@ import * as Db from "./db.js";
 import { ethFromGwei } from "./eth_units.js";
 import { A, pipe, T } from "./fp.js";
 
-const genesisTimestamp = DateFns.fromUnixTime(1606824023);
+export const genesisTimestamp = DateFns.fromUnixTime(1606824023);
 
 const getTimestampFromSlot = (slot: number) =>
   DateFns.addSeconds(genesisTimestamp, slot * 12);
