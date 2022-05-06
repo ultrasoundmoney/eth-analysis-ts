@@ -5,6 +5,7 @@ import * as Db from "./db.js";
 import { A, B, E, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import { traverseGenSeq } from "./gen.js";
 import * as Log from "./log.js";
+import { measureTaskPerf } from "./performance.js";
 import * as ValidatorBalances from "./validator_balances.js";
 
 Log.info("analyze beacon states starting");
@@ -116,6 +117,7 @@ const syncSlot = (slot: number) =>
     TE.bindW("validatorBalanceSum", ({ stateRoot }) =>
       pipe(
         BeaconNode.getValidatorBalances(stateRoot),
+        (task) => measureTaskPerf("get validator balances", task),
         TE.map(sumValidatorBalances),
       ),
     ),
