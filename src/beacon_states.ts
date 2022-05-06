@@ -1,11 +1,30 @@
 import * as BeaconNode from "./beacon_node.js";
+import * as DateFns from "date-fns";
 import * as Db from "./db.js";
-import { A, E, flow, O, pipe, T, TE } from "./fp.js";
+import { A, E, flow, O, OAlt, pipe, T, TE, TOAlt } from "./fp.js";
+import { getLastEthSupply } from "./scarcity/eth_supply.js";
+import { genesisTimestamp } from "./validator_balances.js";
 
 export type BeaconState = {
   stateRoot: string;
   slot: number;
   blockRoot: string;
+};
+
+export type BeaconStateWithBlockRow = BeaconState & {
+  blockRoot: string;
+  depositSum: string;
+  depositSumAggregated: string;
+  parentRoot: string;
+  validatorBalanceSum: string;
+};
+
+export type BeaconStateWithBlock = BeaconState & {
+  blockRoot: string;
+  depositSum: bigint;
+  depositSumAggregated: bigint;
+  parentRoot: string;
+  validatorBalanceSum: bigint;
 };
 
 export const getLastState = () =>
@@ -16,6 +35,35 @@ export const getLastState = () =>
       LIMIT 1
     `,
     T.map(A.head),
+  );
+
+export const getLastStateWithBlock = () =>
+  pipe(
+    Db.sqlT<BeaconStateWithBlock[]>`
+      SELECT
+        block_root,
+        deposit_sum,
+        deposit_sum_aggregated,
+        parent_root,
+        slot,
+        state_root,
+        validator_balance_sum
+      FROM beacon_states
+      WHERE block_root IS NOT NULL
+      ORDER BY slot DESC
+      LIMIT 1
+    `,
+    T.map(
+      flow(
+        A.head,
+        O.map((row) => ({
+          ...row,
+          depositSum: BigInt(row.depositSum),
+          depositSumAggregated: BigInt(row.depositSumAggregated),
+          validatorBalanceSum: BigInt(row.validatorBalanceSum),
+        })),
+      ),
+    ),
   );
 
 export const storeBeaconState = (
