@@ -1,32 +1,46 @@
 import * as DateFns from "date-fns";
+import { getEthInValidatorsByDay } from "./beacon_balances.js";
 import { getLastStateWithBlock } from "./beacon_states.js";
+import {
+  genesisTimestamp,
+  getStartOfDayFromSlot,
+  getTimestampFromSlot,
+} from "./beacon_time.js";
 import * as Db from "./db.js";
 import { flow, OAlt, pipe, T, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
-import { genesisTimestamp } from "./validator_balances.js";
 
-const genisisStateRoot =
-  "0x7e76880eb67bbdc86250aa578958e9d0675e64e714337855204fb5abaaf82c2b";
+// const genisisStateRoot =
+//   "0x7e76880eb67bbdc86250aa578958e9d0675e64e714337855204fb5abaaf82c2b";
+
+// export const getInitialDeposits = () =>
+//   pipe(
+//     Db.sqlT<{ validatorBalanceSum: string }[]>`
+//       SELECT validator_balance_sum FROM eth_in_validators
+//       WHERE state_root = ${genisisStateRoot}
+//     `,
+//     T.map(
+//       flow(
+//         Db.readFromFirstRow("validatorBalanceSum"),
+//         OAlt.getOrThrow("failed to get genesis validator balance sum"),
+//         BigInt,
+//       ),
+//     ),
+//   );
 
 export const getInitialDeposits = () =>
-  pipe(
-    Db.sqlT<{ validatorBalanceSum: string }[]>`
-      SELECT validator_balance_sum FROM beacon_states
-      WHERE state_root = ${genisisStateRoot}
-    `,
-    T.map(
-      flow(
-        Db.readFromFirstRow("validatorBalanceSum"),
-        OAlt.getOrThrow("failed to get genesis validator balance sum"),
-        BigInt,
-      ),
-    ),
-  );
+  pipe(getEthInValidatorsByDay(getStartOfDayFromSlot(0)));
 
-export const getGweiIssued = () =>
+export const getGweiIssued = (slot: number) =>
   pipe(
     T.Do,
-    T.apS("initialDeposits", getInitialDeposits()),
+    T.apS(
+      "initialDeposits",
+      pipe(
+        getInitialDeposits(),
+        TOAlt.getOrThrow("expected genesis valdator balances to be stored"),
+      ),
+    ),
     T.apS(
       "lastState",
       pipe(
@@ -34,11 +48,17 @@ export const getGweiIssued = () =>
         TOAlt.getOrThrow("failed to get last beacon state"),
       ),
     ),
+    T.apS(
+      "validatorBalanceSum",
+      pipe(
+        getTimestampFromSlot(slot),
+        getEthInValidatorsByDay,
+        TOAlt.getOrThrow("failed to get validator balance sum by day"),
+      ),
+    ),
     T.map(
-      ({ initialDeposits, lastState }) =>
-        lastState.validatorBalanceSum -
-        lastState.depositSumAggregated -
-        initialDeposits,
+      ({ initialDeposits, lastState, validatorBalanceSum }) =>
+        validatorBalanceSum - lastState.depositSumAggregated - initialDeposits,
     ),
   );
 
@@ -59,13 +79,12 @@ const getTipsPerYear = () =>
 export const getValidatorRewards = () =>
   pipe(
     T.Do,
-    T.apS("gweiIssued", getGweiIssued()),
+    T.apS("gweiIssued", getGweiIssued(0)),
     T.apS(
       "validatorBalanceSum",
       pipe(
-        getLastStateWithBlock(),
+        getEthInValidatorsByDay(getStartOfDayFromSlot(0)),
         TOAlt.getOrThrow("failed to get last beacon state with block"),
-        T.map((state) => state.validatorBalanceSum),
       ),
     ),
     T.apS("tipsPerYear", getTipsPerYear()),

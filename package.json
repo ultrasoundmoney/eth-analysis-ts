@@ -72,7 +72,7 @@
     "migrate": "ley",
     "start": "node build/serve/serve.js",
     "start:prod": "node src/serve/serve.js",
-    "test": "node --loader ts-node/esm node_modules/uvu/bin.js src 'blocks/blocks.test.ts'"
+    "test": "ava src/*.test.ts !src/integration-test/*"
   },
   "ava": {
     "extensions": {

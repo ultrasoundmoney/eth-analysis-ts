@@ -19,7 +19,7 @@ import * as TotalValueSecured from "../total-value-secured/total_value_secured.j
 import * as WebSocket from "./websocket.js";
 import * as BlockLag from "../block_lag.js";
 import * as KeyValueStore from "../key_value_store.js";
-import { getValidatorRewards } from "../validator_rewards.js";
+import { getValidatorRewards } from "../beacon_rewards.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;

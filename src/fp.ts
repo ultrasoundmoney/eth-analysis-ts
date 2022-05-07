@@ -24,6 +24,7 @@ export * as NEA from "fp-ts/lib/NonEmptyArray.js";
 export * as Num from "fp-ts/lib/number.js";
 export * as O from "fp-ts/lib/Option.js";
 export * as Ord from "fp-ts/lib/Ord.js";
+export * as Ordering from "fp-ts/lib/Ordering.js";
 export * as RTE from "fp-ts/lib/ReaderTaskEither.js";
 export * as RA from "fp-ts/lib/ReadonlyArray.js";
 export * as RNEA from "fp-ts/lib/ReadonlyNonEmptyArray.js";
@@ -119,6 +120,8 @@ export const TEAlt = {
         task,
         TE.chainFirstIOK((u) => Log.debugIO(message, u)),
       ),
+  when: <E>(shouldExecute: boolean, task: TE.TaskEither<E, void>) =>
+    shouldExecute ? task : TE.of(undefined as void),
 };
 
 export const OAlt = {

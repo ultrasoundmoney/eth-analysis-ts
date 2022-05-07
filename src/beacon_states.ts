@@ -13,7 +13,6 @@ export type BeaconStateWithBlockRow = BeaconState & {
   depositSum: string;
   depositSumAggregated: string;
   parentRoot: string;
-  validatorBalanceSum: string;
 };
 
 export type BeaconStateWithBlock = BeaconState & {
@@ -21,7 +20,6 @@ export type BeaconStateWithBlock = BeaconState & {
   depositSum: bigint;
   depositSumAggregated: bigint;
   parentRoot: string;
-  validatorBalanceSum: bigint;
 };
 
 export const getLastState = () =>
@@ -44,7 +42,6 @@ export const getLastStateWithBlock = () =>
         parent_root,
         slot,
         state_root,
-        validator_balance_sum
       FROM beacon_states
       WHERE block_root IS NOT NULL
       ORDER BY slot DESC
@@ -57,30 +54,23 @@ export const getLastStateWithBlock = () =>
           ...row,
           depositSum: BigInt(row.depositSum),
           depositSumAggregated: BigInt(row.depositSumAggregated),
-          validatorBalanceSum: BigInt(row.validatorBalanceSum),
         })),
       ),
     ),
   );
 
-export const storeBeaconState = (
-  stateRoot: string,
-  slot: number,
-  validatorBalanceSum: bigint,
-) =>
+export const storeBeaconState = (stateRoot: string, slot: number) =>
   Db.sqlTVoid`
     INSERT INTO beacon_states
       ${Db.values({
         state_root: stateRoot,
         slot,
-        validator_balance_sum: String(validatorBalanceSum),
       })}
     `;
 
 export const storeBeaconStateWithBlock = (
   stateRoot: string,
   slot: number,
-  validatorBalanceSum: bigint,
   blockRoot: string,
   parentRoot: string,
   depositSumAggregated: bigint,
@@ -90,14 +80,10 @@ export const storeBeaconStateWithBlock = (
     ${Db.values({
       state_root: stateRoot,
       slot,
-      block_root: blockRoot ?? null,
-      parent_root: parentRoot ?? null,
-      validator_balance_sum: String(validatorBalanceSum),
-      deposit_sum: depositsSum === undefined ? null : String(depositsSum),
-      deposit_sum_aggregated:
-        depositSumAggregated === undefined
-          ? null
-          : String(depositSumAggregated),
+      block_root: blockRoot,
+      parent_root: parentRoot,
+      deposit_sum: String(depositsSum),
+      deposit_sum_aggregated: String(depositSumAggregated),
     })}
 `;
 
