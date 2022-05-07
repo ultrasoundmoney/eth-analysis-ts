@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-validator-rewards
+  labels:
+    app: store-validator-rewards
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: store-validator-rewards
+  template:
+    metadata:
+      labels:
+        app: store-validator-rewards
+    spec:
+      containers:
+        - name: store-validator-rewards
+          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          command: ["node", "src/store_validator_rewards.js"]
+          envFrom:
+            - configMapRef:
+                name: gas-analysis-env
+            - secretRef:
+                name: pg-password-lilly
+            - secretRef:
+                name: node-urls
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

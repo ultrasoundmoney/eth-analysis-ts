@@ -294,3 +294,29 @@ export const getValidatorBalances = (stateRoot: string) =>
     TE.chainEitherKW(decodeWithError(ValidatorBalances)),
     TE.map((envelope) => envelope.data),
   );
+
+const makeValidatorsByStateUrl = (stateRoot: string) =>
+  formatUrl(
+    Config.getBeaconUrl(),
+    "/eth/v1/beacon/states/:state_id/validators",
+    { state_id: stateRoot },
+  );
+
+const Validator = D.struct({
+  effective_balance: GweiAmount,
+});
+
+const ValidatorEnvelope = D.struct({
+  validator: Validator,
+});
+
+const ValidatorsEnvelope = D.struct({
+  data: D.array(ValidatorEnvelope),
+});
+
+export const getValidatorsByState = (stateRoot: string) =>
+  pipe(
+    Fetch.fetchJson(makeValidatorsByStateUrl(stateRoot)),
+    TE.chainEitherKW(decodeWithError(ValidatorsEnvelope)),
+    TE.map((envelope) => envelope.data),
+  );

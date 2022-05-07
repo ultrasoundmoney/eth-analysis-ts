@@ -1,13 +1,9 @@
-import * as DateFns from "date-fns";
-import { getEthInValidatorsByDay } from "./beacon_balances.js";
-import { getLastStateWithBlock } from "./beacon_states.js";
-import {
-  genesisTimestamp,
-  getStartOfDayFromSlot,
-  getTimestampFromSlot,
-} from "./beacon_time.js";
+import * as BeaconBalances from "./beacon_balances.js";
+import * as BeaconTime from "./beacon_time.js";
 import * as Db from "./db.js";
-import { flow, OAlt, pipe, T, TOAlt } from "./fp.js";
+import { ethFromGwei, gweiFromEth, gweiFromWei } from "./eth_units.js";
+import { flow, OAlt, pipe, T, TE } from "./fp.js";
+import * as KeyValueStore from "./key_value_store.js";
 import * as Log from "./log.js";
 
 // const genisisStateRoot =
@@ -28,110 +24,116 @@ import * as Log from "./log.js";
 //     ),
 //   );
 
-export const getInitialDeposits = () =>
-  pipe(getEthInValidatorsByDay(getStartOfDayFromSlot(0)));
-
-export const getGweiIssued = (slot: number) =>
+// In wei
+const getTipsSinceGenesis = () =>
   pipe(
-    T.Do,
-    T.apS(
-      "initialDeposits",
-      pipe(
-        getInitialDeposits(),
-        TOAlt.getOrThrow("expected genesis valdator balances to be stored"),
-      ),
-    ),
-    T.apS(
-      "lastState",
-      pipe(
-        getLastStateWithBlock(),
-        TOAlt.getOrThrow("failed to get last beacon state"),
-      ),
-    ),
-    T.apS(
-      "validatorBalanceSum",
-      pipe(
-        getTimestampFromSlot(slot),
-        getEthInValidatorsByDay,
-        TOAlt.getOrThrow("failed to get validator balance sum by day"),
-      ),
-    ),
-    T.map(
-      ({ initialDeposits, lastState, validatorBalanceSum }) =>
-        validatorBalanceSum - lastState.depositSumAggregated - initialDeposits,
-    ),
-  );
-
-const getTipsPerYear = () =>
-  pipe(
-    Db.sqlT<{ tipsPerYear: number }[]>`
-      SELECT SUM(tips) AS tips_per_year FROM blocks
-      WHERE mined_at >= NOW() - '1 year'::interval
+    Db.sqlT<{ tipsSinceGenesis: number }[]>`
+      SELECT SUM(tips) AS tips_since_genesis FROM blocks
+      WHERE mined_at >= ${BeaconTime.genesisTimestamp}
     `,
     T.map(
       flow(
-        Db.readFromFirstRow("tipsPerYear"),
-        OAlt.getOrThrow("failed to get tips per year"),
+        Db.readFromFirstRow("tipsSinceGenesis"),
+        OAlt.getOrThrow("failed to get tips since genesis"),
       ),
     ),
   );
 
+const getMaxIssuance = (totalEffectiveBalanceGwei: bigint) => {
+  const GWEI_PER_ETH = 10 ** 9;
+
+  const totalEffectiveBalance =
+    Number(totalEffectiveBalanceGwei) / GWEI_PER_ETH;
+
+  // Number of active validators
+  const ACTIVE_VALIDATORS = totalEffectiveBalance / 32;
+
+  // Balance at stake (in Gwei)
+  const MAX_EFFECTIVE_BALANCE = 32 * GWEI_PER_ETH; // at most 32 ETH at stake per validator
+  const MAX_BALANCE_AT_STAKE = ACTIVE_VALIDATORS * MAX_EFFECTIVE_BALANCE;
+
+  // Time parameters
+  const SECONDS_PER_SLOT = 12;
+  const SLOTS_PER_EPOCH = 32;
+  const EPOCHS_PER_DAY = (24 * 60 * 60) / SLOTS_PER_EPOCH / SECONDS_PER_SLOT;
+  const EPOCHS_PER_YEAR = 365.25 * EPOCHS_PER_DAY;
+
+  // Base reward
+  const BASE_REWARD_FACTOR = 64;
+  const integerSqrt = (num: number) => Math.floor(Math.sqrt(num));
+  const MAX_ISSUANCE_PER_EPOCH = Math.trunc(
+    (BASE_REWARD_FACTOR * MAX_BALANCE_AT_STAKE) /
+      integerSqrt(MAX_BALANCE_AT_STAKE),
+  );
+  const MAX_ISSUANCE_PER_DAY = MAX_ISSUANCE_PER_EPOCH * EPOCHS_PER_DAY;
+  const MAX_ISSUANCE_PER_YEAR = MAX_ISSUANCE_PER_EPOCH * EPOCHS_PER_YEAR;
+
+  const annualReward = MAX_ISSUANCE_PER_YEAR / GWEI_PER_ETH;
+  const apr = MAX_ISSUANCE_PER_YEAR / GWEI_PER_ETH / totalEffectiveBalance;
+
+  Log.debug(
+    `ETH staked: ${totalEffectiveBalance}, active validator: ${ACTIVE_VALIDATORS}`,
+  );
+  Log.debug(
+    `max issuance per epoch: ${MAX_ISSUANCE_PER_EPOCH / GWEI_PER_ETH} ETH`,
+  );
+  Log.debug(`max issuance per day: ${MAX_ISSUANCE_PER_DAY / GWEI_PER_ETH} ETH`);
+  Log.debug(`max issuance per year: ${annualReward} ETH`);
+  Log.debug(`APR: ${apr}`);
+
+  return { annualReward, apr };
+};
+
 export const getValidatorRewards = () =>
   pipe(
-    T.Do,
-    T.apS("gweiIssued", getGweiIssued(0)),
-    T.apS(
-      "validatorBalanceSum",
+    TE.Do,
+    TE.apS(
+      "lastEffectiveBalanceSum",
+      BeaconBalances.getLastEffectiveBalanceSum(),
+    ),
+    TE.bindW("issuanceReward", ({ lastEffectiveBalanceSum }) =>
+      pipe(getMaxIssuance(lastEffectiveBalanceSum), TE.right),
+    ),
+    TE.bindW("tipsReward", ({ lastEffectiveBalanceSum }) =>
       pipe(
-        getEthInValidatorsByDay(getStartOfDayFromSlot(0)),
-        TOAlt.getOrThrow("failed to get last beacon state with block"),
+        getTipsSinceGenesis(),
+        T.map((tipsSinceGenesis) =>
+          pipe(
+            (tipsSinceGenesis / BeaconTime.getDaysSinceGenesis()) * 365.25,
+            (tipsPerYear) =>
+              gweiFromWei(tipsPerYear) *
+              (gweiFromEth(32) / Number(lastEffectiveBalanceSum)),
+            (tipsEarnedPerYear) => ({
+              annualReward: tipsEarnedPerYear,
+              apr: ethFromGwei(tipsEarnedPerYear) / 32,
+            }),
+          ),
+        ),
+        TE.fromTask,
       ),
     ),
-    T.apS("tipsPerYear", getTipsPerYear()),
-    T.map(({ gweiIssued, validatorBalanceSum, tipsPerYear }) => {
-      const daysSinceGenesis = pipe(genesisTimestamp, (dt) =>
-        DateFns.differenceInDays(new Date(), dt),
-      );
-      const validatorGwei = 32 * 1e9;
-      const validatorShare = validatorGwei / Number(validatorBalanceSum);
+    TE.map(({ issuanceReward, tipsReward }) => ({
+      issuance: issuanceReward,
+      tips: {
+        annualReward: tipsReward.annualReward,
+        apr: tipsReward.apr,
+      },
+      mev: {
+        annualReward: 0.3 * 1e9,
+        apr: 0.01,
+      },
+    })),
+  );
 
-      const gweiIssuedPerDay = Number(gweiIssued) / daysSinceGenesis;
-      const gweiIssuedPerYear = gweiIssuedPerDay * 365;
-      const gweiEarnedPerYear = gweiIssuedPerYear * validatorShare;
-      const issuanceApr = gweiEarnedPerYear / validatorGwei;
+export const validatorRewardsCacheKey = "validator-rewards";
 
-      const tipsEarnedPerYear = (tipsPerYear / 1e9) * validatorShare;
-      const tipsApr = tipsEarnedPerYear / validatorGwei;
-
-      Log.debug("ETH issued", gweiIssued / 1_000_000_000n);
-      Log.debug(
-        "ETH validator balance sum",
-        validatorBalanceSum / 1_000_000_000n,
-      );
-      Log.debug("days since genesis", daysSinceGenesis);
-      Log.debug("gweiIssuedPerDay", gweiIssuedPerDay);
-      Log.debug("gweiIssuedPerYear", gweiIssuedPerYear);
-      Log.debug("gweiEarnedPerYear", gweiEarnedPerYear);
-      Log.debug("validator share", validatorShare);
-      Log.debug("Issuance APR", issuanceApr);
-
-      Log.debug("tipsPerYear", tipsPerYear);
-      Log.debug("tipsEarnedPerYear", tipsEarnedPerYear);
-      Log.debug("tips APR", tipsApr);
-
-      return {
-        issuance: {
-          annualReward: gweiEarnedPerYear,
-          apr: issuanceApr,
-        },
-        tips: {
-          annualReward: tipsEarnedPerYear,
-          apr: tipsApr,
-        },
-        mev: {
-          annualReward: 0.3 * 1e9,
-          apr: (0.3 * 1e9) / validatorGwei,
-        },
-      };
-    }),
+export const updateValidatorRewards = () =>
+  pipe(
+    getValidatorRewards(),
+    TE.chainTaskK((validatorRewards) =>
+      KeyValueStore.storeValue(validatorRewardsCacheKey, validatorRewards),
+    ),
+    TE.chainFirstTaskK(() =>
+      Db.sqlTNotify("cache-update", validatorRewardsCacheKey),
+    ),
   );

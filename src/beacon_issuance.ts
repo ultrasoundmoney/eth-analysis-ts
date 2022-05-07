@@ -1,11 +1,11 @@
-import * as DateFns from "date-fns";
-import { getEthInValidatorsByDay } from "./beacon_balances.js";
-import { getInitialDeposits } from "./beacon_rewards.js";
+import {
+  getEthInValidatorsByDay,
+  getInitialDeposits,
+} from "./beacon_balances.js";
 import { BeaconStateWithBlock } from "./beacon_states.js";
 import * as BeaconTime from "./beacon_time.js";
 import * as Db from "./db.js";
-import { ethFromGwei } from "./eth_units.js";
-import { A, pipe, T, TAlt, TOAlt } from "./fp.js";
+import { A, flow, O, OAlt, pipe, T, TAlt, TOAlt } from "./fp.js";
 
 const storeIssuance = (timestamp: Date, issuance: bigint) => Db.sqlTVoid`
   INSERT INTO beacon_issuance
@@ -30,17 +30,12 @@ export const onAddStateWithBlock = (state: BeaconStateWithBlock) =>
           ),
         ),
       ),
-      T.apS(
-        "initialDeposits",
-        pipe(
-          getInitialDeposits(),
-          TOAlt.getOrThrow("expected initial deposits to be stored"),
-        ),
-      ),
-      T.chain(({ timestamp, validatorBalanceSum, initialDeposits }) =>
+      T.chain(({ timestamp, validatorBalanceSum }) =>
         storeIssuance(
           timestamp,
-          validatorBalanceSum - state.depositSumAggregated - initialDeposits,
+          validatorBalanceSum -
+            state.depositSumAggregated -
+            getInitialDeposits(),
         ),
       ),
     ),
@@ -50,3 +45,21 @@ export const getIssuanceByDay = () =>
   Db.sqlT<{ timestamp: Date; issuance: string }[]>`
     SELECT timestamp, issuance FROM beacon_issuance
   `;
+
+export const getLastIssuancePerDay = () =>
+  pipe(
+    Db.sqlT<{ issuance: string }[]>`
+      SELECT issuance FROM beacon_issuance
+      ORDER BY timestamp DESC
+      LIMIT 2
+    `,
+    T.map(
+      flow(
+        (rows) => OAlt.seqT(A.lookup(0)(rows), A.lookup(1)(rows)),
+        O.map(
+          ([issuanceDayN, issuanceDayNMinOne]) =>
+            BigInt(issuanceDayN.issuance) - BigInt(issuanceDayNMinOne.issuance),
+        ),
+      ),
+    ),
+  );

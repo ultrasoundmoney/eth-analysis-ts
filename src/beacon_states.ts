@@ -41,7 +41,7 @@ export const getLastStateWithBlock = () =>
         deposit_sum_aggregated,
         parent_root,
         slot,
-        state_root,
+        state_root
       FROM beacon_states
       WHERE block_root IS NOT NULL
       ORDER BY slot DESC

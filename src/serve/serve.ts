@@ -3,13 +3,16 @@ import Koa, { Middleware } from "koa";
 import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
+import * as BeaconRewards from "../beacon_rewards.js";
+import * as BlockLag from "../block_lag.js";
 import * as BurnCategories from "../burn-categories/burn_categories.js";
 import * as ContractsRoutes from "../contracts/routes.js";
 import { runMigrations, sql } from "../db.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import { O, pipe, T, TE } from "../fp.js";
+import { O, pipe, TE } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
+import * as KeyValueStore from "../key_value_store.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
 import * as PeRatios from "../pe_ratios.js";
@@ -17,9 +20,6 @@ import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
 import * as WebSocket from "./websocket.js";
-import * as BlockLag from "../block_lag.js";
-import * as KeyValueStore from "../key_value_store.js";
-import { getValidatorRewards } from "../beacon_rewards.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -37,6 +37,9 @@ let peRatiosCache = await PeRatios.getPeRatiosCache()();
 let oTotalValueSecuredCache =
   await TotalValueSecured.getCachedTotalValueSecured()();
 let blockLag = await KeyValueStore.getValue(BlockLag.blockLagCacheKey)();
+let validatorRewards = await KeyValueStore.getValue(
+  BeaconRewards.validatorRewardsCacheKey,
+)();
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
@@ -165,14 +168,9 @@ const handleGetBlockLag: Middleware = async (ctx) => {
 };
 
 const handleGetValidatorRewards: Middleware = async (ctx) => {
-  await pipe(
-    getValidatorRewards(),
-    T.map((validatorRewards) => {
-      ctx.set("Cache-Control", "max-age=14400, stale-while-revalidate=86400");
-      ctx.set("Content-Type", "application/json");
-      ctx.body = validatorRewards;
-    }),
-  )();
+  ctx.set("Cache-Control", "max-age=14400, stale-while-revalidate=86400");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = validatorRewards;
 };
 
 sql.listen("cache-update", async (payload) => {
@@ -231,6 +229,13 @@ sql.listen("cache-update", async (payload) => {
 
   if (payload === BlockLag.blockLagCacheKey) {
     blockLag = await KeyValueStore.getValue(BlockLag.blockLagCacheKey)();
+    return;
+  }
+
+  if (payload === BeaconRewards.validatorRewardsCacheKey) {
+    validatorRewards = await KeyValueStore.getValue(
+      BeaconRewards.validatorRewardsCacheKey,
+    )();
     return;
   }
 

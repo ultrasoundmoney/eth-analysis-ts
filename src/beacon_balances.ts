@@ -1,9 +1,8 @@
-import * as DateFns from "date-fns";
 import * as BeaconNode from "./beacon_node.js";
+import { getLastStateWithBlock } from "./beacon_states.js";
 import * as BeaconTime from "./beacon_time.js";
 import * as Db from "./db.js";
-import { ethFromGwei } from "./eth_units.js";
-import { A, flow, O, pipe, T, TE, TEAlt } from "./fp.js";
+import { A, flow, O, OAlt, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
 import { measureTaskPerf } from "./performance.js";
 
@@ -67,4 +66,48 @@ export const getEthInValidatorsByDay = (dt: Date) =>
       WHERE timestamp = ${dt}
     `,
     T.map(flow(Db.readFromFirstRow("gwei"), O.map(BigInt))),
+  );
+
+// In Gwei
+// Obtained by getting validator balances for slot 0, which had zero deposits.
+export const getInitialDeposits = () => 674144000000000n;
+
+export const getLastDepositSumAggregated = () =>
+  pipe(
+    Db.sqlT<{ depositSumAggregated: string }[]>`
+      SELECT deposit_sum_aggregated FROM beacon_states
+      ORDER BY slot DESC
+      LIMIT 1
+    `,
+    T.map(
+      flow(
+        Db.readFromFirstRow("depositSumAggregated"),
+        O.map(BigInt),
+        OAlt.getOrThrow(
+          "failed to get last deposit_sum_aggregated, empty table",
+        ),
+      ),
+    ),
+  );
+
+export const getEffectiveBalanceSum = (stateRoot: string) =>
+  pipe(
+    BeaconNode.getValidatorsByState(stateRoot),
+    TE.map(
+      flow(
+        A.map(
+          (validatorEnvelope) => validatorEnvelope.validator.effective_balance,
+        ),
+        A.reduce(0n, (sum, balance) => sum + balance),
+      ),
+    ),
+  );
+
+export const getLastEffectiveBalanceSum = () =>
+  pipe(
+    getLastStateWithBlock(),
+    TE.fromTaskOption(
+      () => new Error("failed to get last state with block, empty table"),
+    ),
+    TE.chainW((lastState) => getEffectiveBalanceSum(lastState.stateRoot)),
   );
