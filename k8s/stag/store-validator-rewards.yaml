@@ -1,38 +1,29 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: CronJob
 metadata:
   name: store-validator-rewards
-  labels:
-    app: store-validator-rewards
 spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app: store-validator-rewards
-  template:
-    metadata:
-      labels:
-        app: store-validator-rewards
+  schedule: "0 */4 * * *"
+  jobTemplate:
     spec:
-      containers:
-        - name: store-validator-rewards
-          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/store_validator_rewards.js"]
-          envFrom:
-            - configMapRef:
-                name: gas-analysis-env
-            - secretRef:
-                name: pg-password-anton
-            - secretRef:
-                name: node-urls
-          env:
-            - name: NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-          resources:
-            requests:
-              cpu: 25m
-              memory: 128Mi
+      template:
+        spec:
+          containers:
+            - name: store-validator-rewards
+              image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+              command: ["node", "src/store_validator_rewards.js"]
+              envFrom:
+                - configMapRef:
+                    name: gas-analysis-env
+                - secretRef:
+                    name: pg-password-anton
+              env:
+                - name: NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 128Mi
+          restartPolicy: OnFailure
