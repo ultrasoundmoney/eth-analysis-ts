@@ -1,12 +1,16 @@
+import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
+import { getValidatorBalancesByDay } from "../beacon_balances.js";
+import { getIssuanceByDay } from "../beacon_issuance.js";
 import * as Duration from "../duration.js";
-import { O, pipe, TE } from "../fp.js";
+import { ethFromGwei } from "../eth_units.js";
+import { A, MapN, O, pipe, T, TE } from "../fp.js";
 import * as Glassnode from "../glassnode.js";
+import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";
 import { queueOnQueue } from "../queues.js";
-import { getEthInValidatorsDaily } from "../beacon_balances.js";
-import { serializeBigInt } from "../json.js";
+import { UnixTimestamp } from "../time.js";
 
 // Update this module to store results periodically in our DB.
 // Have serving services pull them out and serve only.
@@ -24,23 +28,86 @@ const inputsQueue = new PQueue({
 
 const getCachedInputs = () => pipe(inputsCache.get(inputsKey), O.fromNullable);
 
+const addBeaconIssuanceToSupply = (
+  validatorBalancesByDay: { t: UnixTimestamp; v: number }[],
+  supplyData: Glassnode.SupplyData,
+) =>
+  pipe(
+    validatorBalancesByDay,
+    A.map((dataPoint) => [dataPoint.t, dataPoint.v] as [number, number]),
+    (entries) => new Map(entries),
+    (map) =>
+      pipe(
+        supplyData,
+        A.map((dataPoint) =>
+          pipe(
+            map,
+            MapN.lookup(dataPoint.t),
+            O.match(
+              () => dataPoint,
+              (validatorBalance) => ({
+                t: dataPoint.t,
+                v: dataPoint.v + ethFromGwei(validatorBalance),
+              }),
+            ),
+          ),
+        ),
+      ),
+  );
+
 const getFreshInputs = () =>
   pipe(
     TE.Do,
-    TE.apS("supplyData", Glassnode.getCirculatingSupplyData()),
-    TE.apS("lockedData", Glassnode.getLockedEthData()),
-    TE.apS("stakedData", Glassnode.getStakedData()),
-    TE.apSW("inValidators", pipe(getEthInValidatorsDaily(), TE.fromTask)),
-    TE.map(({ supplyData, lockedData, stakedData, inValidators }) =>
-      JSON.stringify(
-        {
-          supplyData,
-          lockedData,
-          stakedData,
-          inValidators,
-        },
-        serializeBigInt,
+    TE.apS("inContractsByDay", Glassnode.getLockedEthData()),
+    TE.apSW("stakedData", Glassnode.getStakedData()),
+    TE.apSW(
+      "validatorBalancesByDay",
+      pipe(
+        getValidatorBalancesByDay(),
+        T.map(
+          A.map((row) => ({
+            t: DateFns.getUnixTime(row.timestamp),
+            v: pipe(row.gwei, Number, ethFromGwei),
+          })),
+        ),
+        TE.fromTask,
       ),
+    ),
+    TE.apSW(
+      "issuanceByDay",
+      pipe(
+        getIssuanceByDay(),
+        T.map(
+          A.map((issuanceDay) => ({
+            t: DateFns.getUnixTime(issuanceDay.timestamp),
+            v: pipe(issuanceDay.issuance, Number, ethFromGwei),
+          })),
+        ),
+        TE.fromTask,
+      ),
+    ),
+    TE.bindW("supplyByDay", ({ issuanceByDay }) =>
+      pipe(
+        Glassnode.getCirculatingSupplyData(),
+        TE.map((supplyData) =>
+          addBeaconIssuanceToSupply(issuanceByDay, supplyData),
+        ),
+      ),
+    ),
+    // Deprecate supplyData, lockedData, stakedData
+    TE.map(
+      ({ supplyByDay, inContractsByDay, stakedData, validatorBalancesByDay }) =>
+        JSON.stringify(
+          {
+            supplyData: supplyByDay,
+            supplyByDay,
+            lockedData: inContractsByDay,
+            inContractsByDay,
+            stakedData,
+            validatorBalancesByDay,
+          },
+          serializeBigInt,
+        ),
     ),
   );
 

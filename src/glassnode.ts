@@ -3,9 +3,10 @@ import QuickLRU from "quick-lru";
 import * as UrlSub from "url-sub";
 import * as Config from "./config.js";
 import * as Fetch from "./fetch.js";
-import { A, E, O, pipe, TE } from "./fp.js";
+import { A, D, E, O, pipe, TE } from "./fp.js";
 import { UnixTimestamp } from "./time.js";
 import * as Duration from "./duration.js";
+import { decodeWithError } from "./decoding.js";
 
 const glassnodeApi = "https://api.glassnode.com";
 const makeStakedDataUrl = () =>
@@ -79,8 +80,20 @@ const makeCirculatingSupplyDataUrl = () =>
     u: DateFns.getUnixTime(new Date()),
   });
 
+const SupplyData = D.array(
+  D.struct({
+    t: D.number,
+    v: D.number,
+  }),
+);
+
+export type SupplyData = D.TypeOf<typeof SupplyData>;
+
 export const getCirculatingSupplyData = () =>
-  Fetch.fetchWithRetryJson(makeCirculatingSupplyDataUrl());
+  pipe(
+    Fetch.fetchWithRetryJson(makeCirculatingSupplyDataUrl()),
+    TE.chainEitherKW(decodeWithError(SupplyData)),
+  );
 
 const makeEthInSmartContractsDataUrl = () =>
   UrlSub.formatUrl(glassnodeApi, "/v1/metrics/distribution/supply_contracts", {

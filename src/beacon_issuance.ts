@@ -1,9 +1,11 @@
+import * as DateFns from "date-fns";
 import { getEthInValidatorsByDay } from "./beacon_balances.js";
 import { getInitialDeposits } from "./beacon_rewards.js";
 import { BeaconStateWithBlock } from "./beacon_states.js";
 import * as BeaconTime from "./beacon_time.js";
 import * as Db from "./db.js";
-import { pipe, T, TAlt, TOAlt } from "./fp.js";
+import { ethFromGwei } from "./eth_units.js";
+import { A, pipe, T, TAlt, TOAlt } from "./fp.js";
 
 const storeIssuance = (timestamp: Date, issuance: bigint) => Db.sqlTVoid`
   INSERT INTO beacon_issuance
@@ -43,3 +45,8 @@ export const onAddStateWithBlock = (state: BeaconStateWithBlock) =>
       ),
     ),
   );
+
+export const getIssuanceByDay = () =>
+  Db.sqlT<{ timestamp: Date; issuance: string }[]>`
+    SELECT timestamp, issuance FROM beacon_issuance
+  `;

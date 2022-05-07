@@ -32,17 +32,13 @@ export const storeValidatorSumForDay = (
     ),
   );
 
-export const getEthInValidatorsDaily = () =>
+export type EthInValidators = { t: number; v: number }[];
+
+export const getValidatorBalancesByDay = () =>
   pipe(
     Db.sqlT<{ timestamp: Date; gwei: string }[]>`
       SELECT timestamp, gwei FROM eth_in_validators
     `,
-    T.map(
-      A.map((row) => ({
-        t: DateFns.getUnixTime(row.timestamp),
-        v: pipe(row.gwei, Number, ethFromGwei),
-      })),
-    ),
   );
 
 const sumValidatorBalances = (

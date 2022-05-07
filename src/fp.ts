@@ -4,6 +4,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as IO from "fp-ts/lib/IO.js";
 import * as MapF from "fp-ts/lib/Map.js";
 import * as Mo from "fp-ts/lib/Monoid.js";
+import * as Num from "fp-ts/lib/number.js";
 import * as O from "fp-ts/lib/Option.js";
 import * as S from "fp-ts/lib/string.js";
 import * as T from "fp-ts/lib/Task.js";
@@ -172,4 +173,8 @@ export const EAlt = {
 export const MapS = {
   lookup: MapF.lookup(S.Eq),
   upsertAt: MapF.upsertAt(S.Eq),
+};
+
+export const MapN = {
+  lookup: MapF.lookup(Num.Eq),
 };
