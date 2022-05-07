@@ -1,13 +1,12 @@
 import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import QuickLRU from "quick-lru";
-import { getValidatorBalancesByDay } from "../beacon_balances.js";
-import { getIssuanceByDay } from "../beacon_issuance.js";
+import * as BeaconBalances from "../beacon_balances.js";
+import * as BeaconIssuance from "../beacon_issuance.js";
 import * as Duration from "../duration.js";
 import { ethFromGwei } from "../eth_units.js";
 import { A, MapN, O, pipe, T, TE } from "../fp.js";
 import * as Glassnode from "../glassnode.js";
-import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";
 import { queueOnQueue } from "../queues.js";
 import { UnixTimestamp } from "../time.js";
@@ -61,9 +60,9 @@ const getFreshInputs = () =>
     TE.apS("inContractsByDay", Glassnode.getLockedEthData()),
     TE.apSW("stakedData", Glassnode.getStakedData()),
     TE.apSW(
-      "validatorBalancesByDay",
+      "inBeaconValidatorsByDay",
       pipe(
-        getValidatorBalancesByDay(),
+        BeaconBalances.getValidatorBalancesByDay(),
         T.map(
           A.map((row) => ({
             t: DateFns.getUnixTime(row.timestamp),
@@ -74,9 +73,9 @@ const getFreshInputs = () =>
       ),
     ),
     TE.apSW(
-      "issuanceByDay",
+      "beaconIssuanceByDay",
       pipe(
-        getIssuanceByDay(),
+        BeaconIssuance.getIssuanceByDay(),
         T.map(
           A.map((issuanceDay) => ({
             t: DateFns.getUnixTime(issuanceDay.timestamp),
@@ -86,28 +85,30 @@ const getFreshInputs = () =>
         TE.fromTask,
       ),
     ),
-    TE.bindW("supplyByDay", ({ issuanceByDay }) =>
+    TE.bindW("supplyByDay", ({ beaconIssuanceByDay }) =>
       pipe(
         Glassnode.getCirculatingSupplyData(),
         TE.map((supplyData) =>
-          addBeaconIssuanceToSupply(issuanceByDay, supplyData),
+          addBeaconIssuanceToSupply(beaconIssuanceByDay, supplyData),
         ),
       ),
     ),
-    // Deprecate supplyData, lockedData, stakedData
+    // Deprecate supplyData, lockedData, stakedData after prod frontend has switched to new supply projection inputs.
     TE.map(
-      ({ supplyByDay, inContractsByDay, stakedData, validatorBalancesByDay }) =>
-        JSON.stringify(
-          {
-            supplyData: supplyByDay,
-            supplyByDay,
-            lockedData: inContractsByDay,
-            inContractsByDay,
-            stakedData,
-            validatorBalancesByDay,
-          },
-          serializeBigInt,
-        ),
+      ({
+        supplyByDay,
+        inContractsByDay,
+        stakedData,
+        inBeaconValidatorsByDay,
+      }) =>
+        JSON.stringify({
+          supplyData: supplyByDay,
+          supplyByDay,
+          lockedData: inContractsByDay,
+          inContractsByDay,
+          stakedData,
+          inBeaconValidatorsByDay,
+        }),
     ),
   );
 
