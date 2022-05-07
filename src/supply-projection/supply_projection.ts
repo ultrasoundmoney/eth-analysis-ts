@@ -5,7 +5,7 @@ import { O, pipe, TE } from "../fp.js";
 import * as Glassnode from "../glassnode.js";
 import * as Log from "../log.js";
 import { queueOnQueue } from "../queues.js";
-import { getEthInValidatorsByDay } from "../validator_balances.js";
+import { getEthInValidatorsDaily } from "../beacon_balances.js";
 import { serializeBigInt } from "../json.js";
 
 // Update this module to store results periodically in our DB.
@@ -30,7 +30,7 @@ const getFreshInputs = () =>
     TE.apS("supplyData", Glassnode.getCirculatingSupplyData()),
     TE.apS("lockedData", Glassnode.getLockedEthData()),
     TE.apS("stakedData", Glassnode.getStakedData()),
-    TE.apSW("inValidators", pipe(getEthInValidatorsByDay(), TE.fromTask)),
+    TE.apSW("inValidators", pipe(getEthInValidatorsDaily(), TE.fromTask)),
     TE.map(({ supplyData, lockedData, stakedData, inValidators }) =>
       JSON.stringify(
         {

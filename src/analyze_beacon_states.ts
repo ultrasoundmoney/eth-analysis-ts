@@ -5,8 +5,8 @@ import * as Db from "./db.js";
 import { A, B, E, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import { traverseGenSeq } from "./gen.js";
 import * as Log from "./log.js";
-import { measureTaskPerf } from "./performance.js";
-import * as ValidatorBalances from "./validator_balances.js";
+import * as ValidatorBalances from "./beacon_balances.js";
+import { onAddStateWithBlock } from "./beacon_issuance.js";
 
 Log.info("analyze beacon states starting");
 
@@ -34,14 +34,6 @@ const getDepositsSumFromBlock = (block: BeaconNode.BeaconBlock) =>
     A.reduce(0n, (sum, num) => sum + num),
   );
 
-const sumValidatorBalances = (
-  validatorBalances: BeaconNode.ValidatorBalance[],
-) =>
-  pipe(
-    validatorBalances,
-    A.reduce(0n, (sum, validatorBalance) => sum + validatorBalance.balance),
-  );
-
 const getDepositSumAggregated = (block: BeaconNode.BeaconBlock) =>
   pipe(
     BeaconStates.getParentDepositSumAggregated(block),
@@ -55,7 +47,6 @@ const storeBeaconBlockWithBlockData = (
   header: BeaconNode.BeaconHeader,
   block: BeaconNode.BeaconBlock,
   stateRoot: string,
-  validatorBalanceSum: bigint,
   depositSumAggregated: bigint,
 ) =>
   pipe(
@@ -73,7 +64,6 @@ const storeBeaconBlockWithBlockData = (
             BeaconStates.storeBeaconStateWithBlock(
               stateRoot,
               header.header.message.slot,
-              validatorBalanceSum,
               header.root,
               header.header.message.parent_root,
               depositSumAggregated,
@@ -90,6 +80,9 @@ const syncSlot = (slot: number) =>
   pipe(
     TE.Do,
     TE.apS("stateRoot", BeaconNode.getStateRootBySlot(slot)),
+    TE.bindW("syncValidatorBalances", ({ stateRoot }) =>
+      pipe(ValidatorBalances.onSyncSlot(slot, stateRoot)),
+    ),
     TE.apSW(
       "headerBlockDeposits",
       pipe(
@@ -114,36 +107,43 @@ const syncSlot = (slot: number) =>
         ),
       ),
     ),
-    TE.bindW("validatorBalanceSum", ({ stateRoot }) =>
-      pipe(
-        BeaconNode.getValidatorBalances(stateRoot),
-        (task) => measureTaskPerf("get validator balances", task),
-        TE.map(sumValidatorBalances),
-      ),
-    ),
-    TE.chainFirstTaskK(({ validatorBalanceSum }) =>
-      ValidatorBalances.storeValidatorSumForDay(slot, validatorBalanceSum),
-    ),
-    TE.chainW(({ headerBlockDeposits, stateRoot, validatorBalanceSum }) =>
+    TE.chainW(({ headerBlockDeposits, stateRoot }) =>
       pipe(
         headerBlockDeposits,
         O.match(
           () =>
             pipe(
-              BeaconStates.storeBeaconState(
-                stateRoot,
-                slot,
-                validatorBalanceSum,
+              Log.debugIO(
+                `storing block without header, slot: ${slot}, state_root: ${stateRoot}`,
               ),
+              T.fromIO,
+              T.chain(() => BeaconStates.storeBeaconState(stateRoot, slot)),
               (task) => TE.fromTask<void, never>(task),
             ),
           ({ header, depositSumAggregated, block }) =>
-            storeBeaconBlockWithBlockData(
-              header,
-              block,
-              stateRoot,
-              validatorBalanceSum,
-              depositSumAggregated,
+            pipe(
+              Log.debugIO(
+                `storing block with header, slot: ${slot}, state_root: ${stateRoot}`,
+              ),
+              T.fromIO,
+              T.chain(() =>
+                storeBeaconBlockWithBlockData(
+                  header,
+                  block,
+                  stateRoot,
+                  depositSumAggregated,
+                ),
+              ),
+              TE.chainTaskK(() =>
+                onAddStateWithBlock({
+                  blockRoot: header.root,
+                  depositSum: getDepositsSumFromBlock(block),
+                  depositSumAggregated,
+                  parentRoot: header.header.message.parent_root,
+                  slot,
+                  stateRoot,
+                }),
+              ),
             ),
         ),
       ),
@@ -162,8 +162,9 @@ const genRange = async function* (slotRange: SlotRange) {
 // We run out of memory when we create a range and build a list of tasks for millions of slots, we use a generator instead.
 const fastSyncSlots = (slotRange: SlotRange) =>
   pipe(
-    genRange(slotRange),
-    (gen) => traverseGenSeq(gen, (num) => syncSlot(num)),
+    Log.debugIO(`fast sync slots from: ${slotRange.from}, to: ${slotRange.to}`),
+    T.fromIO,
+    T.chain(() => traverseGenSeq(genRange(slotRange), (num) => syncSlot(num))),
     TEAlt.concatAllVoid,
   );
 
