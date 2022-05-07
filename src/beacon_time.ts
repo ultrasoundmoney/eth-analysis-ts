@@ -31,3 +31,6 @@ export const getIsFirstOfDaySlot = (slot: number) =>
         ),
     ),
   );
+
+export const getDaysSinceGenesis = () =>
+  pipe(genesisTimestamp, (dt) => DateFns.differenceInDays(new Date(), dt));
