@@ -17,6 +17,8 @@ spec:
                     name: gas-analysis-env
                 - secretRef:
                     name: pg-password-lilly
+                - secretRef:
+                    name: node-urls
               env:
                 - name: NAME
                   valueFrom:
