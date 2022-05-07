@@ -68,10 +68,8 @@ const StateRootEnvelope = D.struct({
 
 type StateRootEnvelope = D.TypeOf<typeof StateRootEnvelope>;
 
-const beaconNodeApi = Config.getBeaconUrl();
-
 const makeBlocksUrl = (blockId: "head" | "finalized" | "genesis" | string) =>
-  formatUrl(beaconNodeApi, "/eth/v1/beacon/blocks/:block_id", {
+  formatUrl(Config.getBeaconUrl(), "/eth/v1/beacon/blocks/:block_id", {
     block_id: blockId,
   });
 
@@ -83,7 +81,7 @@ export const getLastFinalizedBlock = () =>
   );
 
 const makeStateRootUrl = (slot: number) =>
-  formatUrl(beaconNodeApi, "/eth/v1/beacon/states/:state_id/root", {
+  formatUrl(Config.getBeaconUrl(), "/eth/v1/beacon/states/:state_id/root", {
     state_id: slot,
   });
 
@@ -140,7 +138,7 @@ export const subscribeNewFinalizedCheckpoints = async (
   }
 
   es = new EventSource(
-    formatUrl(beaconNodeApi, "/eth/v1/events", {
+    formatUrl(Config.getBeaconUrl(), "/eth/v1/events", {
       topics: "finalized_checkpoint",
     }),
   );
@@ -178,7 +176,7 @@ export const closeConnection = () => {
 };
 
 const makeBlockBySlotUrl = (slot: number) =>
-  formatUrl(beaconNodeApi, "/eth/v2/beacon/blocks/:block_id", {
+  formatUrl(Config.getBeaconUrl(), "/eth/v2/beacon/blocks/:block_id", {
     block_id: slot,
   });
 
@@ -223,7 +221,7 @@ const BeaconHeaderEnvelope = D.struct({
 });
 
 const makeHeaderBySlotUrl = (slot: number) =>
-  formatUrl(beaconNodeApi, "/eth/v1/beacon/headers/:block_id", {
+  formatUrl(Config.getBeaconUrl(), "/eth/v1/beacon/headers/:block_id", {
     block_id: slot,
   });
 
@@ -248,7 +246,7 @@ export const getHeaderBySlot = (slot: number) =>
   );
 
 const makeHeaderByBlockRootUrl = (blockRoot: string) =>
-  formatUrl(beaconNodeApi, "/eth/v1/beacon/headers/:block_id", {
+  formatUrl(Config.getBeaconUrl(), "/eth/v1/beacon/headers/:block_id", {
     block_id: blockRoot,
   });
 
@@ -274,7 +272,7 @@ export const getHeaderByRoot = (blockRoot: string) =>
 
 const makeValidatorBalancesByStateUrl = (stateRoot: string) =>
   formatUrl(
-    beaconNodeApi,
+    Config.getBeaconUrl(),
     "/eth/v1/beacon/states/:state_id/validator_balances",
     { state_id: stateRoot },
   );
