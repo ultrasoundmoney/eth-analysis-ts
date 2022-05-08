@@ -7,7 +7,7 @@ await pipe(
   BeaconRewards.updateValidatorRewards(),
   TE.match(
     (e) => Log.alert("failed to update validator rewards", e),
-    (): void => undefined,
+    () => Log.info("successfully updated validator rewards"),
   ),
 )();
 
