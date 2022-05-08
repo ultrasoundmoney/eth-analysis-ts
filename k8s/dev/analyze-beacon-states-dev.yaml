@@ -5,7 +5,7 @@ metadata:
   labels:
     app: analyze-beacon-states-dev
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
