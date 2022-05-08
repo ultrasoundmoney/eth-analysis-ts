@@ -168,9 +168,19 @@ const handleGetBlockLag: Middleware = async (ctx) => {
 };
 
 const handleGetValidatorRewards: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=14400, stale-while-revalidate=86400");
-  ctx.set("Content-Type", "application/json");
-  ctx.body = validatorRewards;
+  pipe(
+    validatorRewards,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (validatorRewards) => {
+        ctx.set("Cache-Control", "max-age=14400, stale-while-revalidate=86400");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = validatorRewards;
+      },
+    ),
+  );
 };
 
 sql.listen("cache-update", async (payload) => {
