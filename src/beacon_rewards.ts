@@ -39,11 +39,10 @@ const getTipsSinceGenesis = () =>
     ),
   );
 
-const getMaxIssuance = (totalEffectiveBalanceGwei: bigint) => {
+const getMaxIssuance = (effectiveBalanceSumGwei: bigint) => {
   const GWEI_PER_ETH = 10 ** 9;
 
-  const totalEffectiveBalance =
-    Number(totalEffectiveBalanceGwei) / GWEI_PER_ETH;
+  const totalEffectiveBalance = Number(effectiveBalanceSumGwei) / GWEI_PER_ETH;
 
   // Number of active validators
   const ACTIVE_VALIDATORS = totalEffectiveBalance / 32;
@@ -68,7 +67,7 @@ const getMaxIssuance = (totalEffectiveBalanceGwei: bigint) => {
   const MAX_ISSUANCE_PER_DAY = MAX_ISSUANCE_PER_EPOCH * EPOCHS_PER_DAY;
   const MAX_ISSUANCE_PER_YEAR = MAX_ISSUANCE_PER_EPOCH * EPOCHS_PER_YEAR;
 
-  const annualReward = MAX_ISSUANCE_PER_YEAR / GWEI_PER_ETH;
+  const annualReward = MAX_ISSUANCE_PER_YEAR / ACTIVE_VALIDATORS;
   const apr = MAX_ISSUANCE_PER_YEAR / GWEI_PER_ETH / totalEffectiveBalance;
 
   Log.debug(
@@ -78,11 +77,30 @@ const getMaxIssuance = (totalEffectiveBalanceGwei: bigint) => {
     `max issuance per epoch: ${MAX_ISSUANCE_PER_EPOCH / GWEI_PER_ETH} ETH`,
   );
   Log.debug(`max issuance per day: ${MAX_ISSUANCE_PER_DAY / GWEI_PER_ETH} ETH`);
-  Log.debug(`max issuance per year: ${annualReward} ETH`);
+  Log.debug(
+    `max issuance per year: ${MAX_ISSUANCE_PER_YEAR / GWEI_PER_ETH} ETH`,
+  );
   Log.debug(`APR: ${apr}`);
 
   return { annualReward, apr };
 };
+
+const getTipsReward = (effectiveBalanceSum: bigint) =>
+  pipe(
+    getTipsSinceGenesis(),
+    T.map((tipsSinceGenesis) =>
+      pipe(
+        (tipsSinceGenesis / BeaconTime.getDaysSinceGenesis()) * 365.25,
+        (tipsPerYear) =>
+          gweiFromWei(tipsPerYear) *
+          (gweiFromEth(32) / Number(effectiveBalanceSum)),
+        (tipsEarnedPerYear) => ({
+          annualReward: tipsEarnedPerYear,
+          apr: ethFromGwei(tipsEarnedPerYear) / 32,
+        }),
+      ),
+    ),
+  );
 
 export const getValidatorRewards = () =>
   pipe(
@@ -95,22 +113,7 @@ export const getValidatorRewards = () =>
       pipe(getMaxIssuance(lastEffectiveBalanceSum), TE.right),
     ),
     TE.bindW("tipsReward", ({ lastEffectiveBalanceSum }) =>
-      pipe(
-        getTipsSinceGenesis(),
-        T.map((tipsSinceGenesis) =>
-          pipe(
-            (tipsSinceGenesis / BeaconTime.getDaysSinceGenesis()) * 365.25,
-            (tipsPerYear) =>
-              gweiFromWei(tipsPerYear) *
-              (gweiFromEth(32) / Number(lastEffectiveBalanceSum)),
-            (tipsEarnedPerYear) => ({
-              annualReward: tipsEarnedPerYear,
-              apr: ethFromGwei(tipsEarnedPerYear) / 32,
-            }),
-          ),
-        ),
-        TE.fromTask,
-      ),
+      pipe(getTipsReward(lastEffectiveBalanceSum), TE.fromTask),
     ),
     TE.map(({ issuanceReward, tipsReward }) => ({
       issuance: issuanceReward,
