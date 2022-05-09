@@ -33,7 +33,7 @@ const storeLastAdded = (blockNumber: number) => Db.sql`
     value = excluded.value
 `;
 
-const healBlock = (
+const heal = (
   block: Blocks.BlockNodeV2,
   transactionReceipts: Transactions.TransactionReceiptV1[],
   ethPrice: EthPrice,
@@ -129,7 +129,7 @@ for (const blockNumber of blocksToCheck) {
         storedContractFees,
         transactionReceipts,
       }) => {
-        const map1 = pipe(
+        const storedFees = pipe(
           storedContractFees,
           A.map(
             (entry) =>
@@ -144,7 +144,7 @@ for (const blockNumber of blocksToCheck) {
           Object.fromEntries,
         );
 
-        const map2 = pipe(
+        const expectedFees = pipe(
           Array.from(feeSums.contractSumsEth.keys()),
           A.map((address) => [
             address,
@@ -156,72 +156,19 @@ for (const blockNumber of blocksToCheck) {
           Object.fromEntries,
         );
 
-        if (!isDeepStrictEqual(map1, map2)) {
+        if (!isDeepStrictEqual(storedFees, expectedFees)) {
           try {
-            deepStrictEqual(map1, map2);
+            deepStrictEqual(storedFees, expectedFees);
           } catch (error) {
-            Log.warn(`${blockNumber} expected not equal to actual`, error);
-            return healBlock(block, transactionReceipts, ethPrice);
+            Log.warn(`${blockNumber} actual not equal to expected`, error);
+            return heal(block, transactionReceipts, ethPrice);
           }
         }
 
         return T.of(undefined);
       },
-      // A.map(({ contractAddress, baseFees, baseFees256 }) => {
-      //   const actualBaseFees = feeSums.contractSumsEth.get(contractAddress);
-      //   const actualBaseFees256 =
-      //     feeSums.contractSumsEthBI.get(contractAddress);
-
-      //   if (actualBaseFees === undefined || actualBaseFees256 === undefined) {
-      //     throw new Error(
-      //       `${blockNumber} - ${contractAddress}, stored fees not in actual fees`,
-      //     );
-      //   }
-
-      //   if (actualBaseFees !== baseFees) {
-      //     throw new Error(
-      //       `${blockNumber} - ${contractAddress}, actual base fees: ${actualBaseFees}, stored base fees: ${baseFees}`,
-      //     );
-      //   }
-
-      //   if (actualBaseFees256 !== baseFees256) {
-      //     throw new Error(
-      //       `${blockNumber} - ${contractAddress}, actual base fees: ${actualBaseFees256}, stored base fees: ${baseFees256}`,
-      //     );
-      //   }
-      // }),
     ),
   )();
-
-  // const contractOtherAddresses = pipe(
-  //   otherReceipts,
-  //   A.map((receipt) => receipt.to),
-  //   A.compact,
-  //   (addresses) => new Set(addresses),
-  // );
-
-  // const storedContractAddresses = await pipe(
-  //   sqlT<{ contractAddress: string }[]>`
-  //     SELECT contract_address FROM contract_base_fees
-  //     WHERE block_number = ${blockNumber}
-  //   `,
-  //   T.map((rows) => rows.map((row) => row.contractAddress)),
-  //   T.map((addresses) => new Set(addresses)),
-  // )();
-  // const missing = new Array(...contractOtherAddresses).filter(
-  //   (address) => !storedContractAddresses.has(address),
-  // );
-  // const wrong = new Array(...storedContractAddresses).filter(
-  //   (address) => !contractOtherAddresses.has(address),
-  // );
-
-  // if (missing.length !== 0) {
-  //   Log.debug(`block ${blockNumber}, ${missing.length} missing addresses`);
-  //   await healBlock(block.value, transactionReceipts);
-  // } else if (wrong.length !== 0) {
-  //   Log.debug(`block ${blockNumber}, ${wrong.length} bad addresses stored`);
-  //   await healBlock(block.value, transactionReceipts);
-  // }
 
   if (blockNumber % 100 === 0 && blocksDone !== 0) {
     Log.debug(
