@@ -309,7 +309,7 @@ const buildRankingWithTwitterDetails = (
     usd: row.baseFeesUsd,
   },
   famFollowerCount: twitterDetails.famFollowerCount,
-  followerCount: twitterDetails.followersCount,
+  followerCount: twitterDetails.followerCount,
   twitterBio: twitterDetails.bio,
   twitterHandle: row.twitterHandle ?? undefined,
   twitterLinks: twitterDetails.links,
