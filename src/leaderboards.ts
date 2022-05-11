@@ -37,6 +37,7 @@ export type LeaderboardRowWithTwitterDetails = {
   name: string | null;
   twitterBio: string | undefined;
   twitterHandle: string | undefined;
+  twitterLinks: FamService.Linkables | undefined;
   twitterName: string | undefined;
 };
 
@@ -294,6 +295,7 @@ const buildRanking = (
   followerCount: undefined,
   twitterBio: undefined,
   twitterHandle: row.twitterHandle ?? undefined,
+  twitterLinks: undefined,
   twitterName: row.twitterName ?? undefined,
 });
 
@@ -310,6 +312,7 @@ const buildRankingWithTwitterDetails = (
   followerCount: twitterDetails.followersCount,
   twitterBio: twitterDetails.bio,
   twitterHandle: row.twitterHandle ?? undefined,
+  twitterLinks: twitterDetails.links,
   twitterName: row.twitterName ?? undefined,
 });
 
