@@ -70,7 +70,6 @@ export const addMetadataFromSimilar = (
           "category",
           "category",
         ),
-        storeFromSimilarContracts(similarContracts, address, "name", "name"),
         storeFromSimilarContracts(
           similarContracts,
           address,
