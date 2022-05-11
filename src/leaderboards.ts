@@ -59,6 +59,7 @@ type ContractEntry = {
   type: "contract";
   twitterBio: string | undefined;
   twitterHandle: string | undefined;
+  twitterLinks: FamService.Linkables | undefined;
   twitterUrl: string | undefined;
 };
 
@@ -246,6 +247,7 @@ export const buildLeaderboard = (
     name: row.name,
     twitterBio: row.twitterBio,
     twitterHandle: row.twitterHandle,
+    twitterLinks: row.twitterLinks,
     twitterName: row.twitterName,
     twitterUrl: pipe(
       row.twitterName,
