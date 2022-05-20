@@ -8,7 +8,7 @@ const coinGeckoApiUrl = "https://api.coingecko.com/api/v3";
 
 const retryPolicy = Retry.Monoid.concat(
   Retry.exponentialBackoff(2000),
-  Retry.limitRetries(5),
+  Retry.limitRetries(7),
 );
 
 export type PriceResponse = {
