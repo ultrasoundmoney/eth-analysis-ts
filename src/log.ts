@@ -85,30 +85,40 @@ export const log = (
   // Log json to stdout during non-dev.
   if (meta instanceof Error) {
     console.log(
-      JSON.stringify({
-        error_message: meta.message,
-        error_name: meta.name,
-        error_stack: meta.stack,
-        level,
-        message,
-        // Log whatever extra properties meta still contains.
-        meta: {
-          ...meta,
-          stack: undefined,
-          message: undefined,
-          name: undefined,
+      JSON.stringify(
+        {
+          error_message: meta.message,
+          error_name: meta.name,
+          error_stack: meta.stack,
+          level,
+          message,
+          // Log whatever extra properties meta still contains.
+          meta: {
+            ...meta,
+            stack: undefined,
+            message: undefined,
+            name: undefined,
+          },
+          timestamp: new Date(),
         },
-        timestamp: new Date(),
-      }),
+        // Without this JSON.stringify will throw when trying to serialize a bigint.
+        (_key: string, value: unknown) =>
+          typeof value === "bigint" ? value.toString() + "n" : value,
+      ),
     );
   } else {
     console.log(
-      JSON.stringify({
-        level,
-        message,
-        meta,
-        timestamp: new Date(),
-      }),
+      JSON.stringify(
+        {
+          level,
+          message,
+          meta,
+          timestamp: new Date(),
+        },
+        // Without this JSON.stringify will throw when trying to serialize a bigint.
+        (_key: string, value: unknown) =>
+          typeof value === "bigint" ? value.toString() + "n" : value,
+      ),
     );
   }
 };
