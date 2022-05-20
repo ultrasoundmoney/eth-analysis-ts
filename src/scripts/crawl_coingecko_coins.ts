@@ -6,7 +6,7 @@ import * as Log from "../log.js";
 import { addTwitterMetadataMaybe } from "../contracts/metadata/twitter.js";
 
 let seenLastCrawled = true;
-const lastCrawled = "";
+const lastCrawled = "circuits-of-value";
 
 await pipe(
   Coingecko.getCoinList(),
@@ -31,6 +31,7 @@ await pipe(
       pipe(
         MetadataCoingecko.checkForMetadata(coin.platforms.ethereum),
         T.chain(() => addTwitterMetadataMaybe(coin.platforms.ethereum)),
+        T.chainIOK(() => Log.debugIO(`added metadata for coin ${coin.id}`)),
         TE.fromTask,
       ),
     ),
