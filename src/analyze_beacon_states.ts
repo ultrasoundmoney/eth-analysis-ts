@@ -81,7 +81,7 @@ const syncSlot = (slot: number) =>
     TE.Do,
     TE.apS("stateRoot", BeaconNode.getStateRootBySlot(slot)),
     TE.bindW("syncValidatorBalances", ({ stateRoot }) =>
-      pipe(ValidatorBalances.onSyncSlot(slot, stateRoot)),
+      ValidatorBalances.onSyncSlot(slot, stateRoot),
     ),
     TE.apSW(
       "headerBlockDeposits",
@@ -164,7 +164,7 @@ const fastSyncSlots = (slotRange: SlotRange) =>
   pipe(
     Log.debugIO(`fast sync slots from: ${slotRange.from}, to: ${slotRange.to}`),
     T.fromIO,
-    T.chain(() => traverseGenSeq(genRange(slotRange), (num) => syncSlot(num))),
+    T.chain(() => traverseGenSeq(genRange(slotRange), syncSlot)),
     TEAlt.concatAllVoid,
   );
 
