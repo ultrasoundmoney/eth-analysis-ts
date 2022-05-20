@@ -23,7 +23,7 @@ await pipe(
       }
 
       return false;
-    })
+    }),
   ),
   TEAlt.chainFirstLogDebug((list) => `${list.length} coins to crawl`),
   TE.chain(
@@ -32,12 +32,12 @@ await pipe(
         MetadataCoingecko.checkForMetadata(coin.platforms.ethereum),
         T.chain(() => addTwitterMetadataMaybe(coin.platforms.ethereum)),
         T.chainIOK(() => Log.debugIO(`added metadata for coin ${coin.id}`)),
-        TE.fromTask
-      )
-    )
+        TE.fromTask,
+      ),
+    ),
   ),
   TE.match(
     (e) => Log.error("failed to crawl CoinGecko metadata", e),
-    () => Log.debug("succcessfully crawled CoinGecko metadata")
-  )
+    () => Log.debug("succcessfully crawled CoinGecko metadata"),
+  ),
 )();
