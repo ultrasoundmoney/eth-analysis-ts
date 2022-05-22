@@ -6,7 +6,7 @@ import * as Log from "../log.js";
 import { addTwitterMetadataMaybe } from "../contracts/metadata/twitter.js";
 
 let seenLastCrawled = true;
-const lastCrawled = "aave-amm-uniwbtcweth";
+const lastCrawled = "";
 
 await pipe(
   Coingecko.getCoinList(),
