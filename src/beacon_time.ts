@@ -34,3 +34,10 @@ export const getIsFirstOfDaySlot = (slot: number) =>
 
 export const getDaysSinceGenesis = () =>
   pipe(genesisTimestamp, (dt) => DateFns.differenceInDays(new Date(), dt));
+
+// Returns fractional slots when no slot with an exact matching timestamp exists.
+export const getSlotFromDate = (dt: Date) =>
+  pipe(
+    DateFns.differenceInSeconds(dt, genesisTimestamp),
+    (seconds) => seconds / 12,
+  );
