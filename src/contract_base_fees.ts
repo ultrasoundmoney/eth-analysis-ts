@@ -10,6 +10,7 @@ export type ContractBaseFees = {
   baseFees: number;
   blockNumber: number;
   contractAddress: string;
+  gasUsed: bigint;
   transactionCount: number;
 };
 
@@ -20,6 +21,7 @@ export const insertableFromContractBaseFees = (
   base_fees_256: String(contractBaseFees.baseFees256),
   block_number: contractBaseFees.blockNumber,
   contract_address: contractBaseFees.contractAddress,
+  gas_used: String(contractBaseFees.gasUsed),
   transaction_count: contractBaseFees.transactionCount,
 });
 
@@ -40,6 +42,7 @@ export const contractBaseFeesFromAnalysis = (
   ),
   blockNumber: block.number,
   contractAddress: address,
+  gasUsed: feeSegments.gasUsedSums.get(address) ?? 0n,
   transactionCount: transactionCounts.get(address) ?? 0,
 });
 

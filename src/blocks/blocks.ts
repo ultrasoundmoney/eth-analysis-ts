@@ -102,10 +102,11 @@ export const insertableFromBlock = (block: BlockV1): BlockDbInsertable => ({
 });
 
 export type ContractBaseFeesInsertable = {
-  contract_address: string;
   base_fees: number;
   base_fees_256: string;
   block_number: number;
+  contract_address: string;
+  gas_used: string;
   transaction_count: number;
 };
 
