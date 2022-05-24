@@ -164,9 +164,9 @@ export const addAllBlocksForAllTimeframes = () =>
   pipe(
     TimeFrames.limitedTimeFrames,
     T.traverseSeqArray((timeFrame) =>
-      Performance.measureTaskPerf(
-        `init leaderboard ${timeFrame}`,
+      pipe(
         addAllBlocksForTimeFrame(timeFrame),
+        Performance.measureTaskPerf(`init leaderboard ${timeFrame}`),
       ),
     ),
   );
@@ -379,37 +379,29 @@ const calcLeaderboardForLimitedTimeframe = (
     T.bind("topBaseFeeContracts", () =>
       pipe(
         getTopBaseFeeContracts(timeFrame),
-        (task) =>
-          Performance.measureTaskPerf(
-            `    get ranked contracts for time frame ${timeFrame}`,
-            task,
-          ),
+        Performance.measureTaskPerf(
+          `    get ranked contracts for time frame ${timeFrame}`,
+        ),
         T.chain(Leaderboards.extendRowsWithTwitterDetails),
-        (task) =>
-          Performance.measureTaskPerf(
-            `    add twitter details for time frame ${timeFrame}`,
-            task,
-          ),
+        Performance.measureTaskPerf(
+          `    add twitter details for time frame ${timeFrame}`,
+        ),
       ),
     ),
     T.bind("ethTransfer", () =>
       pipe(
         () => Leaderboards.getEthTransferFeesForTimeframe(timeFrame),
-        (task) =>
-          Performance.measureTaskPerf(
-            `    add eth transfer fees for time frame ${timeFrame}`,
-            task,
-          ),
+        Performance.measureTaskPerf(
+          `    add eth transfer fees for time frame ${timeFrame}`,
+        ),
       ),
     ),
     T.bind("contractCreation", () =>
       pipe(
         () => Leaderboards.getContractCreationBaseFeesForTimeframe(timeFrame),
-        (task) =>
-          Performance.measureTaskPerf(
-            `    add contract creation fees for time frame ${timeFrame}`,
-            task,
-          ),
+        Performance.measureTaskPerf(
+          `    add contract creation fees for time frame ${timeFrame}`,
+        ),
       ),
     ),
     T.map(({ topBaseFeeContracts, ethTransfer, contractCreation }) =>

@@ -47,9 +47,9 @@ export const sync = () =>
       pipe(
         TimeFrames.timeFramesNext,
         T.traverseArray((timeFrame) =>
-          Performance.measureTaskPerf(
-            `sync ${timeFrame} burn records`,
+          pipe(
             syncTimeFrame(timeFrame, lastIncludedBlock),
+            Performance.measureTaskPerf(`sync ${timeFrame} burn records`),
           ),
         ),
       ),

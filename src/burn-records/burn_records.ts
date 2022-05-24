@@ -1,5 +1,5 @@
 import * as Blocks from "../blocks/blocks.js";
-import { sqlT } from "../db.js";
+import * as Db from "../db.js";
 import { flow, O, pipe, T } from "../fp.js";
 import { LimitedTimeFrameNext, TimeFrameNext } from "../time_frames.js";
 
@@ -9,7 +9,7 @@ const analysisStateKey = "burn-records";
 
 export const getLastIncludedBlock = () =>
   pipe(
-    sqlT<{ last: number | null }[]>`
+    Db.sqlT<{ last: number | null }[]>`
       SELECT last FROM analysis_state
       WHERE key = ${analysisStateKey}
     `,
@@ -18,7 +18,7 @@ export const getLastIncludedBlock = () =>
 
 export const setLastIncludedBlock = (blockNumber: number) =>
   pipe(
-    sqlT`
+    Db.sqlT`
       INSERT INTO analysis_state
         (key, last)
       VALUES
@@ -30,7 +30,7 @@ export const setLastIncludedBlock = (blockNumber: number) =>
   );
 
 export const setLastIncludedBlockIsLatest = () =>
-  sqlT`
+  Db.sqlTVoid`
     INSERT INTO analysis_state
       (key, last)
     SELECT ${analysisStateKey}, MAX(number) FROM blocks
@@ -41,7 +41,7 @@ export const setLastIncludedBlockIsLatest = () =>
 const expireRecordsBefore = (
   timeFrame: LimitedTimeFrameNext,
   blockNumber: number,
-) => sqlT`
+) => Db.sqlT`
   DELETE FROM burn_records
   WHERE block_number < ${blockNumber}
   AND time_frame = ${timeFrame}
@@ -66,7 +66,7 @@ export const addRecordsFromBlockAndIncluding = (
   timeFrame: TimeFrameNext,
   blockNumber: number,
 ) =>
-  sqlT`
+  Db.sqlT`
     WITH new_records AS (
       SELECT number, base_fee_sum FROM blocks
       WHERE number >= ${blockNumber}
@@ -82,7 +82,7 @@ export const addRecordsFromBlockAndIncluding = (
 export const pruneRecordsBeyondRank = (
   timeFrame: TimeFrameNext,
   rank: number,
-) => sqlT`
+) => Db.sqlT`
   DELETE FROM burn_records
   WHERE block_number IN (
     SELECT block_number FROM burn_records
@@ -102,7 +102,7 @@ export type BurnRecord = {
 export const getBurnRecords = (
   timeFrame: TimeFrameNext,
   count = 100,
-): T.Task<BurnRecord[]> => sqlT<BurnRecord[]>`
+): T.Task<BurnRecord[]> => Db.sqlT<BurnRecord[]>`
   SELECT
     block_number,
     burn_records.base_fee_sum,
@@ -115,7 +115,7 @@ export const getBurnRecords = (
 `;
 
 export const expireRecordsFromAndIncluding = (blockNumber: number) =>
-  sqlT`
+  Db.sqlT`
     DELETE FROM burn_records
     WHERE block_number >= ${blockNumber}
   `;

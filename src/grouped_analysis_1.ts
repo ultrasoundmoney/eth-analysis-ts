@@ -41,13 +41,15 @@ export const getLatestAnalysis = () =>
 const getLeaderboards = () =>
   pipe(
     TAlt.seqTSeq(
-      Performance.measureTaskPerf(
-        "  per-refresh leaderboard all",
+      pipe(
         LeaderboardsAll.calcLeaderboardAll(),
+        Performance.measureTaskPerf("  per-refresh leaderboard all"),
       ),
-      Performance.measureTaskPerf(
-        "  per-refresh leaderboard limited timeframes",
+      pipe(
         LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
+        Performance.measureTaskPerf(
+          "  per-refresh leaderboard limited timeframes",
+        ),
       ),
     ),
     T.map(([leaderboardAll, leaderboardLimitedTimeframes]) => ({
@@ -65,20 +67,21 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
     Log.debug("computing grouped analysis 1"),
     () => T.Do,
     T.bind("feeBurns", () =>
-      Performance.measureTaskPerf(
-        "  per-refresh fee burns",
+      pipe(
         FeeBurn.getFeeBurnsOld(),
+        Performance.measureTaskPerf("  per-refresh fee burns"),
       ),
     ),
     T.bind("burnRates", ({ feeBurns }) =>
-      pipe(BurnRates.calcBurnRates(feeBurns), T.of, (task) =>
-        Performance.measureTaskPerf("  per-refresh burn rates", task),
+      pipe(
+        BurnRates.calcBurnRates(feeBurns),
+        T.of,
+        Performance.measureTaskPerf("  per-refresh burn rates"),
       ),
     ),
     T.bind("leaderboards", () => getLeaderboards()),
     T.bind("burnRecords", () =>
-      Performance.measureTaskPerf(
-        "  per-refresh burn records",
+      pipe(
         pipe(
           BurnRecordsCache.updateRecordsCache(block.number),
           T.chain(() =>
@@ -88,17 +91,17 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
             ),
           ),
         ),
+        Performance.measureTaskPerf("  per-refresh burn records"),
       ),
     ),
     T.bind("latestBlockFees", () =>
-      Performance.measureTaskPerf(
-        "  per-refresh latest blocks",
+      pipe(
         LatestBlockFees.getLatestBlockFees(block.number),
+        Performance.measureTaskPerf("  per-refresh latest blocks"),
       ),
     ),
     T.bind("ethPrice", () =>
-      Performance.measureTaskPerf(
-        "  per-refresh eth price + 24h change",
+      pipe(
         pipe(
           EthPrices.getEthStats(),
           TE.match(
@@ -109,12 +112,13 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
             (v) => v,
           ),
         ),
+        Performance.measureTaskPerf("  per-refresh eth price + 24h change"),
       ),
     ),
     T.bind("deflationaryStreak", () =>
-      Performance.measureTaskPerf(
-        "  per-refresh deflationary streak",
+      pipe(
         DeflationaryStreak.getStreakForSite(block),
+        Performance.measureTaskPerf("  per-refresh deflationary streak"),
       ),
     ),
     T.map(
