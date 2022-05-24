@@ -14,6 +14,8 @@ export type FeeSegments = {
   contractSumsEthBI: Map<string, bigint>;
   /** fees burned for use of contracts in USD. */
   contractSumsUsd: Map<string, number> | undefined;
+  /** gas used for use of contracts */
+  gasUsedSums: Map<string, bigint>;
   /** fees burned for simple transfers. */
   transfersSum: number;
 };
@@ -122,6 +124,32 @@ const sumPerContractUsd = (
     ),
   );
 
+const mergeReceiptGas = (
+  sumMap: Map<string, bigint>,
+  transactionReceipt: TransactionReceiptV1,
+) =>
+  pipe(
+    transactionReceipt.to,
+    O.match(
+      () => sumMap,
+      (to) =>
+        pipe(
+          sumMap.get(to) ?? 0n,
+          (currentSum) => currentSum + transactionReceipt.gasUsedBI,
+          (nextSum) => sumMap.set(to, nextSum),
+        ),
+    ),
+  );
+
+const sumGasUsedPerContract = (
+  block: BlockNodeV2,
+  transactionReceipts: TransactionReceiptV1[],
+): Map<string, bigint> =>
+  pipe(
+    transactionReceipts,
+    A.reduce(new Map<string, bigint>(), mergeReceiptGas),
+  );
+
 export const calcBlockBaseFeeSum = (block: BlockNodeV2): bigint =>
   block.gasUsedBI * block.baseFeePerGasBI;
 
@@ -160,10 +188,13 @@ export const sumFeeSegments = (
       ? new Map()
       : sumPerContractUsd(block, other, ethPrice);
 
+  const gasUsedSums = sumGasUsedPerContract(block, other);
+
   return {
     contractSumsEth,
     contractSumsEthBI,
     contractSumsUsd,
+    gasUsedSums,
     creationsSum,
     transfersSum,
   };
