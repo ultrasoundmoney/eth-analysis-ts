@@ -6,7 +6,7 @@ import * as BurnRecordsSync from "./burn-records/sync.js";
 import * as Config from "./config.js";
 import { runMigrations, sql } from "./db.js";
 import * as ExecutionNode from "./execution_node.js";
-import { TAlt } from "./fp.js";
+import { pipe, T, TAlt } from "./fp.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
@@ -19,11 +19,16 @@ import * as SyncOnStart from "./sync_on_start.js";
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
-const syncLeaderboardAll = async (): Promise<void> => {
-  Log.info("adding missing blocks to leaderboard all");
-  await LeaderboardsAll.addMissingBlocks();
-  Log.info("done adding missing blocks to leaderboard all");
-};
+const syncLeaderboardAll = () =>
+  pipe(
+    Log.infoIO("adding missing blocks to leaderboard all"),
+    T.fromIO,
+
+    T.chain(() => () => LeaderboardsAll.addMissingBlocks()),
+    T.chainFirstIOK(() =>
+      Log.infoIO("done adding missing blocks to leaderboard all"),
+    ),
+  );
 
 const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
   Log.info("loading leaderboards for limited timeframes");
@@ -44,21 +49,26 @@ try {
   Log.info("fast-sync blocks done");
 
   await TAlt.seqTSeq(
-    Performance.measureTaskPerf("sync burn records", BurnRecordsSync.sync()),
+    pipe(
+      BurnRecordsSync.sync(),
+      Performance.measureTaskPerf("sync burn records"),
+    ),
     EthLocked.init(),
     () => EthStaked.init(),
     () => EthSupply.init(),
-    Performance.measureTaskPerf("init leaderboard limited timeframes", () =>
-      initLeaderboardLimitedTimeframes(),
+    pipe(
+      () => initLeaderboardLimitedTimeframes(),
+      Performance.measureTaskPerf("init leaderboard limited timeframes"),
     ),
-    Performance.measureTaskPerf("init leaderboard all", () =>
+    pipe(
       syncLeaderboardAll(),
+      Performance.measureTaskPerf("init leaderboard all"),
     ),
-    Performance.measureTaskPerf(
-      "sync-next on start",
+    pipe(
       SyncOnStart.sync(lastStoredBlockOnStart.number + 1, chainHeadOnStart),
+      Performance.measureTaskPerf("sync-next on start"),
     ),
-    Performance.measureTaskPerf("init block lag", BlockLag.init),
+    pipe(BlockLag.init, Performance.measureTaskPerf("init block lag")),
   )();
 
   BlocksNewBlock.headsQueue.start();

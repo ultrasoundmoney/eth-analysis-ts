@@ -206,17 +206,17 @@ export const addBlock = async (head: Head): Promise<void> => {
     );
 
   await TAlt.seqTSeq(
-    Performance.measureTaskPerf(
-      "add block to leaderboard all",
+    pipe(
       addToLeaderboardAllTask,
+      Performance.measureTaskPerf("add block to leaderboard all"),
     ),
-    Performance.measureTaskPerf(
-      "add block to burn record all",
+    pipe(
       BurnRecordsNewHead.onNewBlock(blockDb),
+      Performance.measureTaskPerf("add block to burn record all"),
     ),
-    Performance.measureTaskPerf(
-      "add block to deflationary streaks",
+    pipe(
       DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
+      Performance.measureTaskPerf("add block to deflationary streaks"),
     ),
   )();
 
@@ -228,17 +228,17 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   if (allBlocksProcessed) {
     await TAlt.seqTSeq(
-      Performance.measureTaskPerf(
-        "update grouped analysis 1",
+      pipe(
         GroupedAnalysis1.updateAnalysis(blockDb),
+        Performance.measureTaskPerf("update grouped analysis 1"),
       ),
-      Performance.measureTaskPerf(
-        "update scarcity",
+      pipe(
         ScarcityCache.updateScarcityCache(blockDb),
+        Performance.measureTaskPerf("update scarcity"),
       ),
-      Performance.measureTaskPerf(
-        "update average eth prices",
+      pipe(
         EthPricesAverages.updateAveragePrices(),
+        Performance.measureTaskPerf("update average eth prices"),
       ),
     )();
   } else {

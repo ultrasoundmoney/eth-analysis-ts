@@ -53,15 +53,17 @@ export const withPerfLogT =
     );
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-export const measureTaskPerf = <A>(msg: string, task: T.Task<A>) =>
-  pipe(
-    T.Do,
-    T.bind("t0", () => T.of(performance.now())),
-    T.bind("result", () => task),
-    T.chainFirstIOK(({ t0 }) => () => {
-      logPerf(msg, t0);
-    }),
-    T.map(({ result }) => {
-      return result;
-    }),
-  );
+export const measureTaskPerf =
+  (msg: string) =>
+  <A>(task: T.Task<A>) =>
+    pipe(
+      T.Do,
+      T.bind("t0", () => T.of(performance.now())),
+      T.bind("result", () => task),
+      T.chainFirstIOK(({ t0 }) => () => {
+        logPerf(msg, t0);
+      }),
+      T.map(({ result }) => {
+        return result;
+      }),
+    );
