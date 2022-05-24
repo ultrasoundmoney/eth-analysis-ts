@@ -4,7 +4,7 @@ import * as BeaconTime from "./beacon_time.js";
 import * as Db from "./db.js";
 import { A, flow, O, OAlt, pipe, T, TE, TEAlt } from "./fp.js";
 import * as Log from "./log.js";
-import { measureTaskPerf } from "./performance.js";
+import * as Performance from "./performance.js";
 
 export const storeValidatorSumForDay = (
   slot: number,
@@ -53,9 +53,10 @@ export const onSyncSlot = (slot: number, stateRoot: string) =>
     BeaconTime.getIsFirstOfDaySlot(slot),
     pipe(
       BeaconNode.getValidatorBalances(stateRoot),
-      (task) => measureTaskPerf("get validator balances", task),
+      Performance.measureTaskPerf("getValidatorBalances"),
       TE.map(sumValidatorBalances),
       TE.chainTaskK((sum) => storeValidatorSumForDay(slot, sum)),
+      Performance.measureTaskPerf("syncValidatorBalances"),
     ),
   );
 

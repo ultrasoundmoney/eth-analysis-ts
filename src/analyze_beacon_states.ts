@@ -1,12 +1,13 @@
+import * as ValidatorBalances from "./beacon_balances.js";
+import { onAddStateWithBlock } from "./beacon_issuance.js";
 import * as BeaconNode from "./beacon_node.js";
 import * as BeaconStates from "./beacon_states.js";
 import * as Config from "./config.js";
 import * as Db from "./db.js";
-import { A, B, E, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
+import { A, E, NEA, O, pipe, T, TAlt, TE, TEAlt } from "./fp.js";
 import { traverseGenSeq } from "./gen.js";
 import * as Log from "./log.js";
-import * as ValidatorBalances from "./beacon_balances.js";
-import { onAddStateWithBlock } from "./beacon_issuance.js";
+import * as Performance from "./performance.js";
 
 Log.info("analyze beacon states starting");
 
@@ -51,16 +52,9 @@ const storeBeaconBlockWithBlockData = (
 ) =>
   pipe(
     BeaconStates.getBlockExists(block.parent_root),
-    T.chain(
-      B.match(
-        () =>
-          TE.left(
-            new BeaconStates.MissingParentError(
-              `failed to store block ${header.root}, slot: ${header.header.message.slot}, parent ${header.header.message.parent_root} is missing`,
-            ),
-          ),
-        () =>
-          pipe(
+    T.chain((blockExists) =>
+      blockExists
+        ? pipe(
             BeaconStates.storeBeaconStateWithBlock(
               stateRoot,
               header.header.message.slot,
@@ -69,17 +63,22 @@ const storeBeaconBlockWithBlockData = (
               depositSumAggregated,
               getDepositsSumFromBlock(block),
             ),
-            (task) => TE.fromTask(task),
+            (task) => TE.fromTask<void, BeaconStates.MissingParentError>(task),
+          )
+        : TE.left(
+            new BeaconStates.MissingParentError(
+              `failed to store block ${header.root}, slot: ${header.header.message.slot}, parent ${header.header.message.parent_root} is missing`,
+            ),
           ),
-      ),
     ),
+    Performance.measureTaskPerf("storeBeaconBlockWithBlockData"),
   );
 
 // Unsafe post finality checkpoint as retrieving state root and then a header might yield a header from a different state root. A safe version would establish a state root chain, and only fetch new data using that chain.
 const syncSlot = (slot: number) =>
   pipe(
     TE.Do,
-    TE.apS("stateRoot", BeaconNode.getStateRootBySlot(slot)),
+    TE.bind("stateRoot", () => BeaconNode.getStateRootBySlot(slot)),
     TE.bindW("syncValidatorBalances", ({ stateRoot }) =>
       ValidatorBalances.onSyncSlot(slot, stateRoot),
     ),
@@ -119,6 +118,7 @@ const syncSlot = (slot: number) =>
               T.fromIO,
               T.chain(() => BeaconStates.storeBeaconState(stateRoot, slot)),
               (task) => TE.fromTask<void, never>(task),
+              Performance.measureTaskPerf("storeBeaconState"),
             ),
           ({ header, depositSumAggregated, block }) =>
             pipe(
@@ -149,6 +149,7 @@ const syncSlot = (slot: number) =>
       ),
     ),
     TEAlt.chainFirstLogDebug(() => `synced slot ${slot}`),
+    Performance.measureTaskPerf("sync slot"),
   );
 
 type SlotRange = { from: number; to: number };
