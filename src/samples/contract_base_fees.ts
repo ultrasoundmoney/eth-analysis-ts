@@ -19,11 +19,12 @@ const cache: Record<
 };
 
 type RawContractBaseFees = {
+  base_fees: string;
+  base_fees_256: string;
   block_number: string;
   contract_address: string;
-  base_fees: string;
+  gas_used?: string;
   transaction_count: string;
-  base_fees_256: string;
 };
 
 const contractBaseFeesFromRaw = (
@@ -33,6 +34,7 @@ const contractBaseFeesFromRaw = (
   baseFees: Number(rawRow.base_fees),
   blockNumber: Number(rawRow.block_number),
   contractAddress: rawRow.contract_address,
+  gasUsed: BigInt(rawRow.gas_used ?? "0"),
   transactionCount: Number(rawRow.transaction_count),
 });
 

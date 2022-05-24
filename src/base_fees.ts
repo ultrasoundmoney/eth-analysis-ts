@@ -142,7 +142,6 @@ const mergeReceiptGas = (
   );
 
 const sumGasUsedPerContract = (
-  block: BlockNodeV2,
   transactionReceipts: TransactionReceiptV1[],
 ): Map<string, bigint> =>
   pipe(
@@ -188,7 +187,7 @@ export const sumFeeSegments = (
       ? new Map()
       : sumPerContractUsd(block, other, ethPrice);
 
-  const gasUsedSums = sumGasUsedPerContract(block, other);
+  const gasUsedSums = sumGasUsedPerContract(other);
 
   return {
     contractSumsEth,
