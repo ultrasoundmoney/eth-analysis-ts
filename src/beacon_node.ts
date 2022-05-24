@@ -5,6 +5,7 @@ import { decodeWithError } from "./decoding.js";
 import * as Fetch from "./fetch.js";
 import { D, E, O, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
+import * as Performance from "./performance.js";
 
 const GweiAmount = pipe(
   D.string,
@@ -90,6 +91,7 @@ export const getStateRootBySlot = (slot: number) =>
     Fetch.fetchJson(makeStateRootUrl(slot)),
     TE.chainEitherKW(decodeWithError(StateRootEnvelope)),
     TE.map((envelope) => envelope.data.root),
+    Performance.measureTaskPerf("getStateRootBySlot"),
   );
 
 export const getBlockByRoot = (blockRoot: string) =>
@@ -97,6 +99,7 @@ export const getBlockByRoot = (blockRoot: string) =>
     Fetch.fetchJson(makeBlocksUrl(blockRoot)),
     TE.chainEitherKW(decodeWithError(BeaconBlockEnvelope)),
     TE.map((envelope) => envelope.data.message),
+    Performance.measureTaskPerf("getBlockByRoot"),
   );
 
 export const FinalizedCheckpoint = pipe(
@@ -243,6 +246,7 @@ export const getHeaderBySlot = (slot: number) =>
           ),
       ),
     ),
+    Performance.measureTaskPerf("getHeaderBySlot"),
   );
 
 const makeHeaderByBlockRootUrl = (blockRoot: string) =>
