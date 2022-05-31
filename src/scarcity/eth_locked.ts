@@ -1,17 +1,11 @@
 import * as DateFns from "date-fns";
-import { setInterval } from "timers/promises";
-import * as DateFnsAlt from "../date_fns_alt.js";
-import { sql, sqlT } from "../db.js";
-import * as DefiPulse from "../defi_pulse.js";
-import * as Duration from "../duration.js";
-import { B, flow, O, pipe, T, TE, TO } from "../fp.js";
+import { sqlT } from "../db.js";
+import { flow, O, pipe, T } from "../fp.js";
 
 export type EthLocked = {
   timestamp: Date;
   ethLocked: number;
 };
-
-const intervalIterator = setInterval(Duration.millisFromHours(1), Date.now());
 
 const ethLockedKey = "eth-locked";
 
@@ -31,64 +25,4 @@ export const getLastEthLocked = () =>
         })),
       ),
     ),
-  );
-
-const storeEthLocked = (ethLocked: number) =>
-  sqlT`
-    INSERT INTO key_value_store (
-      key,
-      value
-    ) VALUES (
-      ${ethLockedKey},
-      ${sql.json({
-        timestamp: DateFns.getUnixTime(new Date()),
-        ethLocked,
-      })}
-    )
-    ON CONFLICT (key) DO UPDATE SET
-      value = excluded.value
-  `;
-
-const updateEthLocked = () =>
-  pipe(
-    DefiPulse.getEthLocked(),
-    TE.chainTaskK(storeEthLocked),
-    TE.map(() => undefined),
-  );
-
-const maxAge = Duration.millisFromDays(2);
-
-const getIsEthLockedFresh = (lastEthLocked: EthLocked) =>
-  DateFnsAlt.millisecondsBetweenAbs(lastEthLocked.timestamp, new Date()) <=
-  maxAge;
-
-const refreshEthLocked = () =>
-  pipe(
-    getLastEthLocked(),
-    TO.matchE(
-      () => updateEthLocked(),
-      (lastStored) =>
-        pipe(
-          getIsEthLockedFresh(lastStored),
-          B.match(
-            () => updateEthLocked(),
-            () => TE.of(undefined),
-          ),
-        ),
-    ),
-  );
-
-const continuouslyUpdate = async () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for await (const _ of intervalIterator) {
-    await refreshEthLocked()();
-  }
-};
-
-export const init = () =>
-  pipe(
-    refreshEthLocked(),
-    TE.chainFirstIOK(() => () => {
-      continuouslyUpdate();
-    }),
   );
