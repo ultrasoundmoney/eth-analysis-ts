@@ -79,7 +79,7 @@ const getFreshInputs = () =>
         T.map(
           A.map((issuanceDay) => ({
             t: DateFns.getUnixTime(issuanceDay.timestamp),
-            v: pipe(issuanceDay.issuance, Number, ethFromGwei),
+            v: pipe(issuanceDay.gwei, Number, ethFromGwei),
           })),
         ),
         TE.fromTask,
