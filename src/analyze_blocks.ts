@@ -53,7 +53,6 @@ try {
       BurnRecordsSync.sync(),
       Performance.measureTaskPerf("sync burn records"),
     ),
-    EthLocked.init(),
     () => EthStaked.init(),
     () => EthSupply.init(),
     pipe(
