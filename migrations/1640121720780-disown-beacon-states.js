@@ -1,7 +1,7 @@
 export async function up(client) {
-  await client`DROP TABLE beacon_states`;
   await client`DROP TABLE beacon_issuance`;
   await client`DROP TABLE eth_in_validators`;
+  await client`DROP TABLE beacon_states CASCADE`;
 }
 
 export async function down(client) {
