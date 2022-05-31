@@ -25,21 +25,31 @@ process.on("unhandledRejection", (error) => {
   throw error;
 });
 
-await runMigrations();
+// await runMigrations();
+Log.debug("ran migrations");
 
 // Prepare caches before registering routes or even starting the server.
 let scarcityCache = await ScarcityCache.getScarcityCache()();
+Log.debug("loaded scarcity cache");
 let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
+Log.debug("loaded grouped analysis cache");
 let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
+Log.debug("loaded market cap cache");
 let burnCategoriesCache = await BurnCategories.getCategoriesCache()();
+Log.debug("loaded burn categories cache");
 let averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
+Log.debug("loaded average prices cache");
 let peRatiosCache = await PeRatios.getPeRatiosCache()();
+Log.debug("loaded pe ratios cache");
 let oTotalValueSecuredCache =
   await TotalValueSecured.getCachedTotalValueSecured()();
+Log.debug("loaded total value secured cache");
 let blockLag = await KeyValueStore.getValue(BlockLag.blockLagCacheKey)();
+Log.debug("loaded block lag");
 let validatorRewards = await KeyValueStore.getValue(
   BeaconRewards.validatorRewardsCacheKey,
 )();
+Log.debug("loaded validator rewards");
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
