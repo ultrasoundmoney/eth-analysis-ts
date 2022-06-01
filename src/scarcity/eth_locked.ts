@@ -4,16 +4,16 @@ import { flow, O, pipe, T } from "../fp.js";
 
 export type EthLocked = {
   timestamp: Date;
-  ethLocked: number;
+  eth: number;
 };
 
-const ethLockedKey = "eth-locked";
+const ethInDefiCacheKey = "eth-in-defi";
 
-export const getLastEthLocked = () =>
+export const getLastEthInDefi = () =>
   pipe(
-    sqlT<{ value: { timestamp: number; ethLocked: number } }[]>`
+    sqlT<{ value: { timestamp: number; eth: number } }[]>`
       SELECT value FROM key_value_store
-      WHERE key = ${ethLockedKey}
+      WHERE key = ${ethInDefiCacheKey}
     `,
     T.map(
       flow(
@@ -21,7 +21,7 @@ export const getLastEthLocked = () =>
         O.fromNullable,
         O.map((row) => ({
           timestamp: DateFns.fromUnixTime(row.value.timestamp),
-          ethLocked: row.value.ethLocked,
+          eth: row.value.eth,
         })),
       ),
     ),
