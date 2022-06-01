@@ -25,7 +25,7 @@ process.on("unhandledRejection", (error) => {
   throw error;
 });
 
-// await runMigrations();
+await runMigrations();
 Log.debug("ran migrations");
 
 // Prepare caches before registering routes or even starting the server.
@@ -50,6 +50,10 @@ let validatorRewards = await KeyValueStore.getValue(
   BeaconRewards.validatorRewardsCacheKey,
 )();
 Log.debug("loaded validator rewards");
+let oSupplyProjectionInputs = await KeyValueStore.getValue(
+  SupplyProjection.supplyProjectionInputsCacheKey,
+)();
+Log.debug("loaded supply projection inputs");
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
@@ -116,23 +120,6 @@ const handleGetScarcity: Middleware = (ctx) => {
   );
 };
 
-const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
-  await pipe(
-    SupplyProjection.getInputs(),
-    TE.match(
-      (e) => {
-        Log.error("unhandled get supply projection inputs error", e);
-        ctx.status = 500;
-      },
-      (inputs) => {
-        ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
-        ctx.set("Content-Type", "application/json");
-        ctx.body = inputs;
-      },
-    ),
-  )();
-};
-
 const handleGetBurnCategories: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
   ctx.set("Content-Type", "application/json");
@@ -186,6 +173,22 @@ const handleGetValidatorRewards: Middleware = async (ctx) => {
       },
       (validatorRewards) => {
         ctx.set("Cache-Control", "max-age=14400, stale-while-revalidate=86400");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = validatorRewards;
+      },
+    ),
+  );
+};
+
+const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
+  pipe(
+    oSupplyProjectionInputs,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (validatorRewards) => {
+        ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
         ctx.set("Content-Type", "application/json");
         ctx.body = validatorRewards;
       },
@@ -255,6 +258,13 @@ sql.listen("cache-update", async (payload) => {
   if (payload === BeaconRewards.validatorRewardsCacheKey) {
     validatorRewards = await KeyValueStore.getValue(
       BeaconRewards.validatorRewardsCacheKey,
+    )();
+    return;
+  }
+
+  if (payload === SupplyProjection.supplyProjectionInputsCacheKey) {
+    oSupplyProjectionInputs = await KeyValueStore.getValue(
+      SupplyProjection.supplyProjectionInputsCacheKey,
     )();
     return;
   }
