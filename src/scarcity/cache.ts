@@ -35,7 +35,7 @@ export const scarcityCacheKey = "scarcity-cache-key";
 
 const buildScarcity = (
   block: BlockV1,
-  ethLocked: EthLocked.EthLocked,
+  ethInDefi: EthLocked.EthLocked,
   ethBurned: bigint,
 ): E.Either<Error, Scarcity> => {
   const ethStaked = EthStaked.getLastEthStaked();
@@ -65,7 +65,7 @@ const buildScarcity = (
         startedOn: new Date("2021-08-05T12:33:42.000Z"),
       },
       locked: {
-        amount: ethLocked.ethLocked,
+        amount: ethInDefi.eth,
         name: "locked",
         startedOn: new Date("2017-09-02T00:00:00.000Z"),
       },
@@ -84,9 +84,9 @@ export const updateScarcityCache = (block: BlockV1): T.Task<void> =>
   pipe(
     T.Do,
     T.apS(
-      "ethLocked",
+      "ethInDefi",
       pipe(
-        EthLocked.getLastEthLocked(),
+        EthLocked.getLastEthInDefi(),
         T.map(OAlt.getOrThrow("can't update scarcity, eth locked is missing")),
       ),
     ),
@@ -101,8 +101,8 @@ export const updateScarcityCache = (block: BlockV1): T.Task<void> =>
         T.map((rows) => BigInt(rows[0]?.feesBurnedAll)),
       ),
     ),
-    T.map(({ ethBurned, ethLocked }) =>
-      buildScarcity(block, ethLocked, ethBurned),
+    T.map(({ ethBurned, ethInDefi }) =>
+      buildScarcity(block, ethInDefi, ethBurned),
     ),
     TE.chainTaskK(
       (scarcity) =>
