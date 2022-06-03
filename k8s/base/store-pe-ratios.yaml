@@ -1,24 +1,22 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: store-validator-rewards
+  name: store-pe-ratios
 spec:
-  schedule: "0 */4 * * *"
+  schedule: "0 */12 * * *"
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-            - name: store-validator-rewards
-              image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-              command: ["node", "src/store_validator_rewards.js"]
+            - name: store-pe-ratios
+              image: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
+              command: ["node", "src/store_pe_ratios.js"]
               envFrom:
                 - configMapRef:
                     name: gas-analysis-env
                 - secretRef:
-                    name: pg-password-lilly
-                - secretRef:
-                    name: node-urls
+                    name: db-password
               env:
                 - name: NAME
                   valueFrom:
@@ -28,7 +26,6 @@ spec:
                 requests:
                   cpu: 25m
                   memory: 128Mi
-                limits:
-                  cpu: 500m
-                  memory: 512Mi
           restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: registry-secret

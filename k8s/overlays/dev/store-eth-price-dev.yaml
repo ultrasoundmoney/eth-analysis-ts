@@ -1,45 +1,45 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: analyze-total-value-secured
+  name: store-eth-price-dev
   labels:
-    app: analyze-total-value-secured
+    app: store-eth-price-dev
+  namespace: dev
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: analyze-total-value-secured
+      app: store-eth-price-dev
   template:
     metadata:
       labels:
-        app: analyze-total-value-secured
+        app: store-eth-price-dev
     spec:
       containers:
-        - name: analyze-total-value-secured
-          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/analyze_total_value_secured.js"]
+        - name: store-eth-price-dev
+          image: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
+          command: ["node", "src/store_eth_price.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-lilly
+                name: pg-password-anton
             - secretRef:
                 name: etherscan-token-alextes
             - secretRef:
                 name: node-urls
-            - secretRef:
-                name: glassnode-api-key
           env:
             - name: NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: PGDATABASE
+              value: devdb
           resources:
             requests:
-              cpu: 100m
+              cpu: 25m
               memory: 128Mi
-            limits:
-              cpu: 1000m
-              memory: 1Gi
+      imagePullSecrets:
+        - name: registry-secret

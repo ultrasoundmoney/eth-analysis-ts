@@ -1,48 +1,44 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: analyze-blocks
+  name: analyze-total-value-secured
   labels:
-    app: analyze-blocks
+    app: analyze-total-value-secured
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: analyze-blocks
+      app: analyze-total-value-secured
   template:
     metadata:
       labels:
-        app: analyze-blocks
+        app: analyze-total-value-secured
     spec:
       containers:
-        - name: analyze-blocks
-          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/analyze_blocks.js"]
+        - name: analyze-total-value-secured
+          image: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
+          command: ["node", "src/analyze_total_value_secured.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: db-password
             - secretRef:
                 name: etherscan-token-alextes
             - secretRef:
-                name: twitter-usm
+                name: execution-node-urls
             - secretRef:
-                name: node-urls
-            - secretRef:
-                name: defi-pulse-api-key
+                name: glassnode-api-key
           env:
             - name: NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: LOG_PERF
-              value: "true"
           resources:
             requests:
-              cpu: 250m
-              memory: 256Mi
-            limits:
-              memory: 1Gi
+              cpu: 100m
+              memory: 128Mi
+      imagePullSecrets:
+        - name: registry-secret

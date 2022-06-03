@@ -1,42 +1,46 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: store-eth-price-dev
+  name: analyze-blocks
   labels:
-    app: store-eth-price-dev
+    app: analyze-blocks
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: store-eth-price-dev
+      app: analyze-blocks
   template:
     metadata:
       labels:
-        app: store-eth-price-dev
+        app: analyze-blocks
     spec:
       containers:
-        - name: store-eth-price-dev
-          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
-          command: ["node", "src/store_eth_price.js"]
+        - name: analyze-blocks
+          image: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
+          command: ["node", "src/analyze_blocks.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: db-password
             - secretRef:
                 name: etherscan-token-alextes
             - secretRef:
-                name: node-urls
+                name: twitter-usm
+            - secretRef:
+                name: execution-node-urls
           env:
             - name: NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: PGDATABASE
-              value: devdb
+            - name: LOG_PERF
+              value: "true"
           resources:
             requests:
-              cpu: 25m
-              memory: 128Mi
+              cpu: 500m
+              memory: 512Mi
+      imagePullSecrets:
+        - name: registry-secret
