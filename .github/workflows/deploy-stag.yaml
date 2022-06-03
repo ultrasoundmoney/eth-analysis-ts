@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for build to succeed
-        uses: lewagon/wait-on-check-action@v0.2
+        uses: lewagon/wait-on-check-action@v1.1.1
         with:
           ref: ${{ github.ref }}
           check-name: build
@@ -41,7 +41,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/serve-fees serve-fees=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/serve-fees serve-fees=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -60,7 +60,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/analyze-blocks analyze-blocks=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/analyze-blocks analyze-blocks=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -79,7 +79,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/analyze-blocks-dev analyze-blocks-dev=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/analyze-blocks-dev analyze-blocks-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -98,7 +98,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/contract-metadata contract-metadata=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/contract-metadata contract-metadata=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -117,7 +117,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/store-eth-price store-eth-price=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/store-eth-price store-eth-price=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -136,7 +136,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/store-market-caps store-market-caps=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/store-market-caps store-market-caps=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -155,7 +155,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/store-eth-price-dev store-eth-price-dev=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/store-eth-price-dev store-eth-price-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -174,7 +174,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/store-market-caps-dev store-market-caps-dev=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/store-market-caps-dev store-market-caps-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -193,7 +193,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/analyze-burn-categories analyze-burn-categories=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/analyze-burn-categories analyze-burn-categories=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -212,7 +212,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image cronjob/store-pe-ratios store-pe-ratios=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image cronjob/store-pe-ratios store-pe-ratios=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
   deploy-analyze-total-value-secured:
     name: deploy analyze-total-value-secured
     runs-on: ubuntu-latest
@@ -226,7 +226,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image deployment/analyze-total-value-secured analyze-total-value-secured=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/analyze-total-value-secured analyze-total-value-secured=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -245,4 +245,4 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image cronjob/store-validator-rewards store-validator-rewards=registry.digitalocean.com/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: set image cronjob/store-validator-rewards store-validator-rewards=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}

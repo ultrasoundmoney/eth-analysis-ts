@@ -32,7 +32,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: serve-fees
-          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          image: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
           ports:
             - containerPort: 8080
             - containerPort: 8081
@@ -40,7 +40,7 @@ spec:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-lilly
+                name: db-password
             - secretRef:
                 name: fees-admin-token
             - secretRef:
@@ -55,9 +55,6 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
           resources:
-            limits:
-              cpu: 500m
-              memory: 1Gi
             requests:
               cpu: 100m
               memory: 256Mi
@@ -66,3 +63,5 @@ spec:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 3
+      imagePullSecrets:
+        - name: registry-secret

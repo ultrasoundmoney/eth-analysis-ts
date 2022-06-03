@@ -18,13 +18,13 @@ spec:
     spec:
       containers:
         - name: analyze-burn-categories
-          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+          image: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
           command: ["node", "src/burn-categories/analyze_burn_categories.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-lilly
+                name: db-password
           env:
             - name: NAME
               valueFrom:
@@ -34,6 +34,5 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-            limits:
-              cpu: 1000m
-              memory: 1Gi
+      imagePullSecrets:
+        - name: registry-secret

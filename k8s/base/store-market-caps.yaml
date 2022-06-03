@@ -1,42 +1,42 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: store-market-caps-dev
+  name: store-market-caps
   labels:
-    app: store-market-caps-dev
+    app: store-market-caps
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: store-market-caps-dev
+      app: store-market-caps
   template:
     metadata:
       labels:
-        app: store-market-caps-dev
+        app: store-market-caps
     spec:
       containers:
-        - name: store-market-caps-dev
-          image: registry.digitalocean.com/ultrasoundmoney/gas-analysis
+        - name: store-market-caps
+          image: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
           command: ["node", "src/market-caps/store_market_caps.js"]
           envFrom:
             - configMapRef:
                 name: gas-analysis-env
             - secretRef:
-                name: pg-password-anton
+                name: db-password
             - secretRef:
                 name: etherscan-token-alextes
             - secretRef:
-                name: node-urls
+                name: execution-node-urls
           env:
             - name: NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: PGDATABASE
-              value: devdb
           resources:
             requests:
               cpu: 25m
               memory: 128Mi
+      imagePullSecrets:
+        - name: registry-secret
