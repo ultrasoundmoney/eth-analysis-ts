@@ -30,6 +30,8 @@ export const getEnv = (): Env => {
       return "dev";
     case "staging":
       return "staging";
+    case "stag":
+      return "staging";
     default:
       Log.debug("no ENV in env, defaulting to dev");
       return "dev";
