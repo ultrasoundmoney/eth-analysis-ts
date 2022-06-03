@@ -27,7 +27,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: apply -f k8s/stag
+          command: apply -k k8s/stag
   deploy-serve-fees:
     name: deploy serve-fees
     runs-on: ubuntu-latest
