@@ -29,12 +29,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/serve-fees serve-fees=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/serve-fees
   deploy-analyze-blocks:
     name: deploy analyze-blocks
@@ -48,12 +48,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/analyze-blocks analyze-blocks=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/analyze-blocks
   deploy-analyze-blocks-dev:
     name: deploy analyze-blocks-dev
@@ -67,12 +67,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/analyze-blocks-dev analyze-blocks-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/analyze-blocks-dev
   deploy-contract-metadata:
     name: deploy contract-metadata
@@ -86,12 +86,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/contract-metadata contract-metadata=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/contract-metadata
   deploy-store-eth-price:
     name: deploy store-eth-price
@@ -105,12 +105,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/store-eth-price store-eth-price=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/store-eth-price
   deploy-store-market-caps:
     name: deploy store-market-caps
@@ -124,12 +124,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/store-market-caps store-market-caps=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/store-market-caps
   deploy-store-eth-price-dev:
     name: deploy store-eth-price-dev
@@ -143,12 +143,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/store-eth-price-dev store-eth-price-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/store-eth-price-dev
   deploy-store-market-caps-dev:
     name: deploy store-market-caps-dev
@@ -162,12 +162,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/store-market-caps-dev store-market-caps-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/store-market-caps-dev
   deploy-analyze-burn-categories:
     name: deploy analyze-burn-categories
@@ -181,12 +181,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/analyze-burn-categories analyze-burn-categories=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/analyze-burn-categories
   deploy-store-pe-ratios:
     name: deploy store-pe-ratios
@@ -200,7 +200,7 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image cronjob/store-pe-ratios store-pe-ratios=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
   deploy-analyze-total-value-secured:
     name: deploy analyze-total-value-secured
@@ -214,12 +214,12 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image deployment/analyze-total-value-secured analyze-total-value-secured=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: rollout status deployment/analyze-total-value-secured
   deploy-store-validator-rewards:
     name: deploy store-validator-rewards
@@ -233,5 +233,5 @@ jobs:
       - name: deploy
         uses: steebchen/kubectl@v2.0.0
         with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
+          config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
           command: set image cronjob/store-validator-rewards store-validator-rewards=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
