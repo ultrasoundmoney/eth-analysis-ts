@@ -68,12 +68,12 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
-          command: set image deployment/analyze-blocks-dev analyze-blocks-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: -n dev set image deployment/analyze-blocks analyze-blocks=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
-          command: rollout status deployment/analyze-blocks-dev
+          command: -n dev rollout status deployment/analyze-blocks
   deploy-contract-metadata:
     name: deploy contract-metadata
     runs-on: ubuntu-latest
@@ -144,12 +144,12 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
-          command: set image deployment/store-eth-price-dev store-eth-price-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: -n dev set image deployment/store-eth-price store-eth-price=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
-          command: rollout status deployment/store-eth-price-dev
+          command: -n dev rollout status deployment/store-eth-price
   deploy-store-market-caps-dev:
     name: deploy store-market-caps-dev
     runs-on: ubuntu-latest
@@ -163,12 +163,12 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
-          command: set image deployment/store-market-caps-dev store-market-caps-dev=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
+          command: -n dev set image deployment/store-market-caps store-market-caps=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_STAG }}
-          command: rollout status deployment/store-market-caps-dev
+          command: -n dev rollout status deployment/store-market-caps
   deploy-analyze-burn-categories:
     name: deploy analyze-burn-categories
     runs-on: ubuntu-latest
