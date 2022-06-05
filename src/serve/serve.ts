@@ -315,8 +315,9 @@ router.get("/fees/block-lag", handleGetBlockLag);
 
 // endpoints for dev
 
-// TODO: should be stored in DB and read from there
 router.get("/fees/validator-rewards", handleGetValidatorRewards);
+// temporary to bust cache
+router.get("/fees/validator-rewards-2", handleGetValidatorRewards);
 
 // to be deprecated soon
 // deprecate as soon as frontend is switched over to /fees/grouped-analysis-1
