@@ -300,3 +300,9 @@ export const getName = (address: string) =>
     `,
     T.map(flow((rows) => rows[0]?.name, O.fromNullable)),
   );
+
+export const setIsBot = (address: string, bool: boolean) => sqlTVoid`
+  UPDATE contracts
+  SET is_bot = ${bool}
+  WHERE address = ${address}
+`;
