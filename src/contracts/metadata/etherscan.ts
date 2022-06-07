@@ -35,7 +35,14 @@ const addMetadata = (address: string) =>
             CopyFromSimilar.addMetadataFromSimilar(address, name.split(":")[0]),
           () => TO.of(undefined),
         ),
-        T.chain(() =>
+        // We expect category to be copied from similar metadata so only set is_bot.
+        T.apSecond(
+          TAlt.when(
+            name.toLowerCase().startsWith("mev bot:"),
+            Contracts.setIsBot(address, true),
+          ),
+        ),
+        T.apSecond(
           Contracts.setSimpleTextColumn("etherscan_name_tag", address, name),
         ),
         T.chain(() => Contracts.updatePreferredMetadata(address)),

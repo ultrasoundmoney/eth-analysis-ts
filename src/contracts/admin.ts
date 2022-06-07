@@ -1,5 +1,5 @@
 import { sqlT, sqlTVoid } from "../db.js";
-import { A, O, pipe, T, TE } from "../fp.js";
+import { A, O, pipe, T, TAlt, TE } from "../fp.js";
 import * as Log from "../log.js";
 import * as Contracts from "./contracts.js";
 import * as MetadataTwitter from "./metadata/twitter.js";
@@ -35,7 +35,16 @@ export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
 
 export const setName = (address: string, name: string): T.Task<void> =>
   pipe(
-    Contracts.setSimpleTextColumn("manual_name", address, name),
+    TAlt.when(
+      name.toLowerCase().startsWith("mev bot:"),
+      pipe(
+        Contracts.setIsBot(address, true),
+        T.apSecond(
+          Contracts.setSimpleTextColumn("manual_category", address, "mev"),
+        ),
+      ),
+    ),
+    T.apSecond(Contracts.setSimpleTextColumn("manual_name", address, name)),
     T.chain(() => Contracts.updatePreferredMetadata(address)),
   );
 
