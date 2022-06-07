@@ -250,7 +250,7 @@ export const buildLeaderboard = (
     twitterLinks: row.twitterLinks,
     twitterName: row.twitterName,
     twitterUrl: pipe(
-      row.twitterName,
+      row.twitterHandle,
       O.fromNullable,
       O.map((handle) => `https://twitter.com/${handle}`),
       O.toUndefined,
