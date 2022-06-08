@@ -2,6 +2,7 @@ import { sqlT, sqlTVoid } from "../db.js";
 import { A, O, pipe, T, TAlt, TE } from "../fp.js";
 import * as Log from "../log.js";
 import * as Contracts from "./contracts.js";
+import * as CopyFromSimilar from "./metadata/copy_from_similar.js";
 import * as MetadataTwitter from "./metadata/twitter.js";
 
 export const setTwitterHandle = (address: string, handle: O.Option<string>) =>
@@ -41,6 +42,20 @@ export const setName = (address: string, name: string): T.Task<void> =>
         Contracts.setIsBot(address, true),
         T.apSecond(
           Contracts.setSimpleTextColumn("manual_category", address, "mev"),
+        ),
+      ),
+    ),
+    T.apSecond(
+      pipe(
+        name.split(":")[0],
+        (nameStartsWith) =>
+          name.includes(":") && nameStartsWith.length > 0
+            ? O.some(nameStartsWith)
+            : O.none,
+        O.match(
+          () => T.of(undefined),
+          (nameStartsWith) =>
+            CopyFromSimilar.addMetadataFromSimilar(address, nameStartsWith),
         ),
       ),
     ),
