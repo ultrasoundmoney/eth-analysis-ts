@@ -3,22 +3,59 @@ import * as Retry from "retry-ts";
 import urlcatM from "urlcat";
 import * as Config from "./config.js";
 import { readOptionalFromFirstRow, sqlT } from "./db.js";
+import { decodeWithError } from "./decoding.js";
 import * as Fetch from "./fetch.js";
-import { A, flow, O, pipe, T, TE, TO } from "./fp.js";
+import { A, D, flow, O, pipe, T, TE, TO } from "./fp.js";
 import * as Log from "./log.js";
 
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
-export type OpenseaContract = {
-  address: string;
-  collection: {
-    twitter_username: string | null;
-  } | null;
-  schema_name: "ERC721" | "ERC1155" | string;
-  image_url: string | null;
-  name: string | null;
-};
+// export type OpenseaContract = {
+//   address: string;
+//   collection: {
+//     name: string | null;
+//     twitter_username: string | null;
+//   } | null;
+//   schema_name: "ERC721" | "ERC1155" | string;
+//   image_url: string | null;
+//   name: string | null;
+// };
+
+const optional = <A>(decoder: D.Decoder<unknown, A>) =>
+  pipe(
+    D.nullable(decoder),
+    D.parse((aOrNull) =>
+      aOrNull === null ? D.success(O.none) : D.success(O.some(aOrNull)),
+    ),
+  );
+
+const Collection = optional(
+  D.struct({
+    name: optional(D.string),
+    twitter_username: pipe(
+      optional(D.string),
+      D.parse((str) =>
+        D.success(
+          pipe(
+            str,
+            O.chain((str) => (str.length === 0 ? O.none : O.some(str))),
+          ),
+        ),
+      ),
+    ),
+  }),
+);
+
+const OpenseaContract = D.struct({
+  address: D.string,
+  collection: Collection,
+  schema_name: D.string,
+  image_url: optional(D.string),
+  name: optional(D.string),
+});
+
+export type OpenseaContract = D.TypeOf<typeof OpenseaContract>;
 
 const makeContractUrl = (address: string): string =>
   urlcat("https://api.opensea.io/api/v1/asset_contract/:address", { address });
@@ -54,85 +91,75 @@ export const getContract = (address: string) =>
       },
     ),
     TE.chainW(
-      (
-        res,
-      ): TE.TaskEither<NotFoundError | MissingStandardError, OpenseaContract> =>
-        res.status === 404
-          ? TE.left(
-              new NotFoundError("fetch opensea metadata, contract not found"),
-            )
-          : res.status === 406
-          ? pipe(
-              Fetch.decodeJsonResponse(res),
-              // TE.tryCatch(
-              // )
-              TE.chain((body) => {
-                if (getIsBodyWithDetail(body)) {
-                  Log.debug(
-                    `fetch opensea contract 406, address: ${address}, body detail: ${body.detail}`,
-                  );
-                  return TE.left(
-                    new MissingStandardError(address, body.detail),
-                  );
-                }
+      (res): TE.TaskEither<NotFoundError | MissingStandardError, unknown> => {
+        if (res.status === 404) {
+          return TE.left(new NotFoundError("failed to fetch contract 404"));
+        }
 
-                return TE.left(
-                  new Error("failed to get opensea contract, unexpected error"),
+        if (res.status === 406) {
+          return pipe(
+            Fetch.decodeJsonResponse(res),
+            TE.chainW((body) => {
+              if (getIsBodyWithDetail(body)) {
+                Log.debug(
+                  `fetch opensea contract 406, address: ${address}, body detail: ${body.detail}`,
                 );
-              }),
-            )
-          : pipe(
-              () => res.json() as Promise<OpenseaContract>,
-              (task) => TE.fromTask(task),
-            ),
+                return TE.left(new MissingStandardError(address, body.detail));
+              }
+
+              return TE.left(new Error("failed to fetch opensea contract 406"));
+            }),
+          );
+        }
+
+        return TE.fromTask(() => res.json());
+      },
     ),
+    TE.chainEitherKW(decodeWithError(OpenseaContract)),
   );
 
-export const getTwitterHandle = (
-  contract: OpenseaContract,
-): string | undefined => {
-  const rawTwitterHandle =
-    typeof contract.collection?.twitter_username === "string" &&
-    contract.collection.twitter_username.length !== 0
-      ? contract.collection.twitter_username
-      : undefined;
+export const getTwitterHandle = (contract: OpenseaContract): O.Option<string> =>
+  pipe(
+    contract.collection,
+    O.chain((collection) => collection.twitter_username),
+    O.match(
+      () => {
+        Log.debug(
+          `found no twitter handle in opensea contract ${contract.address}`,
+        );
+        return O.none;
+      },
+      (rawTwitterHandle) => O.some(rawTwitterHandle),
+    ),
+    O.chain((rawTwitterHandle) => {
+      const re1 = /^@?(\w{1,15})/;
+      const re2 = /^https:\/\/twitter.com\/@?(\w{1,15})/;
 
-  if (rawTwitterHandle === undefined) {
-    Log.debug(
-      `found no twitter handle in opensea contract ${contract.address}`,
-    );
-    return undefined;
-  }
+      const match1 = re1.exec(rawTwitterHandle);
+      if (match1 !== null) {
+        Log.debug(
+          `found opensea twitter handle ${match1[1]} for ${contract.address}`,
+        );
+        return O.some(match1[1]);
+      }
 
-  const re1 = /^@?(\w{1,15})/;
-  const re2 = /^https:\/\/twitter.com\/@?(\w{1,15})/;
+      const match2 = re2.exec(rawTwitterHandle);
+      if (match2 !== null) {
+        Log.debug(
+          `found opensea twitter handle ${match2[1]} for ${contract.address}`,
+        );
+        return O.some(match2[1]);
+      }
 
-  const match1 = re1.exec(rawTwitterHandle);
-  if (match1 !== null) {
-    Log.debug(
-      `found opensea twitter handle ${match1[1]} for ${contract.address}`,
-    );
-    return match1[1];
-  }
+      Log.debug(
+        `opensea twitter handle regex did not match, returning as is: ${rawTwitterHandle}`,
+      );
 
-  const match2 = re2.exec(rawTwitterHandle);
-  if (match2 !== null) {
-    Log.debug(
-      `found opensea twitter handle ${match2[1]} for ${contract.address}`,
-    );
-    return match2[1];
-  }
-
-  Log.debug(
-    `opensea twitter handle regex did not match, returning as is: ${rawTwitterHandle}`,
+      return O.some(rawTwitterHandle);
+    }),
   );
 
-  return rawTwitterHandle;
-};
-
-export const getSchemaName = (
-  contract: OpenseaContract,
-): string | undefined => {
+export const getSchemaName = (contract: OpenseaContract): O.Option<string> => {
   const schemaName = contract.schema_name;
 
   if (
@@ -144,17 +171,18 @@ export const getSchemaName = (
     Log.debug(
       `found opensea schema name ${schemaName} for ${contract.address}`,
     );
-    return schemaName;
+    return O.some(schemaName);
   }
 
   if (typeof schemaName === "string") {
     Log.warn(
       `adding unknown opensea schema name: ${schemaName} for ${contract.address}`,
     );
-    return schemaName;
+    return O.some(schemaName);
   }
 
-  return undefined;
+  Log.warn(`opensea contract schema name is not a string, got: ${schemaName}`);
+  return O.none;
 };
 
 export const checkSchemaImpliesNft = (schemaName: unknown): boolean =>
@@ -230,4 +258,15 @@ export const getExistingCategory = (address: string) =>
       SELECT category FROM contracts WHERE address = ${address}
     `,
     T.map(readOptionalFromFirstRow("category")),
+  );
+
+export const getName = (contract: OpenseaContract): O.Option<string> =>
+  pipe(
+    contract.name,
+    O.alt(() =>
+      pipe(
+        contract.collection,
+        O.chain((contract) => contract.name),
+      ),
+    ),
   );
