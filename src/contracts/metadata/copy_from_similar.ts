@@ -40,7 +40,7 @@ const storeFromSimilarContracts = (
 export const addMetadataFromSimilar = (
   address: string,
   nameStartsWith: string,
-) =>
+): T.Task<void> =>
   pipe(
     T.fromIO(() => {
       Log.debug(
@@ -84,5 +84,5 @@ export const addMetadataFromSimilar = (
         ),
       ),
     ),
-    TOAlt.concatAllVoid,
+    T.map((): void => undefined),
   );

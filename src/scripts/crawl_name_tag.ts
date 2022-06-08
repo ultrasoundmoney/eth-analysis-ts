@@ -153,9 +153,9 @@ const updateNameTagForAddress = (
       };
     }),
     TO.chainFirstTaskK((name) =>
-      name.indexOf(":") !== -1
+      name.includes(":")
         ? addMetadataFromSimilar(address, name.split(":")[0])
-        : TO.none,
+        : T.of(undefined),
     ),
     TO.chainTaskK((name) =>
       pipe(

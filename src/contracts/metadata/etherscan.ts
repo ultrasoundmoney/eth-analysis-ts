@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
 import * as Duration from "../../duration.js";
 import * as Etherscan from "../../etherscan.js";
-import { B, pipe, T, TAlt, TE, TO } from "../../fp.js";
+import { B, pipe, T, TAlt, TE } from "../../fp.js";
 import * as Log from "../../log.js";
 import * as Queues from "../../queues.js";
 import * as Contracts from "../contracts.js";
@@ -33,7 +33,7 @@ const addMetadata = (address: string) =>
         B.match(
           () =>
             CopyFromSimilar.addMetadataFromSimilar(address, name.split(":")[0]),
-          () => TO.of(undefined),
+          () => T.of(undefined),
         ),
         // We expect category to be copied from similar metadata so only set is_bot.
         T.apSecond(
