@@ -63,35 +63,44 @@ const updateOpenseaMetadataFromContract = (
 ) =>
   pipe(
     Log.debug(`updating opensea metadata for ${address}`),
-    () =>
-      TAlt.seqTPar(
-        Contracts.setSimpleTextColumn(
-          "opensea_twitter_handle",
-          address,
-          Opensea.getTwitterHandle(contract) ?? null,
-        ),
-        Contracts.setSimpleTextColumn(
-          "opensea_schema_name",
-          address,
-          Opensea.getSchemaName(contract) ?? null,
-        ),
-        Contracts.setSimpleTextColumn(
-          "opensea_image_url",
-          address,
-          contract.image_url,
-        ),
-        Contracts.setSimpleTextColumn("opensea_name", address, contract.name),
-      ),
-    T.chainFirstIOK(() => () => {
-      const twitterHandle = Opensea.getTwitterHandle(contract) ?? null;
-      const schemaName = Opensea.getSchemaName(contract) ?? null;
+    () => {
+      const twitterHandle = Opensea.getTwitterHandle(contract);
+      const schemaName = Opensea.getSchemaName(contract);
+      const name = Opensea.getName(contract);
+      const imageUrl = contract.image_url;
+
       Log.debug("adding opensea metadata", {
-        name: contract.name,
+        name: name,
         twitter: twitterHandle,
         schemaName: schemaName,
         imageUrl: contract.image_url,
       });
-    }),
+
+      return { twitterHandle, schemaName, name, imageUrl };
+    },
+    ({ twitterHandle, imageUrl, name, schemaName }) =>
+      TAlt.seqTPar(
+        Contracts.setSimpleTextColumn(
+          "opensea_twitter_handle",
+          address,
+          O.toNullable(twitterHandle),
+        ),
+        Contracts.setSimpleTextColumn(
+          "opensea_schema_name",
+          address,
+          O.toNullable(schemaName),
+        ),
+        Contracts.setSimpleTextColumn(
+          "opensea_image_url",
+          address,
+          O.toNullable(imageUrl),
+        ),
+        Contracts.setSimpleTextColumn(
+          "opensea_name",
+          address,
+          O.toNullable(name),
+        ),
+      ),
     TAlt.concatAllVoid,
   );
 
