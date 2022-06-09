@@ -19,6 +19,7 @@ import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
+import * as IssuanceBreakdown from "../issuance_breakdown.js";
 import * as WebSocket from "./websocket.js";
 
 process.on("unhandledRejection", (error) => {
@@ -54,6 +55,10 @@ let oSupplyProjectionInputs = await KeyValueStore.getValue(
   SupplyProjection.supplyProjectionInputsCacheKey,
 )();
 Log.debug("loaded supply projection inputs");
+let oIssuanceBreakdown = await KeyValueStore.getValue(
+  IssuanceBreakdown.issuanceBreakdownCacheKey,
+)();
+Log.debug("loaded issuance breakdown");
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
@@ -196,6 +201,22 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
   );
 };
 
+const handleGetIssuanceBreakdown: Middleware = async (ctx) => {
+  pipe(
+    oIssuanceBreakdown,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (issuanceBreakdown) => {
+        ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = issuanceBreakdown;
+      },
+    ),
+  );
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -269,6 +290,13 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
+  if (payload === IssuanceBreakdown.issuanceBreakdownCacheKey) {
+    oIssuanceBreakdown = await KeyValueStore.getValue(
+      IssuanceBreakdown.issuanceBreakdownCacheKey,
+    )();
+    return;
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
@@ -312,6 +340,7 @@ router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
 router.get("/fees/pe-ratios", handleGetPeRatios);
 router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 router.get("/fees/block-lag", handleGetBlockLag);
+router.get("/fees/issuance-breakdown", handleGetIssuanceBreakdown);
 
 // endpoints for dev
 
