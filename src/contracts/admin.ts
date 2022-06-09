@@ -40,9 +40,7 @@ export const setName = (address: string, name: string): T.Task<void> =>
       name.toLowerCase().startsWith("mev bot:"),
       pipe(
         Contracts.setIsBot(address, true),
-        T.apSecond(
-          Contracts.setSimpleTextColumn("manual_category", address, "mev"),
-        ),
+        T.apSecond(Contracts.setSimpleTextColumn("category", address, "mev")),
       ),
     ),
     T.apSecond(
