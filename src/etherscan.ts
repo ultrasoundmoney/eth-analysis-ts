@@ -7,7 +7,7 @@ import { retrying } from "retry-ts/lib/Task.js";
 import { formatUrl } from "url-sub";
 import type { AbiItem } from "web3-utils";
 import * as Config from "./config.js";
-import { getEtherscanToken } from "./config.js";
+import { getEtherscanApiKey } from "./config.js";
 import * as Duration from "./duration.js";
 import * as Fetch from "./fetch.js";
 import { BadResponseError, FetchError } from "./fetch.js";
@@ -35,7 +35,7 @@ const makeAbiUrl = (address: string) =>
     module: "contract",
     action: "getabi",
     address,
-    apiKey: getEtherscanToken(),
+    apiKey: getEtherscanApiKey(),
   });
 
 export const fetchAbi = (address: string) =>
@@ -246,7 +246,7 @@ const makeEthSupplyUrl = () =>
   formatUrl("https://api.etherscan.io", "/api", {
     module: "stats",
     action: "ethsupply",
-    apiKey: Config.getEtherscanToken(),
+    apiKey: Config.getEtherscanApiKey(),
   });
 
 /**
