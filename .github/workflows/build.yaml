@@ -21,7 +21,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis
+          images: rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts
           tags: |
             type=raw,latest
             type=sha,prefix=
@@ -39,5 +39,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=rg.fr-par.scw.cloud/ultrasoundmoney/gas-analysis:latest
+          cache-from: type=registry,ref=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:latest
           cache-to: type=inline

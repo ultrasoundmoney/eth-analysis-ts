@@ -13,7 +13,7 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   serve-fees:
-    image: gas-analysis
+    image: eth-analysis-ts
     build: .
     ports:
       - "8080:8080"
