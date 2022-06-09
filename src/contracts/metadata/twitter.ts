@@ -8,7 +8,7 @@ import * as Twitter from "../../twitter.js";
 import * as Contracts from "../contracts.js";
 import { getShouldRetry } from "./attempts.js";
 
-class NoKnownTwitterHandleError extends Error {}
+export class NoKnownTwitterHandleError extends Error {}
 class EmptyTwitterHandleError extends Error {}
 
 const twitterProfileLastAttemptMap = new Map<string, Date>();
@@ -93,7 +93,7 @@ export const addTwitterMetadataMaybe = (
           e instanceof Twitter.ProfileNotFoundError ||
           (e instanceof Fetch.BadResponseError && e.status === 429)
         ) {
-          Log.warn(e.message, e);
+          Log.warn("failed to add twitter metadata", e);
           return;
         }
 
@@ -109,8 +109,8 @@ export const addTwitterMetadataMaybe = (
           return;
         }
 
-        Log.error(e.message, e);
+        Log.error("failed to add twitter metadata", e);
       },
-      () => undefined,
+      (): void => undefined,
     ),
   );
