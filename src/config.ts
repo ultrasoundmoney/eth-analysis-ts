@@ -45,8 +45,8 @@ export const getFamServiceUrl = () =>
     ? "http://serve-fam"
     : "https://api.ultrasound.money";
 
-export const getEtherscanToken = (): string =>
-  parseSimpleEnvVarUnsafe("ETHERSCAN_TOKEN");
+export const getEtherscanApiKey = (): string =>
+  parseSimpleEnvVarUnsafe("ETHERSCAN_API_KEY");
 
 export const getTwitterToken = (): string =>
   parseSimpleEnvVarUnsafe("TWITTER_BEARER_TOKEN_USM");
