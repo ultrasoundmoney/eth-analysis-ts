@@ -55,9 +55,7 @@ let oSupplyProjectionInputs = await KeyValueStore.getValue(
   SupplyProjection.supplyProjectionInputsCacheKey,
 )();
 Log.debug("loaded supply projection inputs");
-let oIssuanceBreakdown = await KeyValueStore.getValue(
-  IssuanceBreakdown.issuanceBreakdownCacheKey,
-)();
+let oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
 Log.debug("loaded issuance breakdown");
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
@@ -291,9 +289,7 @@ sql.listen("cache-update", async (payload) => {
   }
 
   if (payload === IssuanceBreakdown.issuanceBreakdownCacheKey) {
-    oIssuanceBreakdown = await KeyValueStore.getValue(
-      IssuanceBreakdown.issuanceBreakdownCacheKey,
-    )();
+    oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
     return;
   }
 
