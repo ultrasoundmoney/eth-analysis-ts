@@ -6,7 +6,7 @@ import { O, pipe, T, TO } from "./fp.js";
 import { getLatestGroupedAnalysisNumber } from "./grouped_analysis_1.js";
 import * as KeyValueStore from "./key_value_store.js";
 
-export const blockLagCacheKey = "block-lag-cache-key";
+export const blockLagCacheKey = "block-lag";
 
 const updateCurrentBlockLag = () =>
   pipe(
@@ -29,10 +29,7 @@ const updateCurrentBlockLag = () =>
     TO.chainTaskK(() => Db.sqlTNotify("cache-update", blockLagCacheKey)),
   );
 
-const intervalIterator = setInterval(
-  Duration.millisFromSeconds(10),
-  Date.now(),
-);
+const intervalIterator = setInterval(Duration.millisFromSeconds(2), Date.now());
 
 const continuouslyUpdate = async () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
