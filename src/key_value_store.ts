@@ -1,5 +1,6 @@
+import { camelCaseKeys } from "./casing.js";
 import * as Db from "./db.js";
-import { O, pipe, T, TOAlt } from "./fp.js";
+import { flow, O, pipe, T, TOAlt } from "./fp.js";
 
 export const getValue = <A>(key: string) =>
   pipe(
@@ -7,7 +8,12 @@ export const getValue = <A>(key: string) =>
       SELECT value FROM key_value_store
       WHERE key = ${key}
     `,
-    T.map(O.fromNullableK((rows) => rows[0]?.value)),
+    T.map(
+      flow(
+        O.fromNullableK((rows) => rows[0]?.value),
+        O.map(camelCaseKeys),
+      ),
+    ),
   );
 
 export const getValueUnsafe = <A>(key: string) =>
