@@ -477,7 +477,7 @@ export const makeContract = async (address: string, abi: AbiItem[]) => {
   const web3 = await getWeb3();
   const Contract = web3.eth.Contract;
   const contract = new Contract(abi, address);
-  // NOTE: possible workaround as web3 leaks memory.
+  // NOTE: possible workaround as web3.js leaks memory.
   // See: https://github.com/ChainSafe/web3.js/issues/3042#issuecomment-663622882
   type ContractWithProvider = Contract & {
     setProvider: (provider: web3Core.provider) => void;
