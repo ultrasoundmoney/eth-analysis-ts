@@ -1,10 +1,10 @@
 {
-  "name": "gas_analysis",
+  "name": "eth-analysis-ts",
   "version": "1.0.0",
-  "description": "analyze dapp gas usage",
+  "description": "analyze ETH",
   "main": "index.js",
   "repository": "git@github.com:ultrasoundmoney/gas_analysis.git",
-  "author": "ultrasound money <ultrasoundmoney0@gmail.com>",
+  "author": "ultra sound money <contact@ultrasound.money>",
   "license": "MIT",
   "private": true,
   "type": "module",
