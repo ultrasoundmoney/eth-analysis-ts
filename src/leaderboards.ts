@@ -342,7 +342,7 @@ export const extendRowsWithTwitterDetails = (
     ),
     T.map(
       A.reduce(new Map<string, TwitterDetails>(), (map, details) =>
-        map.set(details.handle, details),
+        map.set(details.handle.toLowerCase(), details),
       ),
     ),
     T.map((twitterDetailsMap) =>
@@ -353,7 +353,9 @@ export const extendRowsWithTwitterDetails = (
             return buildRanking(row);
           }
 
-          const twitterDetails = twitterDetailsMap.get(row.twitterHandle);
+          const twitterDetails = twitterDetailsMap.get(
+            row.twitterHandle.toLowerCase(),
+          );
           if (twitterDetails === undefined) {
             // Fam service did not have details for this twitter handle.
             return buildRanking(row);
