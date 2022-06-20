@@ -164,10 +164,17 @@ export const IOAlt = {
 };
 
 export const EAlt = {
-  getOrThrow: (message: string) =>
-    E.getOrElse(() => {
-      throw new Error(message);
-    }),
+  getOrThrow: <E, A>(either: E.Either<E, A>) =>
+    pipe(
+      either,
+      E.getOrElse<E, A>((message): never => {
+        if (typeof message === "string") {
+          throw new Error(message);
+        }
+
+        throw new Error(String(message));
+      }),
+    ),
 };
 
 export const MapS = {
