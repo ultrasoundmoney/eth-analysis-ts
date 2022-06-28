@@ -206,7 +206,7 @@ const getErc20ProxyTotalSupply = (proxyContract: ProxyContract) =>
             totalSupply === 0
               ? TE.left(
                   new ZeroSupplyError(
-                    `proxy contract ${proxyContract.options.address} total supply came back 0, and is probably wrong`,
+                    `proxy contract ${proxyContract.options.address} total supply came back zero, and is probably wrong`,
                   ),
                 )
               : TE.right(totalSupply),
