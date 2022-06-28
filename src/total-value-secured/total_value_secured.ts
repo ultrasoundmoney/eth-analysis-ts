@@ -159,6 +159,10 @@ type CoinSupply = {
   contractAddress: string;
 };
 
+const useCoingeckoSupplyOverrideMap = new Set([
+  "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+]);
+
 const getSupplyForOnEthAndOthersCoins = (
   coinMarkets: CoinGecko.CoinMarket[],
   coinsOnEthAndOthers: CoinIdContractMap,
@@ -183,7 +187,8 @@ const getSupplyForOnEthAndOthersCoins = (
           // When a coin is present on multiple chains, CoinGecko's circulating supply is across all chains. We need Ethereum only. We take what CoinGecko says to be all tokens out of circulation across all chains (supply - circulating supply), and remove this from what the coin's contract on Ethereum says the total supply on Ethereum is.
           // Contracts appear a little unpredictable, sometimes the supply comes back large and negative, we protect the sum of all coins by capping the lowerbound at zero.
           // In some cases much of the on-chain supply is no longer available. e.g. CRO burned 70B of their supply. When CoinGecko's total supply is lower than on-chain, we use their circulating supply directly.
-          coinMarket.total_supply < onChainTotalSupply
+          coinMarket.total_supply < onChainTotalSupply &&
+          !useCoingeckoSupplyOverrideMap.has(contractAddress)
             ? coinMarket.circulating_supply
             : Math.max(
                 onChainTotalSupply -
@@ -458,7 +463,7 @@ const getTopErc20s = () =>
         A.filter((coin) => {
           if (coin.marketCapEth < 1e6) {
             Log.debug(
-              `coin ${coin.symbol} market cap suspiciously low (< 1,000,000): ${coin.marketCapEth}, contract: ${coin.contractAddress}, skipping`,
+              `coin ${coin.symbol} market cap suspiciously low (< 1,000,000): ${coin.marketCapEth}, contract: ${coin.contractAddress}, circulatingSupplyAll: ${coin.circulatingSupplyAll}, circulatingSupplyEth: ${coin.circulatingSupplyEth}, totalSupplyAll: ${coin.totalSupplyAll}, skipping`,
             );
             return false;
           }
