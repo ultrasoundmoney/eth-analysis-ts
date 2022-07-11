@@ -12,6 +12,7 @@ import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import { O, pipe, TE } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
+import * as IssuanceBreakdown from "../issuance_breakdown.js";
 import * as KeyValueStore from "../key_value_store.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
@@ -19,7 +20,7 @@ import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
-import * as IssuanceBreakdown from "../issuance_breakdown.js";
+import * as TotalSupply from "../total_supply.js";
 import * as WebSocket from "./websocket.js";
 
 process.on("unhandledRejection", (error) => {
@@ -57,6 +58,10 @@ let oSupplyProjectionInputs = await KeyValueStore.getValue(
 Log.debug("loaded supply projection inputs");
 let oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
 Log.debug("loaded issuance breakdown");
+let oTotalSupply = await KeyValueStore.getValue(
+  TotalSupply.totalSupplyCacheKey,
+)();
+Log.debug("loaded total supply");
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
@@ -215,6 +220,22 @@ const handleGetIssuanceBreakdown: Middleware = async (ctx) => {
   );
 };
 
+const handleGetTotalSupply: Middleware = async (ctx) => {
+  pipe(
+    oTotalSupply,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (issuanceBreakdown) => {
+        ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = issuanceBreakdown;
+      },
+    ),
+  );
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -293,6 +314,13 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
+  if (payload === TotalSupply.totalSupplyCacheKey) {
+    oTotalSupply = await KeyValueStore.getValue(
+      TotalSupply.totalSupplyCacheKey,
+    )();
+    return;
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
@@ -337,6 +365,7 @@ router.get("/fees/pe-ratios", handleGetPeRatios);
 router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 router.get("/fees/block-lag", handleGetBlockLag);
 router.get("/fees/issuance-breakdown", handleGetIssuanceBreakdown);
+router.get("/fees/total-supply", handleGetTotalSupply);
 
 // endpoints for dev
 
