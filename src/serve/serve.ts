@@ -58,7 +58,7 @@ let oSupplyProjectionInputs = await KeyValueStore.getValue(
 Log.debug("loaded supply projection inputs");
 let oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
 Log.debug("loaded issuance breakdown");
-let oTotalSupply = await KeyValueStore.getValue(
+let oTotalSupply = await KeyValueStore.getValueStr(
   TotalSupply.totalSupplyCacheKey,
 )();
 Log.debug("loaded total supply");
@@ -315,7 +315,7 @@ sql.listen("cache-update", async (payload) => {
   }
 
   if (payload === TotalSupply.totalSupplyCacheKey) {
-    oTotalSupply = await KeyValueStore.getValue(
+    oTotalSupply = await KeyValueStore.getValueStr(
       TotalSupply.totalSupplyCacheKey,
     )();
     return;

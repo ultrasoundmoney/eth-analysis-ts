@@ -10,6 +10,15 @@ export const getValue = <A>(key: string) =>
     T.map(O.fromNullableK((rows) => rows[0]?.value)),
   );
 
+export const getValueStr = (key: string) =>
+  pipe(
+    Db.sqlT<{ value: string }[]>`
+      SELECT value::text FROM key_value_store
+      WHERE key = ${key}
+    `,
+    T.map(O.fromNullableK((rows) => rows[0]?.value)),
+  );
+
 export const getValueUnsafe = <A>(key: string) =>
   pipe(
     getValue<A>(key),
