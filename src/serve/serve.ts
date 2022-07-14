@@ -20,7 +20,7 @@ import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
-import * as TotalSupply from "../total_supply.js";
+import * as EthSupply from "../eth_supply.js";
 import * as WebSocket from "./websocket.js";
 
 process.on("unhandledRejection", (error) => {
@@ -58,9 +58,7 @@ let oSupplyProjectionInputs = await KeyValueStore.getValue(
 Log.debug("loaded supply projection inputs");
 let oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
 Log.debug("loaded issuance breakdown");
-let oTotalSupply = await KeyValueStore.getValueStr(
-  TotalSupply.totalSupplyCacheKey,
-)();
+let oEthSupply = await KeyValueStore.getValueStr(EthSupply.ethSupplyCacheKey)();
 Log.debug("loaded total supply");
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
@@ -220,17 +218,17 @@ const handleGetIssuanceBreakdown: Middleware = async (ctx) => {
   );
 };
 
-const handleGetTotalSupply: Middleware = async (ctx) => {
+const handleGetEthSupply: Middleware = async (ctx) => {
   pipe(
-    oTotalSupply,
+    oEthSupply,
     O.match(
       () => {
         ctx.status = 503;
       },
-      (issuanceBreakdown) => {
+      (ethSupply) => {
         ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
         ctx.set("Content-Type", "application/json");
-        ctx.body = issuanceBreakdown;
+        ctx.body = ethSupply;
       },
     ),
   );
@@ -314,10 +312,8 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
-  if (payload === TotalSupply.totalSupplyCacheKey) {
-    oTotalSupply = await KeyValueStore.getValueStr(
-      TotalSupply.totalSupplyCacheKey,
-    )();
+  if (payload === EthSupply.ethSupplyCacheKey) {
+    oEthSupply = await KeyValueStore.getValueStr(EthSupply.ethSupplyCacheKey)();
     return;
   }
 
@@ -365,7 +361,7 @@ router.get("/fees/pe-ratios", handleGetPeRatios);
 router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 router.get("/fees/block-lag", handleGetBlockLag);
 router.get("/fees/issuance-breakdown", handleGetIssuanceBreakdown);
-router.get("/fees/total-supply", handleGetTotalSupply);
+router.get("/fees/total-supply", handleGetEthSupply);
 
 // endpoints for dev
 
