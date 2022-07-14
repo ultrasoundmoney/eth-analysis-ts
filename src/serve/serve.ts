@@ -361,7 +361,7 @@ router.get("/fees/pe-ratios", handleGetPeRatios);
 router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 router.get("/fees/block-lag", handleGetBlockLag);
 router.get("/fees/issuance-breakdown", handleGetIssuanceBreakdown);
-router.get("/fees/total-supply", handleGetEthSupply);
+router.get("/fees/eth-supply", handleGetEthSupply);
 
 // endpoints for dev
 
