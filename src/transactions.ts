@@ -161,7 +161,6 @@ export const calcBaseFeeBI = (
 
 export const getNewContracts = flow(
   segmentTransactions,
-
   (segments) => segments.creations,
   A.map((txr) => txr.contractAddress),
   A.compact,
