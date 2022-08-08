@@ -8,8 +8,10 @@ import * as BlockLag from "../block_lag.js";
 import * as BurnCategories from "../burn-categories/burn_categories.js";
 import * as ContractsRoutes from "../contracts/routes.js";
 import { runMigrations, sql } from "../db.js";
+import * as EffectiveBalanceSum from "../effective_balance_sum.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as EthSupply from "../eth_supply.js";
 import { O, pipe, TE } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as IssuanceBreakdown from "../issuance_breakdown.js";
@@ -20,7 +22,6 @@ import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
-import * as EthSupply from "../eth_supply.js";
 import * as WebSocket from "./websocket.js";
 
 process.on("unhandledRejection", (error) => {
@@ -60,6 +61,8 @@ let oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
 Log.debug("loaded issuance breakdown");
 let oEthSupply = await KeyValueStore.getValueStr(EthSupply.ethSupplyCacheKey)();
 Log.debug("loaded total supply");
+let effectiveBalanceSum =
+  await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
@@ -234,6 +237,12 @@ const handleGetEthSupply: Middleware = async (ctx) => {
   );
 };
 
+const handleGetEffectiveBalanceSum: Middleware = async (ctx) => {
+  ctx.set("Cache-Control", "max-age=300, stale-while-revalidate=1200");
+  ctx.set("Content-Type", "application/json");
+  ctx.body = effectiveBalanceSum;
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -317,6 +326,11 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
+  if (payload === EffectiveBalanceSum.EFFECTIVE_BALANCE_SUM_CACHE_KEY) {
+    effectiveBalanceSum =
+      await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
@@ -362,6 +376,7 @@ router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 router.get("/fees/block-lag", handleGetBlockLag);
 router.get("/fees/issuance-breakdown", handleGetIssuanceBreakdown);
 router.get("/fees/eth-supply", handleGetEthSupply);
+router.get("/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
 
 // endpoints for dev
 
