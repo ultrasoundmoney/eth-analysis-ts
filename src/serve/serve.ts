@@ -18,6 +18,7 @@ import * as IssuanceBreakdown from "../issuance_breakdown.js";
 import * as KeyValueStore from "../key_value_store.js";
 import * as Log from "../log.js";
 import * as MarketCaps from "../market-caps/market_caps.js";
+import * as MergeEstimate from "../merge_estimate.js";
 import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
@@ -63,6 +64,10 @@ let oEthSupply = await KeyValueStore.getValueStr(EthSupply.ethSupplyCacheKey)();
 Log.debug("loaded total supply");
 let effectiveBalanceSum =
   await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
+let oMergeEstimate = await KeyValueStore.getValueStr(
+  MergeEstimate.MERGE_ESTIMATE_CACHE_KEY,
+)();
+Log.debug("loaded merge estimate");
 
 const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   pipe(
@@ -243,6 +248,22 @@ const handleGetEffectiveBalanceSum: Middleware = async (ctx) => {
   ctx.body = effectiveBalanceSum;
 };
 
+const handleGetMergeEstimate: Middleware = async (ctx) => {
+  pipe(
+    oMergeEstimate,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (mergeEstimate) => {
+        ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=300");
+        ctx.set("Content-Type", "application/json");
+        ctx.body = mergeEstimate;
+      },
+    ),
+  );
+};
+
 sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
@@ -331,6 +352,13 @@ sql.listen("cache-update", async (payload) => {
       await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
   }
 
+  if (payload === MergeEstimate.MERGE_ESTIMATE_CACHE_KEY) {
+    oMergeEstimate = await KeyValueStore.getValueStr(
+      MergeEstimate.MERGE_ESTIMATE_CACHE_KEY,
+    )();
+    return;
+  }
+
   Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
@@ -366,6 +394,7 @@ const router = new Router();
 // endpoints updating every block
 router.get("/fees/all", handleGetGroupedAnalysis1);
 router.get("/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
+router.get("/fees/merge-estimate", handleGetMergeEstimate);
 
 // endpoints with unique update cycle duration
 router.get("/fees/market-caps", handleGetMarketCaps);
