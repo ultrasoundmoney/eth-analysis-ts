@@ -350,6 +350,7 @@ sql.listen("cache-update", async (payload) => {
   if (payload === EffectiveBalanceSum.EFFECTIVE_BALANCE_SUM_CACHE_KEY) {
     effectiveBalanceSum =
       await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
+    return;
   }
 
   if (payload === MergeEstimate.MERGE_ESTIMATE_CACHE_KEY) {
