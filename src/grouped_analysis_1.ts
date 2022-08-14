@@ -22,7 +22,7 @@ export type GroupedAnalysis1 = {
   burnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   deflationaryStreak: DeflationaryStreak.StreakForSite;
-  ethPrice: EthPrices.EthStats | null;
+  ethPrice: EthPrices.EthStats | undefined;
   feeBurns: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
   leaderboards: Leaderboards.LeaderboardEntries;
@@ -107,7 +107,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
           TE.match(
             (e) => {
               Log.error("failed to compute eth stats", e);
-              return null;
+              return undefined;
             },
             (v) => v,
           ),
