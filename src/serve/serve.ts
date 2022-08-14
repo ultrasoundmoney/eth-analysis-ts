@@ -11,8 +11,8 @@ import { runMigrations, sql } from "../db.js";
 import * as EffectiveBalanceSum from "../effective_balance_sum.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
-import * as EthSupply from "../eth_supply.js";
-import { O, pipe, TE } from "../fp.js";
+import * as EthSupplyParts from "../eth_supply_parts.js";
+import { O, pipe, TE, TO } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as IssuanceBreakdown from "../issuance_breakdown.js";
 import * as KeyValueStore from "../key_value_store.js";
@@ -60,7 +60,12 @@ let oSupplyProjectionInputs = await KeyValueStore.getValue(
 Log.debug("loaded supply projection inputs");
 let oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
 Log.debug("loaded issuance breakdown");
-let oEthSupply = await KeyValueStore.getValueStr(EthSupply.ethSupplyCacheKey)();
+let oEthSupplyParts = await pipe(
+  KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKey),
+  TO.alt(() =>
+    KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKeyOld),
+  ),
+)();
 Log.debug("loaded total supply");
 let effectiveBalanceSum =
   await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
@@ -226,17 +231,17 @@ const handleGetIssuanceBreakdown: Middleware = async (ctx) => {
   );
 };
 
-const handleGetEthSupply: Middleware = async (ctx) => {
+const handleGetEthSupplyParts: Middleware = async (ctx) => {
   pipe(
-    oEthSupply,
+    oEthSupplyParts,
     O.match(
       () => {
         ctx.status = 503;
       },
-      (ethSupply) => {
+      (ethSupplyParts) => {
         ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
         ctx.set("Content-Type", "application/json");
-        ctx.body = ethSupply;
+        ctx.body = ethSupplyParts;
       },
     ),
   );
@@ -342,8 +347,16 @@ sql.listen("cache-update", async (payload) => {
     return;
   }
 
-  if (payload === EthSupply.ethSupplyCacheKey) {
-    oEthSupply = await KeyValueStore.getValueStr(EthSupply.ethSupplyCacheKey)();
+  if (
+    payload === EthSupplyParts.ethSupplyPartsCacheKey ||
+    payload === EthSupplyParts.ethSupplyPartsCacheKeyOld
+  ) {
+    oEthSupplyParts = await pipe(
+      KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKey),
+      TO.alt(() =>
+        KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKeyOld),
+      ),
+    )();
     return;
   }
 
@@ -405,7 +418,8 @@ router.get("/fees/pe-ratios", handleGetPeRatios);
 router.get("/fees/total-value-secured", handleGetTotalValueSecured);
 router.get("/fees/block-lag", handleGetBlockLag);
 router.get("/fees/issuance-breakdown", handleGetIssuanceBreakdown);
-router.get("/fees/eth-supply", handleGetEthSupply);
+router.get("/fees/eth-supply", handleGetEthSupplyParts);
+router.get("/fees/eth-supply-parts", handleGetEthSupplyParts);
 router.get("/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
 
 // endpoints for dev
