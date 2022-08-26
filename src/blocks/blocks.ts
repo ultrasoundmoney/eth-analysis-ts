@@ -301,6 +301,7 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
 type BlockDbRow = {
   baseFeePerGas: string;
   contractCreationSum: number;
+  difficulty: string;
   ethPrice: number;
   ethTransferSum: number;
   gasUsed: string;
@@ -314,6 +315,7 @@ const blockDbFromRow = (row: BlockDbRow): BlockV1 => ({
   baseFeePerGas: BigInt(row.baseFeePerGas),
   baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
   contractCreationSum: row.contractCreationSum,
+  difficulty: BigInt(row.difficulty),
   ethPrice: row.ethPrice,
   ethTransferSum: row.ethTransferSum,
   gasUsed: BigInt(row.gasUsed),
@@ -334,6 +336,7 @@ export const getBlocks = (
         contract_creation_sum,
         eth_price,
         eth_transfer_sum,
+        difficulty,
         gas_used,
         hash,
         mined_at,
