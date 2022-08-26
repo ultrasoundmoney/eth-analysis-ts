@@ -41,6 +41,7 @@ const blockFromRaw = (rawBlock: BlockCsv): Blocks.BlockV1 => ({
   baseFeeSum:
     rawBlock.base_fee_sum === "0.0" ? 0n : BigInt(rawBlock.base_fee_sum),
   contractCreationSum: Number(rawBlock.contract_creation_sum),
+  difficulty: 0n,
   ethPrice: Number(rawBlock.eth_price),
   ethTransferSum: Number(rawBlock.eth_transfer_sum),
   gasUsed: rawBlock.gas_used === "0.0" ? 0n : BigInt(rawBlock.gas_used),
