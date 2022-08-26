@@ -28,6 +28,7 @@ export const londonHarkForkBlockDate = new Date("2021-08-05T12:33:42Z");
 export type BlockNodeV2 = {
   baseFeePerGas: number;
   baseFeePerGasBI: bigint;
+  difficulty: bigint;
   gasLimit: number;
   gasLimitBI: bigint;
   gasUsed: number;
@@ -45,6 +46,7 @@ export const blockV1FromNode = (
 ): BlockNodeV2 => ({
   baseFeePerGas: Number(blockNode.baseFeePerGas),
   baseFeePerGasBI: BigInt(blockNode.baseFeePerGas),
+  difficulty: BigInt(blockNode.difficulty),
   gasLimit: Hexadecimal.numberFromHex(blockNode.gasLimit),
   gasLimitBI: BigInt(blockNode.gasLimit),
   gasUsed: Hexadecimal.numberFromHex(blockNode.gasUsed),
@@ -60,23 +62,25 @@ export const blockV1FromNode = (
 });
 
 export type BlockDbInsertable = {
-  hash: string;
-  number: number;
-  mined_at: Date;
-  tips: number;
+  base_fee_per_gas: string;
   base_fee_sum: number;
   base_fee_sum_256: string;
   contract_creation_sum: number;
-  eth_transfer_sum: number;
-  base_fee_per_gas: string;
-  gas_used: string;
+  difficulty: string;
   eth_price?: number;
+  eth_transfer_sum: number;
+  gas_used: string;
+  hash: string;
+  mined_at: Date;
+  number: number;
+  tips: number;
 };
 
 export type BlockV1 = {
   baseFeePerGas: bigint;
   baseFeeSum: bigint;
   contractCreationSum: number;
+  difficulty: bigint;
   ethPrice: number;
   ethTransferSum: number;
   gasUsed: bigint;
@@ -92,6 +96,7 @@ export const insertableFromBlock = (block: BlockV1): BlockDbInsertable => ({
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: String(block.baseFeeSum),
   contract_creation_sum: block.contractCreationSum,
+  difficulty: String(block.difficulty),
   eth_price: block.ethPrice,
   eth_transfer_sum: block.ethTransferSum,
   gas_used: String(block.gasUsed),
@@ -177,6 +182,7 @@ export const blockDbFromAnalysis = (
   baseFeePerGas: BigInt(block.baseFeePerGas),
   baseFeeSum: calcBlockBaseFeeSum(block),
   contractCreationSum: feeSegments.creationsSum,
+  difficulty: block.difficulty,
   ethPrice,
   ethTransferSum: feeSegments.transfersSum,
   gasUsed: BigInt(block.gasUsed),
