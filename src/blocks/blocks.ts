@@ -334,6 +334,7 @@ export const getBlocks = (
       SELECT
         base_fee_per_gas,
         contract_creation_sum,
+        difficulty,
         eth_price,
         eth_transfer_sum,
         difficulty,
@@ -359,6 +360,7 @@ export const getBlocksFromAndIncluding = (blockNumber: number) =>
       SELECT
         base_fee_per_gas,
         contract_creation_sum,
+        difficulty,
         eth_price,
         eth_transfer_sum,
         gas_used,
