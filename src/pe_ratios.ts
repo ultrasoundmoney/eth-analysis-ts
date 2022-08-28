@@ -7,8 +7,6 @@ import * as Config from "./config.js";
 
 export const peRatiosCacheKey = "pe-ratios-cache-key";
 
-const yahooFinanceApiKey = Config.getYahooFinanceApiKey();
-
 const symbols = [
   "AAPL",
   "AMZN",
@@ -40,7 +38,7 @@ const peRatioUrl = formatUrl("https://yfapi.net", "/v6/finance/quote", {
 const getPeRatios = () =>
   pipe(
     Fetch.fetchWithRetry(peRatioUrl, {
-      headers: { "X-API-KEY": yahooFinanceApiKey },
+      headers: { "X-API-KEY": Config.getYahooFinanceApiKey() },
     }),
     TE.chainW((res) =>
       pipe(() => res.json() as Promise<QuoteApiResponse>, T.map(E.right)),
