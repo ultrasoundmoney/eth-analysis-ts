@@ -2,8 +2,9 @@ import _ from "lodash";
 import fetch from "node-fetch";
 import * as Duration from "./duration.js";
 import * as Log from "./log.js";
+import * as Config from "./config.js";
 
-const opsGenieApiKey = "***REMOVED***";
+const opsGenieApiKey = Config.getOpsGenieApiKey();
 
 type CanaryType = "block" | "leaderboard";
 const cage: Record<CanaryType, NodeJS.Timeout | undefined> = {

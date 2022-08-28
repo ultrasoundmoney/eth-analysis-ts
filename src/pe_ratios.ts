@@ -3,10 +3,11 @@ import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
 import * as Fetch from "./fetch.js";
 import { A, E, flow, pipe, T, TE } from "./fp.js";
 import * as Log from "./log.js";
+import * as Config from "./config.js";
 
 export const peRatiosCacheKey = "pe-ratios-cache-key";
 
-const yahooFinanceApiKey = "***REMOVED***";
+const yahooFinanceApiKey = Config.getYahooFinanceApiKey();
 
 const symbols = [
   "AAPL",
