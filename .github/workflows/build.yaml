@@ -26,7 +26,6 @@ jobs:
           images: rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts
           tags: |
             type=sha,prefix=
-            type=raw,value=latest
       - name: Wait for tests to succeed
         uses: lewagon/wait-on-check-action@v1.1.1
         with:
