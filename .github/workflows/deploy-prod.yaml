@@ -30,7 +30,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/serve-fees serve-fees=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/serve-fees serve-fees=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -49,7 +49,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/analyze-blocks analyze-blocks=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/analyze-blocks analyze-blocks=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -68,7 +68,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/contract-metadata contract-metadata=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/contract-metadata contract-metadata=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -87,7 +87,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/store-eth-price store-eth-price=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/store-eth-price store-eth-price=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -106,7 +106,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/store-market-caps store-market-caps=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/store-market-caps store-market-caps=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -125,7 +125,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/canary canary=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/canary canary=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -144,7 +144,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/analyze-burn-categories analyze-burn-categories=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/analyze-burn-categories analyze-burn-categories=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
@@ -163,7 +163,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image cronjob/store-pe-ratios store-pe-ratios=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image cronjob/store-pe-ratios store-pe-ratios=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
   deploy-analyze-total-value-secured:
     name: deploy analyze-total-value-secured
     runs-on: ubuntu-latest
@@ -177,7 +177,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-          command: set image deployment/analyze-total-value-secured analyze-total-value-secured=rg.nl-ams.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
+          command: set image deployment/analyze-total-value-secured analyze-total-value-secured=rg.fr-par.scw.cloud/ultrasoundmoney/eth-analysis-ts:${{ steps.vars.outputs.sha_short }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
