@@ -422,6 +422,26 @@ router.get("/fees/eth-supply", handleGetEthSupplyParts);
 router.get("/fees/eth-supply-parts", handleGetEthSupplyParts);
 router.get("/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
 
+// endpoints updating every block
+router.get("/api/fees/all", handleGetGroupedAnalysis1);
+router.get("/api/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
+router.get("/api/fees/merge-estimate", handleGetMergeEstimate);
+
+// endpoints with unique update cycle duration
+router.get("/api/fees/market-caps", handleGetMarketCaps);
+router.get("/api/fees/scarcity", handleGetScarcity);
+router.get(
+  "/api/fees/supply-projection-inputs",
+  handleGetSupplyProjectionInputs,
+);
+router.get("/api/fees/pe-ratios", handleGetPeRatios);
+router.get("/api/fees/total-value-secured", handleGetTotalValueSecured);
+router.get("/api/fees/block-lag", handleGetBlockLag);
+router.get("/api/fees/issuance-breakdown", handleGetIssuanceBreakdown);
+router.get("/api/fees/eth-supply", handleGetEthSupplyParts);
+router.get("/api/fees/eth-supply-parts", handleGetEthSupplyParts);
+router.get("/api/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
+
 // endpoints for dev
 
 router.get("/fees/validator-rewards", handleGetValidatorRewards);
