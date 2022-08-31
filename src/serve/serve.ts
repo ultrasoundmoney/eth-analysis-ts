@@ -23,7 +23,6 @@ import * as PeRatios from "../pe_ratios.js";
 import * as ScarcityCache from "../scarcity/cache.js";
 import * as SupplyProjection from "../supply-projection/supply_projection.js";
 import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
-import * as WebSocket from "./websocket.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -284,16 +283,6 @@ sql.listen("cache-update", async (payload) => {
 
   if (payload === GroupedAnalysis1.groupedAnalysis1CacheKey) {
     groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
-    // Websocket experiment.
-    sendAll(
-      JSON.stringify({
-        id: GroupedAnalysis1.groupedAnalysis1CacheKey,
-        message: {
-          ...groupedAnalysis1Cache,
-          feesBurned: groupedAnalysis1Cache.feeBurns,
-        },
-      }),
-    );
     return;
   }
 
@@ -471,7 +460,3 @@ await new Promise((resolve) => {
 });
 
 Log.info(`listening on ${port}`);
-
-const wsPort = 8081;
-const sendAll = WebSocket.listen(wsPort);
-Log.debug(`open websocket on ${wsPort}`);
