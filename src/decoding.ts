@@ -5,6 +5,7 @@ export const decodeEmptyString = pipe(
   D.parse((s) => (s === "" ? D.success(null) : D.success(s))),
 );
 
+// This type causes lying types. Convert to errors module style.
 export class DecodeError extends Error {}
 
 export const decodeWithError =

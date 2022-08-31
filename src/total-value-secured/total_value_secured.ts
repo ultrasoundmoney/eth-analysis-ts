@@ -5,6 +5,7 @@ import * as Db from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/eth_prices.js";
 import * as FamService from "../fam_service.js";
+import * as Fetch from "../fetch.js";
 import {
   A,
   flow,
@@ -250,7 +251,10 @@ const getCachedCoinSupplyMap = () =>
 const setCachedCoinSupplyMap = (coinSupplyMap: CoinSupplyMap) => () =>
   coinSupplyMapCache.set(coinSupplyMapCacheKey, coinSupplyMap);
 
-const getCoinSupplyMap = () =>
+const getCoinSupplyMap = (): TE.TaskEither<
+  Fetch.FetchError | Fetch.BadResponseError | Fetch.DecodeJsonError,
+  CoinSupplyMap
+> =>
   pipe(
     TE.Do,
     TE.apS("coinMaps", getCoinMaps()),
@@ -258,10 +262,10 @@ const getCoinSupplyMap = () =>
     TE.bindW("onEthOnlySupplyMap", ({ coinMarkets, coinMaps }) =>
       pipe(getSupplyForOnlyOnEthCoins(coinMarkets, coinMaps.onEthOnly), TE.of),
     ),
-    TE.bind("onEthAndOthersSupplyMap", ({ coinMarkets, coinMaps }) =>
+    TE.bindW("onEthAndOthersSupplyMap", ({ coinMarkets, coinMaps }) =>
       pipe(
         getSupplyForOnEthAndOthersCoins(coinMarkets, coinMaps.onEthAndOthers),
-        (task) => TE.fromTask(task),
+        (task) => TE.fromTask<Map<string, CoinSupply>, never>(task),
       ),
     ),
     TE.map(
@@ -275,7 +279,10 @@ const getCoinSupplyMap = () =>
     ),
   );
 
-const getCoinSupplyMapWithCache = () =>
+const getCoinSupplyMapWithCache = (): TE.TaskEither<
+  Fetch.DecodeJsonError,
+  CoinSupplyMap
+> =>
   pipe(
     getCachedCoinSupplyMap(),
     O.match(
@@ -285,7 +292,7 @@ const getCoinSupplyMapWithCache = () =>
           TE.fromIO,
           TE.chain(() => getCoinSupplyMap()),
         ),
-      (erc20Supplies) => TE.right(erc20Supplies),
+      (erc20Supplies) => TE.right<never, CoinSupplyMap>(erc20Supplies),
     ),
   );
 
@@ -418,7 +425,10 @@ const coinV2FromCoinAndDetails = (
   );
 };
 
-const getTopErc20s = () =>
+const getTopErc20s = (): TE.TaskEither<
+  Fetch.FetchError | Fetch.BadResponseError | Fetch.DecodeJsonError,
+  CoinV1[]
+> =>
   pipe(
     TE.Do,
     TE.apS("coinSupplyMap", getCoinSupplyMapWithCache()),
@@ -599,14 +609,22 @@ type TvsRanking = {
   twitterUrl: string | undefined;
 };
 
-const getErc20Leaderboard = (topErc20s: CoinV1[]) =>
+const getErc20Leaderboard = (
+  topErc20s: CoinV1[],
+): TE.TaskEither<
+  Fetch.FetchError | Fetch.BadResponseError | Fetch.DecodeJsonError,
+  TvsRanking[]
+> =>
   pipe(
     TE.Do,
     TE.bind("contractDetailsMap", () =>
       pipe(
         topErc20s,
         A.map((coin) => coin.contractAddress),
-        (addresses) => TE.fromTask(getContractDetailsForAddresses(addresses)),
+        (addresses) =>
+          TE.fromTask<Map<string, ContractDetails>, never>(
+            getContractDetailsForAddresses(addresses),
+          ),
       ),
     ),
     TE.bindW("twitterDetailsMap", ({ contractDetailsMap }) =>
@@ -775,7 +793,10 @@ const getNftLeaderboard = () =>
     ),
   );
 
-const getTotalValueSecured = (): TE.TaskEither<any, TotalValueSecured> =>
+const getTotalValueSecured = (): TE.TaskEither<
+  Fetch.FetchError | Fetch.BadResponseError | Fetch.DecodeJsonError,
+  TotalValueSecured
+> =>
   pipe(
     TE.Do,
     TE.apS("erc20Coins", getTopErc20s()),
@@ -825,7 +846,10 @@ const getTotalValueSecured = (): TE.TaskEither<any, TotalValueSecured> =>
     ),
   );
 
-export const updateTotalValueSecured = (): TE.TaskEither<any, void> =>
+export const updateTotalValueSecured = (): TE.TaskEither<
+  Fetch.FetchError | Fetch.BadResponseError | Fetch.DecodeJsonError,
+  void
+> =>
   pipe(
     getTotalValueSecured(),
     TE.chainTaskK((totalValueSecured) =>
