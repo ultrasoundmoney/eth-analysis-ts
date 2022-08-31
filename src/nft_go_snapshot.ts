@@ -5,7 +5,10 @@ import * as NftGo from "./nft_go.js";
 const collectionsKey = "nft-go-collections";
 const marketCapKey = "nft-go-market-cap";
 
-export const getRankedCollections = () =>
+export const getRankedCollections = (): TE.TaskEither<
+  Error,
+  NftGo.Collection[]
+> =>
   pipe(
     Db.sqlT<{ value: NftGo.Collection[] }[]>`
       SELECT value FROM key_value_store

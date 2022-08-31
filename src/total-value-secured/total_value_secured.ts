@@ -744,17 +744,20 @@ const getNftLeaderboard = () =>
       pipe(
         NftGo.getRankedCollections(),
         TE.altW(() => NftGoSnapshot.getRankedCollections()),
-      ),
+      ) as TE.TaskEither<never, NftGo.Collection[]>,
     ),
-    TE.bind("contractDetailsMap", ({ rankedCollections }): any =>
+    TE.bind("contractDetailsMap", ({ rankedCollections }) =>
       pipe(
         rankedCollections,
         A.chain((collection) => collection.contracts),
-        (addresses) => TE.fromTask(getContractDetailsForAddresses(addresses)),
+        (addresses) =>
+          TE.fromTask<Map<string, ContractDetails>, never>(
+            getContractDetailsForAddresses(addresses),
+          ),
       ),
     ),
     TE.bind("twitterDetailsMap", ({ contractDetailsMap }) =>
-      getTwitterDetailsForContractDetails(contractDetailsMap as any),
+      getTwitterDetailsForContractDetails(contractDetailsMap),
     ),
     TE.map(({ contractDetailsMap, rankedCollections, twitterDetailsMap }) =>
       pipe(
@@ -763,7 +766,7 @@ const getNftLeaderboard = () =>
         A.takeLeft(20),
         A.map((collection) =>
           tvsRankingFromNftCollection(
-            contractDetailsMap as any,
+            contractDetailsMap,
             twitterDetailsMap,
             collection,
           ),
@@ -772,7 +775,7 @@ const getNftLeaderboard = () =>
     ),
   );
 
-const getTotalValueSecured = () =>
+const getTotalValueSecured = (): TE.TaskEither<any, TotalValueSecured> =>
   pipe(
     TE.Do,
     TE.apS("erc20Coins", getTopErc20s()),
@@ -822,7 +825,7 @@ const getTotalValueSecured = () =>
     ),
   );
 
-export const updateTotalValueSecured = () =>
+export const updateTotalValueSecured = (): TE.TaskEither<any, void> =>
   pipe(
     getTotalValueSecured(),
     TE.chainTaskK((totalValueSecured) =>

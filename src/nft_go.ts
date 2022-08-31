@@ -1,4 +1,4 @@
-import { decodeWithError } from "./decoding.js";
+import { DecodeError, decodeWithError } from "./decoding.js";
 import { A, D, E, O, pipe, TE } from "./fp.js";
 import * as Fs from "./fs.js";
 import * as Log from "./log.js";
@@ -54,7 +54,10 @@ export type LeaderboardResponse = {
   };
 };
 
-export const getRankedCollections = () =>
+export const getRankedCollections = (): TE.TaskEither<
+  NodeJS.ErrnoException | DecodeError | UnexpectedNftGoResponse,
+  Collection[]
+> =>
   pipe(
     // Blocked by CF
     // Fetch.fetchWithRetryJson(leaderboardUrl),
