@@ -746,7 +746,7 @@ const getNftLeaderboard = () =>
         TE.altW(() => NftGoSnapshot.getRankedCollections()),
       ),
     ),
-    TE.bind("contractDetailsMap", ({ rankedCollections }) =>
+    TE.bind("contractDetailsMap", ({ rankedCollections }): any =>
       pipe(
         rankedCollections,
         A.chain((collection) => collection.contracts),
@@ -754,7 +754,7 @@ const getNftLeaderboard = () =>
       ),
     ),
     TE.bind("twitterDetailsMap", ({ contractDetailsMap }) =>
-      getTwitterDetailsForContractDetails(contractDetailsMap),
+      getTwitterDetailsForContractDetails(contractDetailsMap as any),
     ),
     TE.map(({ contractDetailsMap, rankedCollections, twitterDetailsMap }) =>
       pipe(
@@ -763,7 +763,7 @@ const getNftLeaderboard = () =>
         A.takeLeft(20),
         A.map((collection) =>
           tvsRankingFromNftCollection(
-            contractDetailsMap,
+            contractDetailsMap as any,
             twitterDetailsMap,
             collection,
           ),
