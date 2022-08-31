@@ -1,4 +1,5 @@
 import PQueue from "p-queue";
+import { performance } from "perf_hooks";
 import * as BaseFees from "../base_fees.js";
 import { sumFeeSegments } from "../base_fees.js";
 import * as BurnRecordsNewHead from "../burn-records/new_head.js";
