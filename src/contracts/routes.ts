@@ -1,5 +1,4 @@
-import Router from "@koa/router";
-import { Middleware } from "koa";
+import Router, { Middleware } from "@koa/router";
 import * as Config from "../config.js";
 import { O, pipe, T } from "../fp.js";
 import * as Admin from "./admin.js";
@@ -142,4 +141,24 @@ export const registerRoutes = (router: Router) => {
     handleSetContractLastManuallyVerified,
   );
   router.post("/fees/contracts/metadata-freshness", handleGetMetadataFreshness);
+
+  // /api variants
+  router.use("/api/fees/contracts/admin", adminAuth);
+  router.get(
+    "/api/fees/contracts/admin/set-twitter-handle",
+    handleSetContractTwitterHandle,
+  );
+  router.get("/api/fees/contracts/admin/set-name", handleSetContractName);
+  router.get(
+    "/api/fees/contracts/admin/set-category",
+    handleSetContractCategory,
+  );
+  router.get(
+    "/api/fees/contracts/admin/set-last-manually-verified",
+    handleSetContractLastManuallyVerified,
+  );
+  router.post(
+    "/api/fees/contracts/metadata-freshness",
+    handleGetMetadataFreshness,
+  );
 };
