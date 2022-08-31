@@ -445,14 +445,15 @@ router.get("/api/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
 // endpoints for dev
 
 router.get("/fees/validator-rewards", handleGetValidatorRewards);
-// temporary to bust cache
-router.get("/fees/validator-rewards-2", handleGetValidatorRewards);
+router.get("/api/fees/validator-rewards", handleGetValidatorRewards);
 
 // to be deprecated soon
 // deprecate as soon as frontend is switched over to /fees/grouped-analysis-1
 router.get("/fees/average-eth-price", handleAverageEthPrice);
+router.get("/api/fees/average-eth-price", handleAverageEthPrice);
 // when #137 is resolved
 router.get("/fees/burn-categories", handleGetBurnCategories);
+router.get("/api/fees/burn-categories", handleGetBurnCategories);
 
 // deprecated
 router.get("/fees/eth-price", handleGetEthPrice);
