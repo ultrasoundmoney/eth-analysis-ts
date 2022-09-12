@@ -72,8 +72,11 @@ let oMergeEstimate = await KeyValueStore.getValueStr(
 )();
 Log.debug("loaded merge estimate");
 
+const BLOCK_LIFETIME_CACHE_HEADER =
+  "public, max-age=4, s-max-age=1, stale-while-revalidate=60";
+
 const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=4, s-max-age=1, stale-while-revalidate=60");
+  ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
   ctx.set("Content-Type", "application/json");
   ctx.body = {
     ...groupedAnalysis1Cache,
@@ -82,7 +85,7 @@ const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
 };
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=4, s-max-age=1, stale-while-revalidate=60");
+  ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
   ctx.body = averagePricesCache;
   return undefined;
 };
@@ -95,7 +98,10 @@ const handleGetMarketCaps: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (marketCapsCache) => {
-        ctx.set("Cache-Control", "max-age=30, stale-while-revalidate=600");
+        ctx.set(
+          "Cache-Control",
+          "public, max-age=30, stale-while-revalidate=600",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = marketCapsCache;
       },
@@ -111,7 +117,10 @@ const handleGetScarcity: Middleware = (ctx) => {
         ctx.status = 503;
       },
       (scarcity) => {
-        ctx.set("Cache-Control", "max-age=21600, stale-while-revalidate=43200");
+        ctx.set(
+          "Cache-Control",
+          "public, max-age=21600, stale-while-revalidate=43200",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = scarcity;
       },
@@ -120,13 +129,16 @@ const handleGetScarcity: Middleware = (ctx) => {
 };
 
 const handleGetBurnCategories: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=60, stale-while-revalidate=600");
+  ctx.set("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
   ctx.set("Content-Type", "application/json");
   ctx.body = burnCategoriesCache;
 };
 
 const handleGetPeRatios: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=82800");
+  ctx.set(
+    "Cache-Control",
+    "public, max-age=43200, stale-while-revalidate=82800",
+  );
   ctx.set("Content-Type", "application/json");
   ctx.body = peRatiosCache;
 };
@@ -139,7 +151,10 @@ const handleGetTotalValueSecured: Middleware = (ctx) => {
         ctx.status = 503;
       },
       (totalValueSecured) => {
-        ctx.set("Cache-Control", "max-age=5, stale-while-revalidate=600");
+        ctx.set(
+          "Cache-Control",
+          "public, max-age=5, stale-while-revalidate=600",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = totalValueSecured;
       },
@@ -155,7 +170,7 @@ const handleGetBlockLag: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (blockLag) => {
-        ctx.set("Cache-Control", "max-age=5");
+        ctx.set("Cache-Control", "public, max-age=5");
         ctx.set("Content-Type", "application/json");
         ctx.body = { blockLag };
       },
@@ -171,7 +186,10 @@ const handleGetValidatorRewards: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (validatorRewards) => {
-        ctx.set("Cache-Control", "max-age=14400, stale-while-revalidate=86400");
+        ctx.set(
+          "Cache-Control",
+          "public, max-age=14400, stale-while-revalidate=86400",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = validatorRewards;
       },
@@ -187,7 +205,10 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (validatorRewards) => {
-        ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
+        ctx.set(
+          "Cache-Control",
+          "public, max-age=43200, stale-while-revalidate=86400",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = validatorRewards;
       },
@@ -203,7 +224,10 @@ const handleGetIssuanceBreakdown: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (issuanceBreakdown) => {
-        ctx.set("Cache-Control", "max-age=43200, stale-while-revalidate=86400");
+        ctx.set(
+          "Cache-Control",
+          "public, max-age=43200, stale-while-revalidate=86400",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = issuanceBreakdown;
       },
@@ -219,7 +243,7 @@ const handleGetEthSupplyParts: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (ethSupplyParts) => {
-        ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=60");
+        ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
         ctx.set("Content-Type", "application/json");
         ctx.body = ethSupplyParts;
       },
@@ -228,7 +252,7 @@ const handleGetEthSupplyParts: Middleware = async (ctx) => {
 };
 
 const handleGetEffectiveBalanceSum: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=300, stale-while-revalidate=1200");
+  ctx.set("Cache-Control", "public, max-age=300, stale-while-revalidate=1200");
   ctx.set("Content-Type", "application/json");
   ctx.body = effectiveBalanceSum;
 };
@@ -241,10 +265,7 @@ const handleGetMergeEstimate: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (mergeEstimate) => {
-        ctx.set(
-          "Cache-Control",
-          "max-age=4, s-max-age=1, stale-while-revalidate=60",
-        );
+        ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
         ctx.set("Content-Type", "application/json");
         ctx.body = mergeEstimate;
       },
