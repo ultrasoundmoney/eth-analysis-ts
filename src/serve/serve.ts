@@ -362,9 +362,7 @@ app.use(async (ctx, next) => {
   await next();
 });
 
-app.use(conditional());
-app.use(etag());
-app.use(async (ctx, next) => {
+const countRequests: Koa.Middleware = async (ctx, next) => {
   const url = ctx.req.url;
 
   if (typeof url !== "string") {
@@ -381,7 +379,11 @@ app.use(async (ctx, next) => {
 
   Log.debug(`req ${counterByUrl[url]} ${ctx.req.url}`);
   await next();
-});
+};
+
+app.use(conditional());
+app.use(etag());
+// app.use(countRequests);
 
 const dbHealthCheck = async () => {
   await query`SELECT 1`;
