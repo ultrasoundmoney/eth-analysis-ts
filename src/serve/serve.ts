@@ -73,7 +73,7 @@ let oMergeEstimate = await KeyValueStore.getValueStr(
 Log.debug("loaded merge estimate");
 
 const BLOCK_LIFETIME_CACHE_HEADER =
-  "public, max-age=4, s-max-age=1, stale-while-revalidate=60";
+  "public, max-age=4, s-maxage=1, stale-while-revalidate=60";
 
 const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
   ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
