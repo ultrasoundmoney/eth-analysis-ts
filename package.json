@@ -71,7 +71,7 @@
     "migrate": "ley",
     "start": "node build/serve/serve.js",
     "start:prod": "node src/serve/serve.js",
-    "test": "ava src/*.test.ts !src/integration-test/*"
+    "test": "ava"
   },
   "ava": {
     "extensions": {
@@ -79,6 +79,11 @@
     },
     "nodeArguments": [
       "--loader=ts-node/esm"
+    ],
+    "files": [
+      "src/*.test.ts",
+      "src/**/*.test.ts",
+      "!src/integration-test/*"
     ]
   }
 }

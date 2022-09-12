@@ -1,10 +1,7 @@
-import { test } from "uvu";
-import * as assert from "uvu/assert";
+import test from "ava";
 import * as Blocks from "./blocks.js";
 
-test("should make block number sequences", () => {
+test("should make block number sequences", (t) => {
   const blockRange = Blocks.getBlockRange(10, 14);
-  assert.equal(blockRange, [10, 11, 12, 13, 14]);
+  t.deepEqual(blockRange, [10, 11, 12, 13, 14]);
 });
-
-test.run();
