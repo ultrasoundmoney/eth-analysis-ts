@@ -417,23 +417,6 @@ app.use(async (ctx, next) => {
 const router = new Router();
 
 // endpoints updating every block
-router.get("/fees/all", handleGetGroupedAnalysis1);
-router.get("/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
-router.get("/fees/merge-estimate", handleGetMergeEstimate);
-
-// endpoints with unique update cycle duration
-router.get("/fees/market-caps", handleGetMarketCaps);
-router.get("/fees/scarcity", handleGetScarcity);
-router.get("/fees/supply-projection-inputs", handleGetSupplyProjectionInputs);
-router.get("/fees/pe-ratios", handleGetPeRatios);
-router.get("/fees/total-value-secured", handleGetTotalValueSecured);
-router.get("/fees/block-lag", handleGetBlockLag);
-router.get("/fees/issuance-breakdown", handleGetIssuanceBreakdown);
-router.get("/fees/eth-supply", handleGetEthSupplyParts);
-router.get("/fees/eth-supply-parts", handleGetEthSupplyParts);
-router.get("/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
-
-// endpoints updating every block
 router.get("/api/fees/all", handleGetGroupedAnalysis1);
 router.get("/api/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
 router.get("/api/fees/merge-estimate", handleGetMergeEstimate);
@@ -455,15 +438,12 @@ router.get("/api/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
 
 // endpoints for dev
 
-router.get("/fees/validator-rewards", handleGetValidatorRewards);
 router.get("/api/fees/validator-rewards", handleGetValidatorRewards);
 
 // to be deprecated soon
 // deprecate as soon as frontend is switched over to /fees/grouped-analysis-1
-router.get("/fees/average-eth-price", handleAverageEthPrice);
 router.get("/api/fees/average-eth-price", handleAverageEthPrice);
 // when #137 is resolved
-router.get("/fees/burn-categories", handleGetBurnCategories);
 router.get("/api/fees/burn-categories", handleGetBurnCategories);
 
 // deprecated
