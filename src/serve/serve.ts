@@ -83,7 +83,10 @@ const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
         return;
       },
       (ethStats) => {
-        ctx.set("Cache-Control", "max-age=15, stale-while-revalidate=600");
+        ctx.set(
+          "Cache-Control",
+          "max-age=15,s-max-age=1,  stale-while-revalidate=600",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = ethStats;
         return undefined;
@@ -92,7 +95,7 @@ const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
   )();
 
 const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=59");
+  ctx.set("Cache-Control", "max-age=4, s-max-age=1, stale-while-revalidate=60");
   ctx.set("Content-Type", "application/json");
   ctx.body = {
     ...groupedAnalysis1Cache,
@@ -101,7 +104,7 @@ const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
 };
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "max-age=3, stale-while-revalidate=16");
+  ctx.set("Cache-Control", "max-age=4, s-max-age=1, stale-while-revalidate=60");
   ctx.body = averagePricesCache;
   return undefined;
 };
@@ -260,7 +263,10 @@ const handleGetMergeEstimate: Middleware = async (ctx) => {
         ctx.status = 503;
       },
       (mergeEstimate) => {
-        ctx.set("Cache-Control", "max-age=4, stale-while-revalidate=300");
+        ctx.set(
+          "Cache-Control",
+          "max-age=4, s-max-age=1, stale-while-revalidate=60",
+        );
         ctx.set("Content-Type", "application/json");
         ctx.body = mergeEstimate;
       },
