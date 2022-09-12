@@ -10,9 +10,8 @@ import * as ContractsRoutes from "../contracts/routes.js";
 import { runMigrations, sql } from "../db.js";
 import * as EffectiveBalanceSum from "../effective_balance_sum.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
-import * as EthPrices from "../eth-prices/eth_prices.js";
 import * as EthSupplyParts from "../eth_supply_parts.js";
-import { O, pipe, TE, TO } from "../fp.js";
+import { O, pipe, TO } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as IssuanceBreakdown from "../issuance_breakdown.js";
 import * as KeyValueStore from "../key_value_store.js";
@@ -72,27 +71,6 @@ let oMergeEstimate = await KeyValueStore.getValueStr(
   MergeEstimate.MERGE_ESTIMATE_CACHE_KEY,
 )();
 Log.debug("loaded merge estimate");
-
-const handleGetEthPrice: Middleware = async (ctx): Promise<void> =>
-  pipe(
-    EthPrices.getEthStats(),
-    TE.match(
-      (e) => {
-        Log.error("unhandled get eth price error", e);
-        ctx.status = 500;
-        return;
-      },
-      (ethStats) => {
-        ctx.set(
-          "Cache-Control",
-          "max-age=15,s-max-age=1,  stale-while-revalidate=600",
-        );
-        ctx.set("Content-Type", "application/json");
-        ctx.body = ethStats;
-        return undefined;
-      },
-    ),
-  )();
 
 const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "max-age=4, s-max-age=1, stale-while-revalidate=60");
@@ -447,9 +425,6 @@ router.get("/api/fees/validator-rewards", handleGetValidatorRewards);
 router.get("/api/fees/average-eth-price", handleAverageEthPrice);
 // when #137 is resolved
 router.get("/api/fees/burn-categories", handleGetBurnCategories);
-
-// deprecated
-router.get("/fees/eth-price", handleGetEthPrice);
 
 ContractsRoutes.registerRoutes(router);
 
