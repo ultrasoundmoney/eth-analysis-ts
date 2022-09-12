@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "analyze ETH",
   "main": "index.js",
-  "repository": "git@github.com:ultrasoundmoney/gas_analysis.git",
+  "repository": "git@github.com:ultrasoundmoney/eth-analysis-ts.git",
   "author": "ultra sound money <contact@ultrasound.money>",
   "license": "MIT",
   "private": true,
