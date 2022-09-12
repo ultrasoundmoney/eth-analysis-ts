@@ -7,7 +7,7 @@ import * as BeaconRewards from "../beacon_rewards.js";
 import * as BlockLag from "../block_lag.js";
 import * as BurnCategories from "../burn-categories/burn_categories.js";
 import * as ContractsRoutes from "../contracts/routes.js";
-import { runMigrations, sql } from "../db.js";
+import { query, runMigrations, sql } from "../db.js";
 import * as EffectiveBalanceSum from "../effective_balance_sum.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthSupplyParts from "../eth_supply_parts.js";
@@ -383,13 +383,23 @@ app.use(async (ctx, next) => {
   await next();
 });
 
+const dbHealthCheck = async () => {
+  await query`SELECT 1`;
+};
+
 // Health check middleware
 app.use(async (ctx, next) => {
-  if (ctx.path === "/healthz" || ctx.path === "/health") {
+  if (
+    ctx.path === "/healthz" ||
+    ctx.path === "/health" ||
+    ctx.path === "/api/fees/healthz"
+  ) {
+    await dbHealthCheck();
     ctx.res.writeHead(200);
     ctx.res.end();
     return undefined;
   }
+
   await next();
   return undefined;
 });
