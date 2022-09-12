@@ -397,6 +397,7 @@ app.use(async (ctx, next) => {
 const router = new Router();
 
 // endpoints updating every block
+// /api/fees/all is being used by someone. Should we drop it? Maybe wait until grouped-analysis-1 is migrated to rust side.
 router.get("/api/fees/all", handleGetGroupedAnalysis1);
 router.get("/api/fees/grouped-analysis-1", handleGetGroupedAnalysis1);
 router.get("/api/fees/merge-estimate", handleGetMergeEstimate);
