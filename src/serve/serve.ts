@@ -386,11 +386,12 @@ app.use(async (ctx, next) => {
 
 app.use(conditional());
 app.use(etag());
-app.use(async (ctx) => {
+app.use(async (ctx, next) => {
   const url = ctx.req.url;
 
   if (typeof url !== "string") {
     console.error("got a request with undefined url, skipping counting");
+    await next();
     return;
   }
 
@@ -401,6 +402,7 @@ app.use(async (ctx) => {
   counterByUrl[url] = counterByUrl[url] + 1;
 
   Log.debug(`req ${counterByUrl[url]} ${ctx.req.url}`);
+  await next();
 });
 
 // Health check middleware
