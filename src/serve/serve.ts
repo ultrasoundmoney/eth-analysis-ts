@@ -367,8 +367,6 @@ sql.listen("cache-update", async (payload) => {
     )();
     return;
   }
-
-  Log.error(`DB cache-update but did not recognize key ${payload}`);
 });
 
 const port = process.env.PORT || 8080;
