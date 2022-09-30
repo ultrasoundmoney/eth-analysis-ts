@@ -46,7 +46,7 @@ export type TwitterDetails = {
   twitterId: string;
 };
 
-const detailsByIdsUrl = `${Config.getFamServiceUrl()}/fam/leaderboards-details/ids`;
+const detailsByIdsUrl = `${Config.getFamServiceUrl()}/api/fam/leaderboards-details/ids`;
 
 export const getDetailsByIds = (twitterIds: NEA.NonEmptyArray<string>) =>
   pipe(
