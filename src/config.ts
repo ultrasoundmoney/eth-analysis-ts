@@ -45,7 +45,7 @@ const getUsePublicServiceUrl = () => parseEnvBoolean("USE_PUBLIC_SERVICE_URL");
 export const getFamServiceUrl = () =>
   (getEnv() === "prod" || getEnv() === "staging") && !getUsePublicServiceUrl()
     ? "http://serve-fam"
-    : "https://api.ultrasound.money";
+    : "https://ultrasound.money";
 
 export const getEtherscanApiKey = (): string =>
   parseSimpleEnvVarUnsafe("ETHERSCAN_API_KEY");
