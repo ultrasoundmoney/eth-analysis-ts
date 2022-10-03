@@ -67,7 +67,7 @@ export const getDetailsByIds = (twitterIds: NEA.NonEmptyArray<string>) =>
     TE.map((u) => u as TwitterDetails[]),
   );
 
-const detailsByHandlesUrl = `${Config.getFamServiceUrl()}/fam/leaderboards-details/handles`;
+const detailsByHandlesUrl = `${Config.getFamServiceUrl()}/api/fam/leaderboards-details/handles`;
 
 export const getDetailsByHandles = (handles: NEA.NonEmptyArray<string>) =>
   pipe(
