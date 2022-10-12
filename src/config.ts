@@ -44,7 +44,10 @@ const getUsePublicServiceUrl = () => parseEnvBoolean("USE_PUBLIC_SERVICE_URL");
 
 export const getFamServiceUrl = () =>
   (getEnv() === "prod" || getEnv() === "staging") && !getUsePublicServiceUrl()
-    ? "http://serve-fam"
+    ? // Socket hangups, cloud provider network issue?
+      // Temporarily use external route.
+      // ? "http://serve-fam"
+      "https://ultrasound.money"
     : "https://ultrasound.money";
 
 export const getEtherscanApiKey = (): string =>
