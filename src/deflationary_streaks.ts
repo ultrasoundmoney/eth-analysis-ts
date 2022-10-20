@@ -1,8 +1,8 @@
 import * as Blocks from "./blocks/blocks.js";
 import * as Db from "./db.js";
 import * as EthUnits from "./eth_units.js";
-import { A, B, flow, NEA, O, OAlt, pipe, T, TAlt, TO } from "./fp.js";
-import * as StaticEtherData from "./static_ether_data.js";
+import { A, B, E, flow, NEA, O, OAlt, pipe, T, TAlt, TO } from "./fp.js";
+import * as Fetch from "./fetch.js";
 
 type Count = number;
 export type Streak = O.Option<Count>;
@@ -124,17 +124,30 @@ export const getNextBlockToAdd = () =>
     ),
   );
 
-const getIsDeflationaryBlock = (
-  issuancePerBlock: number,
-  block: Blocks.BlockV1,
-) => EthUnits.ethFromWei(Number(block.baseFeeSum)) > issuancePerBlock;
+type BaseFeePerGasStats = {
+  barrier: number;
+};
 
-const getIssuancePerBlock = (postMerge: boolean) =>
-  postMerge
-    ? StaticEtherData.issuancePerBlockPostMerge
-    : StaticEtherData.issuancePerBlockPreMerge;
+const getBarrier = async () => {
+  const resE = await Fetch.fetchJson(
+    "https://ultrasound.money/api/v2/fees/base-fee-per-gas-stats",
+  )();
+
+  if (E.isLeft(resE)) {
+    throw resE.left;
+  }
+
+  const baseFeePerGasStats = resE.right as BaseFeePerGasStats;
+  return baseFeePerGasStats.barrier;
+};
+
+type GweiNumber = number;
+
+const getIsAboveBarrier = (barrier: GweiNumber, block: Blocks.BlockV1) =>
+  EthUnits.gweiFromWei(Number(block.baseFeePerGas)) > barrier;
 
 const analyzeNewBlocksWithMergeState = (
+  barrier: number,
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockV1>,
   postMerge: boolean,
 ) =>
@@ -142,7 +155,7 @@ const analyzeNewBlocksWithMergeState = (
     blocksToAdd,
     T.traverseSeqArray((block) =>
       pipe(
-        getIsDeflationaryBlock(getIssuancePerBlock(postMerge), block),
+        getIsAboveBarrier(barrier, block),
         B.match(
           () => T.of(0),
           () =>
@@ -161,11 +174,16 @@ export const analyzeNewBlocks = (
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockV1>,
 ) =>
   pipe(
-    TAlt.seqTPar(
-      analyzeNewBlocksWithMergeState(blocksToAdd, false),
-      analyzeNewBlocksWithMergeState(blocksToAdd, true),
+    () => getBarrier(),
+    T.chain((barrier) =>
+      pipe(
+        TAlt.seqTPar(
+          analyzeNewBlocksWithMergeState(barrier, blocksToAdd, false),
+          analyzeNewBlocksWithMergeState(barrier, blocksToAdd, true),
+        ),
+        TAlt.concatAllVoid,
+      ),
     ),
-    TAlt.concatAllVoid,
   );
 
 export const rollbackBlocks = (
