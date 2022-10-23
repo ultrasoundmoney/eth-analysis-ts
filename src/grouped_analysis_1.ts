@@ -25,6 +25,7 @@ export type GroupedAnalysis1 = {
   ethPrice: EthPrices.EthStats | undefined;
   feeBurns: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
+  latestBlockFeesFlipped: LatestBlockFees.LatestBlockFees;
   leaderboards: Leaderboards.LeaderboardEntries;
   number: number;
 };
@@ -138,6 +139,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         ethPrice,
         feeBurns,
         latestBlockFees,
+        latestBlockFeesFlipped: latestBlockFees.reverse(),
         leaderboards: leaderboards,
         number: block.number,
       }),
