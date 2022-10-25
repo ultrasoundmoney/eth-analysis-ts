@@ -139,7 +139,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         ethPrice,
         feeBurns,
         latestBlockFees,
-        latestBlockFeesFlipped: latestBlockFees.reverse(),
+        latestBlockFeesFlipped: [...latestBlockFees].reverse(),
         leaderboards: leaderboards,
         number: block.number,
       }),
