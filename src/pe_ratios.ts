@@ -17,9 +17,9 @@ const symbols = [
   "TSLA",
 ] as const;
 type QuoteSymbol = typeof symbols[number];
-type Quotes = Record<QuoteSymbol, number>;
+type Quotes = Record<QuoteSymbol, number | undefined>;
 type Quote = {
-  trailingPE: number;
+  trailingPE: number | undefined;
   symbol: string;
 };
 type QuoteApiResponse = {
@@ -46,11 +46,14 @@ const getPeRatios = () =>
     TE.map(
       flow(
         (body) => body.quoteResponse.result,
-        A.reduce(new Map<QuoteSymbol, number>(), (map, quote) => {
-          return map.set(quote.symbol as QuoteSymbol, quote.trailingPE);
+        A.reduce(new Map<QuoteSymbol, number | null>(), (map, quote) => {
+          return map.set(quote.symbol as QuoteSymbol, quote.trailingPE ?? null);
         }),
       ),
     ),
+    TE.chainFirstIOK((map) => () => {
+      Log.debug("pe ratios", Object.fromEntries(map.entries()));
+    }),
   );
 
 export const updatePeRatios = () =>
