@@ -372,8 +372,6 @@ const port = process.env.PORT || 8080;
 
 const app = new Koa();
 
-const counterByUrl: Record<string, number> = {};
-
 app.on("error", (err) => {
   Log.error("unhandled serve fees error", err);
 });
@@ -383,28 +381,8 @@ app.use(async (ctx, next) => {
   await next();
 });
 
-const countRequests: Koa.Middleware = async (ctx, next) => {
-  const url = ctx.req.url;
-
-  if (typeof url !== "string") {
-    console.error("got a request with undefined url, skipping counting");
-    await next();
-    return;
-  }
-
-  if (counterByUrl[url] === undefined) {
-    counterByUrl[url] = 0;
-  }
-
-  counterByUrl[url] = counterByUrl[url] + 1;
-
-  Log.debug(`req ${counterByUrl[url]} ${ctx.req.url}`);
-  await next();
-};
-
 app.use(conditional());
 app.use(etag());
-// app.use(countRequests);
 
 const dbHealthCheck = async () => {
   await query`SELECT 1`;
