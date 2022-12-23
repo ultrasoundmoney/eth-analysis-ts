@@ -1,7 +1,6 @@
-import { DecodeError, decodeWithError } from "./decoding.js";
-import { A, D, E, O, pipe, TE } from "./fp.js";
-import * as Fs from "./fs.js";
-import * as Log from "./log.js";
+import { decodeWithError } from "./decoding.js";
+import { D, E } from "./fp.js";
+import * as Fs from "fs/promises";
 
 // const nftGoApi = "https://api.nftgo.io/api/v1";
 // const leaderboardUrl = formatUrl(nftGoApi, "/ranking/collections", {
@@ -19,7 +18,7 @@ const Collection = D.struct({
   /** ETH | string */
   blockchain: D.string,
   contracts: D.array(D.string),
-  link: D.string,
+  link: D.nullable(D.string),
   logo: D.string,
   longDesc: D.string,
   marketCap: D.number,
@@ -54,32 +53,16 @@ export type LeaderboardResponse = {
   };
 };
 
-export const getRankedCollections = (): TE.TaskEither<
-  NodeJS.ErrnoException | DecodeError | UnexpectedNftGoResponse,
-  Collection[]
-> =>
-  pipe(
-    // Blocked by CF
-    // Fetch.fetchWithRetryJson(leaderboardUrl),
-    Fs.readFileJson("./nftCollections.json"),
-    TE.chainEitherKW(decodeWithError(LeaderboardResponse)),
-    TE.chainEitherKW((res) =>
-      pipe(
-        res,
-        (res) => res.data?.list,
-        O.fromNullable,
-        O.match(
-          () => {
-            Log.error("failed to fetch NftGo leaderboard", res);
-            return E.left(
-              new UnexpectedNftGoResponse("failed to fetch NftGo leaderboard"),
-            );
-          },
-          (list) => E.right(list),
-        ),
-      ),
-    ),
-  );
+export const getRankedCollections = async (): Promise<Collection[]> => {
+  const file = await Fs.readFile("./nftCollections.json", "utf8");
+  const parsed = JSON.parse(file);
+  const decoded = decodeWithError(LeaderboardResponse)(parsed);
+  if (E.isLeft(decoded)) {
+    throw decoded.left;
+  }
+
+  return decoded.right.data.list;
+};
 
 // const getMarketCapUrl = () =>
 //   formatUrl(nftGoApi, "/data/chart/marketcap", {
@@ -102,26 +85,13 @@ export type MarketCapResponse = D.TypeOf<typeof MarketCapResponse>;
 
 export class UnexpectedNftGoResponse extends Error {}
 
-export const getMarketCap = () =>
-  pipe(
-    // Blocked by CF
-    // Fetch.fetchWithRetryJson(getMarketCapUrl()),
-    Fs.readFileJson("./nftMarketCap.json"),
-    TE.chainEitherKW(decodeWithError(MarketCapResponse)),
-    TE.chainEitherKW((res) =>
-      pipe(
-        res.data?.y,
-        O.fromNullable,
-        O.chain(A.head),
-        O.match(
-          () => {
-            Log.error("failed to fetch NftGo market cap", res);
-            return E.left(
-              new UnexpectedNftGoResponse("failed to fetch market cap"),
-            );
-          },
-          (marketCap) => E.right(marketCap),
-        ),
-      ),
-    ),
-  );
+export const getMarketCap = async (): Promise<number> => {
+  const file = await Fs.readFile("./nftMarketCap.json", "utf8");
+  const parsed = JSON.parse(file);
+  const decoded = decodeWithError(MarketCapResponse)(parsed);
+  if (E.isLeft(decoded)) {
+    throw decoded.left;
+  }
+
+  return decoded.right.data.y[0];
+};

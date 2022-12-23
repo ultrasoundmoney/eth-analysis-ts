@@ -32,34 +32,28 @@ export const getMarketCap = () =>
     ),
   );
 
-export const refreshRankedCollections = () =>
-  pipe(
-    NftGo.getRankedCollections(),
-    TE.chainTaskK(
-      (response) => Db.sqlTVoid`
-        INSERT INTO key_value_store
-          ${Db.values({
-            key: collectionsKey,
-            value: JSON.stringify(response),
-          })}
-        ON CONFLICT (key) DO UPDATE SET
-          value = excluded.value
-      `,
-    ),
-  );
+export const refreshRankedCollections = async () => {
+  const rankedCollections = await NftGo.getRankedCollections();
+  Db.sql`
+    INSERT INTO key_value_store
+      ${Db.values({
+        key: collectionsKey,
+        value: JSON.stringify(rankedCollections),
+      })}
+    ON CONFLICT (key) DO UPDATE SET
+      value = excluded.value
+  `;
+};
 
-export const refreshMarketCap = () =>
-  pipe(
-    NftGo.getMarketCap(),
-    TE.chainTaskK(
-      (response) => Db.sqlTVoid`
-        INSERT INTO key_value_store
-          ${Db.values({
-            key: marketCapKey,
-            value: JSON.stringify(response),
-          })}
-        ON CONFLICT (key) DO UPDATE SET
-          value = excluded.value
-      `,
-    ),
-  );
+export const refreshMarketCap = async () => {
+  const marketCap = await NftGo.getMarketCap();
+  Db.sql`
+    INSERT INTO key_value_store
+      ${Db.values({
+        key: marketCapKey,
+        value: JSON.stringify(marketCap),
+      })}
+    ON CONFLICT (key) DO UPDATE SET
+      value = excluded.value
+  `;
+};

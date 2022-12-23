@@ -1,4 +1,3 @@
-import { pipe, T, TE } from "./fp.js";
 import * as Db from "./db.js";
 import * as Log from "./log.js";
 import {
@@ -6,17 +5,11 @@ import {
   refreshMarketCap,
 } from "./nft_go_snapshot.js";
 
-await pipe(
-  refreshRankedCollections(),
-  TE.chainW(() => refreshMarketCap()),
-  TE.matchE(
-    (e) => {
-      Log.error("failed to fresh NftGo snapshot", e);
-      return T.of(undefined);
-    },
-    () => {
-      Log.info("refreshed NftGo snapshot");
-      return () => Db.closeConnection();
-    },
-  ),
-)();
+try {
+  await refreshRankedCollections();
+  await refreshMarketCap();
+  Log.info("refreshed NftGo snapshot");
+} catch (error) {
+  Log.error("failed to fresh NftGo snapshot", error);
+}
+await Db.closeConnection();
