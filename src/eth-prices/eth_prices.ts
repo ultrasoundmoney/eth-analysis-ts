@@ -72,7 +72,7 @@ const insertableFromPrice = (ethPrice: EthPrice): PriceInsertable => ({
   ethusd: ethPrice.ethusd,
 });
 
-const storePrice = (ethPrice: EthPrice) =>
+export const storePrice = (ethPrice: EthPrice) =>
   sqlTVoid`
     INSERT INTO eth_prices
       ${sql(insertableFromPrice(ethPrice))}
