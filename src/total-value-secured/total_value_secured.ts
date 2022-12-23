@@ -754,17 +754,11 @@ const tvsRankingFromNftCollection = (
   );
 };
 
-const getNftLeaderboard = () =>
+const getNftLeaderboard = (): TE.TaskEither<Error, TvsRanking[]> =>
   pipe(
     TE.Do,
-    TE.apS(
-      "rankedCollections",
-      pipe(
-        () => NftGo.getRankedCollections(),
-        TE.altW(() => NftGoSnapshot.getRankedCollections()),
-      ) as TE.TaskEither<never, NftGo.Collection[]>,
-    ),
-    TE.bind("contractDetailsMap", ({ rankedCollections }) =>
+    TE.apS("rankedCollections", NftGoSnapshot.getRankedCollections()),
+    TE.bindW("contractDetailsMap", ({ rankedCollections }) =>
       pipe(
         rankedCollections,
         A.chain((collection) => collection.contracts),
@@ -801,13 +795,7 @@ const getTotalValueSecured = (): TE.TaskEither<
     TE.Do,
     TE.apS("erc20Coins", getTopErc20s()),
     TE.apSW("nftLeaderboard", getNftLeaderboard()),
-    TE.apSW(
-      "nftTotal",
-      pipe(
-        () => NftGo.getMarketCap(),
-        TE.altW(() => NftGoSnapshot.getMarketCap()),
-      ),
-    ),
+    TE.apSW("nftTotal", NftGoSnapshot.getMarketCap()),
     TE.apSW(
       "ethMarketCap",
       pipe(

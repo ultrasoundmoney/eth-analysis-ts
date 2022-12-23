@@ -1,5 +1,5 @@
 import * as Db from "./db.js";
-import { flow, O, pipe, T, TE } from "./fp.js";
+import { E, flow, O, pipe, T, TE } from "./fp.js";
 import * as NftGo from "./nft_go.js";
 
 const collectionsKey = "nft-go-collections";
@@ -34,11 +34,16 @@ export const getMarketCap = () =>
 
 export const refreshRankedCollections = async () => {
   const rankedCollections = await NftGo.getRankedCollections();
+
+  if (E.isLeft(rankedCollections)) {
+    throw new Error(rankedCollections.left);
+  }
+
   Db.sql`
     INSERT INTO key_value_store
       ${Db.values({
         key: collectionsKey,
-        value: JSON.stringify(rankedCollections),
+        value: JSON.stringify(rankedCollections.right),
       })}
     ON CONFLICT (key) DO UPDATE SET
       value = excluded.value
@@ -47,11 +52,16 @@ export const refreshRankedCollections = async () => {
 
 export const refreshMarketCap = async () => {
   const marketCap = await NftGo.getMarketCap();
+
+  if (E.isLeft(marketCap)) {
+    throw new Error(marketCap.left);
+  }
+
   Db.sql`
     INSERT INTO key_value_store
       ${Db.values({
         key: marketCapKey,
-        value: JSON.stringify(marketCap),
+        value: JSON.stringify(marketCap.right),
       })}
     ON CONFLICT (key) DO UPDATE SET
       value = excluded.value
