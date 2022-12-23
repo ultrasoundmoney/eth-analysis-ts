@@ -99,5 +99,3 @@ export const getMarketCap = async (): Promise<E.Either<never, number>> => {
 
   return E.right(decoded.right.data.y[0]);
 };
-
-console.log(await getRankedCollections());
