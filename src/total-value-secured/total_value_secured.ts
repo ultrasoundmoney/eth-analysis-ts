@@ -760,7 +760,7 @@ const getNftLeaderboard = () =>
     TE.apS(
       "rankedCollections",
       pipe(
-        NftGo.getRankedCollections(),
+        () => NftGo.getRankedCollections(),
         TE.altW(() => NftGoSnapshot.getRankedCollections()),
       ) as TE.TaskEither<never, NftGo.Collection[]>,
     ),
@@ -804,7 +804,7 @@ const getTotalValueSecured = (): TE.TaskEither<
     TE.apSW(
       "nftTotal",
       pipe(
-        NftGo.getMarketCap(),
+        () => NftGo.getMarketCap(),
         TE.altW(() => NftGoSnapshot.getMarketCap()),
       ),
     ),

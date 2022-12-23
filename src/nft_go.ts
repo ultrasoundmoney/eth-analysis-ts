@@ -53,7 +53,10 @@ export type LeaderboardResponse = {
   };
 };
 
-export const getRankedCollections = async (): Promise<Collection[]> => {
+export const getRankedCollections = async (): Promise<
+  E.Either<never, Collection[]>
+> => {
+  // File does not exist outside dev.
   const file = await Fs.readFile("./nftCollections.json", "utf8");
   const parsed = JSON.parse(file);
   const decoded = decodeWithError(LeaderboardResponse)(parsed);
@@ -61,7 +64,7 @@ export const getRankedCollections = async (): Promise<Collection[]> => {
     throw decoded.left;
   }
 
-  return decoded.right.data.list;
+  return E.right(decoded.right.data.list);
 };
 
 // const getMarketCapUrl = () =>
@@ -85,7 +88,8 @@ export type MarketCapResponse = D.TypeOf<typeof MarketCapResponse>;
 
 export class UnexpectedNftGoResponse extends Error {}
 
-export const getMarketCap = async (): Promise<number> => {
+export const getMarketCap = async (): Promise<E.Either<never, number>> => {
+  // File does not exist outside dev.
   const file = await Fs.readFile("./nftMarketCap.json", "utf8");
   const parsed = JSON.parse(file);
   const decoded = decodeWithError(MarketCapResponse)(parsed);
@@ -93,5 +97,7 @@ export const getMarketCap = async (): Promise<number> => {
     throw decoded.left;
   }
 
-  return decoded.right.data.y[0];
+  return E.right(decoded.right.data.y[0]);
 };
+
+console.log(await getRankedCollections());
