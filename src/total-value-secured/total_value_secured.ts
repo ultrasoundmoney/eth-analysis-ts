@@ -258,7 +258,14 @@ const getCoinSupplyMap = (): TE.TaskEither<
   pipe(
     TE.Do,
     TE.apS("coinMaps", getCoinMaps()),
-    TE.apS("coinMarkets", CoinGecko.getTopCoinMarkets()),
+    TE.apS(
+      "coinMarkets",
+      pipe(
+        CoinGecko.getTopCoinMarkets(),
+        // BNB still has a contract but the token cannot be traded. We filter it out.
+        TE.map(A.filter((coinMarket) => coinMarket.id !== "binancecoin")),
+      ),
+    ),
     TE.bindW("onEthOnlySupplyMap", ({ coinMarkets, coinMaps }) =>
       pipe(getSupplyForOnlyOnEthCoins(coinMarkets, coinMaps.onEthOnly), TE.of),
     ),
