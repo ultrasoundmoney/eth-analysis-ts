@@ -4,7 +4,7 @@ import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import { sql, sqlTVoid } from "../db.js";
 import { EthPrice } from "../eth-prices/eth_prices.js";
-import * as EthPricesFtx from "../eth-prices/ftx.js";
+import * as EthPricesBinance from "../eth-prices/binance.js";
 import * as ExecutionNode from "../execution_node.js";
 import { E, pipe, RA, T, TE } from "../fp.js";
 import * as Log from "../log.js";
@@ -65,11 +65,11 @@ while (nextDateToCheck.getTime() <= Date.now()) {
 
     await pipe(
       missingTimestamps,
-      T.traverseSeqArray((dt) => pipe(EthPricesFtx.getPriceByDate(dt))),
+      T.traverseSeqArray((dt) => pipe(EthPricesBinance.getPriceByDate(dt))),
       T.map((ePrices) => {
         const error = ePrices.find(
           (ePrice) =>
-            E.isLeft(ePrice) && !(ePrice instanceof EthPricesFtx.PriceNotFound),
+            E.isLeft(ePrice) && !(ePrice instanceof EthPricesBinance.PriceNotFound),
         );
 
         if (error) {

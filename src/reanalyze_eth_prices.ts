@@ -3,7 +3,7 @@ import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "./blocks/blocks.js";
 import { sql } from "./db.js";
-import * as EthPricesFtx from "./eth-prices/ftx.js";
+import * as EthPricesBinance from "./eth-prices/binance.js";
 import { A, E, O, pipe, TOAlt } from "./fp.js";
 import * as Log from "./log.js";
 
@@ -66,7 +66,7 @@ const logProgress = _.throttle(() => {
 }, 8000);
 
 while (nextDateToFetch !== undefined) {
-  const ePrices = await EthPricesFtx.getFtxPrices(
+  const ePrices = await EthPricesBinance.getBinancePrices(
     nextDateToFetch,
     DateFns.addMinutes(nextDateToFetch, 1500),
   )();

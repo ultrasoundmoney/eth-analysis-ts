@@ -10,20 +10,10 @@ import { A, E, O, pipe, T, TE } from "../fp.js";
 // NOTE: import is broken somehow, "urlcat is not a function" without.
 const urlcat = (urlcatM as unknown as { default: typeof urlcatM }).default;
 
-type IndexPrice = {
-  open: number;
-  time: JsTimestamp;
-};
-
-type IndexPriceResponse = {
-  result: IndexPrice[];
-  success: boolean;
-};
-
 type HistoricPriceMap = Map<JsTimestamp, number>;
 
-// FTX says they allow 6 requests per second. Haven't tested this limit.
-export const ftxApiQueue = new PQueue({
+// Binance says they allow 6 requests per second. Haven't tested this limit.
+export const binanceApiQueue = new PQueue({
   carryoverConcurrencyCount: true,
   concurrency: 2,
   interval: Duration.millisFromSeconds(1),
@@ -33,30 +23,32 @@ export const ftxApiQueue = new PQueue({
 const queueApiCall =
   <A>(task: T.Task<A>): T.Task<A> =>
   () =>
-    ftxApiQueue.add(task);
+    binanceApiQueue.add(task);
 
 const makeEthPriceUrl = (start: Date, end: Date) =>
-  urlcat("https://ftx.com/api/indexes/ETH/candles", {
-    resolution: 60,
-    start_time: DateFns.getUnixTime(start),
-    end_time: DateFns.getUnixTime(end),
-  });
+    urlcat("https://data.binance.com/api/v3/klines", {
+        symbol: "ETHBUSD", // TODO: Review if we should use another stablecoin or maybe average across them
+        interval: "1m",
+        startTime: DateFns.getUnixTime(start) * 1000,
+        endTime: DateFns.getUnixTime(end) * 1000,
+        limit: 1000
+    });
 
 const retryPolicy = Retry.Monoid.concat(
   Retry.constantDelay(2000),
   Retry.limitRetries(2),
 );
 
-export const getFtxPrices = (startDateTime: Date, endDateTime: Date) => {
+export const getBinancePrices = (startDateTime: Date, endDateTime: Date) => {
   const startMinute = DateFns.startOfMinute(startDateTime);
   const endMinute = DateFns.startOfMinute(endDateTime);
   const minutesTotal = DateFns.differenceInMinutes(endMinute, startMinute);
 
-  // FTX returns up to 1500 results per page. We do not support pagination and so cannot return prices for more than 1500 minutes at a time.
-  if (minutesTotal > 1500) {
+  // Binance returns up to 1000 results per page. We do not support pagination and so cannot return prices for more than 1000 minutes at a time.
+  if (minutesTotal > 1000) {
     return TE.left(
       new Error(
-        `tried to fetch more prices in one batch (${minutesTotal}) than allowed (1500) from FTX`,
+        `tried to fetch more prices in one batch (${minutesTotal}) than allowed (1000) from Binance`,
       ),
     );
   }
@@ -66,15 +58,15 @@ export const getFtxPrices = (startDateTime: Date, endDateTime: Date) => {
       retryPolicy,
     }),
     queueApiCall,
-    TE.chainW((res) =>
-      pipe(() => res.json() as Promise<IndexPriceResponse>, T.map(E.right)),
+    TE.chainW((res: any) =>
+      pipe(() => res.json() as Promise<any>, T.map(E.right)),
     ),
     TE.map(
       (body): HistoricPriceMap =>
         pipe(
-          body.result,
-          A.reduce(new Map(), (map, indexPrice) =>
-            map.set(indexPrice.time, indexPrice.open),
+          body,
+            A.reduce(new Map(), (map, priceEntry: any) =>
+              map.set(priceEntry[0], priceEntry[1]),
           ),
         ),
     ),
@@ -83,7 +75,7 @@ export const getFtxPrices = (startDateTime: Date, endDateTime: Date) => {
 
 export class PriceNotFound extends Error {}
 
-// We might not have the exact price date, as FTX doesn't have every date, it is also possible the start of the minute is so recent, FTX doesn't have a price yet. We accept prices within one minute on either side.
+// We might not have the exact price date, as Binance doesn't have every date, it is also possible the start of the minute is so recent, Binance doesn't have a price yet. We accept prices within one minute on either side.
 export const getPriceByDate = (dt: Date) => {
   const targetMinute = DateFns.startOfMinute(dt);
   const targetSubOne = DateFns.subMinutes(targetMinute, 1);
@@ -100,7 +92,7 @@ export const getPriceByDate = (dt: Date) => {
     );
 
   return pipe(
-    getFtxPrices(start, end),
+    getBinancePrices(start, end),
     TE.chainEitherKW((prices) =>
       pipe(
         getPriceFromMap(prices, targetMinute),
@@ -109,7 +101,7 @@ export const getPriceByDate = (dt: Date) => {
         E.fromOption(
           () =>
             new PriceNotFound(
-              `FTX returned prices from ${start.toISOString()}, to ${end.toISOString()}, but price for requested date ${dt.toISOString()} is missing`,
+              `Binance returned prices from ${start.toISOString()}, to ${end.toISOString()}, but price for requested date ${dt.toISOString()} is missing`,
             ),
         ),
       ),

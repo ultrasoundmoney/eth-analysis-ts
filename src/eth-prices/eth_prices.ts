@@ -4,7 +4,7 @@ import * as DateFnsAlt from "../date_fns_alt.js";
 import { JsTimestamp } from "../date_fns_alt.js";
 import { sql, sqlT, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
-import * as EthPricesFtx from "./ftx.js";
+import * as EthPricesBinance from "./binance.js";
 import { E, flow, O, pipe, T, TE } from "../fp.js";
 import * as Log from "../log.js";
 
@@ -44,7 +44,7 @@ const getCachedPrice = (dt: Date) =>
 
 const getFreshPrice = (dt: Date) =>
   pipe(
-    EthPricesFtx.getPriceByDate(dt),
+    EthPricesBinance.getPriceByDate(dt),
     TE.chainFirstIOK((historicPrice) => () => {
       priceByMinute.set(
         DateFns.getTime(historicPrice.timestamp),
@@ -82,7 +82,7 @@ export const storePrice = (ethPrice: EthPrice) =>
 
 export const storeCurrentEthPrice = () =>
   pipe(
-    EthPricesFtx.getPriceByDate(DateFns.startOfMinute(new Date())),
+    EthPricesBinance.getPriceByDate(DateFns.startOfMinute(new Date())),
     TE.chainFirstIOK((price) => () => {
       Log.debug(
         `stored price: ${price.ethusd}, date: ${price.timestamp.toISOString()}`,
@@ -143,7 +143,7 @@ export const getEthPrice = (
     TE.mapLeft((e) => {
       if (e instanceof PriceTooOldError) {
         Log.error(
-          "DB did not have a fresh enough eth price, falling back to FTX",
+          "DB did not have a fresh enough eth price, falling back to Binance",
         );
       }
 
