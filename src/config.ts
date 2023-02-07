@@ -81,9 +81,6 @@ export const getUseNodeFallback = () => parseEnvBoolean("USE_NODE_FALLBACK");
 
 export const getBeaconUrl = (): string => parseSimpleEnvVarUnsafe("BEACON_URL");
 
-export const getUseFastBeaconSync = (): boolean =>
-  parseEnvBoolean("USE_FAST_BEACON_SYNC");
-
 export const getYahooFinanceApiKey = (): string =>
   parseSimpleEnvVarUnsafe("YAHOO_FINANCE_API_KEY");
 
