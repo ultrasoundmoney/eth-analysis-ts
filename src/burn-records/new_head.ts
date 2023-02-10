@@ -7,7 +7,7 @@ import * as Performance from "../performance.js";
 export const onNewBlock = (block: Blocks.BlockV1) =>
   pipe(
     TimeFrames.timeFramesNext,
-    T.traverseSeqArray((timeFrame) =>
+    T.traverseArray((timeFrame) =>
       pipe(
         TAlt.seqTSeq(
           pipe(
