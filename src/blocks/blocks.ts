@@ -407,10 +407,10 @@ export const getEarliestBlockInTimeFrame = (
     : pipe(
         TimeFrames.intervalSqlMapNext[timeFrame],
         (interval) => () =>
-          sql.unsafe(`
+          sql<{ min: number }[]>`
             SELECT MIN(number) FROM blocks
-            WHERE mined_at >= NOW() - '${interval}'::INTERVAL
-          `),
+            WHERE mined_at >= NOW() - ${interval}::interval
+          `,
         T.map((rows) => rows[0].min),
       );
 
