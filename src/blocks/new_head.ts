@@ -199,27 +199,24 @@ export const addBlock = async (head: Head): Promise<void> => {
     t0LeaderboardLimitedTimeFrames,
   );
 
-  const addToLeaderboardAllTask = () =>
+  await Performance.measurePromisePerf(
+    "add block to leaderboard all",
     LeaderboardsAll.addBlock(
       block.number,
       feeSegments.contractSumsEth,
       feeSegments.contractSumsUsd!,
-    );
+    ),
+  );
 
-  await TAlt.seqTSeq(
-    pipe(
-      addToLeaderboardAllTask,
-      Performance.measureTaskPerf("add block to leaderboard all"),
-    ),
-    pipe(
-      BurnRecordsNewHead.onNewBlock(blockDb),
-      Performance.measureTaskPerf("add block to burn record all"),
-    ),
-    pipe(
-      DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
-      Performance.measureTaskPerf("add block to deflationary streaks"),
-    ),
-  )();
+  await Performance.measurePromisePerf(
+    "add block to burn records",
+    BurnRecordsNewHead.onNewBlock(blockDb)(),
+  );
+
+  await Performance.measurePromisePerf(
+    "add block to deflationary streaks",
+    DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb))(),
+  );
 
   Log.debug(`heads queue: ${headsQueue.size}`);
   const allBlocksProcessed =

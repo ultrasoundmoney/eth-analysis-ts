@@ -67,3 +67,13 @@ export const measureTaskPerf =
         return result;
       }),
     );
+
+export const measurePromisePerf = async <A>(
+  msg: string,
+  promise: Promise<A>,
+): Promise<A> => {
+  const t0 = performance.now();
+  const result = await promise;
+  logPerf(msg, t0);
+  return result;
+};

@@ -2,6 +2,7 @@ import * as Blocks from "../blocks/blocks.js";
 import * as Db from "../db.js";
 import { flow, O, pipe, T } from "../fp.js";
 import { LimitedTimeFrameNext, TimeFrameNext } from "../time_frames.js";
+import * as Performance from "../performance.js";
 
 export const maxRank = 10;
 
@@ -52,8 +53,16 @@ const expireRecordsOutsideLimitedTimeFrame = (
 ) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
+    Performance.measureTaskPerf(
+      `  per-refresh earliest block in "${timeFrame}`,
+    ),
     T.chain((earliestIncludedBlock) =>
-      expireRecordsBefore(timeFrame, earliestIncludedBlock),
+      pipe(
+        expireRecordsBefore(timeFrame, earliestIncludedBlock),
+        Performance.measureTaskPerf(
+          `  per-refresh expire records before "${timeFrame}`,
+        ),
+      ),
     ),
   );
 

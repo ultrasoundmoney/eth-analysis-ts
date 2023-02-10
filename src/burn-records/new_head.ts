@@ -2,22 +2,42 @@ import * as Blocks from "../blocks/blocks.js";
 import { NEA, pipe, T, TAlt } from "../fp.js";
 import * as TimeFrames from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
+import * as Performance from "../performance.js";
 
 export const onNewBlock = (block: Blocks.BlockV1) =>
   pipe(
     TimeFrames.timeFramesNext,
-    T.traverseArray((timeFrame) =>
+    T.traverseSeqArray((timeFrame) =>
       pipe(
-        TAlt.seqTPar(
-          BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
-          BurnRecords.addRecordsFromBlockAndIncluding(timeFrame, block.number),
+        TAlt.seqTSeq(
+          pipe(
+            BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
+            Performance.measureTaskPerf(
+              `expire records outside time frame ${timeFrame}`,
+            ),
+          ),
+          pipe(
+            BurnRecords.addRecordsFromBlockAndIncluding(
+              timeFrame,
+              block.number,
+            ),
+            Performance.measureTaskPerf("add records from block and including"),
+          ),
         ),
         T.chain(() =>
-          BurnRecords.pruneRecordsBeyondRank(timeFrame, BurnRecords.maxRank),
+          pipe(
+            BurnRecords.pruneRecordsBeyondRank(timeFrame, BurnRecords.maxRank),
+            Performance.measureTaskPerf("prune records beyond rank"),
+          ),
         ),
       ),
     ),
-    T.chain(() => BurnRecords.setLastIncludedBlock(block.number)),
+    T.chain(() =>
+      pipe(
+        BurnRecords.setLastIncludedBlock(block.number),
+        Performance.measureTaskPerf("set last included block"),
+      ),
+    ),
   );
 
 export const rollbackBlocks = (
