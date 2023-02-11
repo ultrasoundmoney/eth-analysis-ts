@@ -18,7 +18,6 @@ import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import * as Transactions from "../transactions.js";
-import * as Performance from "../performance.js";
 
 export const londonHardForkBlockNumber = 12965000;
 export const londonHarkForkBlockDate = new Date("2021-08-05T12:33:42Z");
