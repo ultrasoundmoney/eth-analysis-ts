@@ -65,7 +65,7 @@ let oEthSupplyParts = await pipe(
   ),
 )();
 Log.debug("loaded total supply");
-let effectiveBalanceSum =
+let oEffectiveBalanceSum =
   await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
 let oMergeEstimate = await KeyValueStore.getValueStr(
   MergeEstimate.MERGE_ESTIMATE_CACHE_KEY,
@@ -252,9 +252,23 @@ const handleGetEthSupplyParts: Middleware = async (ctx) => {
 };
 
 const handleGetEffectiveBalanceSum: Middleware = async (ctx) => {
-  ctx.set("Cache-Control", "public, max-age=300, stale-while-revalidate=1200");
-  ctx.set("Content-Type", "application/json");
-  ctx.body = effectiveBalanceSum;
+  pipe(
+    oEffectiveBalanceSum,
+    O.match(
+      () => {
+        ctx.status = 503;
+      },
+      (effectiveBalanceSum) => {
+        ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
+        ctx.set(
+          "Cache-Control",
+          "public, max-age=300, stale-while-revalidate=1200",
+        );
+        ctx.set("Content-Type", "application/json");
+        ctx.body = effectiveBalanceSum;
+      },
+    ),
+  );
 };
 
 const handleGetMergeEstimate: Middleware = async (ctx) => {
@@ -355,7 +369,7 @@ sql.listen("cache-update", async (payload) => {
   }
 
   if (payload === EffectiveBalanceSum.EFFECTIVE_BALANCE_SUM_CACHE_KEY) {
-    effectiveBalanceSum =
+    oEffectiveBalanceSum =
       await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
     return;
   }
