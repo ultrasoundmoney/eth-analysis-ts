@@ -498,3 +498,6 @@ export const getBalance = async (address: string) => {
   return BigInt(balanceStr);
 };
 
+export const checkHealth = async () => {
+  await getLatestBlockNumber();
+};
