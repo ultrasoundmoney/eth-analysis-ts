@@ -6,8 +6,6 @@ import { Contract } from "web3-eth-contract";
 import { AbiItem } from "web3-utils";
 import WebSocket from "ws";
 import * as Config from "./config.js";
-import { GWEI_PER_ETH } from "./eth_units.js";
-import { D, EAlt, pipe } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Log from "./log.js";
 
@@ -494,84 +492,3 @@ export const getBalance = async (address: string) => {
   return BigInt(balanceStr);
 };
 
-const SupplyDeltaF = D.struct({
-  block: D.number,
-  hash: D.string,
-  issuance: D.nullable(D.number),
-  subsidy: D.number,
-  uncles: D.number,
-  burn: D.number,
-  destruct: D.nullable(D.number),
-});
-
-type SupplyDeltaF = D.TypeOf<typeof SupplyDeltaF>;
-
-type SupplyDelta = {
-  block_number: number;
-  fee_burn: number;
-  fixed_reward: number;
-  hash: String;
-  self_destruct: number;
-  supply_delta: number;
-  uncles_reward: number;
-};
-
-export const getNSupplyDeltas = async (
-  maxDeltas: number,
-  from: number,
-): Promise<SupplyDelta[]> => {
-  const supplyDeltaWs = new WebSocket(Config.getGethUrl());
-  const connectionOpenP = new Promise((resolve) => {
-    supplyDeltaWs.on("open", resolve);
-  });
-
-  await connectionOpenP;
-
-  const messageBuffer: SupplyDeltaF[] = [];
-
-  supplyDeltaWs.once("message", () => {
-    Log.debug("received supply delta subscription confirmation");
-
-    supplyDeltaWs.on("message", (envelope) => {
-      const message = JSON.parse(envelope.toString()).params.result;
-      const supplyDeltaF = pipe(SupplyDeltaF.decode(message), EAlt.getOrThrow);
-      messageBuffer.push(supplyDeltaF);
-
-      if (messageBuffer.length >= maxDeltas) {
-        supplyDeltaWs.close();
-      }
-    });
-  });
-
-  return new Promise((resolve, reject) => {
-    supplyDeltaWs.on("error", (err) => {
-      reject(err);
-    });
-
-    supplyDeltaWs.on("close", () => {
-      Log.debug(
-        `socket closing, returning message buffer of ${messageBuffer.length} supply deltas`,
-      );
-
-      const supplyDeltas = messageBuffer.map((message) => ({
-        block_number: message.block,
-        fee_burn: message.burn / GWEI_PER_ETH,
-        fixed_reward: message.subsidy / GWEI_PER_ETH,
-        hash: message.hash,
-        self_destruct: (message.destruct ?? 0) / GWEI_PER_ETH,
-        supply_delta: (message.issuance ?? 0) / GWEI_PER_ETH,
-        uncles_reward: message.uncles,
-      }));
-
-      resolve(supplyDeltas.slice(0, 1));
-    });
-
-    supplyDeltaWs.send(
-      JSON.stringify({
-        id: 0,
-        method: "eth_subscribe",
-        params: ["issuance", from],
-      }),
-    );
-  });
-};
