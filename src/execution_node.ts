@@ -37,7 +37,7 @@ const getNewMessageId = (): number => {
 const registerMessageListener = <A>(): [number, Promise<A>] => {
   const id = getNewMessageId();
   const messageP: Promise<A> = new Promise((resolve, reject) => {
-    messageCallbackMap.set(id, (err: MessageErr, data: A) => {
+    const messageCallback = (err: MessageErr, data: A) => {
       messageCallbackMap.delete(id);
       inUseIds.delete(id);
       if (err !== null) {
@@ -45,7 +45,8 @@ const registerMessageListener = <A>(): [number, Promise<A>] => {
       } else {
         resolve(data);
       }
-    });
+    };
+    messageCallbackMap.set(id, messageCallback);
   });
 
   return [id, messageP];
@@ -93,15 +94,20 @@ const connectWithFallback = async () => {
   }
 };
 
-const connectGeth = async (): Promise<WebSocket> => {
-  const ws = await connectWithFallback();
-
-  ws.on("message", (event) => {
-    const message = JSON.parse(event.toString()) as {
+type Message =
+  | {
       id: number;
       result: unknown;
+    }
+  | {
+      id: number;
       error: { code: number; message: string };
     };
+
+const connectGeth = async (): Promise<WebSocket> => {
+  const ws = await connectWithFallback();
+  ws.on("message", (event) => {
+    const message = JSON.parse(event.toString()) as Message;
 
     const cb = messageCallbackMap.get(message.id);
 
