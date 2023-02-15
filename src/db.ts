@@ -95,3 +95,5 @@ export const query = sql;
 export const values = sql;
 
 export const array = sql.array;
+
+export const checkHealth = () => sql`SELECT 1`;

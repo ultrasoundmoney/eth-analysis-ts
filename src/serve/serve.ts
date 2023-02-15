@@ -7,7 +7,7 @@ import * as BeaconRewards from "../beacon_rewards.js";
 import * as BlockLag from "../block_lag.js";
 import * as BurnCategories from "../burn-categories/burn_categories.js";
 import * as ContractsRoutes from "../contracts/routes.js";
-import { query, runMigrations, sql } from "../db.js";
+import * as Db from "../db.js";
 import * as EffectiveBalanceSum from "../effective_balance_sum.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthSupplyParts from "../eth_supply_parts.js";
@@ -27,7 +27,7 @@ process.on("unhandledRejection", (error) => {
   throw error;
 });
 
-await runMigrations();
+await Db.runMigrations();
 Log.debug("ran migrations");
 
 // Prepare caches before registering routes or even starting the server.
@@ -287,7 +287,7 @@ const handleGetMergeEstimate: Middleware = async (ctx) => {
   );
 };
 
-sql.listen("cache-update", async (payload) => {
+Db.sql.listen("cache-update", async (payload) => {
   Log.debug(`DB notify cache-update, cache key: ${payload}`);
 
   if (payload === undefined) {
@@ -398,10 +398,6 @@ app.use(async (ctx, next) => {
 app.use(conditional());
 app.use(etag());
 
-const dbHealthCheck = async () => {
-  await query`SELECT 1`;
-};
-
 // Health check middleware
 app.use(async (ctx, next) => {
   if (
@@ -409,7 +405,7 @@ app.use(async (ctx, next) => {
     ctx.path === "/health" ||
     ctx.path === "/api/fees/healthz"
   ) {
-    await dbHealthCheck();
+    await Db.checkHealth();
     ctx.res.writeHead(200);
     ctx.res.end();
     return undefined;
