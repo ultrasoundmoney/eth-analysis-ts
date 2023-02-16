@@ -28,6 +28,7 @@ const timeFrameMaxAgeMap: Record<TimeFrameNext, number> = {
   d1: Duration.millisFromMinutes(30),
   d7: Duration.millisFromMinutes(30),
   d30: Duration.millisFromMinutes(30),
+  since_merge: Duration.millisFromMinutes(30),
   all: Duration.millisFromMinutes(30),
 };
 

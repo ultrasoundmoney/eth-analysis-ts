@@ -1,17 +1,21 @@
 import * as TimeFrames from "./duration.js";
 import { O, pipe } from "./fp.js";
 
-export const limitedTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const;
+export const fixedDurationTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const;
+export type FixedDurationTimeFrame = typeof fixedDurationTimeFrames[number];
+export const limitedTimeFrames = [...fixedDurationTimeFrames, "since_merge"] as const;
 export type LimitedTimeFrame = typeof limitedTimeFrames[number];
 export const timeFrames = [...limitedTimeFrames, "all"] as const;
 export type TimeFrame = typeof timeFrames[number];
 
-export const limitedTimeFramesNext = ["m5", "h1", "d1", "d7", "d30"] as const;
+export const fixedDurationTimeFramesNext = ["m5", "h1", "d1", "d7", "d30", ] as const;
+export type FixedDurationTimeFrameNext = typeof fixedDurationTimeFramesNext[number];
+export const limitedTimeFramesNext = [...fixedDurationTimeFramesNext, "since_merge"] as const;
 export type LimitedTimeFrameNext = typeof limitedTimeFramesNext[number];
 export const timeFramesNext = [...limitedTimeFramesNext, "all"] as const;
 export type TimeFrameNext = typeof timeFramesNext[number];
 
-export const intervalSqlMap: Record<LimitedTimeFrame, string> = {
+export const intervalSqlMap: Record<FixedDurationTimeFrame, string> = {
   "5m": "5 minutes",
   "1h": "1 hours",
   "24h": "24 hours",
@@ -19,7 +23,7 @@ export const intervalSqlMap: Record<LimitedTimeFrame, string> = {
   "30d": "30 days",
 };
 
-export const intervalSqlMapNext: Record<LimitedTimeFrameNext, string> = {
+export const intervalSqlMapNext: Record<FixedDurationTimeFrameNext, string> = {
   m5: "5 minutes",
   h1: "1 hours",
   d1: "1 days",
@@ -33,6 +37,7 @@ export const limitedTimeFrameMillisMap: Record<LimitedTimeFrame, number> = {
   "24h": TimeFrames.millisFromDays(1),
   "7d": TimeFrames.millisFromDays(7),
   "30d": TimeFrames.millisFromDays(30),
+  "since_merge": TimeFrames.millisFromDays(30),
 };
 
 export const getEarliestBlockToAdd = (

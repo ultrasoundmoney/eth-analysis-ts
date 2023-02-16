@@ -1,7 +1,7 @@
 import * as DateFns from "date-fns";
 import * as Blocks from "./blocks/blocks.js";
 import { FeesBurnedT } from "./fee_burn.js";
-import { LimitedTimeFrame } from "./time_frames.js";
+import { FixedDurationTimeFrame } from "./time_frames.js";
 
 export type BurnRatesT = {
   burnRate5m: number;
@@ -14,11 +14,13 @@ export type BurnRatesT = {
   burnRate7dUsd: number;
   burnRate30d: number;
   burnRate30dUsd: number;
+  burnRateSinceMerge: number;
+  burnRateSinceMergeUsd: number;
   burnRateAll: number;
   burnRateAllUsd: number;
 };
 
-const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
+const timeframeMinutesMap: Record<FixedDurationTimeFrame, number> = {
   "5m": 5,
   "1h": 60,
   "24h": 24 * 60,
@@ -37,10 +39,16 @@ export const calcBurnRates = (feeBurns: FeesBurnedT): BurnRatesT => ({
   burnRate7dUsd: feeBurns.feesBurned7dUsd / timeframeMinutesMap["7d"],
   burnRate30d: feeBurns.feesBurned30d / timeframeMinutesMap["30d"],
   burnRate30dUsd: feeBurns.feesBurned30dUsd / timeframeMinutesMap["30d"],
+  burnRateSinceMerge:
+    feeBurns.feesBurnedSinceMerge /
+    DateFns.differenceInMinutes(new Date(), Blocks.mergeBlockDate),
+  burnRateSinceMergeUsd:
+    feeBurns.feesBurnedSinceMergeUsd /
+    DateFns.differenceInMinutes(new Date(), Blocks.mergeBlockDate),
   burnRateAll:
     feeBurns.feesBurnedAll /
-    DateFns.differenceInMinutes(new Date(), Blocks.londonHarkForkBlockDate),
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
   burnRateAllUsd:
     feeBurns.feesBurnedAllUsd /
-    DateFns.differenceInMinutes(new Date(), Blocks.londonHarkForkBlockDate),
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
 });

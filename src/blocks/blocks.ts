@@ -19,8 +19,11 @@ import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import * as Transactions from "../transactions.js";
 
+export const mergeBlockNumber = 15537393;
+export const mergeBlockDate = new Date("2022-09-15T06:42:42Z");
+
 export const londonHardForkBlockNumber = 12965000;
-export const londonHarkForkBlockDate = new Date("2021-08-05T12:33:42Z");
+export const londonHardForkBlockDate = new Date("2021-08-05T12:33:42Z");
 
 /**
  * This is a block as we get it from an eth node, after we drop fields we don't need and decode ones we use.
@@ -410,7 +413,7 @@ export const getEarliestBlockInTimeFrame = (
 ) =>
   timeFrame === "all"
     ? T.of(londonHardForkBlockNumber)
-    : pipe(
+        : (timeFrame === "since_merge" ? T.of(mergeBlockNumber) : pipe(
         TimeFrames.intervalSqlMapNext[timeFrame],
         (interval) => () =>
           sql<{ min: number }[]>`
@@ -418,7 +421,7 @@ export const getEarliestBlockInTimeFrame = (
             WHERE mined_at >= NOW() - ${interval}::interval
           `,
         T.map((rows) => rows[0].min),
-      );
+      ));
 
 export const sortAsc = Ord.fromCompare<BlockV1>((a, b) =>
   a.number < b.number ? -1 : a.number > b.number ? 1 : 0,

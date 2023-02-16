@@ -1,4 +1,5 @@
 import * as A from "fp-ts/lib/Array.js";
+import * as Blocks from "./blocks/blocks.js";
 import * as Log from "./log.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
@@ -6,7 +7,7 @@ import { sql } from "./db.js";
 import * as FamService from "./fam_service.js";
 import { TwitterDetails } from "./fam_service.js";
 import { NEA, O, TE } from "./fp.js";
-import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
+import { FixedDurationTimeFrame, TimeFrame } from "./time_frames.js";
 
 // TODO: Move leaderboards... into a folder.
 // TODO: Rewrite using pure DB like burn records.
@@ -167,7 +168,7 @@ export const mergeBaseFees = (
   );
 };
 
-export const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
+export const timeframeMinutesMap: Record<FixedDurationTimeFrame, number> = {
   "5m": 5,
   "1h": 1 * 60,
   "24h": 24 * 60,
@@ -184,6 +185,17 @@ export const getEthTransferFeesForTimeframe = async (
         SUM(eth_transfer_sum) AS eth,
         SUM(eth_transfer_sum * eth_price / 1e18) AS usd
       FROM blocks
+    `;
+    return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
+  }
+
+  if (timeframe === "since_merge") {
+    const rows = await sql<{ eth: number; usd: number }[]>`
+      SELECT
+        SUM(eth_transfer_sum) AS eth,
+        SUM(eth_transfer_sum * eth_price / 1e18) AS usd
+      FROM blocks
+      WHERE number >= ${Blocks.mergeBlockNumber}
     `;
     return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
   }
@@ -208,6 +220,17 @@ export const getContractCreationBaseFeesForTimeframe = async (
         SUM(contract_creation_sum) AS eth,
         SUM(contract_creation_sum * eth_price / 1e18) AS usd
       FROM blocks
+    `;
+    return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
+  }
+
+  if (timeframe === "since_merge") {
+    const rows = await sql<{ eth: number; usd: number }[]>`
+      SELECT
+        SUM(contract_creation_sum) AS eth,
+        SUM(contract_creation_sum * eth_price / 1e18) AS usd
+      FROM blocks
+      WHERE number >= ${Blocks.mergeBlockNumber}
     `;
     return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
   }

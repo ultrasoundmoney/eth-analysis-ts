@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import _ from "lodash";
-import { BlockV1, sortDesc } from "./blocks/blocks.js";
+import { BlockV1, sortDesc, mergeBlockDate, mergeBlockNumber } from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
 import { A, NEA, O, Ord, pipe, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
@@ -30,6 +30,7 @@ const blocksInTimeframe: BlocksPerTimeframe = {
   "24h": [],
   "7d": [],
   "30d": [],
+  "since_merge": [],
 };
 
 // These are the base fee sums per contract, per timeframe.
@@ -39,6 +40,7 @@ const contractSumsPerTimeframe: ContractSumsPerTimeframe = {
   "24h": new Map(),
   "7d": new Map(),
   "30d": new Map(),
+  "since_merge": new Map(),
 };
 
 const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
@@ -47,6 +49,7 @@ const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
   "24h": new Map(),
   "7d": new Map(),
   "30d": new Map(),
+  "since_merge": new Map(),
 };
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
@@ -60,6 +63,14 @@ export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
 const getBlocksForTimeframe = (
   timeframe: LimitedTimeFrame,
 ): T.Task<BlockForTotal[]> => {
+    if(timeframe === "since_merge") {
+    return () =>
+        sql<BlockForTotal[]>`
+        SELECT number, mined_at FROM blocks
+        WHERE number >= ${mergeBlockNumber}
+        ORDER BY number ASC
+        `;
+    }
   const minutes = Leaderboards.timeframeMinutesMap[timeframe];
   return () =>
     sql<BlockForTotal[]>`
@@ -253,7 +264,7 @@ export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockV1>) =>
   );
 
 const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
-  const ageLimit = DateFns.subMinutes(
+    const ageLimit = timeFrame === "since_merge" ? mergeBlockDate : DateFns.subMinutes(
     new Date(),
     Leaderboards.timeframeMinutesMap[timeFrame],
   );
@@ -422,4 +433,5 @@ export const calcLeaderboardForLimitedTimeframes = (): T.Task<
     "24h": calcLeaderboardForLimitedTimeframe("24h"),
     "7d": calcLeaderboardForLimitedTimeframe("7d"),
     "30d": calcLeaderboardForLimitedTimeframe("30d"),
+    "since_merge": calcLeaderboardForLimitedTimeframe("since_merge"),
   });
