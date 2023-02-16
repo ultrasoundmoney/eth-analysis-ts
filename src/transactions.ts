@@ -112,17 +112,6 @@ export const getTxrsWithRetry = async (
       `block ${tryBlock.number} contained null txrs, hash: ${tryBlock.hash}, waiting ${delaySeconds}s and trying again`,
     );
     await setTimeout(delayMilis);
-
-    // Maybe the block got forked and that's why the receipts are null?  Refetch the block.
-    let newBlock = await Blocks.getBlockWithRetry(block.number);
-    if (newBlock.hash != tryBlock.hash) {
-        Log.warn(`Block ${block.number} changed hash from ${tryBlock.hash} to ${newBlock.hash}, refetching all transactions`);
-        // Empty accumulated results
-        tryBlock = newBlock;
-        missingHashes = newBlock.transactions;
-        txrs = [];
-    }
-
   }
 
 };
