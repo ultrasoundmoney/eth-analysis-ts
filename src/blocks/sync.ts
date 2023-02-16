@@ -9,10 +9,8 @@ import * as Blocks from "./blocks.js";
 import { rollbackToIncluding } from "./new_head.js";
 
 export const syncBlock = async (blockNumber: number): Promise<void> => {
-  const block = await pipe(
-    Blocks.getBlockSafe(blockNumber),
-    TOAlt.getOrThrow(`while syncing block ${blockNumber} came back null`),
-  )();
+  Log.info(`Syncing block: ${blockNumber}`);
+  const block = await Blocks.getBlockWithRetry(blockNumber);
 
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 

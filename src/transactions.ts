@@ -48,18 +48,21 @@ export const getTxrsWithRetry = async (
   block: Blocks.BlockNodeV2,
 ): Promise<TransactionReceiptV1[]> => {
   let tries = 0;
+  let delayMilis = Duration.millisFromSeconds(1);
 
   // Retry continuously
   let tryBlock = block;
   let txrs: TransactionReceiptV1[] = [];
-  let missingHashes: string[] = [];
+  let missingHashes: string[] = tryBlock.transactions;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
     tries += tries + 1;
 
+    let hashesToFetch = missingHashes;
+    missingHashes = [];
     await fetchReceiptQueue.addAll(
-      tryBlock.transactions.map(
+      hashesToFetch.map(
         (txHash) => () =>
           ExecutionNode.getTransactionReceipt(txHash).then((txr) => {
             if (txr === null) {
@@ -68,15 +71,24 @@ export const getTxrsWithRetry = async (
               PerformanceMetrics.onTxrReceived();
               txrs.push(transactionReceiptFromRaw(txr));
             }
-          }),
+          }).catch((e: any) => {
+              missingHashes.push(txHash);
+          })
       ),
     );
 
-    if (missingHashes.length === 0) {
-      break;
+    if (txrs.length === tryBlock.transactions.length) {
+        Log.info(`Returning from getTxrsWithRetry. Fetched transactions: ${txrs.length} - missing transactions: ${missingHashes.length}`);
+        return txrs;
+    } else {
+        Log.warn(`${missingHashes.length} missing hashes after iteration ${tries}`);
     }
 
-    const delayMilis = Duration.millisFromSeconds(3);
+    if( (tries % 5) === 0) {
+        delayMilis = delayMilis * 2;
+        Log.debug(`Sleeping for ${delayMilis}ms`);
+    }
+
 
     if (tries === 10) {
       Log.alert(
@@ -102,14 +114,17 @@ export const getTxrsWithRetry = async (
     await setTimeout(delayMilis);
 
     // Maybe the block got forked and that's why the receipts are null?  Refetch the block.
-    tryBlock = await Blocks.getBlockWithRetry(block.number);
+    let newBlock = await Blocks.getBlockWithRetry(block.number);
+    if (newBlock.hash != tryBlock.hash) {
+        Log.warn(`Block ${block.number} changed hash from ${tryBlock.hash} to ${newBlock.hash}, refetching all transactions`);
+        // Empty accumulated results
+        tryBlock = newBlock;
+        missingHashes = newBlock.transactions;
+        txrs = [];
+    }
 
-    // Empty accumulated results
-    missingHashes = [];
-    txrs = [];
   }
 
-  return txrs;
 };
 
 export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
