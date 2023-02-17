@@ -3,7 +3,7 @@ import * as CoinGecko from "../coingecko.js";
 import * as Contracts from "../contracts/web3.js";
 import * as Db from "../db.js";
 import * as Duration from "../duration.js";
-import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as EthPrices from "../eth-prices/index.js";
 import * as FamService from "../fam_service.js";
 import * as Fetch from "../fetch.js";
 import {

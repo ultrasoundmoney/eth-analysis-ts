@@ -7,7 +7,7 @@ import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Db from "../db.js";
 import { sql } from "../db.js";
 import * as Duration from "../duration.js";
-import { EthPrice, getEthPrice } from "../eth-prices/eth_prices.js";
+import { EthPrice, getEthPrice } from "../eth-prices/index.js";
 import { A, O, pipe, T, TEAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as Transactions from "../transactions.js";

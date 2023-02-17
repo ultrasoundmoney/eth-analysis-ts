@@ -1,6 +1,6 @@
 import { setInterval } from "timers/promises";
 import * as Duration from "./duration.js";
-import * as EthPrices from "./eth-prices/eth_prices.js";
+import * as EthPrices from "./eth-prices/index.js";
 import { pipe, TEAlt } from "./fp.js";
 
 process.on("unhandledRejection", (error) => {

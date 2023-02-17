@@ -3,7 +3,7 @@ import * as Blocks from "../blocks/blocks.js";
 import * as ContractsWeb3 from "../contracts/web3.js";
 import { pipe, T, TAlt, TE, TEAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
-import { EthPrice } from "./eth_prices.js";
+import { EthPrice } from "./index.js";
 
 // TODO: slot0 is slow to update, sometimes staying the same for ~10 blocks, observations seem to update more regularly.
 
