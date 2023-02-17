@@ -6,6 +6,8 @@
     "lib": ["ES2021"],
     "module": "ESNext",
     "moduleResolution": "node",
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": false,
     "outDir": "build",
     "rootDir": "src",
     "skipLibCheck": true,
