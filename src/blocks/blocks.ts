@@ -19,8 +19,8 @@ import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import * as Transactions from "../transactions.js";
 
-export const mergeBlockNumber = 15537393;
-export const mergeBlockDate = new Date("2022-09-15T06:42:42Z");
+export const mergeBlockNumber = 15537394;
+export const mergeBlockDate = new Date("2022-09-15T06:42:59Z");
 
 export const londonHardForkBlockNumber = 12965000;
 export const londonHardForkBlockDate = new Date("2021-08-05T12:33:42Z");
