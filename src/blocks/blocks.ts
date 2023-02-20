@@ -413,7 +413,9 @@ export const getEarliestBlockInTimeFrame = (
 ) =>
   timeFrame === "all"
     ? T.of(londonHardForkBlockNumber)
-        : (timeFrame === "since_merge" ? T.of(mergeBlockNumber) : pipe(
+    : timeFrame === "since_merge"
+    ? T.of(mergeBlockNumber)
+    : pipe(
         TimeFrames.intervalSqlMapNext[timeFrame],
         (interval) => () =>
           sql<{ min: number }[]>`
@@ -421,7 +423,7 @@ export const getEarliestBlockInTimeFrame = (
             WHERE mined_at >= NOW() - ${interval}::interval
           `,
         T.map((rows) => rows[0].min),
-      ));
+      );
 
 export const sortAsc = Ord.fromCompare<BlockV1>((a, b) =>
   a.number < b.number ? -1 : a.number > b.number ? 1 : 0,
