@@ -51,44 +51,49 @@ export const getTxrsWithRetry = async (
   let delayMilis = Duration.millisFromSeconds(1);
 
   // Retry continuously
-  let tryBlock = block;
-  let txrs: TransactionReceiptV1[] = [];
+  const tryBlock = block;
+  const txrs: TransactionReceiptV1[] = [];
   let missingHashes: string[] = tryBlock.transactions;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
     tries += tries + 1;
 
-    let hashesToFetch = missingHashes;
+    const hashesToFetch = missingHashes;
     missingHashes = [];
     await fetchReceiptQueue.addAll(
       hashesToFetch.map(
         (txHash) => () =>
-          ExecutionNode.getTransactionReceipt(txHash).then((txr) => {
-            if (txr === null) {
+          ExecutionNode.getTransactionReceipt(txHash)
+            .then((txr) => {
+              if (txr === null) {
+                missingHashes.push(txHash);
+              } else {
+                PerformanceMetrics.onTxrReceived();
+                txrs.push(transactionReceiptFromRaw(txr));
+              }
+            })
+            .catch(() => {
               missingHashes.push(txHash);
-            } else {
-              PerformanceMetrics.onTxrReceived();
-              txrs.push(transactionReceiptFromRaw(txr));
-            }
-          }).catch((e: any) => {
-              missingHashes.push(txHash);
-          })
+            }),
       ),
     );
 
     if (txrs.length === tryBlock.transactions.length) {
-        Log.info(`Returning from getTxrsWithRetry. Fetched transactions: ${txrs.length} - missing transactions: ${missingHashes.length}`);
-        return txrs;
+      Log.info(
+        `Returning from getTxrsWithRetry. Fetched transactions: ${txrs.length} - missing transactions: ${missingHashes.length}`,
+      );
+      return txrs;
     } else {
-        Log.warn(`${missingHashes.length} missing hashes after iteration ${tries}`);
+      Log.warn(
+        `${missingHashes.length} missing hashes after iteration ${tries}`,
+      );
     }
 
-    if( (tries % 5) === 0) {
-        delayMilis = delayMilis * 2;
-        Log.debug(`Sleeping for ${delayMilis}ms`);
+    if (tries % 5 === 0) {
+      delayMilis = delayMilis * 2;
+      Log.debug(`Sleeping for ${delayMilis}ms`);
     }
-
 
     if (tries === 10) {
       Log.alert(
@@ -113,7 +118,6 @@ export const getTxrsWithRetry = async (
     );
     await setTimeout(delayMilis);
   }
-
 };
 
 export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
