@@ -160,7 +160,7 @@ export const getBlockWithRetry = async (
         `asked for block ${blockNumber}, got null, waiting ${delaySeconds}s and trying again`,
       );
       await setTimeout(delayMilis);
-    } catch (e: any) {
+    } catch (e) {
       Log.warn(`asked for block ${blockNumber}, threw error ${e.toString()}`);
       await setTimeout(delayMilis);
     }
