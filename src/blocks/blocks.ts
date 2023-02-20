@@ -143,26 +143,26 @@ export const getBlockWithRetry = async (
     }
 
     try {
-        const maybeBlock = await ExecutionNode.getBlock(blockNumber);
+      const maybeBlock = await ExecutionNode.getBlock(blockNumber);
 
-        if (typeof maybeBlock?.hash === "string") {
+      if (typeof maybeBlock?.hash === "string") {
         PerformanceMetrics.onBlockReceived();
         return blockV1FromNode(maybeBlock);
-        }
+      }
 
-        if (tries === 10) {
-        Log.alert(`stuck fetching block, for more than ${tries * delaySeconds}s`);
-        }
+      if (tries === 10) {
+        Log.alert(
+          `stuck fetching block, for more than ${tries * delaySeconds}s`,
+        );
+      }
 
-        Log.warn(
+      Log.warn(
         `asked for block ${blockNumber}, got null, waiting ${delaySeconds}s and trying again`,
-        );
-        await setTimeout(delayMilis);
+      );
+      await setTimeout(delayMilis);
     } catch (e: any) {
-        Log.warn(
-        `asked for block ${blockNumber}, threw error ${e.toString()}`,
-        );
-        await setTimeout(delayMilis);
+      Log.warn(`asked for block ${blockNumber}, threw error ${e.toString()}`);
+      await setTimeout(delayMilis);
     }
   }
 };
