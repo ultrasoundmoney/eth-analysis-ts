@@ -12,7 +12,6 @@ export type AverageEthPrices = {
   d1: number;
   d7: number;
   d30: number;
-  all: number;
   since_burn: number;
 };
 
@@ -29,7 +28,7 @@ const timeFrameMaxAgeMap: Record<TimeFrameNext, number> = {
   d7: Duration.millisFromMinutes(30),
   d30: Duration.millisFromMinutes(30),
   since_merge: Duration.millisFromMinutes(30),
-  all: Duration.millisFromMinutes(30),
+  since_burn: Duration.millisFromMinutes(30),
 };
 
 const getAveragePriceCache = (timeFrame: TimeFrameNext) =>
@@ -84,12 +83,8 @@ export const updateAveragePrices = () =>
       d1: getTimeFrameAverage("d1"),
       d7: getTimeFrameAverage("d7"),
       d30: getTimeFrameAverage("d30"),
-      all: getTimeFrameAverage("all"),
+      since_burn: getTimeFrameAverage("since_burn"),
     }),
-    T.map((averagePrices) => ({
-      ...averagePrices,
-      since_burn: averagePrices.all,
-    })),
     T.chain(updateCache),
     T.chainFirst(() => sqlTNotify("cache-update", averagePricesCacheKey)),
   );

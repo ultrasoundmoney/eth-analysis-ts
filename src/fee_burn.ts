@@ -102,7 +102,7 @@ const getFeeBurnTimeFrame = (timeFrame: LimitedTimeFrameNext) =>
 type FeeBurns = Record<TimeFrameNext, PreciseBaseFeeSum>;
 
 const getFeeBurn = (timeFrame: TimeFrameNext) =>
-  timeFrame === "all" ? getFeeBurnAll() : getFeeBurnTimeFrame(timeFrame);
+  timeFrame === "since_burn" ? getFeeBurnAll() : getFeeBurnTimeFrame(timeFrame);
 
 export const getFeeBurnsOld = () =>
   pipe(
@@ -127,8 +127,8 @@ export const getFeeBurnsOld = () =>
       feesBurned30dUsd: feeBurns.d30.usd,
       feesBurnedSinceMerge: Number(feeBurns.since_merge.eth),
       feesBurnedSinceMergeUsd: feeBurns.since_merge.usd,
-      feesBurnedAll: Number(feeBurns.all.eth),
-      feesBurnedAllUsd: feeBurns.all.usd,
+      feesBurnedAll: Number(feeBurns.since_burn.eth),
+      feesBurnedAllUsd: feeBurns.since_burn.usd,
     })),
   );
 

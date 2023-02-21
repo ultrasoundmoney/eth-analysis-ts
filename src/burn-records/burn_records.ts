@@ -67,7 +67,7 @@ const expireRecordsOutsideLimitedTimeFrame = (
   );
 
 export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
-  timeFrame === "all"
+  timeFrame === "since_burn"
     ? T.of(undefined)
     : expireRecordsOutsideLimitedTimeFrame(timeFrame);
 

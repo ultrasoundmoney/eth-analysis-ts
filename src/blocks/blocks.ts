@@ -411,7 +411,7 @@ export const getLastStoredBlock = () =>
 export const getEarliestBlockInTimeFrame = (
   timeFrame: TimeFrames.TimeFrameNext,
 ) =>
-  timeFrame === "all"
+  timeFrame === "since_burn"
     ? T.of(londonHardForkBlockNumber)
     : timeFrame === "since_merge"
     ? T.of(mergeBlockNumber)

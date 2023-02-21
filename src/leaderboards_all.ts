@@ -227,7 +227,7 @@ export const calcLeaderboardAll = () =>
     ),
     T.bind("ethTransferBaseFees", () =>
       pipe(
-        () => Leaderboards.getEthTransferFeesForTimeframe("all"),
+        () => Leaderboards.getEthTransferFeesForTimeframe("since_burn"),
         Performance.measureTaskPerf(
           "    add eth transfer fees leaderboard all",
         ),
@@ -235,7 +235,7 @@ export const calcLeaderboardAll = () =>
     ),
     T.bind("contractCreationBaseFees", () =>
       pipe(
-        () => Leaderboards.getContractCreationBaseFeesForTimeframe("all"),
+        () => Leaderboards.getContractCreationBaseFeesForTimeframe("since_burn"),
         Performance.measureTaskPerf(
           "    add contract creation fees leaderboard all",
         ),

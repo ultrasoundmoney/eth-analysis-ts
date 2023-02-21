@@ -179,7 +179,7 @@ export const timeframeMinutesMap: Record<FixedDurationTimeFrame, number> = {
 export const getEthTransferFeesForTimeframe = async (
   timeframe: TimeFrame,
 ): Promise<BaseFees> => {
-  if (timeframe === "all") {
+  if (timeframe === "since_burn") {
     const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(eth_transfer_sum) AS eth,
@@ -214,7 +214,7 @@ export const getEthTransferFeesForTimeframe = async (
 export const getContractCreationBaseFeesForTimeframe = async (
   timeframe: TimeFrame,
 ): Promise<BaseFees> => {
-  if (timeframe === "all") {
+  if (timeframe === "since_burn") {
     const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(contract_creation_sum) AS eth,

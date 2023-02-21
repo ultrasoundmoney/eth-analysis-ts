@@ -5,14 +5,14 @@ export const fixedDurationTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const
 export type FixedDurationTimeFrame = typeof fixedDurationTimeFrames[number];
 export const limitedTimeFrames = [...fixedDurationTimeFrames, "since_merge"] as const;
 export type LimitedTimeFrame = typeof limitedTimeFrames[number];
-export const timeFrames = [...limitedTimeFrames, "all"] as const;
+export const timeFrames = [...limitedTimeFrames, "since_burn"] as const;
 export type TimeFrame = typeof timeFrames[number];
 
 export const fixedDurationTimeFramesNext = ["m5", "h1", "d1", "d7", "d30", ] as const;
 export type FixedDurationTimeFrameNext = typeof fixedDurationTimeFramesNext[number];
 export const limitedTimeFramesNext = [...fixedDurationTimeFramesNext, "since_merge"] as const;
 export type LimitedTimeFrameNext = typeof limitedTimeFramesNext[number];
-export const timeFramesNext = [...limitedTimeFramesNext, "all"] as const;
+export const timeFramesNext = [...limitedTimeFramesNext, "since_burn"] as const;
 export type TimeFrameNext = typeof timeFramesNext[number];
 
 export const intervalSqlMap: Record<FixedDurationTimeFrame, string> = {
