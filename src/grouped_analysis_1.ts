@@ -43,23 +43,20 @@ const getLeaderboards = () =>
   pipe(
     TAlt.seqTSeq(
       pipe(
-        LeaderboardsAll.calcLeaderboardAll(),
-        Performance.measureTaskPerf("  per-refresh leaderboard all"),
-      ),
-      pipe(
-        LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
+        LeaderboardsLimitedTimeframe.calcLeaderboardForTimeFrames(),
         Performance.measureTaskPerf(
           "  per-refresh leaderboard limited timeframes",
         ),
       ),
     ),
-    T.map(([leaderboardAll, leaderboardLimitedTimeframes]) => ({
+    T.map(([leaderboardLimitedTimeframes]) => ({
       leaderboard5m: leaderboardLimitedTimeframes["5m"],
       leaderboard1h: leaderboardLimitedTimeframes["1h"],
       leaderboard24h: leaderboardLimitedTimeframes["24h"],
       leaderboard7d: leaderboardLimitedTimeframes["7d"],
       leaderboard30d: leaderboardLimitedTimeframes["30d"],
-      leaderboardAll: leaderboardAll,
+      leaderboardSinceMerge: leaderboardLimitedTimeframes["since_merge"],
+      leaderboardAll: leaderboardLimitedTimeframes["since_burn"],
     })),
   );
 

@@ -1,6 +1,13 @@
 import * as DateFns from "date-fns";
 import _ from "lodash";
-import { BlockV1, sortDesc, mergeBlockDate, mergeBlockNumber } from "./blocks/blocks.js";
+import {
+  BlockV1,
+  sortDesc,
+  londonHardForkBlockDate,
+  londonHardForkBlockNumber,
+  mergeBlockNumber,
+  mergeBlockDate,
+} from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
 import { A, NEA, O, Ord, pipe, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
@@ -15,13 +22,13 @@ import {
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as TimeFrames from "./time_frames.js";
-import { LimitedTimeFrame } from "./time_frames.js";
+import { TimeFrame } from "./time_frames.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
 
-type BlocksPerTimeframe = Record<LimitedTimeFrame, BlockForTotal[]>;
+type BlocksPerTimeframe = Record<TimeFrame, BlockForTotal[]>;
 
-type ContractSumsPerTimeframe = Record<LimitedTimeFrame, ContractSums>;
+type ContractSumsPerTimeframe = Record<TimeFrame, ContractSums>;
 
 // These are the blocks that make up the base fee sums for our limited timeframes.
 const blocksInTimeframe: BlocksPerTimeframe = {
@@ -30,7 +37,8 @@ const blocksInTimeframe: BlocksPerTimeframe = {
   "24h": [],
   "7d": [],
   "30d": [],
-  "since_merge": [],
+  since_burn: [],
+  since_merge: [],
 };
 
 // These are the base fee sums per contract, per timeframe.
@@ -40,7 +48,8 @@ const contractSumsPerTimeframe: ContractSumsPerTimeframe = {
   "24h": new Map(),
   "7d": new Map(),
   "30d": new Map(),
-  "since_merge": new Map(),
+  since_burn: new Map(),
+  since_merge: new Map(),
 };
 
 const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
@@ -49,7 +58,8 @@ const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
   "24h": new Map(),
   "7d": new Map(),
   "30d": new Map(),
-  "since_merge": new Map(),
+  since_burn: new Map(),
+  since_merge: new Map(),
 };
 
 type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
@@ -61,16 +71,24 @@ export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
 };
 
 const getBlocksForTimeframe = (
-  timeframe: LimitedTimeFrame,
+  timeframe: TimeFrame,
 ): T.Task<BlockForTotal[]> => {
-    if(timeframe === "since_merge") {
+  if (timeframe === "since_merge") {
     return () =>
-        sql<BlockForTotal[]>`
+      sql<BlockForTotal[]>`
         SELECT number, mined_at FROM blocks
         WHERE number >= ${mergeBlockNumber}
         ORDER BY number ASC
         `;
-    }
+  }
+  if (timeframe == "since_burn") {
+    return () =>
+      sql<BlockForTotal[]>`
+        SELECT number, mined_at FROM blocks
+        WHERE number >= ${londonHardForkBlockNumber}
+        ORDER BY number ASC
+        `;
+  }
   const minutes = Leaderboards.timeframeMinutesMap[timeframe];
   return () =>
     sql<BlockForTotal[]>`
@@ -134,7 +152,7 @@ const blockForTotalOrd = Ord.fromCompare<BlockForTotal>((x, y) =>
   x.number < y.number ? -1 : x.number === y.number ? 0 : 1,
 );
 
-const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.LimitedTimeFrame) =>
+const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.TimeFrame) =>
   pipe(
     getBlocksForTimeframe(timeFrame),
     T.chain((blocksToAdd) =>
@@ -173,7 +191,7 @@ const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.LimitedTimeFrame) =>
 
 export const addAllBlocksForAllTimeframes = () =>
   pipe(
-    TimeFrames.limitedTimeFrames,
+    TimeFrames.timeFrames,
     T.traverseSeqArray((timeFrame) =>
       pipe(
         addAllBlocksForTimeFrame(timeFrame),
@@ -187,7 +205,7 @@ export const addBlockForAllTimeframes = (
   baseFeesToAddEth: ContractSums,
   baseFeesToAddUsd: ContractSums,
 ): void => {
-  TimeFrames.limitedTimeFrames.forEach((timeframe) => {
+  TimeFrames.timeFrames.forEach((timeframe) => {
     blocksInTimeframe[timeframe] = pipe(
       blocksInTimeframe[timeframe],
       A.append({
@@ -217,7 +235,7 @@ const rollbackBlockForTimeFrames = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
-  for (const timeFrame of TimeFrames.limitedTimeFrames) {
+  for (const timeFrame of TimeFrames.timeFrames) {
     const includedBlocks = blocksInTimeframe[timeFrame];
     const indexOfBlockToRollbackToBefore = _.findLastIndex(
       includedBlocks,
@@ -263,11 +281,16 @@ export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockV1>) =>
     ),
   );
 
-const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
-    const ageLimit = timeFrame === "since_merge" ? mergeBlockDate : DateFns.subMinutes(
-    new Date(),
-    Leaderboards.timeframeMinutesMap[timeFrame],
-  );
+const removeExpiredBlocks = (timeFrame: TimeFrame) => {
+  const ageLimit =
+    timeFrame === "since_merge"
+      ? mergeBlockDate
+      : timeFrame === "since_burn"
+      ? londonHardForkBlockDate
+      : DateFns.subMinutes(
+          new Date(),
+          Leaderboards.timeframeMinutesMap[timeFrame],
+        );
   const { expired, valid } = findExpiredBlocks(
     ageLimit,
     blocksInTimeframe[timeFrame],
@@ -306,7 +329,7 @@ const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
 
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
   pipe(
-    TimeFrames.limitedTimeFrames,
+    TimeFrames.timeFrames,
     T.traverseArray(removeExpiredBlocks),
     TAlt.concatAllVoid,
   );
@@ -323,7 +346,7 @@ type ContractRow = {
 };
 
 const getTopBaseFeeContracts = (
-  timeframe: LimitedTimeFrame,
+  timeframe: TimeFrame,
 ): T.Task<LeaderboardRow[]> => {
   const contractSums = contractSumsPerTimeframe[timeframe];
   const contractSumsUsd = contractSumsPerTimeframeUsd[timeframe];
@@ -382,8 +405,8 @@ const getTopBaseFeeContracts = (
   );
 };
 
-const calcLeaderboardForLimitedTimeframe = (
-  timeFrame: LimitedTimeFrame,
+const calcLeaderboardForTimeFrame = (
+  timeFrame: TimeFrame,
 ): T.Task<LeaderboardEntry[]> =>
   pipe(
     T.Do,
@@ -424,14 +447,15 @@ const calcLeaderboardForLimitedTimeframe = (
     ),
   );
 
-export const calcLeaderboardForLimitedTimeframes = (): T.Task<
-  Record<LimitedTimeFrame, LeaderboardEntry[]>
+export const calcLeaderboardForTimeFrames = (): T.Task<
+  Record<TimeFrame, LeaderboardEntry[]>
 > =>
   TAlt.seqSSeq({
-    "5m": calcLeaderboardForLimitedTimeframe("5m"),
-    "1h": calcLeaderboardForLimitedTimeframe("1h"),
-    "24h": calcLeaderboardForLimitedTimeframe("24h"),
-    "7d": calcLeaderboardForLimitedTimeframe("7d"),
-    "30d": calcLeaderboardForLimitedTimeframe("30d"),
-    "since_merge": calcLeaderboardForLimitedTimeframe("since_merge"),
+    "5m": calcLeaderboardForTimeFrame("5m"),
+    "1h": calcLeaderboardForTimeFrame("1h"),
+    "24h": calcLeaderboardForTimeFrame("24h"),
+    "7d": calcLeaderboardForTimeFrame("7d"),
+    "30d": calcLeaderboardForTimeFrame("30d"),
+    "since_burn": calcLeaderboardForTimeFrame("since_burn"),
+    "since_merge": calcLeaderboardForTimeFrame("since_merge"),
   });

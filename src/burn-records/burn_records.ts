@@ -1,7 +1,7 @@
 import * as Blocks from "../blocks/blocks.js";
 import * as Db from "../db.js";
 import { flow, O, pipe, T } from "../fp.js";
-import { LimitedTimeFrameNext, TimeFrameNext } from "../time_frames.js";
+import { TimeFrameNext } from "../time_frames.js";
 import * as Performance from "../performance.js";
 
 export const maxRank = 10;
@@ -40,7 +40,7 @@ export const setLastIncludedBlockIsLatest = () =>
   `;
 
 const expireRecordsBefore = (
-  timeFrame: LimitedTimeFrameNext,
+  timeFrame: TimeFrameNext,
   blockNumber: number,
 ) => Db.sqlT`
   DELETE FROM burn_records
@@ -48,8 +48,8 @@ const expireRecordsBefore = (
   AND time_frame = ${timeFrame}
 `;
 
-const expireRecordsOutsideLimitedTimeFrame = (
-  timeFrame: LimitedTimeFrameNext,
+export const expireRecordsOutsideTimeFrame = (
+  timeFrame: TimeFrameNext,
 ) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
@@ -65,11 +65,6 @@ const expireRecordsOutsideLimitedTimeFrame = (
       ),
     ),
   );
-
-export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
-  timeFrame === "since_burn"
-    ? T.of(undefined)
-    : expireRecordsOutsideLimitedTimeFrame(timeFrame);
 
 export const addRecordsFromBlockAndIncluding = (
   timeFrame: TimeFrameNext,
