@@ -161,7 +161,7 @@ export const getBlockWithRetry = async (
       );
       await setTimeout(delayMilis);
     } catch (e) {
-      Log.warn(`asked for block ${blockNumber}, threw error ${e.toString()}`);
+      Log.warn(`asked for block ${blockNumber}, threw error ${e}`);
       await setTimeout(delayMilis);
     }
   }
