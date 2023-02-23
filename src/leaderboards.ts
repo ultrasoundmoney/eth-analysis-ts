@@ -1,13 +1,57 @@
-import * as A from "fp-ts/lib/Array.js";
+import * as DateFns from "date-fns";
+import * as Arr from "fp-ts/lib/Array.js";
 import * as Blocks from "./blocks/blocks.js";
 import * as Log from "./log.js";
-import { pipe } from "fp-ts/lib/function.js";
-import * as T from "fp-ts/lib/Task.js";
-import { sql } from "./db.js";
+import * as Performance from "./performance.js";
+import * as Task from "fp-ts/lib/Task.js";
+import * as TimeFrames from "./time_frames.js";
+import { sql, sqlT } from "./db.js";
 import * as FamService from "./fam_service.js";
 import { TwitterDetails } from "./fam_service.js";
-import { NEA, O, TE } from "./fp.js";
+import { NEA, O, Ord, pipe, T, TAlt, TE } from "./fp.js";
 import { FixedDurationTimeFrame, TimeFrame } from "./time_frames.js";
+import _ from "lodash";
+
+type BlockForTotal = { number: number; minedAt: Date };
+
+type BlocksPerTimeframe = Record<TimeFrame, BlockForTotal[]>;
+
+type ContractSumsPerTimeframe = Record<TimeFrame, ContractSums>;
+
+// These are the blocks that make up the base fee sums for our limited timeframes.
+const blocksInTimeframe: BlocksPerTimeframe = {
+  "5m": [],
+  "1h": [],
+  "24h": [],
+  "7d": [],
+  "30d": [],
+  since_burn: [],
+  since_merge: [],
+};
+
+// These are the base fee sums per contract, per timeframe.
+const contractSumsPerTimeframe: ContractSumsPerTimeframe = {
+  "5m": new Map(),
+  "1h": new Map(),
+  "24h": new Map(),
+  "7d": new Map(),
+  "30d": new Map(),
+  since_burn: new Map(),
+  since_merge: new Map(),
+};
+
+const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
+  "5m": new Map(),
+  "1h": new Map(),
+  "24h": new Map(),
+  "7d": new Map(),
+  "30d": new Map(),
+  since_burn: new Map(),
+  since_merge: new Map(),
+};
+
+type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
+let syncStatus: SyncStatus = "unknown";
 
 // TODO: Move leaderboards... into a folder.
 // TODO: Rewrite using pure DB like burn records.
@@ -115,7 +159,7 @@ export type ContractBaseFeeSums = { eth: ContractSums; usd: ContractSums };
 export const collectInMap = (rows: ContractBaseFeesRow[]) =>
   pipe(
     rows,
-    A.reduce(new Map() as ContractBaseFeesNext, (map, row) => {
+    Arr.reduce(new Map() as ContractBaseFeesNext, (map, row) => {
       return map.set(row.contractAddress, {
         eth: row.baseFees,
         usd: row.baseFeesUsd,
@@ -140,7 +184,7 @@ export const getRangeBaseFees = (
       GROUP BY (contract_address)
   `,
     T.map(
-      A.reduce({ eth: new Map(), usd: new Map() }, (sums, row) => ({
+      Arr.reduce({ eth: new Map(), usd: new Map() }, (sums, row) => ({
         eth: sums.eth.set(row.contractAddress, row.baseFees),
         usd: sums.usd.set(row.contractAddress, row.baseFeesUsd),
       })),
@@ -161,7 +205,7 @@ export const mergeBaseFees = (
 ): ContractBaseFees => {
   return pipe(
     baseFeeRowsList,
-    A.reduce(new Map(), (sumMap, [address, baseFees]) => {
+    Arr.reduce(new Map(), (sumMap, [address, baseFees]) => {
       const sum = sumMap.get(address) ?? 0;
       return sumMap.set(address, sum + baseFees);
     }),
@@ -299,12 +343,12 @@ export const buildLeaderboard = (
 
   return pipe(
     [...contractEntries, ethTransfersEntry, contractCreationEntry],
-    A.sort<LeaderboardEntry>({
+    Arr.sort<LeaderboardEntry>({
       compare: (first, second) =>
         first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,
       equals: (first, second) => first.fees === second.fees,
     }),
-    A.takeLeft(100),
+    Arr.takeLeft(100),
   );
 };
 
@@ -346,9 +390,9 @@ export const extendRowsWithTwitterDetails = (
 ): T.Task<LeaderboardRowWithTwitterDetails[]> =>
   pipe(
     leaderboardRows,
-    A.map((row) => row.twitterHandle),
-    A.map(O.fromNullable),
-    A.compact,
+    Arr.map((row) => row.twitterHandle),
+    Arr.map(O.fromNullable),
+    Arr.compact,
     (list) => new Set(list),
     (set) => Array.from(set),
     NEA.fromArray,
@@ -364,14 +408,14 @@ export const extendRowsWithTwitterDetails = (
         ),
     ),
     T.map(
-      A.reduce(new Map<string, TwitterDetails>(), (map, details) =>
+      Arr.reduce(new Map<string, TwitterDetails>(), (map, details) =>
         map.set(details.handle.toLowerCase(), details),
       ),
     ),
     T.map((twitterDetailsMap) =>
       pipe(
         leaderboardRows,
-        A.map((row) => {
+        Arr.map((row) => {
           if (row.twitterHandle === null) {
             return buildRanking(row);
           }
@@ -399,8 +443,404 @@ export const pickDenomination = (
 ): ContractSums =>
   pipe(
     Array.from(sums.entries()),
-    A.map(
+    Arr.map(
       ([address, price]) => [address, price[denomination]] as [string, number],
     ),
     (entries) => new Map(entries),
   );
+
+
+export const getSyncStatus = (): SyncStatus => syncStatus;
+export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
+  syncStatus = newSyncStatus;
+};
+
+const getBlocksForTimeframe = (
+  timeframe: TimeFrame,
+): T.Task<BlockForTotal[]> => {
+  if (timeframe === "since_merge") {
+    return () =>
+      sql<BlockForTotal[]>`
+        SELECT number, mined_at FROM blocks
+        WHERE number >= ${Blocks.mergeBlockNumber}
+        ORDER BY number ASC
+        `;
+  }
+  if (timeframe == "since_burn") {
+    return () =>
+      sql<BlockForTotal[]>`
+        SELECT number, mined_at FROM blocks
+        WHERE number >= ${Blocks.londonHardForkBlockNumber}
+        ORDER BY number ASC
+        `;
+  }
+  const minutes = timeframeMinutesMap[timeframe];
+  return () =>
+    sql<BlockForTotal[]>`
+      SELECT number, mined_at FROM blocks
+      WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
+      ORDER BY number ASC
+    `;
+};
+
+const getBaseFeesForRange = (
+  from: number,
+  upToIncluding: number,
+): T.Task<ContractBaseFeesNext> =>
+  pipe(
+    () =>
+      sql<ContractBaseFeesRow[]>`
+        SELECT
+          contract_address,
+          SUM(base_fees) AS base_fees,
+          SUM(base_fees * eth_price / 1e18) AS base_fees_usd
+        FROM contract_base_fees
+        JOIN blocks ON blocks.number = block_number
+        WHERE block_number >= ${from}
+        AND block_number <= ${upToIncluding}
+        GROUP BY contract_address
+    `,
+    T.map(collectInMap),
+  );
+
+const addToSums = (
+  contractSums: ContractSums,
+  baseFeesToAdd: ContractSums,
+): ContractSums =>
+  pipe(
+    Array.from(baseFeesToAdd.entries()),
+    Arr.reduce(contractSums, (sums, [address, feesToAdd]) => {
+      const currentFees = sums.get(address) || 0;
+      return sums.set(address, currentFees + feesToAdd);
+    }),
+  );
+
+const subtractFromSums = (
+  contractSums: ContractSums,
+  baseFeesToRemove: ContractSums,
+): ContractSums =>
+  pipe(
+    Array.from(baseFeesToRemove.entries()),
+    Arr.reduce(contractSums, (sums, [address, feesToRemove]) => {
+      const currentFees = sums.get(address);
+      if (currentFees === undefined) {
+        Log.error(
+          "tried to remove base fees from a non-existing sum, doing nothing",
+        );
+        return sums;
+      }
+      return sums.set(address, currentFees - feesToRemove);
+    }),
+  );
+
+const blockForTotalOrd = Ord.fromCompare<BlockForTotal>((x, y) =>
+  x.number < y.number ? -1 : x.number === y.number ? 0 : 1,
+);
+
+const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.TimeFrame) =>
+  pipe(
+    getBlocksForTimeframe(timeFrame),
+    T.chain((blocksToAdd) =>
+      pipe(
+        O.sequenceArray([Arr.head(blocksToAdd), Arr.last(blocksToAdd)]),
+        O.match(
+          () => {
+            Log.warn(
+              `init leaderboard limited time frame, zero blocks found in blocks table within now - ${timeFrame}, skipping init`,
+            );
+            return T.of(undefined);
+          },
+          ([head, last]) =>
+            pipe(
+              getBaseFeesForRange(head.number, last.number),
+              T.chainIOK((sums) => () => {
+                blocksInTimeframe[timeFrame] = blocksToAdd;
+
+                const sumsEth = pickDenomination(sums, "eth");
+                const sumsUsd = pickDenomination(sums, "usd");
+
+                contractSumsPerTimeframe[timeFrame] = addToSums(
+                  sumsEth,
+                  contractSumsPerTimeframe[timeFrame],
+                );
+                contractSumsPerTimeframeUsd[timeFrame] = addToSums(
+                  sumsUsd,
+                  contractSumsPerTimeframeUsd[timeFrame],
+                );
+              }),
+            ),
+        ),
+      ),
+    ),
+  );
+
+export const addAllBlocksForAllTimeframes = () =>
+  pipe(
+    TimeFrames.timeFrames,
+    T.traverseSeqArray((timeFrame) =>
+      pipe(
+        addAllBlocksForTimeFrame(timeFrame),
+        Performance.measureTaskPerf(`init leaderboard ${timeFrame}`),
+      ),
+    ),
+  );
+
+export const addBlockForAllTimeframes = (
+  block: Blocks.BlockV1,
+  baseFeesToAddEth: ContractSums,
+  baseFeesToAddUsd: ContractSums,
+): void => {
+  TimeFrames.timeFrames.forEach((timeframe) => {
+    blocksInTimeframe[timeframe] = pipe(
+      blocksInTimeframe[timeframe],
+      Arr.append({
+        number: block.number,
+        minedAt: block.minedAt,
+      }),
+      Arr.sort(blockForTotalOrd),
+    );
+    addToSums(contractSumsPerTimeframe[timeframe], baseFeesToAddEth);
+    addToSums(contractSumsPerTimeframeUsd[timeframe], baseFeesToAddUsd);
+  });
+};
+
+const findExpiredBlocks = (
+  ageLimit: Date,
+  includedBlocks: BlockForTotal[],
+): { valid: BlockForTotal[]; expired: BlockForTotal[] } => {
+  const { left: valid, right: expired } = pipe(
+    includedBlocks,
+    Arr.partition((block) => DateFns.isAfter(ageLimit, block.minedAt)),
+  );
+
+  return { valid, expired };
+};
+
+const rollbackBlockForTimeFrames = (
+  blockNumber: number,
+  baseFeesToRemove: ContractBaseFeeSums,
+): void => {
+  for (const timeFrame of TimeFrames.timeFrames) {
+    const includedBlocks = blocksInTimeframe[timeFrame];
+    const indexOfBlockToRollbackToBefore = _.findLastIndex(
+      includedBlocks,
+      (block) => block.number === blockNumber,
+    );
+
+    if (indexOfBlockToRollbackToBefore === -1) {
+      Log.debug(
+        `received rollback but no blocks in timeframe ${timeFrame} matched block number: ${blockNumber}, doing nothing`,
+      );
+      return undefined;
+    }
+
+    blocksInTimeframe[timeFrame] = includedBlocks.slice(
+      0,
+      indexOfBlockToRollbackToBefore,
+    );
+
+    contractSumsPerTimeframe[timeFrame] = subtractFromSums(
+      contractSumsPerTimeframe[timeFrame],
+      baseFeesToRemove.eth,
+    );
+    contractSumsPerTimeframeUsd[timeFrame] = subtractFromSums(
+      contractSumsPerTimeframeUsd[timeFrame],
+      baseFeesToRemove.usd,
+    );
+  }
+};
+
+export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>) =>
+  pipe(
+    blocks,
+    NEA.sort(Blocks.sortDesc),
+    T.traverseSeqArray((block) =>
+      pipe(
+        getRangeBaseFees(block.number, block.number),
+        T.chain((sumsToRollback) =>
+          T.fromIO(() =>
+            rollbackBlockForTimeFrames(block.number, sumsToRollback),
+          ),
+        ),
+      ),
+    ),
+  );
+
+const removeExpiredBlocks = (timeFrame: TimeFrame) => {
+  const ageLimit =
+    timeFrame === "since_merge"
+      ? Blocks.mergeBlockDate
+      : timeFrame === "since_burn"
+      ? Blocks.londonHardForkBlockDate
+      : DateFns.subMinutes(
+          new Date(),
+          timeframeMinutesMap[timeFrame],
+        );
+  const { expired, valid } = findExpiredBlocks(
+    ageLimit,
+    blocksInTimeframe[timeFrame],
+  );
+
+  if (expired.length === 0) {
+    Log.debug(`no expired blocks, nothing to do for time frame ${timeFrame}`);
+    return T.of(undefined);
+  }
+
+  const blocksToRemoveStr = expired.map((block) => block.number).join(", ");
+
+  Log.debug(
+    `some blocks are too old in ${timeFrame} time frame, removing ${blocksToRemoveStr}`,
+  );
+
+  blocksInTimeframe[timeFrame] = valid;
+
+  return pipe(
+    getRangeBaseFees(
+      expired[0].number,
+      expired[expired.length - 1].number,
+    ),
+    T.chainIOK((baseFees) => () => {
+      contractSumsPerTimeframe[timeFrame] = subtractFromSums(
+        contractSumsPerTimeframe[timeFrame],
+        baseFees.eth,
+      );
+      contractSumsPerTimeframeUsd[timeFrame] = subtractFromSums(
+        contractSumsPerTimeframeUsd[timeFrame],
+        baseFees.usd,
+      );
+    }),
+  );
+};
+
+export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
+  pipe(
+    TimeFrames.timeFrames,
+    T.traverseArray(removeExpiredBlocks),
+    TAlt.concatAllVoid,
+  );
+
+type ContractRow = {
+  address: string;
+  category: string | null;
+  imageUrl: string | null;
+  isBot: boolean;
+  name: string;
+  twitterBio: string | null;
+  twitterHandle: string | null;
+  twitterName: string | null;
+};
+
+const getTopBaseFeeContracts = (
+  timeframe: TimeFrame,
+): T.Task<LeaderboardRow[]> => {
+  const contractSums = contractSumsPerTimeframe[timeframe];
+  const contractSumsUsd = contractSumsPerTimeframeUsd[timeframe];
+  const topAddresses = pipe(
+    Array.from(contractSums.entries()),
+    Arr.sort<[string, number]>({
+      equals: ([, baseFeeA], [, baseFeeB]) => baseFeeA === baseFeeB,
+      compare: ([, baseFeeA], [, baseFeeB]) => (baseFeeA < baseFeeB ? 1 : -1),
+    }),
+    Arr.takeLeft(100),
+    Arr.map(([address]) => address),
+  );
+
+  if (topAddresses.length === 0) {
+    Log.warn(`no top addresses found for timeframe: ${timeframe}`);
+    return T.of([]);
+  }
+
+  return pipe(
+    sqlT<ContractRow[]>`
+      SELECT
+        address,
+        category,
+        image_url,
+        is_bot,
+        name,
+        twitter_description AS twitter_bio,
+        twitter_handle,
+        twitter_name
+      FROM contracts
+      WHERE address IN (${topAddresses})
+    `,
+    T.map(
+      Arr.map((row) => ({
+        baseFees: contractSums.get(row.address)!,
+        baseFeesUsd: contractSumsUsd.get(row.address)!,
+        category: row.category,
+        contractAddress: row.address,
+        detail: pipe(
+          row.name,
+          O.fromNullable,
+          O.map((name) => name.split(":")[1]),
+          O.map(O.fromNullable),
+          O.flatten,
+          O.map((detail) => detail.trimStart()),
+          O.toNullable,
+        ),
+        imageUrl: row.imageUrl,
+        isBot: row.isBot,
+        name: row.name,
+        twitterBio: row.twitterBio,
+        twitterHandle: row.twitterHandle,
+        twitterName: row.twitterName,
+      })),
+    ),
+  );
+};
+
+const calcLeaderboardForTimeFrame = (
+  timeFrame: TimeFrame,
+): T.Task<LeaderboardEntry[]> =>
+  pipe(
+    T.Do,
+    T.bind("topBaseFeeContracts", () =>
+      pipe(
+        getTopBaseFeeContracts(timeFrame),
+        Performance.measureTaskPerf(
+          `    get ranked contracts for time frame ${timeFrame}`,
+        ),
+        T.chain(extendRowsWithTwitterDetails),
+        Performance.measureTaskPerf(
+          `    add twitter details for time frame ${timeFrame}`,
+        ),
+      ),
+    ),
+    T.bind("ethTransfer", () =>
+      pipe(
+        () => getEthTransferFeesForTimeframe(timeFrame),
+        Performance.measureTaskPerf(
+          `    add eth transfer fees for time frame ${timeFrame}`,
+        ),
+      ),
+    ),
+    T.bind("contractCreation", () =>
+      pipe(
+        () => getContractCreationBaseFeesForTimeframe(timeFrame),
+        Performance.measureTaskPerf(
+          `    add contract creation fees for time frame ${timeFrame}`,
+        ),
+      ),
+    ),
+    T.map(({ topBaseFeeContracts, ethTransfer, contractCreation }) =>
+      buildLeaderboard(
+        topBaseFeeContracts,
+        ethTransfer,
+        contractCreation,
+      ),
+    ),
+  );
+
+export const calcLeaderboardForTimeFrames = (): T.Task<
+  Record<TimeFrame, LeaderboardEntry[]>
+> =>
+  TAlt.seqSSeq({
+    "5m": calcLeaderboardForTimeFrame("5m"),
+    "1h": calcLeaderboardForTimeFrame("1h"),
+    "24h": calcLeaderboardForTimeFrame("24h"),
+    "7d": calcLeaderboardForTimeFrame("7d"),
+    "30d": calcLeaderboardForTimeFrame("30d"),
+    "since_burn": calcLeaderboardForTimeFrame("since_burn"),
+    "since_merge": calcLeaderboardForTimeFrame("since_merge"),
+  });

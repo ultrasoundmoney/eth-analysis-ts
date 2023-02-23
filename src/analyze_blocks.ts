@@ -7,9 +7,7 @@ import * as BurnRecordsSync from "./burn-records/sync.js";
 import * as Config from "./config.js";
 import { runMigrations, sql } from "./db.js";
 import * as ExecutionNode from "./execution_node.js";
-import { pipe, T } from "./fp.js";
-import * as LeaderboardsAll from "./leaderboards_all.js";
-import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
+import * as Leaderboards from "./leaderboards.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
@@ -20,20 +18,9 @@ import * as Db from "./db.js";
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
-const syncLeaderboardAll = () =>
-  pipe(
-    Log.infoIO("adding missing blocks to leaderboard all"),
-    T.fromIO,
-
-    T.chain(() => () => LeaderboardsAll.addMissingBlocks()),
-    T.chainFirstIOK(() =>
-      Log.infoIO("done adding missing blocks to leaderboard all"),
-    ),
-  );
-
 const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
   Log.info("loading leaderboards for limited timeframes");
-  await LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes()();
+  await Leaderboards.addAllBlocksForAllTimeframes()();
   Log.info("done loading leaderboards for limited timeframes");
 };
 
@@ -98,10 +85,6 @@ try {
   await Performance.measurePromisePerf(
     "init leaderboard limited timeframes",
     initLeaderboardLimitedTimeframes(),
-  );
-  await Performance.measurePromisePerf(
-    "init leaderboard all",
-    syncLeaderboardAll()(),
   );
   await Performance.measurePromisePerf(
     "sync-next on start",

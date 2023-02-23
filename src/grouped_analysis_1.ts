@@ -10,8 +10,6 @@ import { serializeBigInt } from "./json.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Leaderboards from "./leaderboards.js";
 import { LeaderboardEntries } from "./leaderboards.js";
-import * as LeaderboardsAll from "./leaderboards_all.js";
-import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 
@@ -43,7 +41,7 @@ const getLeaderboards = () =>
   pipe(
     TAlt.seqTSeq(
       pipe(
-        LeaderboardsLimitedTimeframe.calcLeaderboardForTimeFrames(),
+        Leaderboards.calcLeaderboardForTimeFrames(),
         Performance.measureTaskPerf(
           "  per-refresh leaderboard limited timeframes",
         ),

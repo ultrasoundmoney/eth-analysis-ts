@@ -13,8 +13,7 @@ import * as EthPrices from "../eth-prices/eth_prices.js";
 import { Head } from "../execution_node.js";
 import { flow, NEA, O, OAlt, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
-import * as LeaderboardsAll from "../leaderboards_all.js";
-import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
+import * as Leaderboards from "../leaderboards.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
 import * as ScarcityCache from "../scarcity/cache.js";
@@ -40,12 +39,8 @@ const rollbackBlocks = (
       BurnRecordsNewHead.rollbackBlocks(blocksToRollbackNewestFirst),
     ),
     T.apS(
-      "rollbackLeaderboardsAll",
-      LeaderboardsAll.rollbackBlocks(blocksToRollbackNewestFirst),
-    ),
-    T.apS(
-      "rollbackLeaderboardsLimitedTimeFrames",
-      LeaderboardsLimitedTimeframe.rollbackBlocks(blocksToRollbackNewestFirst),
+      "rollbackLeaderboards",
+      Leaderboards.rollbackBlocks(blocksToRollbackNewestFirst),
     ),
     T.chain(() =>
       pipe(
@@ -193,24 +188,15 @@ export const addBlock = async (head: Head): Promise<void> => {
   );
 
   const t0LeaderboardLimitedTimeFrames = performance.now();
-  LeaderboardsLimitedTimeframe.addBlockForAllTimeframes(
+  Leaderboards.addBlockForAllTimeframes(
     blockDb,
     feeSegments.contractSumsEth,
     feeSegments.contractSumsUsd!,
   );
-  await LeaderboardsLimitedTimeframe.removeExpiredBlocksFromSumsForAllTimeframes()();
+  await Leaderboards.removeExpiredBlocksFromSumsForAllTimeframes()();
   Performance.logPerf(
     "add block to leaderboard limited time frames",
     t0LeaderboardLimitedTimeFrames,
-  );
-
-  await Performance.measurePromisePerf(
-    "add block to leaderboard all",
-    LeaderboardsAll.addBlock(
-      block.number,
-      feeSegments.contractSumsEth,
-      feeSegments.contractSumsUsd!,
-    ),
   );
 
   await Performance.measurePromisePerf(
