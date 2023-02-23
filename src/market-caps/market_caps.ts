@@ -1,7 +1,7 @@
 import * as Coingecko from "../coingecko.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
-import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as EthPrices from "../eth-prices/index.js";
 import * as EthUnits from "../eth_units.js";
 import { E, flow, O, pipe, T, TE } from "../fp.js";
 import * as Log from "../log.js";

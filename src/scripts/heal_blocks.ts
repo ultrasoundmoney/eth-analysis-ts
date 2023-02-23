@@ -3,7 +3,7 @@ import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Duration from "../duration.js";
-import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as EthPrices from "../eth-prices/index.js";
 import { A, pipe, T, TEAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as Transactions from "../transactions.js";

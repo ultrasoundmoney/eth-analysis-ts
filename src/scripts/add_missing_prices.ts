@@ -3,7 +3,7 @@ import _ from "lodash";
 import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import { sql, sqlTVoid } from "../db.js";
-import { EthPrice } from "../eth-prices/eth_prices.js";
+import { EthPrice } from "../eth-prices/index.js";
 import * as EthPricesFtx from "../eth-prices/ftx.js";
 import * as ExecutionNode from "../execution_node.js";
 import { E, pipe, RA, T, TE } from "../fp.js";

@@ -7,6 +7,7 @@ import * as Duration from "../duration.js";
 import * as EthPricesFtx from "./ftx.js";
 import { E, flow, O, pipe, T, TE } from "../fp.js";
 import * as Log from "../log.js";
+import * as Store from "./store.js";
 
 export type EthPrice = {
   timestamp: Date;
@@ -58,7 +59,7 @@ export const getPriceByDate = (dt: Date) =>
   pipe(
     getCachedPrice(dt),
     TE.fromOption(() => new Error("price not in cache")),
-    TE.alt(() => getDbEthPrice(dt)),
+    TE.alt(() => Store.closestPrice(dt)),
     TE.alt(() => getFreshPrice(dt)),
   );
 
@@ -93,52 +94,35 @@ export const storeCurrentEthPrice = () =>
 
 export type HistoricPrice = [JsTimestamp, number];
 
-const getDbEthPrice = (
-  timestamp: Date,
-): TE.TaskEither<MissingPriceError, EthPrice> =>
-  pipe(
-    sqlT<{ timestamp: Date; ethusd: number }[]>`
-      SELECT
-        timestamp,
-        ethusd
-      FROM eth_prices
-      ORDER BY ABS(EXTRACT(epoch FROM (timestamp - ${timestamp}::timestamp )))
-      LIMIT 1
-    `,
-    T.map((rows) => rows[0]),
-    T.map(O.fromNullable),
-    TE.fromTaskOption(() => new MissingPriceError("eth price table empty")),
-  );
-
 class PriceTooOldError extends Error {}
 
 export const getEthPrice = (
   dt: Date,
   maxAgeMillis: number | undefined = undefined,
 ) => {
-  const start = DateFns.startOfMinute(dt);
+  const dtTrunc = DateFns.startOfMinute(dt);
 
   return pipe(
-    getDbEthPrice(start),
+    Store.priceByMinute(dtTrunc),
+    // We'll often have a price for the closest round minute. This is much
+    // faster to lookup. If we don't we can fall back to the slower to fetch
+    // closest price.
+    TE.alt(() => Store.closestPrice(dtTrunc)),
     TE.chainEitherK((ethPrice) => {
       const priceAge = DateFnsAlt.millisecondsBetweenAbs(
-        start,
+        dtTrunc,
         ethPrice.timestamp,
       );
 
-      if (maxAgeMillis === undefined) {
-        return E.right(ethPrice);
-      }
-
-      if (priceAge > maxAgeMillis) {
-        return E.left(
-          new PriceTooOldError(
-            `timestamp: ${dt.toISOString()} and closest eth price are more than ${maxAgeMillis} millis apart`,
-          ),
-        );
-      }
-
-      return E.right(ethPrice);
+      return maxAgeMillis === undefined
+        ? E.right(ethPrice)
+        : priceAge > maxAgeMillis
+        ? E.left(
+            new PriceTooOldError(
+              `timestamp: ${dt.toISOString()} and closest eth price are more than ${maxAgeMillis} millis apart`,
+            ),
+          )
+        : E.right(ethPrice);
     }),
     TE.mapLeft((e) => {
       if (e instanceof PriceTooOldError) {
@@ -154,7 +138,6 @@ export const getEthPrice = (
 };
 
 export class MissingPriceError extends Error {}
-export type Get24hAgoPriceError = MissingPriceError;
 
 export const get24hAgoPrice = () =>
   pipe(
@@ -231,7 +214,7 @@ const makeEthStats = () =>
   );
 
 class CacheMissError extends Error {}
-type GetEthStatsError = Get24hAgoPriceError | CacheMissError;
+type GetEthStatsError = MissingPriceError | CacheMissError;
 
 export const getEthStats = (): TE.TaskEither<GetEthStatsError, EthStats> =>
   pipe(getCachedEthStats, O.map(TE.right), O.getOrElse(makeEthStats));

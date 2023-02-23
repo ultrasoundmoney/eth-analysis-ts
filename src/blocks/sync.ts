@@ -1,6 +1,6 @@
 import _ from "lodash";
 import makeEta from "simple-eta";
-import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as EthPrices from "../eth-prices/index.js";
 import { O, pipe, TEAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
