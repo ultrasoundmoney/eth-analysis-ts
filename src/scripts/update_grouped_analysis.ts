@@ -2,7 +2,7 @@ import * as BaseFees from "../base_fees.js";
 import { sumFeeSegments } from "../base_fees.js";
 import { closeConnection } from "../db.js";
 import * as Duration from "../duration.js";
-import * as EthPrices from "../eth-prices/eth_prices.js";
+import * as EthPrices from "../eth-prices/index.js";
 import { O, pipe, TAlt, TEAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as Log from "../log.js";
