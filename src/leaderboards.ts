@@ -142,7 +142,8 @@ export type LeaderboardEntries = {
   leaderboard24h: LeaderboardEntry[];
   leaderboard7d: LeaderboardEntry[];
   leaderboard30d: LeaderboardEntry[];
-  leaderboardAll: LeaderboardEntry[];
+  leaderboardSinceMerge: LeaderboardEntry[];
+  leaderboardSinceBurn: LeaderboardEntry[];
 };
 
 export type ContractBaseFees = Map<string, number>;
@@ -190,15 +191,6 @@ export const getRangeBaseFees = (
       })),
     ),
   );
-
-export type LeaderboardsT = {
-  leaderboard5m: LeaderboardRow[];
-  leaderboard1h: LeaderboardRow[];
-  leaderboard24h: LeaderboardRow[];
-  leaderboard7d: LeaderboardRow[];
-  leaderboard30d: LeaderboardRow[];
-  leaderboardAll: LeaderboardRow[];
-};
 
 export const mergeBaseFees = (
   baseFeeRowsList: ContractBaseFees[],

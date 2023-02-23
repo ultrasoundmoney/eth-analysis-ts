@@ -54,7 +54,7 @@ const getLeaderboards = () =>
       leaderboard7d: leaderboardLimitedTimeframes["7d"],
       leaderboard30d: leaderboardLimitedTimeframes["30d"],
       leaderboardSinceMerge: leaderboardLimitedTimeframes["since_merge"],
-      leaderboardAll: leaderboardLimitedTimeframes["since_burn"],
+      leaderboardSinceBurn: leaderboardLimitedTimeframes["since_burn"],
     })),
   );
 
