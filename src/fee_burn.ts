@@ -23,8 +23,8 @@ export type FeesBurnedT = {
   feesBurned30dUsd: number;
   feesBurnedSinceMerge: number;
   feesBurnedSinceMergeUsd: number;
-  feesBurnedAll: number;
-  feesBurnedAllUsd: number;
+  feesBurnedSinceBurn: number;
+  feesBurnedSinceBurnUsd: number;
 };
 
 export type PreciseBaseFeeSum = {
@@ -110,8 +110,8 @@ export const getFeeBurnsOld = () =>
       feesBurned30dUsd: feeBurns.d30.usd,
       feesBurnedSinceMerge: Number(feeBurns.since_merge.eth),
       feesBurnedSinceMergeUsd: feeBurns.since_merge.usd,
-      feesBurnedAll: Number(feeBurns.since_burn.eth),
-      feesBurnedAllUsd: feeBurns.since_burn.usd,
+      feesBurnedSinceBurn: Number(feeBurns.since_burn.eth),
+      feesBurnedSinceBurnUsd: feeBurns.since_burn.usd,
     })),
   );
 
