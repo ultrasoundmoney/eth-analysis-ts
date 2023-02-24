@@ -19,13 +19,6 @@ import * as SyncOnStart from "./sync_on_start.js";
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
-const syncLeaderboardAll = pipe(
-  Log.infoIO("adding missing blocks to leaderboard all"),
-  T.fromIO,
-  T.chain(() => () => LeaderboardsAll.addMissingBlocks()),
-  T.chainIOK(() => Log.infoIO("done adding missing blocks to leaderboard all")),
-);
-
 const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
   Log.info("loading leaderboards for limited timeframes");
   await LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes()();
@@ -78,17 +71,15 @@ const main = pipe(
   T.apS("_startHealthCheckServer", startHealthCheckServer),
   T.apS("lastStoredBlockOnStart", () => Blocks.getLastStoredBlock()()),
   T.apS("chainHeadOnStart", ExecutionNode.getLatestBlockNumber),
-  T.chainFirstIOK(({ chainHeadOnStart }) =>
-    Log.debugIO(`fast-sync blocks up to ${chainHeadOnStart}`),
-  ),
   T.chainFirstIOK(() => () => {
     ExecutionNode.subscribeNewHeads(BlocksNewBlock.onNewBlock);
     Log.debug("listening and queuing new chain heads for analysis");
   }),
-  T.bind("_syncBlocks", ({ chainHeadOnStart }) =>
+  T.bind("_fastSyncBlocks", ({ chainHeadOnStart }) =>
     pipe(
-      () => BlocksSync.syncBlocks(chainHeadOnStart),
-      T.chainIOK(() => Log.debugIO("fast-sync blocks done")),
+      Log.debugT(`fast-sync blocks up to ${chainHeadOnStart}`),
+      T.chain(() => BlocksSync.syncBlocks(chainHeadOnStart)),
+      T.chain(() => Log.debugT("fast-sync blocks done")),
     ),
   ),
   T.bind("_syncBurnRecords", () =>
@@ -98,8 +89,8 @@ const main = pipe(
       T.chainIOK(() => Log.debugIO("sync burn records done")),
     ),
   ),
-  T.bind("_initEthStaked", () => EthStaked.init),
-  T.bind("_initEthSupply", () => EthSupply.init),
+  T.apS("_initEthStaked", EthStaked.init),
+  T.apS("_initEthSupply", EthSupply.init),
   T.bind("_initLeaderboardLimitedTimeframes", () =>
     pipe(
       initLeaderboardLimitedTimeframes,
@@ -108,23 +99,26 @@ const main = pipe(
   ),
   T.bind("_initLeaderboardAll", () =>
     pipe(
-      syncLeaderboardAll,
+      Log.debugT("adding missing blocks to leaderboard all"),
+      T.chain(() => LeaderboardsAll.addMissingBlocks),
+      T.chain(() =>
+        Log.debugT("done adding missing blocks to leaderboard all"),
+      ),
       Performance.measureTaskPerf("init leaderboard all"),
     ),
   ),
   T.bind("_syncNextOnStart", ({ lastStoredBlockOnStart, chainHeadOnStart }) =>
     pipe(
-      () =>
-        SyncOnStart.sync(lastStoredBlockOnStart.number + 1, chainHeadOnStart)(),
+      SyncOnStart.sync(lastStoredBlockOnStart.number + 1, chainHeadOnStart),
       Performance.measureTaskPerf("sync-next on start"),
     ),
   ),
-  T.bind("_initBlockLag", () =>
+  T.chain(() =>
     pipe(BlockLag.init, Performance.measureTaskPerf("init block lag")),
   ),
 );
 
-// Gracefully handle errors and unexpected halting.
+// Gracefully handle init errors.
 await pipe(
   TE.tryCatch(main, ErrAlt.unknownToError),
   TE.match(
@@ -133,6 +127,6 @@ await pipe(
       ExecutionNode.closeConnections();
       Db.closeConnection();
     },
-    () => Log.warn("main task halted unexpectedly"),
+    () => Log.info("init done"),
   ),
 )();

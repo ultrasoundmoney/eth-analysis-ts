@@ -63,9 +63,7 @@ export const measureTaskPerf =
       T.chainFirstIOK(({ t0 }) => () => {
         logPerf(msg, t0);
       }),
-      T.map(({ result }) => {
-        return result;
-      }),
+      T.map(({ result }) => result),
     );
 
 export const measurePromisePerf = async <A>(

@@ -1,7 +1,7 @@
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as EthPrices from "../eth-prices/index.js";
-import { O, pipe, TEAlt, TOAlt } from "../fp.js";
+import { NEA, O, pipe, T, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
@@ -35,7 +35,7 @@ export const syncBlock = async (blockNumber: number): Promise<void> => {
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 };
 
-const rollbackToLastValidBlock = async () => {
+const rollbackToLastValidBlock: T.Task<void> = async () => {
   let lastStoredBlock = await Blocks.getLastStoredBlock()();
   let block = await Blocks.getBlockSafe(lastStoredBlock.number)();
 
@@ -53,45 +53,53 @@ const rollbackToLastValidBlock = async () => {
   }
 };
 
-export const syncBlocks = async (upToIncluding: number): Promise<void> => {
-  // If a rollback happened while we were offline, rollback to the last valid block.
-  await rollbackToLastValidBlock();
+export const syncBlocks = (upToIncluding: number): T.Task<void> =>
+  pipe(
+    T.Do,
+    // If a rollback happened while we were offline, rollback to the last valid block.
+    T.apS("_rollbackToLastValid", rollbackToLastValidBlock),
+    T.bind("syncedBlockHeight", () => Blocks.getSyncedBlockHeight),
+    T.chain(({ syncedBlockHeight }) =>
+      syncedBlockHeight === upToIncluding
+        ? Log.debugT("blocks table already in-sync with chain")
+        : // Happens sometimes when multiple instances of analyze-blocks are running.
+        syncedBlockHeight > upToIncluding
+        ? T.fromIO(() => {
+            throw new Error(
+              "failed to sync, blocks table is further ahead than requested sync point",
+            );
+          })
+        : pipe(
+            T.Do,
+            T.apS(
+              "blocksToSync",
+              T.of(NEA.range(syncedBlockHeight + 1, upToIncluding)),
+            ),
+            T.chain(({ blocksToSync }) => async () => {
+              Log.debug(
+                `blocks table sync ${
+                  blocksToSync.length
+                } blocks, start: ${NEA.head(blocksToSync)}, end: ${NEA.last(
+                  blocksToSync,
+                )}`,
+              );
 
-  const syncedBlockHeight = await Blocks.getSyncedBlockHeight();
+              const eta = makeEta({ max: blocksToSync.length });
+              let blocksDone = 0;
 
-  if (syncedBlockHeight === upToIncluding) {
-    Log.debug("blocks table already in-sync with chain");
-    return;
-  }
+              const logEta = _.throttle(() => {
+                eta.report(blocksDone);
+                Log.debug(`sync missing blocks, eta: ${eta.estimate()}s`);
+              }, 8000);
 
-  // Happens sometimes when multiple instances of analyze-blocks are running.
-  if (syncedBlockHeight > upToIncluding) {
-    throw new Error(
-      "failed to sync, blocks table is further ahead than requested sync point",
-    );
-  }
+              for (const blockNumber of blocksToSync) {
+                await syncBlock(blockNumber);
+                blocksDone = blocksDone + 1;
+                logEta();
+              }
 
-  const blocksToSync = _.range(syncedBlockHeight + 1, upToIncluding + 1);
-
-  Log.debug(
-    `blocks table sync ${blocksToSync.length} blocks, start: ${_.first(
-      blocksToSync,
-    )}, end: ${_.last(blocksToSync)}`,
+              PerformanceMetrics.setShouldLogBlockFetchRate(false);
+            }),
+          ),
+    ),
   );
-
-  const eta = makeEta({ max: blocksToSync.length });
-  let blocksDone = 0;
-
-  const logEta = _.throttle(() => {
-    eta.report(blocksDone);
-    Log.debug(`sync missing blocks, eta: ${eta.estimate()}s`);
-  }, 8000);
-
-  for (const blockNumber of blocksToSync) {
-    await syncBlock(blockNumber);
-    blocksDone = blocksDone + 1;
-    logEta();
-  }
-
-  PerformanceMetrics.setShouldLogBlockFetchRate(false);
-};
