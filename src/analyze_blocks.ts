@@ -116,6 +116,15 @@ const main = pipe(
   T.chain(() =>
     pipe(BlockLag.init, Performance.measureTaskPerf("init block lag")),
   ),
+  // Start the queue after all the initial syncs are done. Although the we
+  // started listening on a websocket and will continually put new blocks on
+  // the queue, keeping it running forever, we currently don't have a way to
+  // infinitely await the queue, so we simply complete this function, knowing
+  // our program will keep running after our main function completes.
+  T.map(() => {
+    BlocksNewBlock.headsQueue.start();
+    Log.info("started analyzing new blocks from queue");
+  }),
 );
 
 // Gracefully handle init errors.
