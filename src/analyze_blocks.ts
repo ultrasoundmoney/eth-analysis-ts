@@ -7,7 +7,7 @@ import * as BurnRecordsSync from "./burn-records/sync.js";
 import * as Config from "./config.js";
 import * as Db from "./db.js";
 import * as ExecutionNode from "./execution_node.js";
-import { pipe, T } from "./fp.js";
+import { ErrAlt, pipe, T, TE } from "./fp.js";
 import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
@@ -68,67 +68,71 @@ const startHealthCheckServer = async () => {
   Log.info(`listening on ${port}`);
 };
 
-try {
-  await pipe(
-    T.Do,
-    T.apS(
-      "_ensureCriticalConfig",
-      T.fromIO(Config.ensureCriticalBlockAnalysisConfig),
+const main = pipe(
+  T.Do,
+  T.apS(
+    "_ensureCriticalConfig",
+    T.fromIO(Config.ensureCriticalBlockAnalysisConfig),
+  ),
+  T.apS("_runMigrations", Db.runMigrations),
+  T.apS("_startHealthCheckServer", startHealthCheckServer),
+  T.apS("lastStoredBlockOnStart", () => Blocks.getLastStoredBlock()()),
+  T.apS("chainHeadOnStart", ExecutionNode.getLatestBlockNumber),
+  T.chainFirstIOK(({ chainHeadOnStart }) =>
+    Log.debugIO(`fast-sync blocks up to ${chainHeadOnStart}`),
+  ),
+  T.chainFirstIOK(() => () => {
+    ExecutionNode.subscribeNewHeads(BlocksNewBlock.onNewBlock);
+    Log.debug("listening and queuing new chain heads for analysis");
+  }),
+  T.bind("_syncBlocks", ({ chainHeadOnStart }) =>
+    pipe(
+      () => BlocksSync.syncBlocks(chainHeadOnStart),
+      T.chainIOK(() => Log.debugIO("fast-sync blocks done")),
     ),
-    T.apS("_runMigrations", Db.runMigrations),
-    T.apS("_startHealthCheckServer", startHealthCheckServer),
-    T.apS("lastStoredBlockOnStart", () => Blocks.getLastStoredBlock()()),
-    T.apS("chainHeadOnStart", ExecutionNode.getLatestBlockNumber),
-    T.chainFirstIOK(({ chainHeadOnStart }) =>
-      Log.debugIO(`fast-sync blocks up to ${chainHeadOnStart}`),
+  ),
+  T.bind("_syncBurnRecords", () =>
+    pipe(
+      BurnRecordsSync.sync(),
+      Performance.measureTaskPerf("sync burn records"),
+      T.chainIOK(() => Log.debugIO("sync burn records done")),
     ),
-    T.chainFirstIOK(() => () => {
-      ExecutionNode.subscribeNewHeads(BlocksNewBlock.onNewBlock);
-      Log.debug("listening and queuing new chain heads for analysis");
-    }),
-    T.bind("_syncBlocks", ({ chainHeadOnStart }) =>
-      pipe(
-        () => BlocksSync.syncBlocks(chainHeadOnStart),
-        T.chainIOK(() => Log.debugIO("fast-sync blocks done")),
-      ),
+  ),
+  T.bind("_initEthStaked", () => EthStaked.init),
+  T.bind("_initEthSupply", () => EthSupply.init),
+  T.bind("_initLeaderboardLimitedTimeframes", () =>
+    pipe(
+      initLeaderboardLimitedTimeframes,
+      Performance.measureTaskPerf("init leaderboard limited timeframes"),
     ),
-    T.bind("_syncBurnRecords", () =>
-      pipe(
-        BurnRecordsSync.sync(),
-        Performance.measureTaskPerf("sync burn records"),
-        T.chainIOK(() => Log.debugIO("sync burn records done")),
-      ),
+  ),
+  T.bind("_initLeaderboardAll", () =>
+    pipe(
+      syncLeaderboardAll,
+      Performance.measureTaskPerf("init leaderboard all"),
     ),
-    T.bind("_initEthStaked", () => EthStaked.init),
-    T.bind("_initEthSupply", () => EthSupply.init),
-    T.bind("_initLeaderboardLimitedTimeframes", () =>
-      pipe(
-        initLeaderboardLimitedTimeframes,
-        Performance.measureTaskPerf("init leaderboard limited timeframes"),
-      ),
+  ),
+  T.bind("_syncNextOnStart", ({ lastStoredBlockOnStart, chainHeadOnStart }) =>
+    pipe(
+      () =>
+        SyncOnStart.sync(lastStoredBlockOnStart.number + 1, chainHeadOnStart)(),
+      Performance.measureTaskPerf("sync-next on start"),
     ),
-    T.bind("_initLeaderboardAll", () =>
-      pipe(
-        syncLeaderboardAll,
-        Performance.measureTaskPerf("init leaderboard all"),
-      ),
-    ),
-    T.bind("_syncNextOnStart", ({ lastStoredBlockOnStart, chainHeadOnStart }) =>
-      pipe(
-        () =>
-          SyncOnStart.sync(
-            lastStoredBlockOnStart.number + 1,
-            chainHeadOnStart,
-          )(),
-        Performance.measureTaskPerf("sync-next on start"),
-      ),
-    ),
-    T.bind("_initBlockLag", () =>
-      pipe(BlockLag.init, Performance.measureTaskPerf("init block lag")),
-    ),
-  )();
-} catch (error) {
-  ExecutionNode.closeConnections();
-  Db.closeConnection();
-  throw error;
-}
+  ),
+  T.bind("_initBlockLag", () =>
+    pipe(BlockLag.init, Performance.measureTaskPerf("init block lag")),
+  ),
+);
+
+// Gracefully handle errors and unexpected halting.
+await pipe(
+  TE.tryCatch(main, ErrAlt.unknownToError),
+  TE.match(
+    (e) => {
+      Log.error("main task error", e);
+      ExecutionNode.closeConnections();
+      Db.closeConnection();
+    },
+    () => Log.warn("main task halted unexpectedly"),
+  ),
+)();
