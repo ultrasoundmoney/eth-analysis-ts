@@ -17,7 +17,7 @@ export * as Ap from "fp-ts/lib/Apply.js";
 export * as A from "fp-ts/lib/Array.js";
 export * as B from "fp-ts/lib/boolean.js";
 export * as E from "fp-ts/lib/Either.js";
-export { flow, pipe } from "fp-ts/lib/function.js";
+export { flow, identity, pipe } from "fp-ts/lib/function.js";
 export * as IO from "fp-ts/lib/IO.js";
 export * as MapF from "fp-ts/lib/Map.js";
 export * as Mo from "fp-ts/lib/Monoid.js";
@@ -184,4 +184,14 @@ export const MapS = {
 
 export const MapN = {
   lookup: MapF.lookup(Num.Eq),
+};
+
+export const ErrAlt = {
+  unknownToError: (e: unknown): Error => {
+    if (e instanceof Error) {
+      return e;
+    }
+
+    return new Error(String(e));
+  },
 };

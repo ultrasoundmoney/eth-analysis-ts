@@ -80,7 +80,7 @@ export const getTxrsWithRetry = async (
     );
 
     if (txrs.length === tryBlock.transactions.length) {
-      Log.info(
+      Log.debug(
         `Returning from getTxrsWithRetry. Fetched transactions: ${txrs.length} - missing transactions: ${missingHashes.length}`,
       );
       return txrs;
