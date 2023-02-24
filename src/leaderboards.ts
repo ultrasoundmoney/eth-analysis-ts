@@ -144,6 +144,7 @@ export type LeaderboardEntries = {
   leaderboard30d: LeaderboardEntry[];
   leaderboardSinceMerge: LeaderboardEntry[];
   leaderboardSinceBurn: LeaderboardEntry[];
+  leaderboardAll: LeaderboardEntry[];
 };
 
 export type ContractBaseFees = Map<string, number>;

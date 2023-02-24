@@ -18,6 +18,8 @@ export type BurnRatesT = {
   burnRateSinceMergeUsd: number;
   burnRateSinceBurn: number;
   burnRateSinceBurnUsd: number;
+  burnRateAll: number;
+  burnRateAllUsd: number;
 };
 
 const timeframeMinutesMap: Record<FixedDurationTimeFrame, number> = {
@@ -50,5 +52,11 @@ export const calcBurnRates = (feeBurns: FeesBurnedT): BurnRatesT => ({
     DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
   burnRateSinceBurnUsd:
     feeBurns.feesBurnedSinceBurnUsd /
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
+  burnRateAll:
+    feeBurns.feesBurnedAll /
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
+  burnRateAllUsd:
+    feeBurns.feesBurnedAllUsd /
     DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
 });
