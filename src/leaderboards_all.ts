@@ -11,14 +11,6 @@ import {
 } from "./leaderboards.js";
 import * as Log from "./log.js";
 
-type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
-let syncStatus: SyncStatus = "unknown";
-
-export const getSyncStatus = (): SyncStatus => syncStatus;
-export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
-  syncStatus = newSyncStatus;
-};
-
 export const getNewestIncludedBlockNumber = async (): Promise<
   number | undefined
 > => {

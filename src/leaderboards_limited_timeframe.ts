@@ -49,14 +49,6 @@ const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
   "30d": new Map(),
 };
 
-type SyncStatus = "unknown" | "in-sync" | "out-of-sync";
-let syncStatus: SyncStatus = "unknown";
-
-export const getSyncStatus = (): SyncStatus => syncStatus;
-export const setSyncStatus = (newSyncStatus: SyncStatus): void => {
-  syncStatus = newSyncStatus;
-};
-
 const getBlocksForTimeframe = (
   timeframe: LimitedTimeFrame,
 ): T.Task<BlockForTotal[]> => {
