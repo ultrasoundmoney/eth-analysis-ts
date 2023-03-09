@@ -129,36 +129,16 @@ const adminAuth: Middleware = (ctx, next) => {
 };
 
 export const registerRoutes = (router: Router) => {
-  router.use("/fees/contracts/admin", adminAuth);
+  router.use("/api/contracts/admin", adminAuth);
   router.get(
-    "/fees/contracts/admin/set-twitter-handle",
-    handleSetContractTwitterHandle,
-  );
-  router.get("/fees/contracts/admin/set-name", handleSetContractName);
-  router.get("/fees/contracts/admin/set-category", handleSetContractCategory);
-  router.get(
-    "/fees/contracts/admin/set-last-manually-verified",
-    handleSetContractLastManuallyVerified,
-  );
-  router.post("/fees/contracts/metadata-freshness", handleGetMetadataFreshness);
-
-  // /api variants
-  router.use("/api/fees/contracts/admin", adminAuth);
-  router.get(
-    "/api/fees/contracts/admin/set-twitter-handle",
+    "/api/contracts/admin/set-twitter-handle",
     handleSetContractTwitterHandle,
   );
   router.get("/api/fees/contracts/admin/set-name", handleSetContractName);
+  router.get("/api/contracts/admin/set-category", handleSetContractCategory);
   router.get(
-    "/api/fees/contracts/admin/set-category",
-    handleSetContractCategory,
-  );
-  router.get(
-    "/api/fees/contracts/admin/set-last-manually-verified",
+    "/api/contracts/admin/set-last-manually-verified",
     handleSetContractLastManuallyVerified,
   );
-  router.post(
-    "/api/fees/contracts/metadata-freshness",
-    handleGetMetadataFreshness,
-  );
+  router.post("/api/contracts/metadata-freshness", handleGetMetadataFreshness);
 };
