@@ -25,33 +25,33 @@ const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
   Log.info("done loading leaderboards for limited timeframes");
 };
 
-const startHealthCheckServer = async () => {
-  const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3001;
 
-  const app = new Koa();
+const app = new Koa();
 
-  app.on("error", (err) => {
-    Log.error("unhandled error", err);
-  });
+app.on("error", (err) => {
+  Log.error("unhandled error", err);
+});
 
-  // Health check middleware
-  app.use(async (ctx, next) => {
-    if (
-      ctx.path === "/healthz" ||
-      ctx.path === "/health" ||
-      ctx.path === "/api/fees/healthz"
-    ) {
-      await Db.checkHealth();
-      await ExecutionNode.checkHealth();
-      ctx.res.writeHead(200);
-      ctx.res.end();
-      return undefined;
-    }
-
-    await next();
+// Health check middleware
+app.use(async (ctx, next) => {
+  if (
+    ctx.path === "/healthz" ||
+    ctx.path === "/health" ||
+    ctx.path === "/api/fees/healthz"
+  ) {
+    await Db.checkHealth();
+    await ExecutionNode.checkHealth();
+    ctx.res.writeHead(200);
+    ctx.res.end();
     return undefined;
-  });
+  }
 
+  await next();
+  return undefined;
+});
+
+const startHealthCheckServer = async () => {
   await new Promise((resolve) => {
     app.listen(port, () => {
       resolve(undefined);
