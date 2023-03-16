@@ -1,7 +1,10 @@
 import * as Blocks from "../blocks/blocks.js";
 import * as Db from "../db.js";
 import { flow, O, pipe, T } from "../fp.js";
-import { LimitedPlusMergeTimeFrameNext, TimeFrameNext } from "../time_frames.js";
+import {
+  LimitedPlusMergeTimeFrameNext,
+  TimeFrameNext,
+} from "../time_frames.js";
 import * as Performance from "../performance.js";
 
 export const maxRank = 10;
