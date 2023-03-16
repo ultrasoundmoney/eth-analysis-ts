@@ -1,6 +1,6 @@
 import { sqlT } from "./db.js";
 import { WeiBI } from "./eth_units.js";
-import { flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
+import { flow, O, pipe, T, TAlt } from "./fp.js";
 import * as Log from "./log.js";
 import * as TimeFrames from "./time_frames.js";
 import { TimeFrameNext } from "./time_frames.js";
