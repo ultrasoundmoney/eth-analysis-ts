@@ -15,13 +15,13 @@ import {
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as TimeFrames from "./time_frames.js";
-import { FixedDurationTimeFrame } from "./time_frames.js";
+import { LimitedTimeFrame } from "./time_frames.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
 
-type BlocksPerTimeframe = Record<FixedDurationTimeFrame, BlockForTotal[]>;
+type BlocksPerTimeframe = Record<LimitedTimeFrame, BlockForTotal[]>;
 
-type ContractSumsPerTimeframe = Record<FixedDurationTimeFrame, ContractSums>;
+type ContractSumsPerTimeframe = Record<LimitedTimeFrame, ContractSums>;
 
 // These are the blocks that make up the base fee sums for our limited timeframes.
 const blocksInTimeframe: BlocksPerTimeframe = {
@@ -50,7 +50,7 @@ const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
 };
 
 const getBlocksForTimeframe = (
-  timeframe: FixedDurationTimeFrame,
+  timeframe: LimitedTimeFrame,
 ): T.Task<BlockForTotal[]> => {
   const minutes = Leaderboards.timeframeMinutesMap[timeframe];
   return () =>
@@ -115,7 +115,7 @@ const blockForTotalOrd = Ord.fromCompare<BlockForTotal>((x, y) =>
   x.number < y.number ? -1 : x.number === y.number ? 0 : 1,
 );
 
-const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.FixedDurationTimeFrame) =>
+const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.LimitedTimeFrame) =>
   pipe(
     getBlocksForTimeframe(timeFrame),
     T.chain((blocksToAdd) =>
@@ -244,7 +244,7 @@ export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockV1>) =>
     ),
   );
 
-const removeExpiredBlocks = (timeFrame: FixedDurationTimeFrame) => {
+const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
     const ageLimit = DateFns.subMinutes(
     new Date(),
     Leaderboards.timeframeMinutesMap[timeFrame],
@@ -304,7 +304,7 @@ type ContractRow = {
 };
 
 const getTopBaseFeeContracts = (
-  timeframe: FixedDurationTimeFrame,
+  timeframe: LimitedTimeFrame,
 ): T.Task<LeaderboardRow[]> => {
   const contractSums = contractSumsPerTimeframe[timeframe];
   const contractSumsUsd = contractSumsPerTimeframeUsd[timeframe];
@@ -364,7 +364,7 @@ const getTopBaseFeeContracts = (
 };
 
 const calcLeaderboardForLimitedTimeframe = (
-  timeFrame: FixedDurationTimeFrame,
+  timeFrame: LimitedTimeFrame,
 ): T.Task<LeaderboardEntry[]> =>
   pipe(
     T.Do,
@@ -406,7 +406,7 @@ const calcLeaderboardForLimitedTimeframe = (
   );
 
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
-  Record<FixedDurationTimeFrame, LeaderboardEntry[]>
+  Record<LimitedTimeFrame, LeaderboardEntry[]>
 > =>
   TAlt.seqSSeq({
     "5m": calcLeaderboardForLimitedTimeframe("5m"),

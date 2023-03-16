@@ -7,7 +7,7 @@ import { sql } from "./db.js";
 import * as FamService from "./fam_service.js";
 import { TwitterDetails } from "./fam_service.js";
 import { NEA, O, TE } from "./fp.js";
-import { FixedDurationTimeFrame, TimeFrame } from "./time_frames.js";
+import { LimitedTimeFrame, TimeFrame } from "./time_frames.js";
 
 // TODO: Move leaderboards... into a folder.
 // TODO: Rewrite using pure DB like burn records.
@@ -161,7 +161,7 @@ export const mergeBaseFees = (
   );
 };
 
-export const timeframeMinutesMap: Record<FixedDurationTimeFrame, number> = {
+export const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
   "5m": 5,
   "1h": 1 * 60,
   "24h": 24 * 60,

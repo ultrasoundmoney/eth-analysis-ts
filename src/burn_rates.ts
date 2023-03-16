@@ -1,7 +1,7 @@
 import * as DateFns from "date-fns";
 import * as Blocks from "./blocks/blocks.js";
 import { FeesBurnedT } from "./fee_burn.js";
-import { FixedDurationTimeFrame } from "./time_frames.js";
+import { LimitedTimeFrame } from "./time_frames.js";
 
 export type BurnRatesT = {
   burnRate5m: number;
@@ -22,7 +22,7 @@ export type BurnRatesT = {
   burnRateAllUsd: number;
 };
 
-const timeframeMinutesMap: Record<FixedDurationTimeFrame, number> = {
+const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
   "5m": 5,
   "1h": 60,
   "24h": 24 * 60,

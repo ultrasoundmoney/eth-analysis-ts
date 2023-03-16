@@ -1,7 +1,7 @@
 import * as Blocks from "../blocks/blocks.js";
 import * as Db from "../db.js";
 import { flow, O, pipe, T } from "../fp.js";
-import { LimitedTimeFrameNext, TimeFrameNext } from "../time_frames.js";
+import { LimitedPlusMergeTimeFrameNext, TimeFrameNext } from "../time_frames.js";
 import * as Performance from "../performance.js";
 
 export const maxRank = 10;
@@ -40,7 +40,7 @@ export const setLastIncludedBlockIsLatest = () =>
   `;
 
 const expireRecordsBefore = (
-  timeFrame: LimitedTimeFrameNext,
+  timeFrame: LimitedPlusMergeTimeFrameNext,
   blockNumber: number,
 ) => Db.sqlT`
   DELETE FROM burn_records
@@ -49,7 +49,7 @@ const expireRecordsBefore = (
 `;
 
 const expireRecordsOutsideLimitedTimeFrame = (
-  timeFrame: LimitedTimeFrameNext,
+  timeFrame: LimitedPlusMergeTimeFrameNext,
 ) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
