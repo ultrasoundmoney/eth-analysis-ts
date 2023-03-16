@@ -46,7 +46,7 @@ export const getFeeBurn = (timeFrame: TimeFrameNext) =>
       FROM blocks
       WHERE number >= ${mergeBlockNumber}
     `
-        : timeFrame == "since_burn"
+        : timeFrame === "since_burn"
         ? sqlT<{ eth: string | null; usd: number }[]>`
       SELECT
         SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
