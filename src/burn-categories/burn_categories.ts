@@ -83,7 +83,7 @@ export const updateBurnCategories = () =>
       d1: getBurnCategoriesWithPercent("d1"),
       d7: getBurnCategoriesWithPercent("d7"),
       d30: getBurnCategoriesWithPercent("d30"),
-      all: getBurnCategoriesWithPercent("all"),
+      since_burn: getBurnCategoriesWithPercent("since_burn"),
     }),
     T.chain(
       (burnCategories) =>

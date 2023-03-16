@@ -1,4 +1,5 @@
 import * as A from "fp-ts/lib/Array.js";
+import * as Blocks from "./blocks/blocks.js";
 import * as Log from "./log.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as T from "fp-ts/lib/Task.js";
@@ -97,6 +98,8 @@ export type LeaderboardEntries = {
   leaderboard24h: LeaderboardEntry[];
   leaderboard7d: LeaderboardEntry[];
   leaderboard30d: LeaderboardEntry[];
+  leaderboardSinceMerge: LeaderboardEntry[];
+  leaderboardSinceBurn: LeaderboardEntry[];
   leaderboardAll: LeaderboardEntry[];
 };
 
@@ -146,15 +149,6 @@ export const getRangeBaseFees = (
     ),
   );
 
-export type LeaderboardsT = {
-  leaderboard5m: LeaderboardRow[];
-  leaderboard1h: LeaderboardRow[];
-  leaderboard24h: LeaderboardRow[];
-  leaderboard7d: LeaderboardRow[];
-  leaderboard30d: LeaderboardRow[];
-  leaderboardAll: LeaderboardRow[];
-};
-
 export const mergeBaseFees = (
   baseFeeRowsList: ContractBaseFees[],
 ): ContractBaseFees => {
@@ -178,12 +172,23 @@ export const timeframeMinutesMap: Record<LimitedTimeFrame, number> = {
 export const getEthTransferFeesForTimeframe = async (
   timeframe: TimeFrame,
 ): Promise<BaseFees> => {
-  if (timeframe === "all") {
+  if (timeframe === "since_burn") {
     const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(eth_transfer_sum) AS eth,
         SUM(eth_transfer_sum * eth_price / 1e18) AS usd
       FROM blocks
+    `;
+    return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
+  }
+
+  if (timeframe === "since_merge") {
+    const rows = await sql<{ eth: number; usd: number }[]>`
+      SELECT
+        SUM(eth_transfer_sum) AS eth,
+        SUM(eth_transfer_sum * eth_price / 1e18) AS usd
+      FROM blocks
+      WHERE number >= ${Blocks.mergeBlockNumber}
     `;
     return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
   }
@@ -202,12 +207,23 @@ export const getEthTransferFeesForTimeframe = async (
 export const getContractCreationBaseFeesForTimeframe = async (
   timeframe: TimeFrame,
 ): Promise<BaseFees> => {
-  if (timeframe === "all") {
+  if (timeframe === "since_burn") {
     const rows = await sql<{ eth: number; usd: number }[]>`
       SELECT
         SUM(contract_creation_sum) AS eth,
         SUM(contract_creation_sum * eth_price / 1e18) AS usd
       FROM blocks
+    `;
+    return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
+  }
+
+  if (timeframe === "since_merge") {
+    const rows = await sql<{ eth: number; usd: number }[]>`
+      SELECT
+        SUM(contract_creation_sum) AS eth,
+        SUM(contract_creation_sum * eth_price / 1e18) AS usd
+      FROM blocks
+      WHERE number >= ${Blocks.mergeBlockNumber}
     `;
     return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
   }

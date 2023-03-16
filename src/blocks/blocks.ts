@@ -19,8 +19,11 @@ import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import * as Transactions from "../transactions.js";
 
+export const mergeBlockNumber = 15537394;
+export const mergeBlockDate = new Date("2022-09-15T06:42:59Z");
+
 export const londonHardForkBlockNumber = 12965000;
-export const londonHarkForkBlockDate = new Date("2021-08-05T12:33:42Z");
+export const londonHardForkBlockDate = new Date("2021-08-05T12:33:42Z");
 
 /**
  * This is a block as we get it from an eth node, after we drop fields we don't need and decode ones we use.
@@ -140,26 +143,26 @@ export const getBlockWithRetry = async (
     }
 
     try {
-        const maybeBlock = await ExecutionNode.getBlock(blockNumber);
+      const maybeBlock = await ExecutionNode.getBlock(blockNumber);
 
-        if (typeof maybeBlock?.hash === "string") {
+      if (typeof maybeBlock?.hash === "string") {
         PerformanceMetrics.onBlockReceived();
         return blockV1FromNode(maybeBlock);
-        }
+      }
 
-        if (tries === 10) {
-        Log.alert(`stuck fetching block, for more than ${tries * delaySeconds}s`);
-        }
+      if (tries === 10) {
+        Log.alert(
+          `stuck fetching block, for more than ${tries * delaySeconds}s`,
+        );
+      }
 
-        Log.warn(
+      Log.warn(
         `asked for block ${blockNumber}, got null, waiting ${delaySeconds}s and trying again`,
-        );
-        await setTimeout(delayMilis);
-    } catch (e: any) {
-        Log.warn(
-        `asked for block ${blockNumber}, threw error ${e.toString()}`,
-        );
-        await setTimeout(delayMilis);
+      );
+      await setTimeout(delayMilis);
+    } catch (e) {
+      Log.warn(`asked for block ${blockNumber}, threw error ${e}`);
+      await setTimeout(delayMilis);
     }
   }
 };
@@ -408,8 +411,10 @@ export const getLastStoredBlock = () =>
 export const getEarliestBlockInTimeFrame = (
   timeFrame: TimeFrames.TimeFrameNext,
 ) =>
-  timeFrame === "all"
+  timeFrame === "since_burn"
     ? T.of(londonHardForkBlockNumber)
+    : timeFrame === "since_merge"
+    ? T.of(mergeBlockNumber)
     : pipe(
         TimeFrames.intervalSqlMapNext[timeFrame],
         (interval) => () =>

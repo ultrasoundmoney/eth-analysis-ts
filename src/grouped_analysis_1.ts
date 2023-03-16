@@ -60,6 +60,8 @@ const getLeaderboards = () =>
       leaderboard7d: leaderboardLimitedTimeframes["7d"],
       leaderboard30d: leaderboardLimitedTimeframes["30d"],
       leaderboardAll: leaderboardAll,
+      leaderboardSinceBurn: leaderboardAll,
+      leaderboardSinceMerge: leaderboardAll,
     })),
   );
 

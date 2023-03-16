@@ -3,7 +3,11 @@ import { WeiBI } from "./eth_units.js";
 import { flow, O, OAlt, pipe, T, TAlt } from "./fp.js";
 import * as Log from "./log.js";
 import * as TimeFrames from "./time_frames.js";
-import { LimitedTimeFrameNext, TimeFrameNext } from "./time_frames.js";
+import { TimeFrameNext } from "./time_frames.js";
+import {
+  londonHardForkBlockNumber,
+  mergeBlockNumber,
+} from "./blocks/blocks.js";
 import { Usd } from "./usd_scaling.js";
 
 export type FeesBurnedT = {
@@ -17,6 +21,10 @@ export type FeesBurnedT = {
   feesBurned7dUsd: number;
   feesBurned30d: number;
   feesBurned30dUsd: number;
+  feesBurnedSinceMerge: number;
+  feesBurnedSinceMergeUsd: number;
+  feesBurnedSinceBurn: number;
+  feesBurnedSinceBurnUsd: number;
   feesBurnedAll: number;
   feesBurnedAllUsd: number;
 };
@@ -26,43 +34,32 @@ export type PreciseBaseFeeSum = {
   usd: Usd;
 };
 
-export const getFeeBurnAll = () =>
+export const getFeeBurn = (timeFrame: TimeFrameNext) =>
   pipe(
-    sqlT<{ eth: string | null; usd: number }[]>`
+    timeFrame,
+    (timeFrame: TimeFrameNext) =>
+      timeFrame === "since_merge"
+        ? sqlT<{ eth: string | null; usd: number }[]>`
       SELECT
         SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
         SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 1e18) AS usd
       FROM blocks
-    `,
-    T.map(
-      flow(
-        (rows) => rows[0],
-        O.fromNullable,
-        O.map(
-          (row): PreciseBaseFeeSum => ({
-            eth: pipe(
-              row.eth,
-              O.fromNullable,
-              O.map(BigInt),
-              O.getOrElse(() => 0n),
-            ),
-            usd: row.usd,
-          }),
-        ),
-        OAlt.getOrThrow("tried to get fee burn but blocks table is empty"),
-      ),
-    ),
-  );
-
-const getFeeBurnTimeFrame = (timeFrame: LimitedTimeFrameNext) =>
-  pipe(
-    TimeFrames.intervalSqlMapNext[timeFrame],
-    (interval) => sqlT<{ eth: string | null; usd: number }[]>`
+      WHERE number >= ${mergeBlockNumber}
+    `
+        : timeFrame == "since_burn"
+        ? sqlT<{ eth: string | null; usd: number }[]>`
       SELECT
         SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
         SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 1e18) AS usd
       FROM blocks
-      WHERE mined_at >= NOW() - ${interval}::interval
+      WHERE number >= ${londonHardForkBlockNumber}
+    `
+        : sqlT<{ eth: string | null; usd: number }[]>`
+      SELECT
+        SUM(gas_used::numeric(78) * base_fee_per_gas::numeric(78)) AS eth,
+        SUM(gas_used::float8 * base_fee_per_gas::float8 * eth_price / 1e18) AS usd
+      FROM blocks
+      WHERE mined_at >= NOW() - ${TimeFrames.intervalSqlMapNext[timeFrame]}::interval
     `,
     T.map(
       flow(
@@ -92,9 +89,6 @@ const getFeeBurnTimeFrame = (timeFrame: LimitedTimeFrameNext) =>
 
 type FeeBurns = Record<TimeFrameNext, PreciseBaseFeeSum>;
 
-const getFeeBurn = (timeFrame: TimeFrameNext) =>
-  timeFrame === "all" ? getFeeBurnAll() : getFeeBurnTimeFrame(timeFrame);
-
 export const getFeeBurnsOld = () =>
   pipe(
     TimeFrames.timeFramesNext,
@@ -116,8 +110,12 @@ export const getFeeBurnsOld = () =>
       feesBurned7dUsd: feeBurns.d7.usd,
       feesBurned30d: Number(feeBurns.d30.eth),
       feesBurned30dUsd: feeBurns.d30.usd,
-      feesBurnedAll: Number(feeBurns.all.eth),
-      feesBurnedAllUsd: feeBurns.all.usd,
+      feesBurnedSinceMerge: Number(feeBurns.since_merge.eth),
+      feesBurnedSinceMergeUsd: feeBurns.since_merge.usd,
+      feesBurnedSinceBurn: Number(feeBurns.since_burn.eth),
+      feesBurnedSinceBurnUsd: feeBurns.since_burn.usd,
+      feesBurnedAll: Number(feeBurns.since_burn.eth),
+      feesBurnedAllUsd: feeBurns.since_burn.usd,
     })),
   );
 

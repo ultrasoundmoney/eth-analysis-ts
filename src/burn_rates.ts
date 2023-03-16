@@ -14,6 +14,10 @@ export type BurnRatesT = {
   burnRate7dUsd: number;
   burnRate30d: number;
   burnRate30dUsd: number;
+  burnRateSinceMerge: number;
+  burnRateSinceMergeUsd: number;
+  burnRateSinceBurn: number;
+  burnRateSinceBurnUsd: number;
   burnRateAll: number;
   burnRateAllUsd: number;
 };
@@ -37,10 +41,22 @@ export const calcBurnRates = (feeBurns: FeesBurnedT): BurnRatesT => ({
   burnRate7dUsd: feeBurns.feesBurned7dUsd / timeframeMinutesMap["7d"],
   burnRate30d: feeBurns.feesBurned30d / timeframeMinutesMap["30d"],
   burnRate30dUsd: feeBurns.feesBurned30dUsd / timeframeMinutesMap["30d"],
+  burnRateSinceMerge:
+    feeBurns.feesBurnedSinceMerge /
+    DateFns.differenceInMinutes(new Date(), Blocks.mergeBlockDate),
+  burnRateSinceMergeUsd:
+    feeBurns.feesBurnedSinceMergeUsd /
+    DateFns.differenceInMinutes(new Date(), Blocks.mergeBlockDate),
+  burnRateSinceBurn:
+    feeBurns.feesBurnedSinceBurn /
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
+  burnRateSinceBurnUsd:
+    feeBurns.feesBurnedSinceBurnUsd /
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
   burnRateAll:
     feeBurns.feesBurnedAll /
-    DateFns.differenceInMinutes(new Date(), Blocks.londonHarkForkBlockDate),
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
   burnRateAllUsd:
     feeBurns.feesBurnedAllUsd /
-    DateFns.differenceInMinutes(new Date(), Blocks.londonHarkForkBlockDate),
+    DateFns.differenceInMinutes(new Date(), Blocks.londonHardForkBlockDate),
 });

@@ -20,7 +20,9 @@ export const updateRecordsCache = (blockNumber: number) =>
       d1: BurnRecords.getBurnRecords("d1", maxRecordCount),
       d7: BurnRecords.getBurnRecords("d7", maxRecordCount),
       d30: BurnRecords.getBurnRecords("d30", maxRecordCount),
-      all: BurnRecords.getBurnRecords("all", maxRecordCount),
+      since_merge: BurnRecords.getBurnRecords("since_merge", maxRecordCount),
+      since_burn: BurnRecords.getBurnRecords("since_burn", maxRecordCount),
+      all: BurnRecords.getBurnRecords("since_burn", maxRecordCount),
     }),
     T.chain(
       (burnRecords) =>

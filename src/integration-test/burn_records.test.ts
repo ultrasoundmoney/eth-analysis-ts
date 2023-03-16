@@ -127,6 +127,6 @@ test("should prune records outside max rank", async (t) => {
   await MockDb.seedBlocks("h1")();
   await BurnRecordsSync.sync()();
 
-  const topRecords = await BurnRecords.getBurnRecords("all")();
+  const topRecords = await BurnRecords.getBurnRecords("since_burn")();
   t.is(topRecords.length, 10);
 });
