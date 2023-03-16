@@ -8,7 +8,8 @@ import * as Config from "./config.js";
 import * as Db from "./db.js";
 import * as ExecutionNode from "./execution_node.js";
 import { ErrAlt, pipe, T, TE } from "./fp.js";
-import * as Leaderboards from "./leaderboards.js";
+import * as LeaderboardsAll from "./leaderboards_all.js";
+import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as PerformanceMetrics from "./performance_metrics.js";
@@ -17,6 +18,12 @@ import * as EthSupply from "./scarcity/eth_supply.js";
 import * as SyncOnStart from "./sync_on_start.js";
 
 PerformanceMetrics.setShouldLogBlockFetchRate(true);
+
+const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
+  Log.info("loading leaderboards for limited timeframes");
+  await LeaderboardsLimitedTimeframe.addAllBlocksForAllTimeframes()();
+  Log.info("done loading leaderboards for limited timeframes");
+};
 
 const startHealthCheckServer = async () => {
   const port = process.env.PORT || 3001;
@@ -84,10 +91,20 @@ const main = pipe(
   ),
   T.apS("_initEthStaked", EthStaked.init),
   T.apS("_initEthSupply", EthSupply.init),
-  T.bind("_initLeaderboards", () =>
+  T.bind("_initLeaderboardLimitedTimeframes", () =>
     pipe(
-      Leaderboards.addAllBlocksForAllTimeframes(),
+      initLeaderboardLimitedTimeframes,
       Performance.measureTaskPerf("init leaderboard limited timeframes"),
+    ),
+  ),
+  T.bind("_initLeaderboardAll", () =>
+    pipe(
+      Log.debugT("adding missing blocks to leaderboard all"),
+      T.chain(() => LeaderboardsAll.addMissingBlocks),
+      T.chain(() =>
+        Log.debugT("done adding missing blocks to leaderboard all"),
+      ),
+      Performance.measureTaskPerf("init leaderboard all"),
     ),
   ),
   T.bind("_syncNextOnStart", ({ lastStoredBlockOnStart, chainHeadOnStart }) =>

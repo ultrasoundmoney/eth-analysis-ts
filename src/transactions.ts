@@ -75,7 +75,7 @@ export const getTxrsWithRetry = async (
             })
             .catch(() => {
               missingHashes.push(txHash);
-          })
+            }),
       ),
     );
 

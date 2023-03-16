@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import _ from "lodash";
-import { BlockV1, sortDesc } from "./blocks/blocks.js";
+import { BlockV1, sortDesc, mergeBlockDate, mergeBlockNumber } from "./blocks/blocks.js";
 import { sql, sqlT } from "./db.js";
 import { A, NEA, O, Ord, pipe, T, TAlt } from "./fp.js";
 import * as Leaderboards from "./leaderboards.js";
@@ -15,13 +15,13 @@ import {
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 import * as TimeFrames from "./time_frames.js";
-import { LimitedTimeFrame } from "./time_frames.js";
+import { FixedDurationTimeFrame } from "./time_frames.js";
 
 type BlockForTotal = { number: number; minedAt: Date };
 
-type BlocksPerTimeframe = Record<LimitedTimeFrame, BlockForTotal[]>;
+type BlocksPerTimeframe = Record<FixedDurationTimeFrame, BlockForTotal[]>;
 
-type ContractSumsPerTimeframe = Record<LimitedTimeFrame, ContractSums>;
+type ContractSumsPerTimeframe = Record<FixedDurationTimeFrame, ContractSums>;
 
 // These are the blocks that make up the base fee sums for our limited timeframes.
 const blocksInTimeframe: BlocksPerTimeframe = {
@@ -50,7 +50,7 @@ const contractSumsPerTimeframeUsd: ContractSumsPerTimeframe = {
 };
 
 const getBlocksForTimeframe = (
-  timeframe: LimitedTimeFrame,
+  timeframe: FixedDurationTimeFrame,
 ): T.Task<BlockForTotal[]> => {
   const minutes = Leaderboards.timeframeMinutesMap[timeframe];
   return () =>
@@ -115,7 +115,7 @@ const blockForTotalOrd = Ord.fromCompare<BlockForTotal>((x, y) =>
   x.number < y.number ? -1 : x.number === y.number ? 0 : 1,
 );
 
-const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.LimitedTimeFrame) =>
+const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.FixedDurationTimeFrame) =>
   pipe(
     getBlocksForTimeframe(timeFrame),
     T.chain((blocksToAdd) =>
@@ -154,7 +154,7 @@ const addAllBlocksForTimeFrame = (timeFrame: TimeFrames.LimitedTimeFrame) =>
 
 export const addAllBlocksForAllTimeframes = () =>
   pipe(
-    TimeFrames.limitedTimeFrames,
+    TimeFrames.fixedDurationTimeFrames,
     T.traverseSeqArray((timeFrame) =>
       pipe(
         addAllBlocksForTimeFrame(timeFrame),
@@ -168,7 +168,7 @@ export const addBlockForAllTimeframes = (
   baseFeesToAddEth: ContractSums,
   baseFeesToAddUsd: ContractSums,
 ): void => {
-  TimeFrames.limitedTimeFrames.forEach((timeframe) => {
+  TimeFrames.fixedDurationTimeFrames.forEach((timeframe) => {
     blocksInTimeframe[timeframe] = pipe(
       blocksInTimeframe[timeframe],
       A.append({
@@ -198,7 +198,7 @@ const rollbackBlockForTimeFrames = (
   blockNumber: number,
   baseFeesToRemove: ContractBaseFeeSums,
 ): void => {
-  for (const timeFrame of TimeFrames.limitedTimeFrames) {
+  for (const timeFrame of TimeFrames.fixedDurationTimeFrames) {
     const includedBlocks = blocksInTimeframe[timeFrame];
     const indexOfBlockToRollbackToBefore = _.findLastIndex(
       includedBlocks,
@@ -244,8 +244,8 @@ export const rollbackBlocks = (blocks: NEA.NonEmptyArray<BlockV1>) =>
     ),
   );
 
-const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
-  const ageLimit = DateFns.subMinutes(
+const removeExpiredBlocks = (timeFrame: FixedDurationTimeFrame) => {
+    const ageLimit = DateFns.subMinutes(
     new Date(),
     Leaderboards.timeframeMinutesMap[timeFrame],
   );
@@ -287,7 +287,7 @@ const removeExpiredBlocks = (timeFrame: LimitedTimeFrame) => {
 
 export const removeExpiredBlocksFromSumsForAllTimeframes = (): T.Task<void> =>
   pipe(
-    TimeFrames.limitedTimeFrames,
+    TimeFrames.fixedDurationTimeFrames,
     T.traverseArray(removeExpiredBlocks),
     TAlt.concatAllVoid,
   );
@@ -304,7 +304,7 @@ type ContractRow = {
 };
 
 const getTopBaseFeeContracts = (
-  timeframe: LimitedTimeFrame,
+  timeframe: FixedDurationTimeFrame,
 ): T.Task<LeaderboardRow[]> => {
   const contractSums = contractSumsPerTimeframe[timeframe];
   const contractSumsUsd = contractSumsPerTimeframeUsd[timeframe];
@@ -364,7 +364,7 @@ const getTopBaseFeeContracts = (
 };
 
 const calcLeaderboardForLimitedTimeframe = (
-  timeFrame: LimitedTimeFrame,
+  timeFrame: FixedDurationTimeFrame,
 ): T.Task<LeaderboardEntry[]> =>
   pipe(
     T.Do,
@@ -406,7 +406,7 @@ const calcLeaderboardForLimitedTimeframe = (
   );
 
 export const calcLeaderboardForLimitedTimeframes = (): T.Task<
-  Record<LimitedTimeFrame, LeaderboardEntry[]>
+  Record<FixedDurationTimeFrame, LeaderboardEntry[]>
 > =>
   TAlt.seqSSeq({
     "5m": calcLeaderboardForLimitedTimeframe("5m"),

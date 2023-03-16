@@ -10,6 +10,8 @@ import { serializeBigInt } from "./json.js";
 import * as LatestBlockFees from "./latest_block_fees.js";
 import * as Leaderboards from "./leaderboards.js";
 import { LeaderboardEntries } from "./leaderboards.js";
+import * as LeaderboardsAll from "./leaderboards_all.js";
+import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
 
@@ -41,21 +43,25 @@ const getLeaderboards = () =>
   pipe(
     TAlt.seqTSeq(
       pipe(
-        Leaderboards.calcLeaderboardForTimeFrames(),
+        LeaderboardsAll.calcLeaderboardAll(),
+        Performance.measureTaskPerf("  per-refresh leaderboard all"),
+      ),
+      pipe(
+        LeaderboardsLimitedTimeframe.calcLeaderboardForLimitedTimeframes(),
         Performance.measureTaskPerf(
           "  per-refresh leaderboard limited timeframes",
         ),
       ),
     ),
-    T.map(([leaderboardLimitedTimeframes]) => ({
+    T.map(([leaderboardAll, leaderboardLimitedTimeframes]) => ({
       leaderboard5m: leaderboardLimitedTimeframes["5m"],
       leaderboard1h: leaderboardLimitedTimeframes["1h"],
       leaderboard24h: leaderboardLimitedTimeframes["24h"],
       leaderboard7d: leaderboardLimitedTimeframes["7d"],
       leaderboard30d: leaderboardLimitedTimeframes["30d"],
-      leaderboardSinceMerge: leaderboardLimitedTimeframes["since_merge"],
-      leaderboardSinceBurn: leaderboardLimitedTimeframes["since_burn"],
-      leaderboardAll: leaderboardLimitedTimeframes["since_burn"],
+      leaderboardAll: leaderboardAll,
+      leaderboardSinceBurn: leaderboardAll,
+      leaderboardSinceMerge: leaderboardAll,
     })),
   );
 
