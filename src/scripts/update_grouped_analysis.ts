@@ -16,7 +16,10 @@ const oBlock = await Blocks.getBlockByHash(lastStoredBlock.hash)();
 
 if (O.isSome(oBlock)) {
   const block = oBlock.value;
-  const transactionReceipts = await Transactions.getTxrsWithRetry(block);
+  const transactionReceipts = await pipe(
+    Transactions.transactionReceiptsFromBlock(block),
+    TEAlt.getOrThrow,
+  )();
   Log.info("Finished getting transaction receipts");
 
   const ethPrice = await pipe(

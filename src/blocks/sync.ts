@@ -27,10 +27,13 @@ export const syncBlock = async (blockNumber: number): Promise<void> => {
     await syncBlock(blockNumber - 1);
   }
 
-  const [txrs, ethPrice] = await Promise.all([
-    Transactions.getTxrsWithRetry(block),
-    pipe(EthPrices.getEthPrice(block.timestamp), TEAlt.getOrThrow)(),
-  ]);
+  const [txrs, ethPrice] = await pipe(
+    TEAlt.seqTPar(
+      Transactions.transactionReceiptsFromBlock(block),
+      EthPrices.getEthPrice(block.timestamp),
+    ),
+    TEAlt.getOrThrow,
+  )();
 
   await Blocks.storeBlock(block, txrs, ethPrice.ethusd);
 };

@@ -11,7 +11,7 @@ import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/index.js";
 import { Head } from "../execution_node.js";
-import { flow, NEA, O, OAlt, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
+import { E, flow, NEA, O, OAlt, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
 import * as LeaderboardsAll from "../leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
@@ -141,21 +141,20 @@ export const addBlock = async (head: Head): Promise<void> => {
   const t0GetTransactions = performance.now();
   Log.info(`getting transactions for block ${block.number}`);
 
-  let transactionReceipts;
-  try {
-    transactionReceipts = await Transactions.getTxrsWithRetry(
-        block,
-    );
-    Log.info("Finished getting transaction receipts");
-  }
+  const transactionReceiptsE = await Transactions.transactionReceiptsFromBlock(
+    block,
+  )();
 
-  catch {
+  if (E.isLeft(transactionReceiptsE)) {
     // Block got superseded between the time we received the head and finished retrieving all transactions. We stop working on the current head and let the next head guide us to the current on-chain truth.
     Log.info(
       `failed to fetch transaction receipts for head: ${head.hash}, skipping`,
     );
     return;
   }
+  Log.info("Finished getting transaction receipts");
+
+  const transactionReceipts = transactionReceiptsE.right;
 
   Performance.logPerf(
     `get ${transactionReceipts.length} transactions from node`,

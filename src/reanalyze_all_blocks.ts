@@ -63,7 +63,10 @@ for (const blockNumber of blocksToStore) {
     Log.debug(`hash mismatch on block ${blockNumber}!`);
   }
 
-    const txrs = await Transactions.getTxrsWithRetry(block);
+  const txrs = await pipe(
+    Transactions.transactionReceiptsFromBlock(block),
+    TEAlt.getOrThrow,
+  )();
 
   // Contracts marked as mined in a block that was rolled back are possibly wrong. Reanalyze 'contract mined at' data if we want very high confidence.
   await ContractBaseFees.deleteContractBaseFees(blockNumber)();

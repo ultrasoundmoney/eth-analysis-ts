@@ -1,12 +1,9 @@
 import PQueue from "p-queue";
-import { setTimeout } from "timers/promises";
 import * as Blocks from "./blocks/blocks.js";
-import * as Duration from "./duration.js";
 import * as ExecutionNode from "./execution_node.js";
-import { A, flow, NEA, O, pipe, RA, T, TO } from "./fp.js";
+import { A, flow, NEA, O, pipe, RA, T, TE, TO } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
-import * as Log from "./log.js";
-import * as PerformanceMetrics from "./performance_metrics.js";
+import { queueOnQueueT } from "./queues.js";
 
 /**
  * A post London hardfork transaction receipt with an effective gas price.
@@ -44,21 +41,12 @@ const queueFetchReceipt =
   () =>
     fetchReceiptQueue.add(task);
 
-// This policy is kept quite strict. We'd like to retry the rare network issue, instead of crashing the whole service. However, we also expects rollbacks, which mean a transaction receipt no longer exists on-chain, and retrying will never succeed. Because it is hard to tell which is which, we simply retry with a low timeout.
-const receiptRetryPolicy = capDelay(
-  2000,
-  RetryMonoid.concat(exponentialBackoff(100), limitRetries(2)),
-);
-
 export class TransactionReceiptNullError extends Error {}
 
 export const transactionReceiptsFromBlock = (
   block: Blocks.BlockNodeV2,
-): TE.TaskEither<
-  TransactionReceiptNullError,
-  readonly TransactionReceiptV1[]
-> => {
-  return pipe(
+): TE.TaskEither<TransactionReceiptNullError, TransactionReceiptV1[]> =>
+  pipe(
     block.transactions,
     TE.traverseArray((txHash) =>
       pipe(
@@ -71,9 +59,8 @@ export const transactionReceiptsFromBlock = (
         queueOnQueueT(fetchReceiptQueue),
       ),
     ),
-    (te) => retrying(receiptRetryPolicy, () => te, E.isLeft),
+    TE.map(RA.toArray),
   );
-};
 
 export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
   pipe(
