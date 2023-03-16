@@ -44,80 +44,35 @@ const queueFetchReceipt =
   () =>
     fetchReceiptQueue.add(task);
 
-export const getTxrsWithRetry = async (
+// This policy is kept quite strict. We'd like to retry the rare network issue, instead of crashing the whole service. However, we also expects rollbacks, which mean a transaction receipt no longer exists on-chain, and retrying will never succeed. Because it is hard to tell which is which, we simply retry with a low timeout.
+const receiptRetryPolicy = capDelay(
+  2000,
+  RetryMonoid.concat(exponentialBackoff(100), limitRetries(2)),
+);
+
+export class TransactionReceiptNullError extends Error {}
+
+export const transactionReceiptsFromBlock = (
   block: Blocks.BlockNodeV2,
-): Promise<TransactionReceiptV1[]> => {
-  let tries = 0;
-  let delayMilis = Duration.millisFromSeconds(1);
-
-  // Retry continuously
-  const tryBlock = block;
-  const txrs: TransactionReceiptV1[] = [];
-  let missingHashes: string[] = tryBlock.transactions;
-
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    tries += tries + 1;
-
-    const hashesToFetch = missingHashes;
-    missingHashes = [];
-    await fetchReceiptQueue.addAll(
-      hashesToFetch.map(
-        (txHash) => () =>
-          ExecutionNode.getTransactionReceipt(txHash)
-            .then((txr) => {
-              if (txr === null) {
-                missingHashes.push(txHash);
-              } else {
-                PerformanceMetrics.onTxrReceived();
-                txrs.push(transactionReceiptFromRaw(txr));
-              }
-            })
-            .catch(() => {
-              missingHashes.push(txHash);
-            }),
-      ),
-    );
-
-    if (txrs.length === tryBlock.transactions.length) {
-      Log.debug(
-        `Returning from getTxrsWithRetry. Fetched transactions: ${txrs.length} - missing transactions: ${missingHashes.length}`,
-      );
-      return txrs;
-    } else {
-      Log.warn(
-        `${missingHashes.length} missing hashes after iteration ${tries}`,
-      );
-    }
-
-    if (tries % 5 === 0) {
-      delayMilis = delayMilis * 2;
-      Log.debug(`Sleeping for ${delayMilis}ms`);
-    }
-
-    if (tries === 10) {
-      Log.alert(
-        "failed to fetch transaction receipts",
-        new Error(
-          `stuck fetching transactions, for more than ${
-            (tries * delayMilis) / 1000
-          }s`,
+): TE.TaskEither<
+  TransactionReceiptNullError,
+  readonly TransactionReceiptV1[]
+> => {
+  return pipe(
+    block.transactions,
+    TE.traverseArray((txHash) =>
+      pipe(
+        () => ExecutionNode.getTransactionReceipt(txHash),
+        T.map(O.fromNullable),
+        TE.fromTaskOption(
+          () => new TransactionReceiptNullError(`txr for ${txHash} was null`),
         ),
-      );
-    }
-
-    if (tries > 20) {
-      throw new Error(
-        "failed to fetch transactions for block, some stayed null",
-      );
-    }
-
-    const delaySeconds = delayMilis / 1000;
-    Log.warn(
-      `block ${tryBlock.number} contained null txrs, hash: ${tryBlock.hash}, waiting ${delaySeconds}s and trying again`,
-    );
-    await setTimeout(delayMilis);
-  }
+        TE.map(transactionReceiptFromRaw),
+        queueOnQueueT(fetchReceiptQueue),
+      ),
+    ),
+    (te) => retrying(receiptRetryPolicy, () => te, E.isLeft),
+  );
 };
 
 export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
