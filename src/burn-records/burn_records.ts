@@ -43,7 +43,7 @@ export const setLastIncludedBlockIsLatest = () =>
   `;
 
 const expireRecordsBefore = (
-  timeFrame: LimitedPlusMergeTimeFrameNext,
+  timeFrame: TimeFrameNext,
   blockNumber: number,
 ) => Db.sqlT`
   DELETE FROM burn_records
@@ -51,9 +51,7 @@ const expireRecordsBefore = (
   AND time_frame = ${timeFrame}
 `;
 
-const expireRecordsOutsideLimitedTimeFrame = (
-  timeFrame: LimitedPlusMergeTimeFrameNext,
-) =>
+export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
     Performance.measureTaskPerf(
@@ -68,11 +66,6 @@ const expireRecordsOutsideLimitedTimeFrame = (
       ),
     ),
   );
-
-export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
-  timeFrame === "since_burn"
-    ? T.of(undefined)
-    : expireRecordsOutsideLimitedTimeFrame(timeFrame);
 
 export const addRecordsFromBlockAndIncluding = (
   timeFrame: TimeFrameNext,
