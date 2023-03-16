@@ -37,7 +37,7 @@ export const addTwitterMetadata = (address: string) =>
     TE.bindW("profile", ({ twitterHandle }) =>
       pipe(
         Twitter.getProfileByHandle(twitterHandle),
-        Queues.queueOnQueueWithTimeoutThrown(twitterProfileQueue),
+        Queues.queueOnQueueWithTimeoutTE(twitterProfileQueue),
       ),
     ),
     TE.bindW("imageUrl", ({ profile }) =>

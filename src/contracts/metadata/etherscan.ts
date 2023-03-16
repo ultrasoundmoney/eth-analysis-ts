@@ -22,7 +22,7 @@ export const etherscanNameTagQueue = new PQueue({
 const addMetadata = (address: string) =>
   pipe(
     Etherscan.getNameTag(address),
-    Queues.queueOnQueueWithTimeoutThrown(etherscanNameTagQueue),
+    Queues.queueOnQueueWithTimeoutTE(etherscanNameTagQueue),
     TE.chainFirstIOK(() => () => {
       etherscanNameTagLastAttemptMap.set(address, new Date());
     }),

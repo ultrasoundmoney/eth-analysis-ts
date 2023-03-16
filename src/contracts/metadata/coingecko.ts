@@ -152,7 +152,7 @@ const addMetadata = (address: string) =>
   pipe(
     getContractId(address),
     TE.chainW(Coingecko.getCoin),
-    Queues.queueOnQueueWithTimeoutThrown(coingekcoLimitQueue),
+    Queues.queueOnQueueWithTimeoutTE(coingekcoLimitQueue),
     TE.chainTaskK((metadata) =>
       pipe(
         TAlt.seqTPar(
