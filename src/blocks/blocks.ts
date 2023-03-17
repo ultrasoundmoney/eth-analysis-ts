@@ -441,3 +441,6 @@ export const sortDesc = Ord.fromCompare<BlockV1>((a, b) =>
 
 export const getPreviousBlock = (block: BlockV1) =>
   pipe(getBlocks(block.number - 1, block.number - 1), T.map(A.head));
+
+export const shortHashFromBlock = (block: { hash: string }) =>
+  block.hash.slice(0, 6);

@@ -3,6 +3,7 @@ import * as Blocks from "./blocks/blocks.js";
 import * as ExecutionNode from "./execution_node.js";
 import { A, flow, NEA, O, pipe, RA, T, TE, TO } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
+import * as Performance from "./performance.js";
 import { queueOnQueueT } from "./queues.js";
 
 /**
@@ -60,6 +61,11 @@ export const transactionReceiptsFromBlock = (
       ),
     ),
     TE.map(RA.toArray),
+    Performance.measureTaskPerf(
+      `transactionReceiptsFromBlock ${block.number} ${Blocks.shortHashFromBlock(
+        block,
+      )}`,
+    ),
   );
 
 export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
