@@ -18,14 +18,15 @@ export const logPerf = (
 };
 
 export const measureTaskPerf =
-  (msg: string) =>
+  (msg: string, indent = 0) =>
   <A>(task: T.Task<A>) =>
     pipe(
       T.Do,
       T.bind("t0", () => T.of(performance.now())),
       T.bind("result", () => task),
       T.chainFirstIOK(({ t0 }) => () => {
-        logPerf(msg, t0);
+        const paddedMsg = msg.padStart(msg.length + indent * 2);
+        logPerf(paddedMsg, t0);
       }),
       T.map(({ result }) => result),
     );
