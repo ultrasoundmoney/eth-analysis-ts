@@ -42,28 +42,24 @@ export const setLastIncludedBlockIsLatest = () =>
       last = excluded.last
   `;
 
-const expireRecordsBefore = (
-  timeFrame: TimeFrameNext,
-  blockNumber: number,
-) => Db.sqlT`
-  DELETE FROM burn_records
-  WHERE block_number < ${blockNumber}
-  AND time_frame = ${timeFrame}
-`;
+const expireRecordsBefore = (timeFrame: TimeFrameNext, blockNumber: number) =>
+  pipe(
+    Db.sqlT`
+      DELETE FROM burn_records
+      WHERE block_number < ${blockNumber}
+      AND time_frame = ${timeFrame}
+    `,
+    Performance.measureTaskPerf(
+      `expire records before ${blockNumber} for ${timeFrame}}`,
+      1,
+    ),
+  );
 
 export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
-    Performance.measureTaskPerf(
-      `  per-refresh earliest block in "${timeFrame}`,
-    ),
     T.chain((earliestIncludedBlock) =>
-      pipe(
-        expireRecordsBefore(timeFrame, earliestIncludedBlock),
-        Performance.measureTaskPerf(
-          `  per-refresh expire records before "${timeFrame}`,
-        ),
-      ),
+      expireRecordsBefore(timeFrame, earliestIncludedBlock),
     ),
   );
 

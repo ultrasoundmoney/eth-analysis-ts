@@ -15,8 +15,10 @@ import * as ExecutionNode from "../execution_node.js";
 import { A, flow, NEA, O, Ord, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
+import * as Performance from "../performance.js";
 import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
+import { TimeFrameNext } from "../time_frames.js";
 import * as Transactions from "../transactions.js";
 
 export const mergeBlockNumber = 15537394;
@@ -408,22 +410,26 @@ export const getLastStoredBlock = () =>
     ),
   );
 
-export const getEarliestBlockInTimeFrame = (
-  timeFrame: TimeFrames.TimeFrameNext,
-) =>
-  timeFrame === "since_burn"
-    ? T.of(londonHardForkBlockNumber)
-    : timeFrame === "since_merge"
-    ? T.of(mergeBlockNumber)
-    : pipe(
-        TimeFrames.intervalSqlMapNext[timeFrame],
-        (interval) => () =>
-          sql<{ min: number }[]>`
+export const getEarliestBlockInTimeFrame = (timeFrame: TimeFrameNext) =>
+  pipe(
+    timeFrame === "since_burn"
+      ? T.of(londonHardForkBlockNumber)
+      : timeFrame === "since_merge"
+      ? T.of(mergeBlockNumber)
+      : pipe(
+          TimeFrames.intervalSqlMapNext[timeFrame],
+          (interval) => () =>
+            sql<{ min: number }[]>`
             SELECT MIN(number) FROM blocks
             WHERE mined_at >= NOW() - ${interval}::interval
           `,
-        T.map((rows) => rows[0].min),
-      );
+          T.map((rows) => rows[0].min),
+        ),
+    Performance.measureTaskPerf(
+      `getEarliestBlockInTimeFrame for ${timeFrame}`,
+      1,
+    ),
+  );
 
 export const sortAsc = Ord.fromCompare<BlockV1>((a, b) =>
   a.number < b.number ? -1 : a.number > b.number ? 1 : 0,
