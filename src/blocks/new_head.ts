@@ -147,7 +147,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   if (E.isLeft(transactionReceiptsE)) {
     // Block got superseded between the time we received the head and finished retrieving all transactions. We stop working on the current head and let the next head guide us to the current on-chain truth.
-    Log.info(
+    Log.warn(
       `failed to fetch transaction receipts for head: ${head.hash}, skipping`,
     );
     return;
