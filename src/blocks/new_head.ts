@@ -152,7 +152,7 @@ export const addBlock = async (head: Head): Promise<void> => {
     );
     return;
   }
-  Log.info("Finished getting transaction receipts");
+  Log.debug("got transactions from node");
 
   const transactionReceipts = transactionReceiptsE.right;
 
