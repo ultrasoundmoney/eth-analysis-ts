@@ -36,7 +36,7 @@ const setLastAnalyzedDate = async (dt: Date): Promise<void> => {
 const getFirstDateToFetch = async () => {
   const block = await pipe(
     Blocks.getBlockSafe(Blocks.londonHardForkBlockNumber),
-    TOAlt.getOrThrow("failed to fetch london hard fork block"),
+    TOAlt.expect("failed to fetch london hard fork block"),
   )();
   return pipe(block.timestamp, DateFns.startOfMinute);
 };

@@ -22,7 +22,7 @@ export const getValueStr = (key: string) =>
 export const getValueUnsafe = <A>(key: string) =>
   pipe(
     getValue<A>(key),
-    TOAlt.getOrThrow(`expected a value to exist for key ${key}`),
+    TOAlt.expect(`expected a value to exist for key ${key}`),
   );
 
 export const storeValue = (key: string, value: unknown) =>

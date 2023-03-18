@@ -41,7 +41,7 @@ const storeLastReanalyzed = (blockNumber: number) => sql`
 for (const blockNumber of blocksToStore) {
   const block = await pipe(
     Blocks.getBlockSafe(blockNumber),
-    TOAlt.getOrThrow(`while reanalyzing block ${blockNumber} came back null`),
+    TOAlt.expect(`while reanalyzing block ${blockNumber} came back null`),
   )();
 
   if (blockNumber % 100 === 0 && blocksDone !== 0) {

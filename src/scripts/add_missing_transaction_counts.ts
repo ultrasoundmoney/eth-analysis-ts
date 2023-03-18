@@ -18,7 +18,7 @@ for (const blockNumber of blockNumbers) {
   }
   const transactionReceipts = await pipe(
     Transactions.getTransactionReceiptsSafe(block.value),
-    TOAlt.getOrThrow(`transactions for ${blockNumber} came back null`),
+    TOAlt.expect(`transactions for ${blockNumber} came back null`),
   )();
   const { other } = Transactions.segmentTransactions(transactionReceipts);
   const transactionCounts = Blocks.countTransactionsPerContract(other);

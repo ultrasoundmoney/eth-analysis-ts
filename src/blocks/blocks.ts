@@ -405,17 +405,19 @@ export const getLastStoredBlock = () =>
         TO.fromOption,
         TO.chainTaskK((max) => getBlocks(max, max)),
         TO.chainOptionK(flow((rows) => rows[0], O.fromNullable)),
-        TOAlt.getOrThrow("can't get last stored block from empty table"),
+        TOAlt.expect("can't get last stored block from empty table"),
       ),
     ),
   );
 
-export const getEarliestBlockInTimeFrame = (timeFrame: TimeFrameNext) =>
+export const getEarliestBlockInTimeFrame = (
+  timeFrame: TimeFrameNext,
+): TO.TaskOption<number> =>
   pipe(
     timeFrame === "since_burn"
-      ? T.of(londonHardForkBlockNumber)
+      ? TO.of(londonHardForkBlockNumber)
       : timeFrame === "since_merge"
-      ? T.of(mergeBlockNumber)
+      ? TO.of(mergeBlockNumber)
       : pipe(
           TimeFrames.intervalSqlMapNext[timeFrame],
           (interval) => () =>

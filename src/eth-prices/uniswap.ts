@@ -96,7 +96,7 @@ export const getMedianEthPrice = (blockHeight?: number): T.Task<EthPrice> =>
     TAlt.seqTPar(
       pipe(
         Blocks.getBlockSafe(blockHeight ?? "latest"),
-        TOAlt.getOrThrow(`failed to get ${blockHeight} block`),
+        TOAlt.expect(`failed to get ${blockHeight} block`),
         T.map((block) => {
           if (block === undefined) {
             Log.error(

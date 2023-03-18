@@ -30,7 +30,7 @@ await pipe(
           "block",
           pipe(
             Blocks.getBlockSafe(blockNumber),
-            TOAlt.getOrThrow(
+            TOAlt.expect(
               `while reanalyzing block ${blockNumber} came back null`,
             ),
           ),
@@ -38,7 +38,7 @@ await pipe(
         T.bind("transactionReceipts", ({ block }) =>
           pipe(
             Transactions.getTransactionReceiptsSafe(block),
-            TOAlt.getOrThrow(
+            TOAlt.expect(
               `transacion receipts for block ${blockNumber} came back null`,
             ),
           ),

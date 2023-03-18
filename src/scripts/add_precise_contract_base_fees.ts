@@ -41,7 +41,7 @@ for (const blockNumber of blocksToUpdate) {
   }
   const transactionReceipts = await pipe(
     Transactions.getTransactionReceiptsSafe(block.value),
-    TOAlt.getOrThrow(`transactions for ${blockNumber} came back null`),
+    TOAlt.expect(`transactions for ${blockNumber} came back null`),
   )();
   const transactionSegments =
     Transactions.segmentTransactions(transactionReceipts);

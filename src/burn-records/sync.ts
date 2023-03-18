@@ -10,6 +10,9 @@ const getFirstBlockToInclude = (
 ) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
+    TOAlt.expect(
+      `expect blocks table to have an earliest block in time frame ${timeFrame} during sync`,
+    ),
     T.map((earliestBlockInTimeFrame) =>
       TimeFrames.getEarliestBlockToAdd(
         earliestBlockInTimeFrame,

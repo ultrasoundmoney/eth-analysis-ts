@@ -44,7 +44,7 @@ const getAveragePriceDb = (timeFrame: TimeFrameNext) =>
       `,
     ),
     T.map(flow((rows) => rows[0]?.average, O.fromNullable)),
-    TOAlt.getOrThrow(
+    TOAlt.expect(
       "tried to calculate average eth price with zero blocks in target time frame",
     ),
   );

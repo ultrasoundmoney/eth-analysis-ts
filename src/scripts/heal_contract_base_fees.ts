@@ -77,13 +77,13 @@ for (const blockNumber of blocksToCheck) {
       "block",
       pipe(
         Blocks.getBlockSafe(blockNumber),
-        TOAlt.getOrThrow("expected to get block ${blockNumber} from node"),
+        TOAlt.expect("expected to get block ${blockNumber} from node"),
       ),
     ),
     T.bind("transactionReceipts", ({ block }) =>
       pipe(
         Transactions.getTransactionReceiptsSafe(block),
-        TOAlt.getOrThrow(`transactions for ${blockNumber} came back null`),
+        TOAlt.expect(`transactions for ${blockNumber} came back null`),
       ),
     ),
     T.bind("segments", ({ transactionReceipts }) =>

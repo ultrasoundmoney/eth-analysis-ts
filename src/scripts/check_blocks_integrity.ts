@@ -24,7 +24,7 @@ await Db.sql<
   for (const row of rows) {
     const block = await pipe(
       Blocks.getBlockSafe(row.number),
-      TOAlt.getOrThrow(`failed to get block ${row.number} from node`),
+      TOAlt.expect(`failed to get block ${row.number} from node`),
     )();
     if (row.hash !== block.hash) {
       throw new Error(

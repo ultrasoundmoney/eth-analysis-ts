@@ -136,7 +136,7 @@ export const OAlt = {
 
 export const TOAlt = {
   concatAllVoid: TO.map(Mo.concatAll(Void.Monoid)),
-  getOrThrow:
+  expect:
     (message: string) =>
     <A>(taskOption: TO.TaskOption<A>) =>
       pipe(

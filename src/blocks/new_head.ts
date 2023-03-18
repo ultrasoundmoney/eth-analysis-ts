@@ -122,7 +122,7 @@ export const addBlock = async (head: Head): Promise<void> => {
 
     const previousBlock = await pipe(
       Blocks.getBlockSafe(parentBlockNumber),
-      TOAlt.getOrThrow(
+      TOAlt.expect(
         `expected block ${parentBlockNumber} to exist on-chain whilst replacing a parent`,
       ),
     )();
