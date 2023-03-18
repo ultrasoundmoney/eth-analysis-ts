@@ -12,12 +12,9 @@ import * as LeaderboardsAll from "./leaderboards_all.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
-import * as PerformanceMetrics from "./performance_metrics.js";
 import * as EthStaked from "./scarcity/eth_staked.js";
 import * as EthSupply from "./scarcity/eth_supply.js";
 import * as SyncOnStart from "./sync_on_start.js";
-
-PerformanceMetrics.setShouldLogBlockFetchRate(true);
 
 const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
   Log.info("loading leaderboards for limited timeframes");

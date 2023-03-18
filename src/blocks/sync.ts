@@ -3,7 +3,6 @@ import makeEta from "simple-eta";
 import * as EthPrices from "../eth-prices/index.js";
 import { NEA, O, pipe, T, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
-import * as PerformanceMetrics from "../performance_metrics.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { rollbackToIncluding } from "./new_head.js";
@@ -100,8 +99,6 @@ export const syncBlocks = (upToIncluding: number): T.Task<void> =>
                 blocksDone = blocksDone + 1;
                 logEta();
               }
-
-              PerformanceMetrics.setShouldLogBlockFetchRate(false);
             }),
           ),
     ),
