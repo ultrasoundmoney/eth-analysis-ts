@@ -1,7 +1,7 @@
 import _ from "lodash";
 import makeEta from "simple-eta";
 import * as EthPrices from "../eth-prices/index.js";
-import { NEA, O, pipe, T, TEAlt } from "../fp.js";
+import { NEA, O, pipe, T, TEAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
@@ -9,7 +9,10 @@ import { rollbackToIncluding } from "./new_head.js";
 
 export const syncBlock = async (blockNumber: number): Promise<void> => {
   Log.info(`Syncing block: ${blockNumber}`);
-  const block = await Blocks.getBlockWithRetry(blockNumber);
+  const block = await pipe(
+    Blocks.getBlockSafe(blockNumber),
+    TOAlt.expect("expect block to be present when looked up by number"),
+  )();
 
   const isParentKnown = await Blocks.getBlockHashIsKnown(block.parentHash);
 

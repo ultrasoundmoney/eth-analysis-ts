@@ -1,5 +1,4 @@
 import * as DateFns from "date-fns";
-import { setTimeout } from "timers/promises";
 import {
   calcBlockBaseFeeSum,
   calcBlockTips,
@@ -10,13 +9,11 @@ import * as Contracts from "../contracts/contracts.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Db from "../db.js";
 import { sql, sqlT } from "../db.js";
-import { millisFromSeconds } from "../duration.js";
 import * as ExecutionNode from "../execution_node.js";
 import { A, flow, NEA, O, Ord, pipe, T, TAlt, TO, TOAlt } from "../fp.js";
 import * as Hexadecimal from "../hexadecimal.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
-import * as PerformanceMetrics from "../performance_metrics.js";
 import * as TimeFrames from "../time_frames.js";
 import { TimeFrameNext } from "../time_frames.js";
 import * as Transactions from "../transactions.js";
@@ -128,46 +125,7 @@ export const getBlockHashIsKnown = async (hash: string): Promise<boolean> => {
   return block?.isKnown ?? false;
 };
 
-export const getBlockWithRetry = async (
-  blockNumber: number | "latest" | string,
-): Promise<BlockNodeV2> => {
-  const delayMilis = millisFromSeconds(3);
-  const delaySeconds = delayMilis * 1000;
-  let tries = 0;
-
-  // Retry continuously
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    tries += tries + 1;
-
-    if (tries > 20) {
-      throw new Error("failed to fetch block, stayed null");
-    }
-
-    try {
-      const maybeBlock = await ExecutionNode.getBlock(blockNumber);
-
-      if (typeof maybeBlock?.hash === "string") {
-        PerformanceMetrics.onBlockReceived();
-        return blockV1FromNode(maybeBlock);
-      }
-
-      if (tries === 10) {
-        Log.alert(
-          `stuck fetching block, for more than ${tries * delaySeconds}s`,
-        );
-      }
-
-      Log.warn(
-        `asked for block ${blockNumber}, got null, waiting ${delaySeconds}s and trying again`,
-      );
-      await setTimeout(delayMilis);
-    } catch (e) {
-      Log.warn(`asked for block ${blockNumber}, threw error ${e}`);
-      await setTimeout(delayMilis);
-    }
-  }
-};
+export class BlockNullError extends Error {}
 
 export const getBlockSafe = (
   blockNumber: number | "latest" | string,
