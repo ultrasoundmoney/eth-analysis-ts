@@ -293,10 +293,10 @@ export const getBlock = async (
       : Hexadecimal.hexFromNumber(query);
 
   send({
-    method: "eth_getBlockByNumber",
-    params: [numberAsHex, false],
     id,
     jsonrpc: "2.0",
+    method: "eth_getBlockByNumber",
+    params: [numberAsHex, false],
   });
 
   const rawBlock = await messageP;
@@ -310,10 +310,10 @@ export const getRawBlockByHash = async (
   const [id, messageP] = registerMessageListener<BlockNodeV1>();
 
   send({
-    method: "eth_getBlockByHash",
-    params: [hash, false],
     id,
     jsonrpc: "2.0",
+    method: "eth_getBlockByHash",
+    params: [hash, false],
   });
 
   const rawBlock = await messageP;
@@ -345,10 +345,10 @@ export const getTransactionReceipt = async (
   const [id, messageP] = registerMessageListener<RawTxr>();
 
   send({
-    method: "eth_getTransactionReceipt",
-    params: [hash],
     id,
     jsonrpc: "2.0",
+    method: "eth_getTransactionReceipt",
+    params: [hash],
   });
 
   const rawTxr = await messageP;
@@ -456,10 +456,10 @@ export const raiseLogLevel = async () => {
   const [id] = registerMessageListener();
 
   send({
-    method: "debug_vmodule",
-    params: [6],
     id,
     jsonrpc: "2.0",
+    method: "debug_vmodule",
+    params: [6],
   });
 
   inUseIds.delete(id);
@@ -469,9 +469,9 @@ export const getLatestBlockNumber = async (): Promise<number> => {
   const [id, messageP] = registerMessageListener<string>();
 
   send({
-    method: "eth_blockNumber",
     id,
     jsonrpc: "2.0",
+    method: "eth_blockNumber",
   });
 
   const rawBlockNumber = await messageP;
