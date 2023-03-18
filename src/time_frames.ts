@@ -1,5 +1,6 @@
-import * as TimeFrames from "./duration.js";
+import * as DateFns from "date-fns";
 import { O, pipe } from "./fp.js";
+import { londonHardForkBlockDate, mergeBlockDate } from "./blocks/blocks.js";
 
 export const limitedTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const;
 export type LimitedTimeFrame = typeof limitedTimeFrames[number];
@@ -45,18 +46,6 @@ export const intervalSqlMapNext: Record<LimitedTimeFrameNext, string> = {
   d30: "30 days",
 };
 
-export const limitedTimeFrameMillisMap: Record<
-  LimitedPlusMergeTimeFrame,
-  number
-> = {
-  "5m": TimeFrames.millisFromMinutes(5),
-  "1h": TimeFrames.millisFromHours(1),
-  "24h": TimeFrames.millisFromDays(1),
-  "7d": TimeFrames.millisFromDays(7),
-  "30d": TimeFrames.millisFromDays(30),
-  since_merge: TimeFrames.millisFromDays(30),
-};
-
 export const getEarliestBlockToAdd = (
   earliestBlockInTimeFrame: number,
   lastIncludedBlock: O.Option<number>,
@@ -71,3 +60,22 @@ export const getEarliestBlockToAdd = (
           : earliestBlockInTimeFrame,
     ),
   );
+
+export const secondsFromTimeFrame = (timeFrame: TimeFrameNext) => {
+  switch (timeFrame) {
+    case "m5":
+      return 5 * 60;
+    case "h1":
+      return 60 * 60;
+    case "d1":
+      return 24 * 60 * 60;
+    case "d7":
+      return 7 * 24 * 60 * 60;
+    case "d30":
+      return 30 * 24 * 60 * 60;
+    case "since_merge":
+      return DateFns.differenceInSeconds(new Date(), mergeBlockDate);
+    case "since_burn":
+      return DateFns.differenceInSeconds(new Date(), londonHardForkBlockDate);
+  }
+};

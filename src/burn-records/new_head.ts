@@ -11,7 +11,7 @@ export const onNewBlock = (block: Blocks.BlockV1) =>
       pipe(
         TAlt.seqTSeq(
           pipe(
-            BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
+            BurnRecords.expireRecordsOutsideTimeFrame(block, timeFrame),
             Performance.measureTaskPerf(
               `expire records outside time frame ${timeFrame}`,
             ),

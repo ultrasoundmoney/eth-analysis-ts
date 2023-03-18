@@ -1,5 +1,5 @@
 import * as Blocks from "../blocks/blocks.js";
-import { O, pipe, T, TAlt } from "../fp.js";
+import { O, pipe, T, TAlt, TOAlt } from "../fp.js";
 import * as Performance from "../performance.js";
 import * as TimeFrames from "../time_frames.js";
 import * as BurnRecords from "./burn_records.js";
@@ -11,7 +11,7 @@ const getFirstBlockToInclude = (
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
     TOAlt.expect(
-      `expect blocks table to have an earliest block in time frame ${timeFrame} during sync`,
+      `expect blocks table to have an earliest block in time frame for ${timeFrame} during record sync`,
     ),
     T.map((earliestBlockInTimeFrame) =>
       TimeFrames.getEarliestBlockToAdd(
@@ -24,10 +24,11 @@ const getFirstBlockToInclude = (
 const syncTimeFrame = (
   timeFrame: TimeFrames.TimeFrameNext,
   lastIncludedBlock: O.Option<number>,
+  lastStoredBlock: Blocks.BlockV1,
 ) =>
   pipe(
     TAlt.seqTPar(
-      BurnRecords.expireRecordsOutsideTimeFrame(timeFrame),
+      BurnRecords.expireRecordsOutsideTimeFrame(lastStoredBlock, timeFrame),
       pipe(
         getFirstBlockToInclude(timeFrame, lastIncludedBlock),
         T.chain((firstBlockToInclude) =>
@@ -45,13 +46,15 @@ const syncTimeFrame = (
 
 export const sync = () =>
   pipe(
-    BurnRecords.getLastIncludedBlock(),
-    T.chain((lastIncludedBlock) =>
+    T.Do,
+    T.apS("lastStoredBlock", Blocks.getLastStoredBlock()),
+    T.apS("lastIncludedBlock", BurnRecords.getLastIncludedBlock()),
+    T.chain(({ lastStoredBlock, lastIncludedBlock }) =>
       pipe(
         TimeFrames.timeFramesNext,
         T.traverseArray((timeFrame) =>
           pipe(
-            syncTimeFrame(timeFrame, lastIncludedBlock),
+            syncTimeFrame(timeFrame, lastIncludedBlock, lastStoredBlock),
             Performance.measureTaskPerf(`sync ${timeFrame} burn records`),
           ),
         ),

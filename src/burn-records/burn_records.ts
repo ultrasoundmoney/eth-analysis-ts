@@ -1,11 +1,13 @@
 import * as Blocks from "../blocks/blocks.js";
 import * as Db from "../db.js";
-import { flow, O, pipe, T } from "../fp.js";
+import { flow, O, pipe, T, TAlt, TO } from "../fp.js";
 import {
   LimitedPlusMergeTimeFrameNext,
   TimeFrameNext,
 } from "../time_frames.js";
 import * as Performance from "../performance.js";
+import { fromTaskOption, match } from "fp-ts/lib/TaskEither.js";
+import * as Log from "../log.js";
 
 export const maxRank = 10;
 
@@ -42,25 +44,31 @@ export const setLastIncludedBlockIsLatest = () =>
       last = excluded.last
   `;
 
-const expireRecordsBefore = (timeFrame: TimeFrameNext, blockNumber: number) =>
+const expireRecordsBefore = (
+  timeFrame: TimeFrameNext,
+  blockNumber: number,
+): T.Task<void> =>
   pipe(
     Db.sqlT`
       DELETE FROM burn_records
       WHERE block_number < ${blockNumber}
       AND time_frame = ${timeFrame}
     `,
+    T.map(() => undefined),
     Performance.measureTaskPerf(
-      `expire records before ${blockNumber} for ${timeFrame}}`,
+      `expire records before ${blockNumber} for ${timeFrame}`,
       1,
     ),
   );
 
-export const expireRecordsOutsideTimeFrame = (timeFrame: TimeFrameNext) =>
+export const expireRecordsOutsideTimeFrame = (
+  block: Blocks.BlockV1,
+  timeFrame: TimeFrameNext,
+) =>
   pipe(
-    Blocks.getEarliestBlockInTimeFrame(timeFrame),
-    T.chain((earliestIncludedBlock) =>
-      expireRecordsBefore(timeFrame, earliestIncludedBlock),
-    ),
+    // We use an estimate for performance reasons.
+    Blocks.estimateEarliestBlockInTimeFrame(block, timeFrame),
+    (earliestBlock) => expireRecordsBefore(timeFrame, earliestBlock),
   );
 
 export const addRecordsFromBlockAndIncluding = (

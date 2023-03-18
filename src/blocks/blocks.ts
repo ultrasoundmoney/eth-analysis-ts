@@ -426,6 +426,7 @@ export const getEarliestBlockInTimeFrame = (
             WHERE mined_at >= NOW() - ${interval}::interval
           `,
           T.map((rows) => rows[0].min),
+          T.map(O.fromNullable),
         ),
     Performance.measureTaskPerf(
       `getEarliestBlockInTimeFrame for ${timeFrame}`,
@@ -446,3 +447,17 @@ export const getPreviousBlock = (block: BlockV1) =>
 
 export const shortHashFromBlock = (block: { hash: string }) =>
   block.hash.slice(0, 6);
+
+// Estimates the earliest block in a time frame by assuming a block time of 12
+// seconds and no missed slots. This means the block might not be the earliest
+// but younger than intended by however many slots were missed in the time
+// frame.
+export const estimateEarliestBlockInTimeFrame = (
+  block: BlockV1,
+  timeFrame: TimeFrameNext,
+): number => {
+  const blockTime = 12;
+  const secondsInTimeFrame = TimeFrames.secondsFromTimeFrame(timeFrame);
+  const blocksInTimeFrame = Math.floor(secondsInTimeFrame / blockTime);
+  return block.number - blocksInTimeFrame;
+};
