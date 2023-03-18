@@ -419,7 +419,12 @@ export const subscribeNewHeads = (
 
   headsWs.on("open", () => {
     headsWs.send(
-      JSON.stringify({ id: 1, method: "eth_subscribe", params: ["newHeads"] }),
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_subscribe",
+        params: ["newHeads"],
+      }),
     );
   });
 };
