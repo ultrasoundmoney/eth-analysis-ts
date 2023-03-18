@@ -37,6 +37,9 @@ const getAveragePriceCache = (timeFrame: TimeFrameNext) =>
 const getAveragePriceDb = (timeFrame: TimeFrameNext) =>
   pipe(
     Blocks.getEarliestBlockInTimeFrame(timeFrame),
+    TOAlt.expect(
+      `expect earliest block in time frame ${timeFrame} to exist for average price`,
+    ),
     T.chain(
       (earliestInTimeFrame) => sqlT<{ average: number }[]>`
         SELECT AVG(eth_price) AS average FROM blocks
