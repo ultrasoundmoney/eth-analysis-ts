@@ -1,13 +1,8 @@
 import * as Blocks from "../blocks/blocks.js";
 import * as Db from "../db.js";
-import { flow, O, pipe, T, TAlt, TO } from "../fp.js";
-import {
-  LimitedPlusMergeTimeFrameNext,
-  TimeFrameNext,
-} from "../time_frames.js";
+import { flow, O, pipe, T } from "../fp.js";
+import { TimeFrameNext } from "../time_frames.js";
 import * as Performance from "../performance.js";
-import { fromTaskOption, match } from "fp-ts/lib/TaskEither.js";
-import * as Log from "../log.js";
 
 export const maxRank = 10;
 
