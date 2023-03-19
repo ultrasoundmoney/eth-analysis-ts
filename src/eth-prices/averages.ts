@@ -13,6 +13,7 @@ export type AverageEthPrices = {
   d7: number;
   d30: number;
   since_burn: number;
+  all: number;
 };
 
 export const averagePricesCacheKey = "average-prices-cache-key";
@@ -88,6 +89,10 @@ export const updateAveragePrices = () =>
       d30: getTimeFrameAverage("d30"),
       since_burn: getTimeFrameAverage("since_burn"),
     }),
+    T.map((averagePrices) => ({
+      ...averagePrices,
+      all: averagePrices.since_burn,
+    })),
     T.chain(updateCache),
     T.chainFirst(() => sqlTNotify("cache-update", averagePricesCacheKey)),
   );
