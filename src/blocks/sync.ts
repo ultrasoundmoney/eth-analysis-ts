@@ -8,7 +8,7 @@ import * as Blocks from "./blocks.js";
 import { rollbackToIncluding } from "./new_head.js";
 
 export const syncBlock = async (blockNumber: number): Promise<void> => {
-  Log.info(`Syncing block: ${blockNumber}`);
+  Log.info(`syncing block: ${blockNumber}`);
   const block = await pipe(
     Blocks.getBlockSafe(blockNumber),
     TOAlt.expect("expect block to be present when looked up by number"),
