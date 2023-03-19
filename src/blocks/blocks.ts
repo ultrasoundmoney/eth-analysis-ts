@@ -414,6 +414,9 @@ export const estimateEarliestBlockInTimeFrame = (
   block: BlockV1,
   timeFrame: TimeFrameNext,
 ): number => {
+  if (timeFrame === "since_burn") return londonHardForkBlockNumber;
+  if (timeFrame === "since_merge") return mergeBlockNumber;
+
   const blockTime = 12;
   const secondsInTimeFrame = TimeFrames.secondsFromTimeFrame(timeFrame);
   const blocksInTimeFrame = Math.floor(secondsInTimeFrame / blockTime);
