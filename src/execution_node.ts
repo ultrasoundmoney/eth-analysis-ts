@@ -405,14 +405,6 @@ export const subscribeNewHeads = (
       `new head, number: ${head.number}, hash: ${head.hash}, parent: ${head.parentHash}`,
     );
 
-    const stalenessOnReceive = DateFns.differenceInSeconds(
-      new Date(),
-      DateFns.fromUnixTime(Number(rawHead.timestamp)),
-    );
-    Log.debug(
-      `miner to api block staleness ${stalenessOnReceive}s, timestamp: ${new Date().toISOString()}`,
-    );
-
     handleNewHead(head);
     return undefined;
   });
