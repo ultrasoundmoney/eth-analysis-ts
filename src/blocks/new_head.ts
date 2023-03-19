@@ -217,10 +217,10 @@ export const addBlock = async (head: Head): Promise<void> => {
     BurnRecordsNewHead.onNewBlock(blockDb)(),
   );
 
-  await Performance.measurePromisePerf(
-    "add block to deflationary streaks",
-    DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb))(),
-  );
+  await pipe(
+    DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
+    Performance.measureTaskPerf("DeflationaryStreaks.analyzeNewBlocks"),
+  )();
 
   Log.debug(`heads queue: ${headsQueue.size}`);
   const allBlocksProcessed =
