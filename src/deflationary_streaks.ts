@@ -3,6 +3,7 @@ import * as Db from "./db.js";
 import * as EthUnits from "./eth_units.js";
 import { A, B, E, flow, NEA, O, OAlt, pipe, T, TAlt, TO } from "./fp.js";
 import * as Fetch from "./fetch.js";
+import * as Log from "./log.js";
 
 type Count = number;
 export type Streak = O.Option<Count>;
@@ -124,8 +125,10 @@ export const getNextBlockToAdd = () =>
     ),
   );
 
+type GweiPerGas = number;
+
 type BaseFeePerGasStats = {
-  barrier: number;
+  barrier: GweiPerGas;
 };
 
 const getBarrier = async () => {
@@ -175,6 +178,7 @@ export const analyzeNewBlocks = (
 ) =>
   pipe(
     () => getBarrier(),
+    T.chainFirstIOK((barrier) => Log.debugIO(`barrier: ${barrier}`)),
     T.chain((barrier) =>
       pipe(
         TAlt.seqTPar(
