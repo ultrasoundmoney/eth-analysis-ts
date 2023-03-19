@@ -3,25 +3,11 @@ import Koa, { Middleware } from "koa";
 import bodyParser from "koa-bodyparser";
 import conditional from "koa-conditional-get";
 import etag from "koa-etag";
-import * as BeaconRewards from "../beacon_rewards.js";
-import * as BlockLag from "../block_lag.js";
-import * as BurnCategories from "../burn-categories/burn_categories.js";
 import * as ContractsRoutes from "../contracts/routes.js";
 import * as Db from "../db.js";
-import * as EffectiveBalanceSum from "../effective_balance_sum.js";
-import * as EthPricesAverages from "../eth-prices/averages.js";
-import * as EthSupplyParts from "../eth_supply_parts.js";
-import { O, pipe, TO } from "../fp.js";
-import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
-import * as IssuanceBreakdown from "../issuance_breakdown.js";
-import * as KeyValueStore from "../key_value_store.js";
+import { O, pipe } from "../fp.js";
 import * as Log from "../log.js";
-import * as MarketCaps from "../market-caps/market_caps.js";
-import * as MergeEstimate from "../merge_estimate.js";
-import * as PeRatios from "../pe_ratios.js";
-import * as ScarcityCache from "../scarcity/cache.js";
-import * as SupplyProjection from "../supply-projection/supply_projection.js";
-import * as TotalValueSecured from "../total-value-secured/total_value_secured.js";
+import * as Cache from "./cache.js";
 
 process.on("unhandledRejection", (error) => {
   throw error;
@@ -30,48 +16,6 @@ process.on("unhandledRejection", (error) => {
 await Db.runMigrations();
 Log.debug("ran migrations");
 
-// Prepare caches before registering routes or even starting the server.
-let scarcityCache = await ScarcityCache.getScarcityCache()();
-Log.debug("loaded scarcity cache");
-let groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
-Log.debug("loaded grouped analysis cache");
-let oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
-Log.debug("loaded market cap cache");
-let burnCategoriesCache = await BurnCategories.getCategoriesCache()();
-Log.debug("loaded burn categories cache");
-let averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
-Log.debug("loaded average prices cache");
-let peRatiosCache = await PeRatios.getPeRatiosCache()();
-Log.debug("loaded pe ratios cache");
-let oTotalValueSecuredCache =
-  await TotalValueSecured.getCachedTotalValueSecured()();
-Log.debug("loaded total value secured cache");
-let blockLag = await KeyValueStore.getValue(BlockLag.blockLagCacheKey)();
-Log.debug("loaded block lag");
-let validatorRewards = await KeyValueStore.getValue(
-  BeaconRewards.validatorRewardsCacheKey,
-)();
-Log.debug("loaded validator rewards");
-let oSupplyProjectionInputs = await KeyValueStore.getValue(
-  SupplyProjection.supplyProjectionInputsCacheKey,
-)();
-Log.debug("loaded supply projection inputs");
-let oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
-Log.debug("loaded issuance breakdown");
-let oEthSupplyParts = await pipe(
-  KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKey),
-  TO.alt(() =>
-    KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKeyOld),
-  ),
-)();
-Log.debug("loaded total supply");
-let oEffectiveBalanceSum =
-  await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
-let oMergeEstimate = await KeyValueStore.getValueStr(
-  MergeEstimate.MERGE_ESTIMATE_CACHE_KEY,
-)();
-Log.debug("loaded merge estimate");
-
 const BLOCK_LIFETIME_CACHE_HEADER =
   "public, max-age=6, stale-while-revalidate=120";
 
@@ -79,20 +23,20 @@ const handleGetGroupedAnalysis1: Middleware = async (ctx) => {
   ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
   ctx.set("Content-Type", "application/json");
   ctx.body = {
-    ...groupedAnalysis1Cache,
-    feesBurned: groupedAnalysis1Cache.feeBurns,
+    ...Cache.store.groupedAnalysis1Cache,
+    feesBurned: Cache.store.groupedAnalysis1Cache.feeBurns,
   };
 };
 
 const handleAverageEthPrice: Middleware = async (ctx) => {
   ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
-  ctx.body = averagePricesCache;
+  ctx.body = Cache.store.averagePricesCache;
   return undefined;
 };
 
 const handleGetMarketCaps: Middleware = async (ctx) => {
   pipe(
-    oMarketCapsCache,
+    Cache.store.oMarketCapsCache,
     O.match(
       () => {
         ctx.status = 503;
@@ -111,7 +55,7 @@ const handleGetMarketCaps: Middleware = async (ctx) => {
 
 const handleGetScarcity: Middleware = (ctx) => {
   pipe(
-    scarcityCache,
+    Cache.store.scarcityCache,
     O.match(
       () => {
         ctx.status = 503;
@@ -131,7 +75,7 @@ const handleGetScarcity: Middleware = (ctx) => {
 const handleGetBurnCategories: Middleware = async (ctx) => {
   ctx.set("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
   ctx.set("Content-Type", "application/json");
-  ctx.body = burnCategoriesCache;
+  ctx.body = Cache.store.burnCategoriesCache;
 };
 
 const handleGetPeRatios: Middleware = async (ctx) => {
@@ -140,12 +84,12 @@ const handleGetPeRatios: Middleware = async (ctx) => {
     "public, max-age=43200, stale-while-revalidate=82800",
   );
   ctx.set("Content-Type", "application/json");
-  ctx.body = peRatiosCache;
+  ctx.body = Cache.store.peRatiosCache;
 };
 
 const handleGetTotalValueSecured: Middleware = (ctx) => {
   pipe(
-    oTotalValueSecuredCache,
+    Cache.store.oTotalValueSecuredCache,
     O.match(
       () => {
         ctx.status = 503;
@@ -164,7 +108,7 @@ const handleGetTotalValueSecured: Middleware = (ctx) => {
 
 const handleGetBlockLag: Middleware = async (ctx) => {
   pipe(
-    blockLag,
+    Cache.store.blockLag,
     O.match(
       () => {
         ctx.status = 503;
@@ -180,7 +124,7 @@ const handleGetBlockLag: Middleware = async (ctx) => {
 
 const handleGetValidatorRewards: Middleware = async (ctx) => {
   pipe(
-    validatorRewards,
+    Cache.store.validatorRewards,
     O.match(
       () => {
         ctx.status = 503;
@@ -199,7 +143,7 @@ const handleGetValidatorRewards: Middleware = async (ctx) => {
 
 const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
   pipe(
-    oSupplyProjectionInputs,
+    Cache.store.oSupplyProjectionInputs,
     O.match(
       () => {
         ctx.status = 503;
@@ -218,7 +162,7 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
 
 const handleGetIssuanceBreakdown: Middleware = async (ctx) => {
   pipe(
-    oIssuanceBreakdown,
+    Cache.store.oIssuanceBreakdown,
     O.match(
       () => {
         ctx.status = 503;
@@ -237,7 +181,7 @@ const handleGetIssuanceBreakdown: Middleware = async (ctx) => {
 
 const handleGetEthSupplyParts: Middleware = async (ctx) => {
   pipe(
-    oEthSupplyParts,
+    Cache.store.oEthSupplyParts,
     O.match(
       () => {
         ctx.status = 503;
@@ -253,7 +197,7 @@ const handleGetEthSupplyParts: Middleware = async (ctx) => {
 
 const handleGetEffectiveBalanceSum: Middleware = async (ctx) => {
   pipe(
-    oEffectiveBalanceSum,
+    Cache.store.oEffectiveBalanceSum,
     O.match(
       () => {
         ctx.status = 503;
@@ -273,7 +217,7 @@ const handleGetEffectiveBalanceSum: Middleware = async (ctx) => {
 
 const handleGetMergeEstimate: Middleware = async (ctx) => {
   pipe(
-    oMergeEstimate,
+    Cache.store.oMergeEstimate,
     O.match(
       () => {
         ctx.status = 503;
@@ -286,101 +230,6 @@ const handleGetMergeEstimate: Middleware = async (ctx) => {
     ),
   );
 };
-
-Db.sql.listen("cache-update", async (payload) => {
-  Log.debug(`DB notify cache-update, cache key: ${payload}`);
-
-  if (payload === undefined) {
-    Log.error("DB cache-update with no payload, skipping");
-    return;
-  }
-
-  if (payload === ScarcityCache.scarcityCacheKey) {
-    scarcityCache = await ScarcityCache.getScarcityCache()();
-    return;
-  }
-
-  if (payload === GroupedAnalysis1.groupedAnalysis1CacheKey) {
-    groupedAnalysis1Cache = await GroupedAnalysis1.getLatestAnalysis()();
-    return;
-  }
-
-  if (payload === MarketCaps.marketCapsCacheKey) {
-    oMarketCapsCache = await MarketCaps.getStoredMarketCaps()();
-    return;
-  }
-
-  if (payload === BurnCategories.burnCategoriesCacheKey) {
-    burnCategoriesCache = await BurnCategories.getCategoriesCache()();
-    return;
-  }
-
-  if (payload === EthPricesAverages.averagePricesCacheKey) {
-    averagePricesCache = await EthPricesAverages.getAveragePricesCache()();
-    return;
-  }
-
-  if (payload === PeRatios.peRatiosCacheKey) {
-    peRatiosCache = await PeRatios.getPeRatiosCache()();
-    return;
-  }
-
-  if (payload === TotalValueSecured.totalValueSecuredCacheKey) {
-    oTotalValueSecuredCache =
-      await TotalValueSecured.getCachedTotalValueSecured()();
-    return;
-  }
-
-  if (payload === BlockLag.blockLagCacheKey) {
-    blockLag = await KeyValueStore.getValue(BlockLag.blockLagCacheKey)();
-    return;
-  }
-
-  if (payload === BeaconRewards.validatorRewardsCacheKey) {
-    validatorRewards = await KeyValueStore.getValue(
-      BeaconRewards.validatorRewardsCacheKey,
-    )();
-    return;
-  }
-
-  if (payload === SupplyProjection.supplyProjectionInputsCacheKey) {
-    oSupplyProjectionInputs = await KeyValueStore.getValue(
-      SupplyProjection.supplyProjectionInputsCacheKey,
-    )();
-    return;
-  }
-
-  if (payload === IssuanceBreakdown.issuanceBreakdownCacheKey) {
-    oIssuanceBreakdown = await IssuanceBreakdown.getIssuanceBreakdown()();
-    return;
-  }
-
-  if (
-    payload === EthSupplyParts.ethSupplyPartsCacheKey ||
-    payload === EthSupplyParts.ethSupplyPartsCacheKeyOld
-  ) {
-    oEthSupplyParts = await pipe(
-      KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKey),
-      TO.alt(() =>
-        KeyValueStore.getValueStr(EthSupplyParts.ethSupplyPartsCacheKeyOld),
-      ),
-    )();
-    return;
-  }
-
-  if (payload === EffectiveBalanceSum.EFFECTIVE_BALANCE_SUM_CACHE_KEY) {
-    oEffectiveBalanceSum =
-      await EffectiveBalanceSum.getLastEffectiveBalanceSum()();
-    return;
-  }
-
-  if (payload === MergeEstimate.MERGE_ESTIMATE_CACHE_KEY) {
-    oMergeEstimate = await KeyValueStore.getValueStr(
-      MergeEstimate.MERGE_ESTIMATE_CACHE_KEY,
-    )();
-    return;
-  }
-});
 
 const port = process.env.PORT || 8080;
 
@@ -405,7 +254,31 @@ app.use(async (ctx, next) => {
     ctx.path === "/health" ||
     ctx.path === "/api/fees/healthz"
   ) {
-    await Db.checkHealth();
+    // Db health check.
+    try {
+      await Db.checkHealth();
+    } catch (e) {
+      ctx.res.writeHead(503);
+      if (e instanceof Error) {
+        ctx.body = { message: e.message };
+      }
+      ctx.res.end();
+      return undefined;
+    }
+
+    // Cache health check.
+    try {
+      Cache.checkHealth();
+    } catch (e) {
+      ctx.res.writeHead(503);
+      if (e instanceof Error) {
+        ctx.body = { message: e.message };
+      }
+      ctx.res.end();
+      return undefined;
+    }
+
+    // Healthy!
     ctx.res.writeHead(200);
     ctx.res.end();
     return undefined;
