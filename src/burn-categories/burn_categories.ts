@@ -3,7 +3,7 @@ import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as FeeBurn from "../fee_burn.js";
 import { A, pipe, T, TAlt } from "../fp.js";
 import * as Log from "../log.js";
-import { sqlQueryFromTimeFrame, TimeFrameNext } from "../time_frames.js";
+import { intervalSqlMapNext, TimeFrameNext } from "../time_frames.js";
 
 type BurnCategoryRow = {
   category: string;
@@ -33,10 +33,14 @@ type BurnCategoriesCache = BurnCategoryForCache[];
 export const burnCategoriesCacheKey = "burn-categories-cache-key";
 
 const getBurnCategoriesTimeFrame = (timeFrame: TimeFrameNext) =>
-  pipe(
-    timeFrame,
-    (timeFrame) =>
-      sqlT<BurnCategoryRow[]>`
+  pipe(timeFrame, (timeFrame) => {
+    if (timeFrame == "since_merge" || timeFrame == "since_burn") {
+      const blockNumber =
+        timeFrame == "since_merge"
+          ? Blocks.mergeBlockNumber
+          : Blocks.londonHardForkBlockNumber;
+
+      return sqlT<BurnCategoryRow[]>`
         SELECT
           category,
           SUM(base_fees) AS fees,
@@ -46,10 +50,25 @@ const getBurnCategoriesTimeFrame = (timeFrame: TimeFrameNext) =>
         JOIN blocks ON number = block_number
         JOIN contracts ON address = contract_address
         WHERE category IS NOT NULL
-        AND ${sqlQueryFromTimeFrame(timeFrame)}
+        AND block_number >= ${blockNumber}
         GROUP BY (category)
-      `,
-  );
+      `;
+    } else {
+      return sqlT<{ average: number }[]>`
+        SELECT
+          category,
+          SUM(base_fees) AS fees,
+          SUM(base_fees * eth_price / 1e18) AS fees_usd,
+          SUM(transaction_count) AS transaction_count
+        FROM contract_base_fees
+        JOIN blocks ON number = block_number
+        JOIN contracts ON address = contract_address
+        WHERE category IS NOT NULL
+        AND mined_at >= NOW() - ${intervalSqlMapNext[timeFrame]}::interval
+        GROUP BY (category)
+      `;
+    }
+  });
 
 const extendWithPercent = (
   feeBurn: FeeBurn.PreciseBaseFeeSum,
