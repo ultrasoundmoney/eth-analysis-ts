@@ -86,6 +86,7 @@ export const updateBurnCategories = () =>
       d1: getBurnCategoriesWithPercent("d1"),
       d7: getBurnCategoriesWithPercent("d7"),
       d30: getBurnCategoriesWithPercent("d30"),
+      since_merge: getBurnCategoriesWithPercent("since_merge"),
       since_burn: getBurnCategoriesWithPercent("since_burn"),
     }),
     T.chain(
