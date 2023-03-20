@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import { O, pipe } from "./fp.js";
-import { londonHardForkBlockDate, mergeBlockDate } from "./blocks/blocks.js";
+import { londonHardForkBlockDate, londonHardForkBlockNumber, mergeBlockDate, mergeBlockNumber } from "./blocks/blocks.js";
 
 export const limitedTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const;
 export type LimitedTimeFrame = typeof limitedTimeFrames[number];
@@ -79,3 +79,17 @@ export const secondsFromTimeFrame = (timeFrame: TimeFrameNext) => {
       return DateFns.differenceInSeconds(new Date(), londonHardForkBlockDate);
   }
 };
+
+export const sqlQueryFromTimeFrame = (timeFrame: TimeFrameNext) => {
+    if (timeFrame == "since_merge" || timeFrame == "since_burn") {
+      return `number >= ${
+        timeFrame == "since_merge"
+          ? mergeBlockNumber
+          : londonHardForkBlockNumber
+      }`;
+    } else {
+      return `mined_at >= NOW() - ${intervalSqlMapNext[timeFrame]}::interval`;
+    }
+}
+
+
