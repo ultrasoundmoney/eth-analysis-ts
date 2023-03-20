@@ -79,17 +79,3 @@ export const secondsFromTimeFrame = (timeFrame: TimeFrameNext) => {
       return DateFns.differenceInSeconds(new Date(), londonHardForkBlockDate);
   }
 };
-
-export const sqlQueryFromTimeFrame = (timeFrame: TimeFrameNext) => {
-    if (timeFrame == "since_merge" || timeFrame == "since_burn") {
-      return `number >= ${
-        timeFrame == "since_merge"
-          ? mergeBlockNumber
-          : londonHardForkBlockNumber
-      }`;
-    } else {
-      return `mined_at >= NOW() - ${intervalSqlMapNext[timeFrame]}::interval`;
-    }
-}
-
-

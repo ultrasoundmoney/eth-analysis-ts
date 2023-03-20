@@ -4,7 +4,7 @@ import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
 import { flow, O, pipe, T, TAlt, TOAlt } from "../fp.js";
 import * as Log from "../log.js";
-import { sqlQueryFromTimeFrame, TimeFrameNext } from "../time_frames.js";
+import { intervalSqlMapNext, TimeFrameNext } from "../time_frames.js";
 
 export type AverageEthPrices = {
   m5: number;
@@ -38,11 +38,24 @@ const getAveragePriceCache = (timeFrame: TimeFrameNext) =>
 const getAveragePriceDb = (timeFrame: TimeFrameNext) =>
   pipe(
     timeFrame,
-    (timeFrame) =>
-      sqlT<{ average: number }[]>`
+    (timeFrame) => {
+      if (timeFrame == "since_merge" || timeFrame == "since_burn") {
+        const blockNumber =
+          timeFrame == "since_merge"
+            ? Blocks.mergeBlockNumber
+            : Blocks.londonHardForkBlockNumber;
+
+        return sqlT<{ average: number }[]>`
         SELECT AVG(eth_price) AS average FROM blocks
-        WHERE ${sqlQueryFromTimeFrame(timeFrame)}
-      `,
+        WHERE number >= ${blockNumber}
+      `;
+      } else {
+        return sqlT<{ average: number }[]>`
+        SELECT AVG(eth_price) AS average FROM blocks
+        WHERE mined_at >= NOW() - ${intervalSqlMapNext[timeFrame]}::interval
+      `;
+      }
+    },
     T.map(flow((rows) => rows[0]?.average, O.fromNullable)),
     TOAlt.expect(
       "tried to calculate average eth price with zero blocks in target time frame",
