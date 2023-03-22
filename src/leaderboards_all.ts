@@ -11,11 +11,14 @@ import {
 } from "./leaderboards.js";
 import * as Log from "./log.js";
 
-const TABLE_NAME = "contract_base_fee_sums";
 const TIME_FRAME = "all";
 
 type TimeFrame = "all" | "since_merge";
-type TableName = "contract_base_fee_sums" | "contract_base_fee_sums_since_merge";
+
+const timeFrameToTableName: Record<TimeFrame, string> = {
+  all: "contract_base_fee_sums",
+  since_merge: "contract_base_fee_sums_since_merge",
+};
 
 export const getNewestIncludedBlockNumber = async (): Promise<
   number | undefined
@@ -65,13 +68,14 @@ export const setNewestIncludedBlockNumberForTimeFrame = async (
 const addContractBaseFeeSums = async (
   contractSums: ContractBaseFeeSums,
 ): Promise<void> => {
-  return addContractBaseFeeSumsForTimeFrame(contractSums, TABLE_NAME);
+  return addContractBaseFeeSumsForTimeFrame(contractSums, TIME_FRAME);
 };
 
 const addContractBaseFeeSumsForTimeFrame = async (
   contractSums: ContractBaseFeeSums,
-  tableName: TableName,
+  timeFrame: TimeFrame,
 ): Promise<void> => {
+  const tableName = timeFrameToTableName[timeFrame];
   if (contractSums.eth.size === 0) {
     return;
   }
@@ -113,13 +117,14 @@ export type Currency = "eth" | "usd";
 const removeContractBaseFeeSums = async (
   contractSums: ContractBaseFeeSums,
 ): Promise<void> => {
-  return removeContractBaseFeeSumsForTimeFrame(contractSums, TABLE_NAME);
+  return removeContractBaseFeeSumsForTimeFrame(contractSums, TIME_FRAME);
 };
 
 const removeContractBaseFeeSumsForTimeFrame = async (
   contractSums: ContractBaseFeeSums,
-  tableName: TableName,
+  timeFrame: TimeFrame,
 ): Promise<void> => {
+  const tableName = timeFrameToTableName[timeFrame];
   if (contractSums.eth.size === 0) {
     return undefined;
   }
@@ -139,7 +144,9 @@ const removeContractBaseFeeSumsForTimeFrame = async (
     await sql`
       UPDATE ${sql(tableName)} SET
         base_fee_sum = ${sql(tableName)}.base_fee_sum - data_table.base_fee_sum,
-        base_fee_sum_usd = ${sql(tableName)}.base_fee_sum_usd - data_table.base_fee_sum_usd
+        base_fee_sum_usd = ${sql(
+          tableName,
+        )}.base_fee_sum_usd - data_table.base_fee_sum_usd
       FROM (
         SELECT
           UNNEST(${sql.array(addresses)}::text[]) as contract_address,
@@ -157,28 +164,35 @@ export const addBlock = async (
   baseFeeSumsEth: ContractSums,
   baseFeeSumsUsd: ContractSums,
 ): Promise<void> => {
-    return addBlockForTimeFrame(blockNumber, baseFeeSumsEth, baseFeeSumsUsd, TIME_FRAME, TABLE_NAME);
+  return addBlockForTimeFrame(
+    blockNumber,
+    baseFeeSumsEth,
+    baseFeeSumsUsd,
+    TIME_FRAME,
+  );
 };
 
 export const addBlockForTimeFrame = async (
-    blockNumber: number,
-    baseFeeSumsEth: ContractSums,
-    baseFeeSumsUsd: ContractSums,
-    timeFrame: TimeFrame,
-    tableName: TableName,
+  blockNumber: number,
+  baseFeeSumsEth: ContractSums,
+  baseFeeSumsUsd: ContractSums,
+  timeFrame: TimeFrame,
 ): Promise<void> => {
-    await addContractBaseFeeSumsForTimeFrame({ eth: baseFeeSumsEth, usd: baseFeeSumsUsd }, tableName);
-    await setNewestIncludedBlockNumberForTimeFrame(blockNumber, timeFrame);
-}
+  await addContractBaseFeeSumsForTimeFrame(
+    { eth: baseFeeSumsEth, usd: baseFeeSumsUsd },
+    timeFrame,
+  );
+  await setNewestIncludedBlockNumberForTimeFrame(blockNumber, timeFrame);
+};
 
 export const addMissingBlocks = async (): Promise<void> => {
-    return addMissingBlocksForTimeFrame(TIME_FRAME, TABLE_NAME);
-}
+  return addMissingBlocksForTimeFrame(TIME_FRAME);
+};
 
 export const addMissingBlocksForTimeFrame = async (
-    timeFrame: TimeFrame,
-    tableName: TableName
+  timeFrame: TimeFrame,
 ): Promise<void> => {
+  const tableName = timeFrameToTableName[timeFrame];
   const [newestIncludedBlock, lastStoredBlock] = await Promise.all([
     getNewestIncludedBlockNumberForTimeFrame(timeFrame),
     Blocks.getLastStoredBlock()(),
@@ -196,7 +210,9 @@ export const addMissingBlocksForTimeFrame = async (
   const nextBlockToInclude =
     typeof newestIncludedBlock === "number"
       ? newestIncludedBlock + 1
-        : timeFrame == "all" ? Blocks.londonHardForkBlockNumber : Blocks.mergeBlockNumber;
+      : timeFrame == "all"
+      ? Blocks.londonHardForkBlockNumber
+      : Blocks.mergeBlockNumber;
 
   Log.debug(
     `sync leaderboard ${timeFrame}, ${
@@ -208,13 +224,17 @@ export const addMissingBlocksForTimeFrame = async (
     nextBlockToInclude,
     lastStoredBlock.number,
   )();
-  await addContractBaseFeeSumsForTimeFrame(rangeBaseFees, tableName);
-  await setNewestIncludedBlockNumberForTimeFrame(lastStoredBlock.number, timeFrame);
+  await addContractBaseFeeSumsForTimeFrame(rangeBaseFees, timeFrame);
+  await setNewestIncludedBlockNumberForTimeFrame(
+    lastStoredBlock.number,
+    timeFrame,
+  );
 };
 
-const getTopBaseFeeContracts = () => getTopBaseFeeContractsForTimeframe(TABLE_NAME);
+const getTopBaseFeeContracts = () =>
+  getTopBaseFeeContractsForTimeframe(TIME_FRAME);
 
-const getTopBaseFeeContractsForTimeframe = (tableName: TableName) =>
+const getTopBaseFeeContractsForTimeframe = (timeFrame: TimeFrame) =>
   pipe(
     sqlT<LeaderboardRow[]>`
       WITH top_base_fee_contracts AS (
@@ -222,7 +242,7 @@ const getTopBaseFeeContractsForTimeframe = (tableName: TableName) =>
           contract_address,
           base_fee_sum,
           base_fee_sum_usd
-        FROM ${sql(tableName)}
+        FROM ${sql(timeFrameToTableName[timeFrame])}
         ORDER BY base_fee_sum DESC
         LIMIT 100
       )
