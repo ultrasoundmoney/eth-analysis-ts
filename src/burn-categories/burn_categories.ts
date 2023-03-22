@@ -34,9 +34,9 @@ export const burnCategoriesCacheKey = "burn-categories-cache-key";
 
 const getBurnCategoriesTimeFrame = (timeFrame: TimeFrameNext) =>
   pipe(timeFrame, (timeFrame) => {
-    if (timeFrame == "since_merge" || timeFrame == "since_burn") {
+    if (timeFrame === "since_merge" || timeFrame === "since_burn") {
       const blockNumber =
-        timeFrame == "since_merge"
+        timeFrame === "since_merge"
           ? Blocks.mergeBlockNumber
           : Blocks.londonHardForkBlockNumber;
 
