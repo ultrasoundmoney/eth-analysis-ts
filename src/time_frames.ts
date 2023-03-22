@@ -1,6 +1,6 @@
 import * as DateFns from "date-fns";
 import { O, pipe } from "./fp.js";
-import { londonHardForkBlockDate, londonHardForkBlockNumber, mergeBlockDate, mergeBlockNumber } from "./blocks/blocks.js";
+import { londonHardForkBlockDate, mergeBlockDate } from "./blocks/blocks.js";
 
 export const limitedTimeFrames = ["5m", "1h", "24h", "7d", "30d"] as const;
 export type LimitedTimeFrame = typeof limitedTimeFrames[number];

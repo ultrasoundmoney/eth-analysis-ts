@@ -1,4 +1,3 @@
-import * as DateFns from "date-fns";
 import PQueue from "p-queue";
 import Web3 from "web3";
 import web3Core from "web3-core";
