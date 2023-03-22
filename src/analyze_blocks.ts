@@ -8,7 +8,7 @@ import * as Config from "./config.js";
 import * as Db from "./db.js";
 import * as ExecutionNode from "./execution_node.js";
 import { ErrAlt, pipe, T, TE } from "./fp.js";
-import * as LeaderboardsAll from "./leaderboards_all.js";
+import * as LeaderboardsUnlimitedTimeframe from "./leaderboards_unlimited_time_frames.js";
 import * as LeaderboardsLimitedTimeframe from "./leaderboards_limited_timeframe.js";
 import * as Log from "./log.js";
 import * as Performance from "./performance.js";
@@ -97,11 +97,21 @@ const main = pipe(
   T.bind("_initLeaderboardAll", () =>
     pipe(
       Log.debugT("adding missing blocks to leaderboard all"),
-      T.chain(() => LeaderboardsAll.addMissingBlocks),
+      T.chain(() => T.of(LeaderboardsUnlimitedTimeframe.addMissingBlocks("all"))),
       T.chain(() =>
         Log.debugT("done adding missing blocks to leaderboard all"),
       ),
       Performance.measureTaskPerf("init leaderboard all"),
+    ),
+  ),
+  T.bind("_initLeaderboardSinceMerge", () =>
+    pipe(
+      Log.debugT("adding missing blocks to leaderboard since_merge"),
+      T.chain(() => T.of(LeaderboardsUnlimitedTimeframe.addMissingBlocks("since_merge"))),
+      T.chain(() =>
+        Log.debugT("done adding missing blocks to leaderboard since_merge"),
+      ),
+      Performance.measureTaskPerf("init leaderboard since_merge"),
     ),
   ),
   T.bind("_syncNextOnStart", ({ lastStoredBlockOnStart, chainHeadOnStart }) =>

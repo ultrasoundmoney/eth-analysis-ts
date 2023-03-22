@@ -13,7 +13,7 @@ import * as EthPrices from "../eth-prices/index.js";
 import { Head } from "../execution_node.js";
 import { E, flow, NEA, O, OAlt, pipe, T, TAlt, TEAlt, TOAlt } from "../fp.js";
 import * as GroupedAnalysis1 from "../grouped_analysis_1.js";
-import * as LeaderboardsAll from "../leaderboards_all.js";
+import * as LeaderboardsUnlimitedTimeframe from "../leaderboards_unlimited_time_frames.js";
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
@@ -40,8 +40,12 @@ const rollbackBlocks = (
       BurnRecordsNewHead.rollbackBlocks(blocksToRollbackNewestFirst),
     ),
     T.apS(
-      "rollbackLeaderboardsAll",
-      LeaderboardsAll.rollbackBlocks(blocksToRollbackNewestFirst),
+      "rollbackLeaderboardAll",
+      LeaderboardsUnlimitedTimeframe.rollbackBlocks(blocksToRollbackNewestFirst, "all"),
+    ),
+    T.apS(
+      "rollbackLeaderboardSinceMerge",
+      LeaderboardsUnlimitedTimeframe.rollbackBlocks(blocksToRollbackNewestFirst, "since_merge"),
     ),
     T.apS(
       "rollbackLeaderboardsLimitedTimeFrames",
@@ -205,10 +209,21 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   await Performance.measurePromisePerf(
     "add block to leaderboard all",
-    LeaderboardsAll.addBlock(
+    LeaderboardsUnlimitedTimeframe.addBlock(
       block.number,
       feeSegments.contractSumsEth,
       feeSegments.contractSumsUsd!,
+      "all"
+    ),
+  );
+
+  await Performance.measurePromisePerf(
+    "add block to leaderboard since_merge",
+    LeaderboardsUnlimitedTimeframe.addBlock(
+      block.number,
+      feeSegments.contractSumsEth,
+      feeSegments.contractSumsUsd!,
+      "since_merge"
     ),
   );
 
