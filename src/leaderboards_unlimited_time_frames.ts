@@ -166,7 +166,7 @@ export const addMissingBlocks = async (
   const nextBlockToInclude =
     typeof newestIncludedBlock === "number"
       ? newestIncludedBlock + 1
-      : timeFrame == "all"
+      : timeFrame === "all"
       ? Blocks.londonHardForkBlockNumber
       : Blocks.mergeBlockNumber;
 
