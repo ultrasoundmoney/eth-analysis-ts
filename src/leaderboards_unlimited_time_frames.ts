@@ -11,8 +11,6 @@ import {
 } from "./leaderboards.js";
 import * as Log from "./log.js";
 
-const TIME_FRAME = "all";
-
 type TimeFrame = "all" | "since_merge";
 
 const timeFrameToTableName: Record<TimeFrame, string> = {
@@ -20,13 +18,7 @@ const timeFrameToTableName: Record<TimeFrame, string> = {
   since_merge: "contract_base_fee_sums_since_merge",
 };
 
-export const getNewestIncludedBlockNumber = async (): Promise<
-  number | undefined
-> => {
-  return getNewestIncludedBlockNumberForTimeFrame(TIME_FRAME);
-};
-
-export const getNewestIncludedBlockNumberForTimeFrame = async (
+export const getNewestIncludedBlockNumber = async (
   timeFrame: TimeFrame,
 ) => {
   const rows = await sql<{ newestIncludedBlock: number }[]>`
@@ -39,12 +31,6 @@ export const getNewestIncludedBlockNumberForTimeFrame = async (
 };
 
 export const setNewestIncludedBlockNumber = async (
-  blockNumber: number,
-): Promise<void> => {
-  return setNewestIncludedBlockNumberForTimeFrame(blockNumber, TIME_FRAME);
-};
-
-export const setNewestIncludedBlockNumberForTimeFrame = async (
   blockNumber: number,
   timeFrame: TimeFrame,
 ): Promise<void> => {
@@ -66,12 +52,6 @@ export const setNewestIncludedBlockNumberForTimeFrame = async (
 };
 
 const addContractBaseFeeSums = async (
-  contractSums: ContractBaseFeeSums,
-): Promise<void> => {
-  return addContractBaseFeeSumsForTimeFrame(contractSums, TIME_FRAME);
-};
-
-const addContractBaseFeeSumsForTimeFrame = async (
   contractSums: ContractBaseFeeSums,
   timeFrame: TimeFrame,
 ): Promise<void> => {
@@ -116,12 +96,6 @@ export type Currency = "eth" | "usd";
 
 const removeContractBaseFeeSums = async (
   contractSums: ContractBaseFeeSums,
-): Promise<void> => {
-  return removeContractBaseFeeSumsForTimeFrame(contractSums, TIME_FRAME);
-};
-
-const removeContractBaseFeeSumsForTimeFrame = async (
-  contractSums: ContractBaseFeeSums,
   timeFrame: TimeFrame,
 ): Promise<void> => {
   const tableName = timeFrameToTableName[timeFrame];
@@ -163,38 +137,20 @@ export const addBlock = async (
   blockNumber: number,
   baseFeeSumsEth: ContractSums,
   baseFeeSumsUsd: ContractSums,
-): Promise<void> => {
-  return addBlockForTimeFrame(
-    blockNumber,
-    baseFeeSumsEth,
-    baseFeeSumsUsd,
-    TIME_FRAME,
-  );
-};
-
-export const addBlockForTimeFrame = async (
-  blockNumber: number,
-  baseFeeSumsEth: ContractSums,
-  baseFeeSumsUsd: ContractSums,
   timeFrame: TimeFrame,
 ): Promise<void> => {
-  await addContractBaseFeeSumsForTimeFrame(
+  await addContractBaseFeeSums(
     { eth: baseFeeSumsEth, usd: baseFeeSumsUsd },
     timeFrame,
   );
-  await setNewestIncludedBlockNumberForTimeFrame(blockNumber, timeFrame);
+  await setNewestIncludedBlockNumber(blockNumber, timeFrame);
 };
 
-export const addMissingBlocks = async (): Promise<void> => {
-  return addMissingBlocksForTimeFrame(TIME_FRAME);
-};
-
-export const addMissingBlocksForTimeFrame = async (
+export const addMissingBlocks = async (
   timeFrame: TimeFrame,
 ): Promise<void> => {
-  const tableName = timeFrameToTableName[timeFrame];
   const [newestIncludedBlock, lastStoredBlock] = await Promise.all([
-    getNewestIncludedBlockNumberForTimeFrame(timeFrame),
+    getNewestIncludedBlockNumber(timeFrame),
     Blocks.getLastStoredBlock()(),
   ]);
 
@@ -224,17 +180,14 @@ export const addMissingBlocksForTimeFrame = async (
     nextBlockToInclude,
     lastStoredBlock.number,
   )();
-  await addContractBaseFeeSumsForTimeFrame(rangeBaseFees, timeFrame);
-  await setNewestIncludedBlockNumberForTimeFrame(
+  await addContractBaseFeeSums(rangeBaseFees, timeFrame);
+  await setNewestIncludedBlockNumber(
     lastStoredBlock.number,
     timeFrame,
   );
 };
 
-const getTopBaseFeeContracts = () =>
-  getTopBaseFeeContractsForTimeframe(TIME_FRAME);
-
-const getTopBaseFeeContractsForTimeframe = (timeFrame: TimeFrame) =>
+const getTopBaseFeeContracts = (timeFrame: TimeFrame) =>
   pipe(
     sqlT<LeaderboardRow[]>`
       WITH top_base_fee_contracts AS (
@@ -276,12 +229,12 @@ const getTopBaseFeeContractsForTimeframe = (timeFrame: TimeFrame) =>
     ),
   );
 
-export const calcLeaderboardAll = () =>
+export const calcLeaderboard = (timeFrame: TimeFrame) =>
   pipe(
     T.Do,
     T.bind("topBaseFeeContracts", () =>
       pipe(
-        getTopBaseFeeContracts(),
+        getTopBaseFeeContracts(timeFrame),
         Performance.measureTaskPerf(
           "    get ranked contracts for leaderboard all",
         ),
@@ -320,7 +273,7 @@ export const calcLeaderboardAll = () =>
     ),
   );
 
-export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>) =>
+export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>, timeFrame: TimeFrame) =>
   pipe(
     blocks,
     NEA.sort(Blocks.sortDesc),
@@ -330,14 +283,14 @@ export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>) =>
         NEA.head(blocksNewestFirst).number,
       ),
     T.chain(
-      (sumsToRollback) => () => removeContractBaseFeeSums(sumsToRollback),
+      (sumsToRollback) => () => removeContractBaseFeeSums(sumsToRollback, timeFrame),
     ),
     T.chain(() =>
       pipe(
         blocks,
         NEA.sort(Blocks.sortAsc),
         NEA.head,
-        (block) => () => setNewestIncludedBlockNumber(block.number - 1),
+        (block) => () => setNewestIncludedBlockNumber(block.number - 1, timeFrame),
       ),
     ),
   );
