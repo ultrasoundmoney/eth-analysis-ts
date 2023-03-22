@@ -54,7 +54,7 @@ const getBurnCategoriesTimeFrame = (timeFrame: TimeFrameNext) =>
         GROUP BY (category)
       `;
     } else {
-      return sqlT<{ average: number }[]>`
+      return sqlT<BurnCategoryRow[]>`
         SELECT
           category,
           SUM(base_fees) AS fees,
