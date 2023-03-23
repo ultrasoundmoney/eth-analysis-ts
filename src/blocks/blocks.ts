@@ -186,7 +186,7 @@ export const storeBlock = async (
   block: BlockNodeV2,
   transactionReceipts: Transactions.TransactionReceiptV1[],
   ethPrice: number,
-  force: boolean = false,
+  force = false,
 ): Promise<void> => {
   const transactionSegments =
     Transactions.segmentTransactions(transactionReceipts);
