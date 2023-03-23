@@ -7,7 +7,7 @@ import * as Transactions from "../transactions.js";
 import * as Blocks from "./blocks.js";
 import { rollbackToIncluding } from "./new_head.js";
 
-export const syncBlock = async (blockNumber: number, skipParentCheck: boolean = false): Promise<void> => {
+export const syncBlock = async (blockNumber: number, skipParentCheck = false): Promise<void> => {
   Log.info(`syncing block: ${blockNumber}`);
   const block = await pipe(
     Blocks.getBlockSafe(blockNumber),

@@ -1,4 +1,3 @@
-import Koa from "koa";
 import * as Blocks from "../blocks/blocks.js";
 import * as BlocksNewBlock from "../blocks/new_head.js";
 import * as BlocksSync from "../blocks/sync.js";
