@@ -186,6 +186,7 @@ export const storeBlock = async (
   block: BlockNodeV2,
   transactionReceipts: Transactions.TransactionReceiptV1[],
   ethPrice: number,
+  force: boolean = false,
 ): Promise<void> => {
   const transactionSegments =
     Transactions.segmentTransactions(transactionReceipts);
@@ -223,7 +224,7 @@ export const storeBlock = async (
   const isParentKnown = await getBlockHashIsKnown(block.parentHash);
 
   // Right before we store a block we check it is not breaking the logical chain. Every block should have a known parent in our DB. We have a check earlier on to store any missing parents that should take care of this. Remove this condition if it reliably does.
-  if (!isParentKnown) {
+  if (!force && !isParentKnown) {
     const lastStoredBlock = await getLastStoredBlock()();
     Log.alert(
       `tried to store a block with no known parent, last stored: ${lastStoredBlock.number} - ${lastStoredBlock.hash}, trying to store: ${block.number} - ${block.hash}`,
