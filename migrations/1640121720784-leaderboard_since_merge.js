@@ -4,7 +4,7 @@ export async function up(client) {
   `;
 
   await client`
-    CREATE TABLE contract_base_fee_sums (
+    CREATE TABLE contract_base_fee_sums_since_merge (
         base_fee_sum float8,
         base_fee_sum_usd float8,
         contract_address text PRIMARY KEY
