@@ -1,6 +1,6 @@
 export async function up(client) {
   const enum_types = await client`SELECT enum_range(NULL::timeframe)`;
-  if (enum_types[0].enumRange.includes("since_merge")) {
+  if (enum_types[0].enum_range.includes("since_merge")) {
     console.log("since_merge already exists in timeframe enum");
     return;
   } else {
