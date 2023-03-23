@@ -1,7 +1,13 @@
 export async function up(client) {
-  await client`
+  let enum_types = await client`SELECT enum_range(NULL::timeframe)`;
+  if (enum_types[0].enumRange.includes("since_merge")) {
+    console.log("since_merge already exists in timeframe enum");
+    return;
+  } else {
+    await client`
     ALTER TYPE timeframe ADD VALUE 'since_merge';
   `;
+  }
 
   await client`
     CREATE TABLE contract_base_fee_sums_since_merge (
