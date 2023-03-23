@@ -14,6 +14,6 @@ export async function up(client) {
 
 export async function down(client) {
   await client`
-    DROP TABLE contract_base_fee_sums;
+    DROP TABLE contract_base_fee_sums_since_merge;
   `;
 }
