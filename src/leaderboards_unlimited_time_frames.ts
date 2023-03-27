@@ -11,13 +11,20 @@ import {
 } from "./leaderboards.js";
 import * as Log from "./log.js";
 
-export const getNewestIncludedBlockNumber = async (): Promise<
-  number | undefined
-> => {
+type TimeFrame = "all" | "since_merge";
+
+const timeFrameToTableName: Record<TimeFrame, string> = {
+  all: "contract_base_fee_sums",
+  since_merge: "contract_base_fee_sums_since_merge",
+};
+
+export const getNewestIncludedBlockNumber = async (
+  timeFrame: TimeFrame,
+) => {
   const rows = await sql<{ newestIncludedBlock: number }[]>`
     SELECT newest_included_block
     FROM base_fee_sum_included_blocks
-    WHERE timeframe = 'all'
+    WHERE timeframe = ${timeFrame}
   `;
 
   return rows[0]?.newestIncludedBlock ?? undefined;
@@ -25,6 +32,7 @@ export const getNewestIncludedBlockNumber = async (): Promise<
 
 export const setNewestIncludedBlockNumber = async (
   blockNumber: number,
+  timeFrame: TimeFrame,
 ): Promise<void> => {
   await sql`
       INSERT INTO base_fee_sum_included_blocks (
@@ -35,7 +43,7 @@ export const setNewestIncludedBlockNumber = async (
       VALUES (
         ${Blocks.londonHardForkBlockNumber},
         ${blockNumber},
-        'all'
+        ${timeFrame}
       )
       ON CONFLICT (timeframe) DO UPDATE SET
         oldest_included_block = ${Blocks.londonHardForkBlockNumber},
@@ -45,7 +53,9 @@ export const setNewestIncludedBlockNumber = async (
 
 const addContractBaseFeeSums = async (
   contractSums: ContractBaseFeeSums,
+  timeFrame: TimeFrame,
 ): Promise<void> => {
+  const tableName = timeFrameToTableName[timeFrame];
   if (contractSums.eth.size === 0) {
     return;
   }
@@ -63,7 +73,7 @@ const addContractBaseFeeSums = async (
       (address) => contractSums.usd.get(address) ?? null,
     );
     await sql`
-      INSERT INTO contract_base_fee_sums (
+      INSERT INTO ${sql(tableName)} (
         contract_address,
         base_fee_sum,
         base_fee_sum_usd
@@ -74,9 +84,9 @@ const addContractBaseFeeSums = async (
         UNNEST(${sql.array(feesUsd)}::double precision[])
       ON CONFLICT (contract_address) DO UPDATE SET
         base_fee_sum =
-          contract_base_fee_sums.base_fee_sum + excluded.base_fee_sum::float8,
+          ${sql(tableName)}.base_fee_sum + excluded.base_fee_sum::float8,
         base_fee_sum_usd =
-          contract_base_fee_sums.base_fee_sum_usd + excluded.base_fee_sum_usd::float8
+          ${sql(tableName)}.base_fee_sum_usd + excluded.base_fee_sum_usd::float8
     `;
   });
   await Promise.all(promises);
@@ -86,7 +96,9 @@ export type Currency = "eth" | "usd";
 
 const removeContractBaseFeeSums = async (
   contractSums: ContractBaseFeeSums,
+  timeFrame: TimeFrame,
 ): Promise<void> => {
+  const tableName = timeFrameToTableName[timeFrame];
   if (contractSums.eth.size === 0) {
     return undefined;
   }
@@ -104,16 +116,18 @@ const removeContractBaseFeeSums = async (
     );
 
     await sql`
-      UPDATE contract_base_fee_sums SET
-        base_fee_sum = contract_base_fee_sums.base_fee_sum - data_table.base_fee_sum,
-        base_fee_sum_usd = contract_base_fee_sums.base_fee_sum_usd - data_table.base_fee_sum_usd
+      UPDATE ${sql(tableName)} SET
+        base_fee_sum = ${sql(tableName)}.base_fee_sum - data_table.base_fee_sum,
+        base_fee_sum_usd = ${sql(
+          tableName,
+        )}.base_fee_sum_usd - data_table.base_fee_sum_usd
       FROM (
         SELECT
           UNNEST(${sql.array(addresses)}::text[]) as contract_address,
           UNNEST(${sql.array(fees)}::double precision[]) as base_fee_sum,
           UNNEST(${sql.array(feesUsd)}::double precision[]) as base_fee_sum_usd
       ) as data_table
-      WHERE contract_base_fee_sums.contract_address = data_table.contract_address
+      WHERE ${sql(tableName)}.contract_address = data_table.contract_address
     `;
   });
   await Promise.all(promises);
@@ -123,14 +137,20 @@ export const addBlock = async (
   blockNumber: number,
   baseFeeSumsEth: ContractSums,
   baseFeeSumsUsd: ContractSums,
+  timeFrame: TimeFrame,
 ): Promise<void> => {
-  await addContractBaseFeeSums({ eth: baseFeeSumsEth, usd: baseFeeSumsUsd });
-  await setNewestIncludedBlockNumber(blockNumber);
+  await addContractBaseFeeSums(
+    { eth: baseFeeSumsEth, usd: baseFeeSumsUsd },
+    timeFrame,
+  );
+  await setNewestIncludedBlockNumber(blockNumber, timeFrame);
 };
 
-export const addMissingBlocks = async (): Promise<void> => {
+export const addMissingBlocks = async (
+  timeFrame: TimeFrame,
+): Promise<void> => {
   const [newestIncludedBlock, lastStoredBlock] = await Promise.all([
-    getNewestIncludedBlockNumber(),
+    getNewestIncludedBlockNumber(timeFrame),
     Blocks.getLastStoredBlock()(),
   ]);
 
@@ -146,10 +166,12 @@ export const addMissingBlocks = async (): Promise<void> => {
   const nextBlockToInclude =
     typeof newestIncludedBlock === "number"
       ? newestIncludedBlock + 1
-      : Blocks.londonHardForkBlockNumber;
+      : timeFrame === "all"
+      ? Blocks.londonHardForkBlockNumber
+      : Blocks.mergeBlockNumber;
 
   Log.debug(
-    `sync leaderboard all, ${
+    `sync leaderboard ${timeFrame}, ${
       lastStoredBlock.number - nextBlockToInclude
     } blocks to analyze`,
   );
@@ -158,11 +180,14 @@ export const addMissingBlocks = async (): Promise<void> => {
     nextBlockToInclude,
     lastStoredBlock.number,
   )();
-  await addContractBaseFeeSums(rangeBaseFees);
-  await setNewestIncludedBlockNumber(lastStoredBlock.number);
+  await addContractBaseFeeSums(rangeBaseFees, timeFrame);
+  await setNewestIncludedBlockNumber(
+    lastStoredBlock.number,
+    timeFrame,
+  );
 };
 
-const getTopBaseFeeContracts = () =>
+const getTopBaseFeeContracts = (timeFrame: TimeFrame) =>
   pipe(
     sqlT<LeaderboardRow[]>`
       WITH top_base_fee_contracts AS (
@@ -170,7 +195,7 @@ const getTopBaseFeeContracts = () =>
           contract_address,
           base_fee_sum,
           base_fee_sum_usd
-        FROM contract_base_fee_sums
+        FROM ${sql(timeFrameToTableName[timeFrame])}
         ORDER BY base_fee_sum DESC
         LIMIT 100
       )
@@ -204,12 +229,12 @@ const getTopBaseFeeContracts = () =>
     ),
   );
 
-export const calcLeaderboardAll = () =>
+export const calcLeaderboard = (timeFrame: TimeFrame) =>
   pipe(
     T.Do,
     T.bind("topBaseFeeContracts", () =>
       pipe(
-        getTopBaseFeeContracts(),
+        getTopBaseFeeContracts(timeFrame),
         Performance.measureTaskPerf(
           "    get ranked contracts for leaderboard all",
         ),
@@ -227,7 +252,8 @@ export const calcLeaderboardAll = () =>
     ),
     T.bind("contractCreationBaseFees", () =>
       pipe(
-        () => Leaderboards.getContractCreationBaseFeesForTimeframe("since_burn"),
+        () =>
+          Leaderboards.getContractCreationBaseFeesForTimeframe("since_burn"),
         Performance.measureTaskPerf(
           "    add contract creation fees leaderboard all",
         ),
@@ -247,7 +273,7 @@ export const calcLeaderboardAll = () =>
     ),
   );
 
-export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>) =>
+export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>, timeFrame: TimeFrame) =>
   pipe(
     blocks,
     NEA.sort(Blocks.sortDesc),
@@ -257,14 +283,14 @@ export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>) =>
         NEA.head(blocksNewestFirst).number,
       ),
     T.chain(
-      (sumsToRollback) => () => removeContractBaseFeeSums(sumsToRollback),
+      (sumsToRollback) => () => removeContractBaseFeeSums(sumsToRollback, timeFrame),
     ),
     T.chain(() =>
       pipe(
         blocks,
         NEA.sort(Blocks.sortAsc),
         NEA.head,
-        (block) => () => setNewestIncludedBlockNumber(block.number - 1),
+        (block) => () => setNewestIncludedBlockNumber(block.number - 1, timeFrame),
       ),
     ),
   );
