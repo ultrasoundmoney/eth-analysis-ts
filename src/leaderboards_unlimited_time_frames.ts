@@ -229,8 +229,9 @@ const getTopBaseFeeContracts = (timeFrame: TimeFrame) =>
     ),
   );
 
-export const calcLeaderboard = (timeFrame: TimeFrame) =>
-  pipe(
+export const calcLeaderboard = (timeFrame: TimeFrame) => {
+  const timeFrameNewWording = timeFrame === "all" ? "since_burn" : timeFrame;
+  return pipe(
     T.Do,
     T.bind("topBaseFeeContracts", () =>
       pipe(
@@ -244,7 +245,7 @@ export const calcLeaderboard = (timeFrame: TimeFrame) =>
     ),
     T.bind("ethTransferBaseFees", () =>
       pipe(
-        () => Leaderboards.getEthTransferFeesForTimeframe("since_burn"),
+        () => Leaderboards.getEthTransferFeesForTimeframe(timeFrameNewWording),
         Performance.measureTaskPerf(
           "    add eth transfer fees leaderboard all",
         ),
@@ -253,7 +254,7 @@ export const calcLeaderboard = (timeFrame: TimeFrame) =>
     T.bind("contractCreationBaseFees", () =>
       pipe(
         () =>
-          Leaderboards.getContractCreationBaseFeesForTimeframe("since_burn"),
+          Leaderboards.getContractCreationBaseFeesForTimeframe(timeFrameNewWording),
         Performance.measureTaskPerf(
           "    add contract creation fees leaderboard all",
         ),
@@ -272,6 +273,7 @@ export const calcLeaderboard = (timeFrame: TimeFrame) =>
         ),
     ),
   );
+}
 
 export const rollbackBlocks = (blocks: NEA.NonEmptyArray<Blocks.BlockV1>, timeFrame: TimeFrame) =>
   pipe(
