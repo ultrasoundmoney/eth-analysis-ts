@@ -64,7 +64,7 @@ const getBurnCategoriesTimeFrame = (timeFrame: TimeFrameNext) =>
         JOIN blocks ON number = block_number
         JOIN contracts ON address = contract_address
         WHERE category IS NOT NULL
-        AND mined_at >= NOW() - ${intervalSqlMapNext[timeFrame]}::interval
+        AND blocks.mined_at >= NOW() - ${intervalSqlMapNext[timeFrame]}::interval
         GROUP BY (category)
       `;
     }
