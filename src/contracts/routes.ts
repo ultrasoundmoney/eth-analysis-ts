@@ -134,7 +134,7 @@ export const registerRoutes = (router: Router) => {
     "/api/contracts/admin/set-twitter-handle",
     handleSetContractTwitterHandle,
   );
-  router.get("/api/fees/contracts/admin/set-name", handleSetContractName);
+  router.get("/api/contracts/admin/set-name", handleSetContractName);
   router.get("/api/contracts/admin/set-category", handleSetContractCategory);
   router.get(
     "/api/contracts/admin/set-last-manually-verified",
