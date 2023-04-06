@@ -1,5 +1,5 @@
-import { decodeWithError } from "./decoding.js";
-import { D, E } from "./fp.js";
+import { DecodeError, decodeWithError } from "./decoding.js";
+import { D, T, TE, pipe } from "./fp.js";
 import * as Fs from "fs/promises";
 
 // const nftGoApi = "https://api.nftgo.io/api/v1";
@@ -53,34 +53,24 @@ export type LeaderboardResponse = {
   };
 };
 
-export const getRankedCollections = async (): Promise<
-  E.Either<never, Collection[]>
-> => {
-  // File does not exist outside dev.
-  const file = await Fs.readFile("./nftCollections.json", "utf8");
-  const parsed = JSON.parse(file);
-  const decoded = decodeWithError(LeaderboardResponse)(parsed);
-  if (E.isLeft(decoded)) {
-    throw decoded.left;
-  }
-
-  return E.right(decoded.right.data.list);
-};
-
-// const getMarketCapUrl = () =>
-//   formatUrl(nftGoApi, "/data/chart/marketcap", {
-//     from: DateFns.getTime(new Date()),
-//     to: DateFns.getTime(new Date()),
-//     interval: "1h",
-//   });
+export const getRankedCollections: TE.TaskEither<DecodeError, Collection[]> =
+  pipe(
+    // File does not exist outside dev.
+    () => Fs.readFile("./nftCollections.json", "utf8"),
+    T.map(JSON.parse),
+    T.map(decodeWithError(LeaderboardResponse)),
+    TE.map((decoded) => decoded.data.list),
+  );
 
 const MarketCapResponse = D.struct({
   errorCode: D.literal(0),
   data: D.struct({
-    /** jsTimestamp */
-    x: D.array(D.number),
-    /** market cap in USD */
-    y: D.array(D.number),
+    marketCap: D.struct({
+      meta: D.struct({
+        /** market cap in USD */
+        value: D.number,
+      }),
+    }),
   }),
 });
 
@@ -88,14 +78,10 @@ export type MarketCapResponse = D.TypeOf<typeof MarketCapResponse>;
 
 export class UnexpectedNftGoResponse extends Error {}
 
-export const getMarketCap = async (): Promise<E.Either<never, number>> => {
+export const getMarketCap: TE.TaskEither<DecodeError, number> = pipe(
   // File does not exist outside dev.
-  const file = await Fs.readFile("./nftMarketCap.json", "utf8");
-  const parsed = JSON.parse(file);
-  const decoded = decodeWithError(MarketCapResponse)(parsed);
-  if (E.isLeft(decoded)) {
-    throw decoded.left;
-  }
-
-  return E.right(decoded.right.data.y[0]);
-};
+  () => Fs.readFile("./nftMarketCap.json", "utf8"),
+  T.map(JSON.parse),
+  T.map(decodeWithError(MarketCapResponse)),
+  TE.map((decoded) => decoded.data.marketCap.meta.value),
+);
