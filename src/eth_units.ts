@@ -1,6 +1,9 @@
 export type Wei = number;
 export type WeiBI = bigint;
 
+export type Gwei = bigint;
+export type GweiNumber = number;
+
 export type Eth = number;
 
 export const ethFromWei = (wei: number): number => wei / 1e18;

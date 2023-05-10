@@ -1,11 +1,10 @@
 import { setInterval } from "timers/promises";
 import * as Duration from "../duration.js";
-import * as ExecutionNode from "../execution_node.js";
-import { WeiBI } from "../eth_units.js";
+import { GweiNumber, WeiBI, weiFromGwei } from "../eth_units.js";
 import * as Format from "../format.js";
-import { O, OAlt, pipe, T, TAlt } from "../fp.js";
-
-const eth2DepositAddress = "0x00000000219ab540356cbb839cbe05303d7705fa";
+import { O, OAlt, pipe, T, TO } from "../fp.js";
+import * as KeyValueStore from "../key_value_store.js";
+import * as Log from "../log.js";
 
 export type EthStaked = {
   timestamp: Date;
@@ -14,21 +13,29 @@ export type EthStaked = {
 
 let lastEthStaked: O.Option<EthStaked> = O.none;
 
-const updateEthStaked = () =>
+const updateEthStaked = (): T.Task<void> =>
   pipe(
-    () => ExecutionNode.getBalance(eth2DepositAddress),
-    TAlt.chainFirstLogDebug(
-      (balance) =>
-        `got eth staked from deposit contract, balance: ${Format.ethFromWei(
-          balance,
-        )} ETH`,
+    KeyValueStore.getValue<GweiNumber>("effective-balance-sum"),
+    TO.chainFirstIOK((effectiveBalanceSum) =>
+      Log.debugIO(
+        `effective balance sum found in db: ${Format.ethFromGwei(
+          effectiveBalanceSum,
+        )}`,
+      ),
     ),
-    T.map((balance) => {
-      lastEthStaked = O.some({
-        timestamp: new Date(),
-        ethStaked: balance,
-      });
-    }),
+    T.map(
+      O.match(
+        () => {
+          Log.warn("no effective balance sum found in db, skipping update");
+        },
+        (balance) => {
+          lastEthStaked = O.some({
+            timestamp: new Date(),
+            ethStaked: BigInt(weiFromGwei(balance)),
+          });
+        },
+      ),
+    ),
   );
 
 export const getLastEthStaked = (): EthStaked =>
