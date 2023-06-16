@@ -1,7 +1,7 @@
 import * as Blocks from "../blocks/blocks.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as FeeBurn from "../fee_burn.js";
-import { A, pipe, T, TAlt } from "../fp.js";
+import { A, O, pipe, T, TAlt } from "../fp.js";
 import * as Log from "../log.js";
 import { intervalSqlMapNext, TimeFrameNext } from "../time_frames.js";
 
@@ -140,3 +140,11 @@ export const setIsUpdating = (nextIsUpdating: boolean) => {
 };
 
 export const getIsUpdating = () => isUpdating;
+
+let lastUpdated: O.Option<number> = O.none;
+
+export const setLastUpdated = (nextLastUpdated: number) => {
+  lastUpdated = O.some(nextLastUpdated);
+};
+
+export const getLastUpdated = () => lastUpdated;
