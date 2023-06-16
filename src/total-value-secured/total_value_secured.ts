@@ -729,10 +729,9 @@ const tvsRankingFromNftCollection = (
   const twitterDetails = pipe(
     contractDetails,
     O.chain(O.fromNullableK((details) => details.twitterHandle)),
+    O.map(S.toLowerCase),
     O.chain(
-      O.fromNullableK((twitterHandle) =>
-        twitterDetailsMap.get(twitterHandle.toLowerCase()),
-      ),
+      O.fromNullableK((twitterHandle) => twitterDetailsMap.get(twitterHandle)),
     ),
   );
 
