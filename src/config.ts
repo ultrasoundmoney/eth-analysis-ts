@@ -54,7 +54,7 @@ export const getEtherscanApiKey = (): string =>
   parseSimpleEnvVarUnsafe("ETHERSCAN_API_KEY");
 
 export const getTwitterToken = (): string =>
-  parseSimpleEnvVarUnsafe("TWITTER_BEARER_TOKEN_USM");
+  parseSimpleEnvVarUnsafe("TWITTER_BEARER_TOKEN_AURORA");
 
 export const getAdminToken = (): string =>
   parseSimpleEnvVarUnsafe("ADMIN_TOKEN");
