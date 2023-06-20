@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
 import * as Blocks from "./blocks/blocks.js";
 import * as ExecutionNode from "./execution_node.js";
-import { A, flow, NEA, O, pipe, RA, T, TE, TO } from "./fp.js";
+import { A, flow, NEA, O, pipe, RA, T, TE } from "./fp.js";
 import * as Hexadecimal from "./hexadecimal.js";
 import * as Performance from "./performance.js";
 import { queueOnQueueT } from "./queues.js";
@@ -37,11 +37,6 @@ export const fetchReceiptQueue = new PQueue({
   concurrency: 64,
 });
 
-const queueFetchReceipt =
-  <A>(task: T.Task<A>): T.Task<A> =>
-  () =>
-    fetchReceiptQueue.add(task);
-
 export class TransactionReceiptNullError extends Error {}
 
 export const transactionReceiptsFromBlock = (
@@ -66,20 +61,6 @@ export const transactionReceiptsFromBlock = (
         block,
       )}`,
     ),
-  );
-
-export const getTransactionReceiptsSafe = (block: Blocks.BlockNodeV2) =>
-  pipe(
-    block.transactions,
-    TO.traverseArray((hash) =>
-      pipe(
-        () => ExecutionNode.getTransactionReceipt(hash),
-        queueFetchReceipt,
-        T.map(O.fromNullable),
-      ),
-    ),
-    TO.map(RA.map(transactionReceiptFromRaw)),
-    TO.map(RA.toArray),
   );
 
 export type TransactionSegments = {

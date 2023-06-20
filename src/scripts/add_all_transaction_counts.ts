@@ -2,7 +2,7 @@ import makeEta from "simple-eta";
 import * as Blocks from "../blocks/blocks.js";
 import * as Contracts from "../contracts/contracts.js";
 import { sql, sqlTVoid } from "../db.js";
-import { A, NEA, O, pipe, T, TOAlt } from "../fp.js";
+import { A, NEA, O, pipe, T, TEAlt } from "../fp.js";
 import * as Log from "../log.js";
 import * as Transactions from "../transactions.js";
 
@@ -38,8 +38,8 @@ for (const blockNumber of blocksToStore) {
     throw new Error(`failed to get block ${blockNumber}`);
   }
   const transactionReceipts = await pipe(
-    Transactions.getTransactionReceiptsSafe(block.value),
-    TOAlt.expect(`transactions for ${blockNumber} came back null`),
+    Transactions.transactionReceiptsFromBlock(block.value),
+    TEAlt.getOrThrow,
   )();
   const { other } = Transactions.segmentTransactions(transactionReceipts);
   const transactionCounts = Blocks.countTransactionsPerContract(other);

@@ -81,10 +81,7 @@ for (const blockNumber of blocksToCheck) {
       ),
     ),
     T.bind("transactionReceipts", ({ block }) =>
-      pipe(
-        Transactions.getTransactionReceiptsSafe(block),
-        TOAlt.expect(`transactions for ${blockNumber} came back null`),
-      ),
+      pipe(Transactions.transactionReceiptsFromBlock(block), TEAlt.getOrThrow),
     ),
     T.bind("segments", ({ transactionReceipts }) =>
       pipe(Transactions.segmentTransactions(transactionReceipts), T.of),

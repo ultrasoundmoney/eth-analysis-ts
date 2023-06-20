@@ -37,10 +37,8 @@ await pipe(
         ),
         T.bind("transactionReceipts", ({ block }) =>
           pipe(
-            Transactions.getTransactionReceiptsSafe(block),
-            TOAlt.expect(
-              `transacion receipts for block ${blockNumber} came back null`,
-            ),
+            Transactions.transactionReceiptsFromBlock(block),
+            TEAlt.getOrThrow,
           ),
         ),
         T.chain(({ block, transactionReceipts }) =>
