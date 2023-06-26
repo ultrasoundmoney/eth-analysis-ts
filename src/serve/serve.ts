@@ -195,26 +195,6 @@ const handleGetEthSupplyParts: Middleware = async (ctx) => {
   );
 };
 
-const handleGetEffectiveBalanceSum: Middleware = async (ctx) => {
-  pipe(
-    Cache.store.oEffectiveBalanceSum,
-    O.match(
-      () => {
-        ctx.status = 503;
-      },
-      (effectiveBalanceSum) => {
-        ctx.set("Cache-Control", BLOCK_LIFETIME_CACHE_HEADER);
-        ctx.set(
-          "Cache-Control",
-          "public, max-age=300, stale-while-revalidate=1200",
-        );
-        ctx.set("Content-Type", "application/json");
-        ctx.body = effectiveBalanceSum;
-      },
-    ),
-  );
-};
-
 const handleGetMergeEstimate: Middleware = async (ctx) => {
   pipe(
     Cache.store.oMergeEstimate,
@@ -309,7 +289,6 @@ router.get("/api/fees/block-lag", handleGetBlockLag);
 router.get("/api/fees/issuance-breakdown", handleGetIssuanceBreakdown);
 router.get("/api/fees/eth-supply", handleGetEthSupplyParts);
 router.get("/api/fees/eth-supply-parts", handleGetEthSupplyParts);
-router.get("/api/fees/effective-balance-sum", handleGetEffectiveBalanceSum);
 
 // endpoints for dev
 

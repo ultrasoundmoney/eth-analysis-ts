@@ -2,6 +2,8 @@ import { BlockV1 } from "../blocks/blocks.js";
 import * as DateFnsAlt from "../date_fns_alt.js";
 import { sqlT, sqlTNotify, sqlTVoid } from "../db.js";
 import * as Duration from "../duration.js";
+import { WeiBI, weiFromGwei } from "../eth_units.js";
+import * as Fetch from "../fetch.js";
 import { E, flow, O, OAlt, pipe, T, TE } from "../fp.js";
 import { serializeBigInt } from "../json.js";
 import * as Log from "../log.js";
@@ -12,7 +14,7 @@ import * as EthSupply from "./eth_supply.js";
 export type Scarcity = {
   engines: {
     burned: {
-      amount: bigint;
+      amount: WeiBI;
       name: string;
       startedOn: Date;
     };
@@ -22,7 +24,7 @@ export type Scarcity = {
       startedOn: Date;
     };
     staked: {
-      amount: bigint;
+      amount: WeiBI;
       name: string;
       startedOn: Date;
     };
@@ -37,48 +39,59 @@ const buildScarcity = (
   block: BlockV1,
   ethInDefi: EthLocked.EthLocked,
   ethBurned: bigint,
-): E.Either<Error, Scarcity> => {
-  const ethStaked = EthStaked.getLastEthStaked();
-  const ethSupply = EthSupply.getLastEthSupply();
+): TE.TaskEither<
+  Fetch.BadResponseError | Fetch.DecodeJsonError | Fetch.FetchError,
+  Scarcity
+> =>
+  pipe(
+    TE.Do,
+    TE.apS("ethStaked", EthStaked.getEthStaked()),
+    TE.apS("ethSupply", TE.of(EthSupply.getLastEthSupply())),
+    TE.bind("ethStakedAge", ({ ethStaked }) =>
+      TE.of(
+        DateFnsAlt.millisecondsBetweenAbs(
+          new Date(),
+          new Date(ethStaked.timestamp),
+        ),
+      ),
+    ),
+    TE.bind("ethSupplyAge", ({ ethSupply }) =>
+      TE.of(DateFnsAlt.millisecondsBetweenAbs(new Date(), ethSupply.timestamp)),
+    ),
+    TE.chainEitherK(({ ethStaked, ethSupply, ethStakedAge, ethSupplyAge }) => {
+      if (ethStakedAge > Duration.millisFromMinutes(10)) {
+        return E.left(new Error("eth staked update too old"));
+      }
 
-  const ethStakedAge = DateFnsAlt.millisecondsBetweenAbs(
-    new Date(),
-    ethStaked.timestamp,
+      if (ethSupplyAge > Duration.millisFromMinutes(10)) {
+        return E.left(
+          new Error("eth supply update too old to calculate scarcity"),
+        );
+      }
+
+      return E.right({
+        engines: {
+          burned: {
+            amount: ethBurned,
+            name: "burned",
+            startedOn: new Date("2021-08-05T12:33:42.000Z"),
+          },
+          locked: {
+            amount: ethInDefi.eth,
+            name: "locked",
+            startedOn: new Date("2017-09-02T00:00:00.000Z"),
+          },
+          staked: {
+            amount: BigInt(weiFromGwei(ethStaked.sum)),
+            name: "staked",
+            startedOn: new Date("2020-11-03T00:00:00.000Z"),
+          },
+        },
+        ethSupply: ethSupply.ethSupply,
+        number: block.number,
+      });
+    }),
   );
-  if (ethStakedAge > Duration.millisFromMinutes(10)) {
-    return E.left(new Error("eth staked update too old"));
-  }
-
-  const ethSupplyAge = DateFnsAlt.millisecondsBetweenAbs(
-    new Date(),
-    ethSupply.timestamp,
-  );
-  if (ethSupplyAge > Duration.millisFromMinutes(10)) {
-    return E.left(new Error("eth supply update too old to calculate scarcity"));
-  }
-
-  return E.right({
-    engines: {
-      burned: {
-        amount: ethBurned,
-        name: "burned",
-        startedOn: new Date("2021-08-05T12:33:42.000Z"),
-      },
-      locked: {
-        amount: ethInDefi.eth,
-        name: "locked",
-        startedOn: new Date("2017-09-02T00:00:00.000Z"),
-      },
-      staked: {
-        amount: ethStaked.ethStaked,
-        name: "staked",
-        startedOn: new Date("2020-11-03T00:00:00.000Z"),
-      },
-    },
-    ethSupply: ethSupply.ethSupply,
-    number: block.number,
-  });
-};
 
 export const updateScarcityCache = (block: BlockV1): T.Task<void> =>
   pipe(
@@ -101,7 +114,7 @@ export const updateScarcityCache = (block: BlockV1): T.Task<void> =>
         T.map((rows) => BigInt(rows[0]?.feesBurnedAll)),
       ),
     ),
-    T.map(({ ethBurned, ethInDefi }) =>
+    T.chain(({ ethBurned, ethInDefi }) =>
       buildScarcity(block, ethInDefi, ethBurned),
     ),
     TE.chainTaskK(
