@@ -506,7 +506,9 @@ type DateTimeString = string;
 
 const getEthStaked = (): T.Task<number> =>
   pipe(
-    Fetch.fetchJson("https://ultrasound.money/api/v2/effective-balance-sum"),
+    Fetch.fetchJson(
+      "https://ultrasound.money/api/v2/fees/effective-balance-sum",
+    ),
     TE.map(
       (json) =>
         json as { sum: number; timestamp: DateTimeString; slot: number },
