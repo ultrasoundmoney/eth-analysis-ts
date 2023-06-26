@@ -4,9 +4,7 @@ import * as Log from "../../log.js";
 import * as PerformanceMetrics from "../../performance_metrics.js";
 import * as Contracts from "../contracts.js";
 import { addDefiLlamaMetadata } from "./defi_llama.js";
-// import * as Etherscan from "./etherscan.js";
 import { addOpenseaMetadataMaybe } from "./opensea.js";
-import { addTwitterMetadataMaybe } from "./twitter.js";
 import { refreshWeb3Metadata } from "./web3.js";
 import * as Coingecko from "./coingecko.js";
 
@@ -45,7 +43,8 @@ export const addMetadata = (address: string, forceRefetch = false) =>
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
     // In addition, any updatePreferredMetadata call may uncover a manually set twitter handle. This should probably be more explicit.
-    T.chain(() => addTwitterMetadataMaybe(address, forceRefetch)),
+    // Our rate-limits are currently insufficient to handle the number of requests we're making. Disabling this until we can make batch requests.
+    // T.chain(() => addTwitterMetadataMaybe(address, forceRefetch)),
     T.chainFirst(() =>
       forceRefetch
         ? Contracts.setSimpleBooleanColumn(

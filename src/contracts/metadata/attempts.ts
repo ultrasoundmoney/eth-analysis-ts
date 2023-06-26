@@ -7,7 +7,7 @@ export const getLastAttempt = (retryMap: Map<string, Date>, address: string) =>
     MapS.lookup(address),
     O.map(
       (lastAttempted) =>
-        DateFns.differenceInHours(new Date(), lastAttempted) < 6,
+        DateFns.differenceInHours(new Date(), lastAttempted) < 12,
     ),
   );
 
