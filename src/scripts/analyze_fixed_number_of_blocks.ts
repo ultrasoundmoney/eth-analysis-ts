@@ -11,7 +11,6 @@ import * as LeaderboardsUnlimitedTimeframe from "../leaderboards_unlimited_time_
 import * as LeaderboardsLimitedTimeframe from "../leaderboards_limited_timeframe.js";
 import * as Log from "../log.js";
 import * as Performance from "../performance.js";
-import * as EthStaked from "../scarcity/eth_staked.js";
 import * as EthSupply from "../scarcity/eth_supply.js";
 import * as SyncOnStart from "../sync_on_start.js";
 
@@ -22,7 +21,6 @@ const initLeaderboardLimitedTimeframes = async (): Promise<void> => {
 };
 
 const numBlocks = 100;
-
 
 const main = pipe(
   T.Do,
@@ -39,8 +37,15 @@ const main = pipe(
   }),
   T.bind("_fastSyncBlocks", ({ chainHeadOnStart }) =>
     pipe(
-      Log.debugT(`fast-sync last ${numBlocks} blocks up to ${chainHeadOnStart}`),
-      T.chain(() => BlocksSync.syncBlocksStartingFrom(chainHeadOnStart, chainHeadOnStart - numBlocks)),
+      Log.debugT(
+        `fast-sync last ${numBlocks} blocks up to ${chainHeadOnStart}`,
+      ),
+      T.chain(() =>
+        BlocksSync.syncBlocksStartingFrom(
+          chainHeadOnStart,
+          chainHeadOnStart - numBlocks,
+        ),
+      ),
       T.chain(() => Log.debugT("fast-sync blocks done")),
     ),
   ),
@@ -51,7 +56,6 @@ const main = pipe(
       T.chainIOK(() => Log.debugIO("sync burn records done")),
     ),
   ),
-  T.apS("_initEthStaked", EthStaked.init),
   T.apS("_initEthSupply", EthSupply.init),
   T.bind("_initLeaderboardLimitedTimeframes", () =>
     pipe(
@@ -72,7 +76,9 @@ const main = pipe(
   T.bind("_initLeaderboardSinceMerge", () =>
     pipe(
       Log.debugT("adding missing blocks to leaderboard since_merge"),
-      T.chain(() => T.of(LeaderboardsUnlimitedTimeframe.addMissingBlocks("since_merge"))),
+      T.chain(() =>
+        T.of(LeaderboardsUnlimitedTimeframe.addMissingBlocks("since_merge")),
+      ),
       T.chain(() =>
         Log.debugT("done adding missing blocks to leaderboard since_merge"),
       ),
