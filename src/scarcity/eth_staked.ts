@@ -11,15 +11,21 @@ export type EthStaked = {
   ethStaked: WeiBI;
 };
 
+type DateTimeString = string;
+
 let lastEthStaked: O.Option<EthStaked> = O.none;
 
 const updateEthStaked = (): T.Task<void> =>
   pipe(
-    KeyValueStore.getValue<GweiNumber>("effective-balance-sum"),
+    KeyValueStore.getValue<{
+      sum: GweiNumber;
+      timestamp: DateTimeString;
+      slot: number;
+    }>("effective-balance-sum"),
     TO.chainFirstIOK((effectiveBalanceSum) =>
       Log.debugIO(
         `effective balance sum found in db: ${Format.ethFromGwei(
-          effectiveBalanceSum,
+          effectiveBalanceSum.sum,
         )}`,
       ),
     ),
@@ -28,10 +34,10 @@ const updateEthStaked = (): T.Task<void> =>
         () => {
           Log.warn("no effective balance sum found in db, skipping update");
         },
-        (balance) => {
+        (effectiveBalanceSum) => {
           lastEthStaked = O.some({
             timestamp: new Date(),
-            ethStaked: BigInt(weiFromGwei(balance)),
+            ethStaked: BigInt(weiFromGwei(effectiveBalanceSum.sum)),
           });
         },
       ),
