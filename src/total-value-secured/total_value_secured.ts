@@ -4,6 +4,7 @@ import * as Contracts from "../contracts/web3.js";
 import * as Db from "../db.js";
 import * as Duration from "../duration.js";
 import * as EthPrices from "../eth-prices/index.js";
+import { ethFromGwei } from "../eth_units.js";
 import * as FamService from "../fam_service.js";
 import * as Fetch from "../fetch.js";
 import {
@@ -27,6 +28,7 @@ import * as Log from "../log.js";
 import { getStoredMarketCaps } from "../market-caps/market_caps.js";
 import * as NftGo from "../nft_go.js";
 import * as NftGoSnapshot from "../nft_go_snapshot.js";
+import { getEthStaked } from "../scarcity/eth_staked.js";
 
 export const totalValueSecuredCacheKey = "total-value-secured";
 
@@ -502,23 +504,6 @@ const getEthMarketCap = () =>
     TO.map((storedMarketCaps) => storedMarketCaps.ethMarketCap),
   );
 
-type DateTimeString = string;
-
-const getEthStaked = (): T.Task<number> =>
-  pipe(
-    Fetch.fetchJson(
-      "https://ultrasound.money/api/v2/fees/effective-balance-sum",
-    ),
-    TE.map(
-      (json) =>
-        json as { sum: number; timestamp: DateTimeString; slot: number },
-    ),
-    TEAlt.getOrThrow,
-    T.map(({ sum }) => sum),
-  );
-
-await getEthStaked()();
-
 const getSecurityRatio = (
   erc20Total: number,
   nftTotal: number,
@@ -526,11 +511,12 @@ const getSecurityRatio = (
 ) =>
   pipe(
     TE.Do,
-    TE.apS("ethStaked", TE.fromTask(getEthStaked())),
+    TE.apS("ethStaked", getEthStaked()),
     TE.apSW("ethPrice", EthPrices.getEthPrice(new Date())),
     TE.map(
       ({ ethStaked, ethPrice }) =>
-        (erc20Total + nftTotal + ethMarketCap) / (ethStaked * ethPrice.ethusd),
+        (erc20Total + nftTotal + ethMarketCap) /
+        (ethFromGwei(ethStaked.sum) * ethPrice.ethusd),
     ),
   );
 
