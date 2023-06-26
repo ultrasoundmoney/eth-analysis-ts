@@ -23,7 +23,6 @@ import {
   TEAlt,
   TO,
 } from "../fp.js";
-import * as Glassnode from "../glassnode.js";
 import * as Log from "../log.js";
 import { getStoredMarketCaps } from "../market-caps/market_caps.js";
 import * as NftGo from "../nft_go.js";
@@ -503,6 +502,21 @@ const getEthMarketCap = () =>
     TO.map((storedMarketCaps) => storedMarketCaps.ethMarketCap),
   );
 
+type DateTimeString = string;
+
+const getEthStaked = (): T.Task<number> =>
+  pipe(
+    Fetch.fetchJson("https://ultrasound.money/api/v2/effective-balance-sum"),
+    TE.map(
+      (json) =>
+        json as { sum: number; timestamp: DateTimeString; slot: number },
+    ),
+    TEAlt.getOrThrow,
+    T.map(({ sum }) => sum),
+  );
+
+await getEthStaked()();
+
 const getSecurityRatio = (
   erc20Total: number,
   nftTotal: number,
@@ -510,7 +524,7 @@ const getSecurityRatio = (
 ) =>
   pipe(
     TE.Do,
-    TE.apS("ethStaked", Glassnode.getEthStaked()),
+    TE.apS("ethStaked", TE.fromTask(getEthStaked())),
     TE.apSW("ethPrice", EthPrices.getEthPrice(new Date())),
     TE.map(
       ({ ethStaked, ethPrice }) =>
