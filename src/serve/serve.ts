@@ -148,13 +148,13 @@ const handleGetSupplyProjectionInputs: Middleware = async (ctx) => {
       () => {
         ctx.status = 503;
       },
-      (validatorRewards) => {
+      (supplyProjectionInputs) => {
         ctx.set(
           "Cache-Control",
           "public, max-age=43200, stale-while-revalidate=86400",
         );
         ctx.set("Content-Type", "application/json");
-        ctx.body = validatorRewards;
+        ctx.body = supplyProjectionInputs;
       },
     ),
   );
