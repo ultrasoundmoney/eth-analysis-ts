@@ -30,7 +30,7 @@ const getStreakForSiteWithMergeState = (
             ? O.none
             : O.some({
                 count: row.count,
-                // We consider a deflationary streak to have started the moment after the block before the first block in the deflationary streak was mined.
+                // The start of any deflationary streak is defined as 12s before the first block in the streak.
                 startedOnBlock: block.number - row.count,
               }),
         ),
