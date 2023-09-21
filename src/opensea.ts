@@ -50,7 +50,7 @@ const Collection = optional(
 const OpenseaContract = D.struct({
   address: D.string,
   collection: Collection,
-  schema_name: D.string,
+  schema_name: optional(D.string),
   image_url: optional(D.string),
   name: optional(D.string),
 });
@@ -159,31 +159,41 @@ export const getTwitterHandle = (contract: OpenseaContract): O.Option<string> =>
     }),
   );
 
-export const getSchemaName = (contract: OpenseaContract): O.Option<string> => {
-  const schemaName = contract.schema_name;
+export const getSchemaName = (contract: OpenseaContract): O.Option<string> =>
+  pipe(
+    contract.schema_name,
+    O.match(
+      () => {
+        Log.debug(`found no opensea schema name for ${contract.address}`);
+        return O.none;
+      },
+      (schemaName) => {
+        if (
+          schemaName === "ERC721" ||
+          schemaName === "ERC1155" ||
+          schemaName === "ERC20" ||
+          schemaName === "UNKNOWN"
+        ) {
+          Log.debug(
+            `found opensea schema name ${schemaName} for ${contract.address}`,
+          );
+          return O.some(schemaName);
+        }
 
-  if (
-    schemaName === "ERC721" ||
-    schemaName === "ERC1155" ||
-    schemaName === "ERC20" ||
-    schemaName === "UNKNOWN"
-  ) {
-    Log.debug(
-      `found opensea schema name ${schemaName} for ${contract.address}`,
-    );
-    return O.some(schemaName);
-  }
+        if (typeof schemaName === "string") {
+          Log.warn(
+            `adding unknown opensea schema name: ${schemaName} for ${contract.address}`,
+          );
+          return O.some(schemaName);
+        }
 
-  if (typeof schemaName === "string") {
-    Log.warn(
-      `adding unknown opensea schema name: ${schemaName} for ${contract.address}`,
-    );
-    return O.some(schemaName);
-  }
-
-  Log.warn(`opensea contract schema name is not a string, got: ${schemaName}`);
-  return O.none;
-};
+        Log.warn(
+          `opensea contract schema name is not a string, got: ${schemaName}`,
+        );
+        return O.none;
+      },
+    ),
+  );
 
 export const checkSchemaImpliesNft = (schemaName: unknown): boolean =>
   (typeof schemaName === "string" && schemaName === "ERC721") ||
