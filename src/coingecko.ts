@@ -133,7 +133,8 @@ export const getCoin = (id: string) =>
         NEA.fromArray,
         O.toNullable,
       ),
-      image_url: res.image.large,
+      image_url:
+        res.image.large === "missing_large.png" ? null : res.image.large,
       twitter_handle: res.links.twitter_screen_name,
     })),
   );
