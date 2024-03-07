@@ -169,8 +169,8 @@ export const blockDbFromAnalysis = (
 ): BlockV1 => ({
   baseFeePerGas: BigInt(block.baseFeePerGas),
   baseFeeSum: calcBlockBaseFeeSum(block),
-  blobGasUsed: BigInt(block.baseFeePerGas),
-  excessBlobGas: BigInt(block.blobGasUsed),
+  blobGasUsed: BigInt(block.blobGasUsed),
+  excessBlobGas: BigInt(block.excessBlobGas),
   contractCreationSum: feeSegments.creationsSum,
   difficulty: block.difficulty,
   ethPrice,
