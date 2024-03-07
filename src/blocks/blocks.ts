@@ -78,6 +78,8 @@ export const blockV1FromNode = (
 export type BlockDbInsertable = {
   blob_gas_used: string;
   excess_blob_gas: string;
+  blob_base_fee: string;
+  blob_fee_sum: string;
   base_fee_per_gas: string;
   base_fee_sum: number;
   base_fee_sum_256: string;
@@ -97,6 +99,8 @@ export type BlockV1 = {
   baseFeeSum: bigint;
   blobGasUsed: bigint;
   excessBlobGas: bigint;
+  blobBaseFee: bigint;
+  blobFeeSum: bigint;
   contractCreationSum: number;
   difficulty: bigint | undefined;
   ethPrice: number;
@@ -113,6 +117,8 @@ export const insertableFromBlock = (block: BlockV1): BlockDbInsertable => ({
   base_fee_per_gas: String(block.baseFeePerGas),
   blob_gas_used: String(block.blobGasUsed),
   excess_blob_gas: String(block.excessBlobGas),
+  blob_base_fee: String(block.blobBaseFee),
+  blob_fee_sum: String(block.blobFeeSum),
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: String(block.baseFeeSum),
   contract_creation_sum: block.contractCreationSum,
@@ -166,21 +172,53 @@ export const blockDbFromAnalysis = (
   feeSegments: FeeSegments,
   tips: number,
   ethPrice: number,
-): BlockV1 => ({
-  baseFeePerGas: BigInt(block.baseFeePerGas),
-  baseFeeSum: calcBlockBaseFeeSum(block),
-  blobGasUsed: BigInt(block.blobGasUsed),
-  excessBlobGas: BigInt(block.excessBlobGas),
-  contractCreationSum: feeSegments.creationsSum,
-  difficulty: block.difficulty,
-  ethPrice,
-  ethTransferSum: feeSegments.transfersSum,
-  gasUsed: BigInt(block.gasUsed),
-  hash: block.hash,
-  minedAt: block.timestamp,
-  number: block.number,
-  tips,
-});
+): BlockV1 => {
+    const blobBaseFee = calcBlobBaseFee(block.excessBlobGas);
+    const blobFeeSum = blobBaseFee * block.blobGasUsed;
+  return {
+    baseFeePerGas: BigInt(block.baseFeePerGas),
+    baseFeeSum: calcBlockBaseFeeSum(block),
+    blobGasUsed: BigInt(block.blobGasUsed),
+    excessBlobGas: BigInt(block.excessBlobGas),
+    blobBaseFee: BigInt(blobBaseFee),
+    blobFeeSum: BigInt(blobFeeSum),
+    contractCreationSum: feeSegments.creationsSum,
+    difficulty: block.difficulty,
+    ethPrice,
+    ethTransferSum: feeSegments.transfersSum,
+    gasUsed: BigInt(block.gasUsed),
+    hash: block.hash,
+    minedAt: block.timestamp,
+    number: block.number,
+    tips,
+  };
+};
+
+function calcBlobBaseFee(
+    excessBlobGas: number
+) {
+    const MIN_BLOB_BASE_FEE = 1;
+    const BLOB_BASE_FEE_UPDATE_FRACTION = 3338477;
+    return fakeExponential(
+        MIN_BLOB_BASE_FEE,
+        excessBlobGas,
+        BLOB_BASE_FEE_UPDATE_FRACTION
+    )
+}
+
+function fakeExponential(factor: number, numerator: number, denominator: number): number {
+  let i: number = 1;
+  let output: number = 0;
+  let numeratorAccum: number = factor * denominator;
+  
+  while (numeratorAccum > 0) {
+    output += numeratorAccum;
+    numeratorAccum = Math.floor((numeratorAccum * numerator) / (denominator * i));
+    i += 1;
+  }
+  
+  return Math.floor(output / denominator);
+}
 
 export const countTransactionsPerContract = (
   transactionReceipts: Transactions.TransactionReceiptV1[],
@@ -292,6 +330,8 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
 
 type BlockDbRow = {
   blobGasUsed: string;
+  blobBaseFee: string;
+  blobFeeSum: string;
   excessBlobGas: string;
   baseFeePerGas: string;
   contractCreationSum: number;
@@ -309,6 +349,8 @@ const blockDbFromRow = (row: BlockDbRow): BlockV1 => ({
   baseFeePerGas: BigInt(row.baseFeePerGas),
   baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
   blobGasUsed: BigInt(row.blobGasUsed),
+  blobFeeSum: BigInt(row.blobFeeSum),
+  blobBaseFee: BigInt(row.blobBaseFee),
   excessBlobGas: BigInt(row.excessBlobGas),
   contractCreationSum: row.contractCreationSum,
   difficulty: row.difficulty !== null ? BigInt(row.difficulty) : undefined,
