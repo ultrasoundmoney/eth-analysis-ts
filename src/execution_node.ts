@@ -256,6 +256,8 @@ const send = async (message: Record<string, unknown>) => {
  */
 export type BlockNodeV1 = {
   baseFeePerGas: string;
+  blobGasUsed?: string;
+  excessBlobGas?: string;
   gasUsed: string;
   difficulty: string;
   extraData: string;
@@ -299,6 +301,8 @@ export const getBlock = async (
   });
 
   const rawBlock = await messageP;
+
+  Log.debug("rawBlock:", rawBlock);
 
   return rawBlock;
 };

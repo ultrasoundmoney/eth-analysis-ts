@@ -30,6 +30,10 @@ export const londonHardForkBlockDate = new Date("2021-08-05T12:33:42Z");
 export type BlockNodeV2 = {
   baseFeePerGas: number;
   baseFeePerGasBI: bigint;
+  blobGasUsed: number;
+  blobGasUsedBI: bigint;
+  excessBlobGas: number;
+  excessBlobGasBI: bigint;
   difficulty: bigint;
   gasLimit: number;
   gasLimitBI: bigint;
@@ -48,6 +52,14 @@ export const blockV1FromNode = (
 ): BlockNodeV2 => ({
   baseFeePerGas: Number(blockNode.baseFeePerGas),
   baseFeePerGasBI: BigInt(blockNode.baseFeePerGas),
+  blobGasUsed: blockNode.blobGasUsed ? Number(blockNode.blobGasUsed) : 0,
+  blobGasUsedBI: blockNode.blobGasUsed
+    ? BigInt(blockNode.blobGasUsed)
+    : BigInt(0),
+  excessBlobGas: blockNode.excessBlobGas ? Number(blockNode.excessBlobGas) : 0,
+  excessBlobGasBI: blockNode.excessBlobGas
+    ? BigInt(blockNode.excessBlobGas)
+    : BigInt(0),
   difficulty: BigInt(blockNode.difficulty),
   gasLimit: Hexadecimal.numberFromHex(blockNode.gasLimit),
   gasLimitBI: BigInt(blockNode.gasLimit),
@@ -64,6 +76,8 @@ export const blockV1FromNode = (
 });
 
 export type BlockDbInsertable = {
+  blob_gas_used: string;
+  excess_blob_gas: string;
   base_fee_per_gas: string;
   base_fee_sum: number;
   base_fee_sum_256: string;
@@ -81,6 +95,8 @@ export type BlockDbInsertable = {
 export type BlockV1 = {
   baseFeePerGas: bigint;
   baseFeeSum: bigint;
+  blobGasUsed: bigint;
+  excessBlobGas: bigint;
   contractCreationSum: number;
   difficulty: bigint | undefined;
   ethPrice: number;
@@ -95,6 +111,8 @@ export type BlockV1 = {
 
 export const insertableFromBlock = (block: BlockV1): BlockDbInsertable => ({
   base_fee_per_gas: String(block.baseFeePerGas),
+  blob_gas_used: String(block.blobGasUsed),
+  excess_blob_gas: String(block.excessBlobGas),
   base_fee_sum: Number(block.baseFeeSum),
   base_fee_sum_256: String(block.baseFeeSum),
   contract_creation_sum: block.contractCreationSum,
@@ -151,6 +169,8 @@ export const blockDbFromAnalysis = (
 ): BlockV1 => ({
   baseFeePerGas: BigInt(block.baseFeePerGas),
   baseFeeSum: calcBlockBaseFeeSum(block),
+  blobGasUsed: BigInt(block.baseFeePerGas),
+  excessBlobGas: BigInt(block.blobGasUsed),
   contractCreationSum: feeSegments.creationsSum,
   difficulty: block.difficulty,
   ethPrice,
@@ -198,7 +218,8 @@ export const storeBlock = async (
   );
   const blockInsertable = insertableFromBlock(blockDb);
 
-  Log.debug(`storing block: ${block.number}, ${block.hash}`);
+  Log.debug(`storing block: `, block);
+  Log.debug(`insertable: `, blockInsertable);
   const storeBlockTask = sqlT`
     INSERT INTO blocks ${sql(blockInsertable)}
   `;
@@ -270,6 +291,8 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
   );
 
 type BlockDbRow = {
+  blobGasUsed: string;
+  excessBlobGas: string;
   baseFeePerGas: string;
   contractCreationSum: number;
   difficulty: string | null;
@@ -285,6 +308,8 @@ type BlockDbRow = {
 const blockDbFromRow = (row: BlockDbRow): BlockV1 => ({
   baseFeePerGas: BigInt(row.baseFeePerGas),
   baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
+  blobGasUsed: BigInt(row.blobGasUsed),
+  excessBlobGas: BigInt(row.excessBlobGas),
   contractCreationSum: row.contractCreationSum,
   difficulty: row.difficulty !== null ? BigInt(row.difficulty) : undefined,
   ethPrice: row.ethPrice,
