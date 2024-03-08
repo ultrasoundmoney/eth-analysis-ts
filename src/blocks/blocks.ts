@@ -284,8 +284,6 @@ export const storeBlock = async (
   );
   const blockInsertable = insertableFromBlock(blockDb);
 
-  Log.debug(`storing block: `, block);
-  Log.debug(`insertable: `, blockInsertable);
   const storeBlockTask = sqlT`
     INSERT INTO blocks ${sql(blockInsertable)}
   `;
