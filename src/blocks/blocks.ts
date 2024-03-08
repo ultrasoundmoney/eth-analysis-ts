@@ -30,10 +30,10 @@ export const londonHardForkBlockDate = new Date("2021-08-05T12:33:42Z");
 export type BlockNodeV2 = {
   baseFeePerGas: number;
   baseFeePerGasBI: bigint;
-  blobGasUsed: number;
-  blobGasUsedBI: bigint;
-  excessBlobGas: number;
-  excessBlobGasBI: bigint;
+  blobGasUsed?: number;
+  blobGasUsedBI?: bigint;
+  excessBlobGas?: number;
+  excessBlobGasBI?: bigint;
   difficulty: bigint;
   gasLimit: number;
   gasLimitBI: bigint;
@@ -52,14 +52,14 @@ export const blockV1FromNode = (
 ): BlockNodeV2 => ({
   baseFeePerGas: Number(blockNode.baseFeePerGas),
   baseFeePerGasBI: BigInt(blockNode.baseFeePerGas),
-  blobGasUsed: blockNode.blobGasUsed ? Number(blockNode.blobGasUsed) : 0,
+  blobGasUsed: blockNode.blobGasUsed ? Number(blockNode.blobGasUsed) : undefined,
   blobGasUsedBI: blockNode.blobGasUsed
     ? BigInt(blockNode.blobGasUsed)
-    : BigInt(0),
-  excessBlobGas: blockNode.excessBlobGas ? Number(blockNode.excessBlobGas) : 0,
+    : undefined,
+  excessBlobGas: blockNode.excessBlobGas ? Number(blockNode.excessBlobGas) : undefined,
   excessBlobGasBI: blockNode.excessBlobGas
     ? BigInt(blockNode.excessBlobGas)
-    : BigInt(0),
+    : undefined,
   difficulty: BigInt(blockNode.difficulty),
   gasLimit: Hexadecimal.numberFromHex(blockNode.gasLimit),
   gasLimitBI: BigInt(blockNode.gasLimit),
@@ -97,10 +97,10 @@ export type BlockDbInsertable = {
 export type BlockV1 = {
   baseFeePerGas: bigint;
   baseFeeSum: bigint;
-  blobGasUsed: bigint;
-  excessBlobGas: bigint;
-  blobBaseFee: bigint;
-  blobFeeSum: bigint;
+  blobGasUsed: bigint | undefined;
+  excessBlobGas: bigint | undefined;
+  blobBaseFee: bigint | undefined;
+  blobFeeSum: bigint | undefined;
   contractCreationSum: number;
   difficulty: bigint | undefined;
   ethPrice: number;
@@ -173,15 +173,15 @@ export const blockDbFromAnalysis = (
   tips: number,
   ethPrice: number,
 ): BlockV1 => {
-    const blobBaseFee = calcBlobBaseFee(block.excessBlobGas);
-    const blobFeeSum = blobBaseFee * block.blobGasUsed;
+    const blobBaseFee = block.excessBlobGas != null ? calcBlobBaseFee(block.excessBlobGas) : undefined;
+    const blobFeeSum = blobBaseFee != null && block.blobGasUsed != null  ? BigInt(blobBaseFee * block.blobGasUsed) : undefined;
   return {
     baseFeePerGas: BigInt(block.baseFeePerGas),
     baseFeeSum: calcBlockBaseFeeSum(block),
-    blobGasUsed: BigInt(block.blobGasUsed),
-    excessBlobGas: BigInt(block.excessBlobGas),
-    blobBaseFee: BigInt(blobBaseFee),
-    blobFeeSum: BigInt(blobFeeSum),
+    blobGasUsed: block.blobGasUsed != null ? BigInt(block.blobGasUsed) : undefined,
+    excessBlobGas: block.excessBlobGas != null ? BigInt(block.excessBlobGas) : undefined,
+    blobBaseFee: blobBaseFee != null ? BigInt(blobBaseFee) : undefined,
+    blobFeeSum: blobFeeSum,
     contractCreationSum: feeSegments.creationsSum,
     difficulty: block.difficulty,
     ethPrice,
@@ -329,10 +329,10 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
   );
 
 type BlockDbRow = {
-  blobGasUsed: string;
-  blobBaseFee: string;
-  blobFeeSum: string;
-  excessBlobGas: string;
+  blobGasUsed: string | null;
+  blobBaseFee: string | null;
+  blobFeeSum: string | null;
+  excessBlobGas: string | null;
   baseFeePerGas: string;
   contractCreationSum: number;
   difficulty: string | null;
@@ -348,10 +348,10 @@ type BlockDbRow = {
 const blockDbFromRow = (row: BlockDbRow): BlockV1 => ({
   baseFeePerGas: BigInt(row.baseFeePerGas),
   baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
-  blobGasUsed: BigInt(row.blobGasUsed),
-  blobFeeSum: BigInt(row.blobFeeSum),
-  blobBaseFee: BigInt(row.blobBaseFee),
-  excessBlobGas: BigInt(row.excessBlobGas),
+  blobGasUsed: row.blobGasUsed != null ? BigInt(row.blobGasUsed) : undefined,
+  blobFeeSum: row.blobFeeSum != null ? BigInt(row.blobFeeSum) : undefined,
+  blobBaseFee: row.blobBaseFee != null ? BigInt(row.blobBaseFee) : undefined,
+  excessBlobGas: row.excessBlobGas != null ? BigInt(row.excessBlobGas) : undefined,
   contractCreationSum: row.contractCreationSum,
   difficulty: row.difficulty !== null ? BigInt(row.difficulty) : undefined,
   ethPrice: row.ethPrice,
