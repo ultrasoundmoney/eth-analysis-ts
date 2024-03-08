@@ -302,8 +302,6 @@ export const getBlock = async (
 
   const rawBlock = await messageP;
 
-  Log.debug("rawBlock:", rawBlock);
-
   return rawBlock;
 };
 
