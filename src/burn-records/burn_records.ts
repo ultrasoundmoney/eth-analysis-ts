@@ -72,7 +72,7 @@ export const addRecordsFromBlockAndIncluding = (
 ) =>
   Db.sqlT`
     WITH new_records AS (
-      SELECT number, base_fee_sum FROM blocks
+      SELECT number, base_fee_sum + COALESCE(blob_fee_sum, 0) as base_fee_sum FROM blocks
       WHERE number >= ${blockNumber}
       ORDER BY base_fee_sum DESC
       LIMIT ${maxRank}
