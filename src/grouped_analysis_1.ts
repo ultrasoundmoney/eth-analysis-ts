@@ -21,10 +21,12 @@ export type GroupedAnalysis1 = {
   baseFeePerGas: number;
   blobBaseFee?: number;
   burnRates: BurnRates.BurnRatesT;
+  blobBurnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   deflationaryStreak: DeflationaryStreak.StreakForSite;
   ethPrice: EthPrices.EthStats | undefined;
   feeBurns: FeeBurn.FeesBurnedT;
+  blobFeeBurns: FeeBurn.FeesBurnedT;
   latestBlockFees: LatestBlockFees.LatestBlockFees;
   latestBlockFeesFlipped: LatestBlockFees.LatestBlockFees;
   leaderboards: Leaderboards.LeaderboardEntries;
@@ -87,6 +89,19 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         Performance.measureTaskPerf("  per-refresh burn rates"),
       ),
     ),
+    T.bind("blobFeeBurns", () =>
+      pipe(
+        FeeBurn.getBlobFeeBurnsOld(),
+        Performance.measureTaskPerf("  per-refresh blob fee burns"),
+      ),
+    ),
+    T.bind("blobBurnRates", ({ blobFeeBurns }) =>
+      pipe(
+        BurnRates.calcBurnRates(blobFeeBurns),
+        T.of,
+        Performance.measureTaskPerf("  per-refresh blob burn rates"),
+      ),
+    ),
     T.bind("leaderboards", () => getLeaderboards()),
     T.bind("burnRecords", () =>
       pipe(
@@ -132,20 +147,24 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
     T.map(
       ({
         burnRates,
+        blobBurnRates,
         burnRecords,
         deflationaryStreak,
         ethPrice,
         feeBurns,
+        blobFeeBurns,
         latestBlockFees,
         leaderboards,
       }): GroupedAnalysis1 => ({
         baseFeePerGas: Number(block.baseFeePerGas),
         blobBaseFee: block.blobBaseFee ? Number(block.blobBaseFee) : undefined,
         burnRates: burnRates,
+        blobBurnRates,
         burnRecords,
         deflationaryStreak,
         ethPrice,
         feeBurns,
+        blobFeeBurns,
         latestBlockFees,
         latestBlockFeesFlipped: [...latestBlockFees].reverse(),
         leaderboards: leaderboards,
