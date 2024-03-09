@@ -233,9 +233,9 @@ function fakeExponential(
   numerator: number,
   denominator: number,
 ): number {
-  let i: number = 1;
-  let output: number = 0;
-  let numeratorAccum: number = factor * denominator;
+  let i = 1;
+  let output = 0;
+  let numeratorAccum = factor * denominator;
 
   while (numeratorAccum > 0) {
     output += numeratorAccum;
