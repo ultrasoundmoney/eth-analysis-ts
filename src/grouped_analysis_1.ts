@@ -19,7 +19,7 @@ export const groupedAnalysis1CacheKey = "grouped-analysis-1";
 
 export type GroupedAnalysis1 = {
   baseFeePerGas: number;
-  blobBaseFee?: number;
+  blobBaseFee: number | null;
   burnRates: BurnRates.BurnRatesT;
   blobBurnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
@@ -157,7 +157,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         leaderboards,
       }): GroupedAnalysis1 => ({
         baseFeePerGas: Number(block.baseFeePerGas),
-        blobBaseFee: block.blobBaseFee ? Number(block.blobBaseFee) : undefined,
+        blobBaseFee: block.blobBaseFee ? Number(block.blobBaseFee) : null,
         burnRates: burnRates,
         blobBurnRates,
         burnRecords,

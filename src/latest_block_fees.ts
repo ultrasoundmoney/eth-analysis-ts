@@ -46,10 +46,10 @@ export const getLatestBlockFees = (
           number: row.number,
           fees: Number(row.baseFeeSum) + Number(row.blobFeeSum),
           feesUsd: row.baseFeeSumUsd + row.blobFeeSumUsd,
-          blobFees: Number(row.blobFeeSum),
+          blobFees: row.blobFeeSum != null ? Number(row.blobFeeSum) : null,
           blobFeesUsd: row.blobFeeSumUsd,
           baseFeePerGas: Number(row.baseFeePerGas),
-          blobBaseFee: Number(row.blobBaseFee),
+          blobBaseFee: row.blobBaseFee != null ? Number(row.blobBaseFee) : null,
           minedAt: row.minedAt,
         };
           console.log("Parsed", parsed);
