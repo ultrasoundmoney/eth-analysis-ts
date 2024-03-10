@@ -17,6 +17,7 @@
         "ignores": []
       }
     ],
-    "node/no-unpublished-import": "off"
+    "node/no-unpublished-import": "off",
+    "eqeqeq": ["error", "always", {"null": "ignore"}]
   }
 }

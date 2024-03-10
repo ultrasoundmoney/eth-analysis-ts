@@ -14,6 +14,9 @@ type LatestBlockFeesRow = {
   baseFeeSum: number;
   baseFeeSumUsd: number;
   baseFeePerGas: number;
+  blobFeeSum: number;
+  blobFeeSumUsd: number;
+  blobBaseFee: number;
   minedAt: Date;
 };
 
@@ -26,7 +29,10 @@ export const getLatestBlockFees = (
         number,
         base_fee_sum,
         (base_fee_sum * eth_price / 1e18) AS base_fee_sum_usd,
+        blob_fee_sum,
+        (blob_fee_sum * eth_price / 1e18) AS blob_fee_sum_usd,
         base_fee_per_gas,
+        blob_base_fee,
         mined_at
       FROM blocks
       WHERE number <= ${blockNumber}
@@ -34,12 +40,20 @@ export const getLatestBlockFees = (
       LIMIT 20
     `,
     T.map(
-      A.map((row) => ({
-        number: row.number,
-        fees: row.baseFeeSum,
-        feesUsd: row.baseFeeSumUsd,
-        baseFeePerGas: Number(row.baseFeePerGas),
-        minedAt: row.minedAt,
-      })),
+      A.map((row) => {
+        console.log("LatestBlockFeesRow", row);
+        const parsed =  {
+          number: row.number,
+          fees: Number(row.baseFeeSum) + Number(row.blobFeeSum),
+          feesUsd: row.baseFeeSumUsd + row.blobFeeSumUsd,
+          blobFees: Number(row.blobFeeSum),
+          blobFeesUsd: row.blobFeeSumUsd,
+          baseFeePerGas: Number(row.baseFeePerGas),
+          blobBaseFee: Number(row.blobBaseFee),
+          minedAt: row.minedAt,
+        };
+          console.log("Parsed", parsed);
+          return parsed;
+      }),
     ),
   );

@@ -30,6 +30,10 @@ export const londonHardForkBlockDate = new Date("2021-08-05T12:33:42Z");
 export type BlockNodeV2 = {
   baseFeePerGas: number;
   baseFeePerGasBI: bigint;
+  blobGasUsed?: number;
+  blobGasUsedBI?: bigint;
+  excessBlobGas?: number;
+  excessBlobGasBI?: bigint;
   difficulty: bigint;
   gasLimit: number;
   gasLimitBI: bigint;
@@ -48,6 +52,18 @@ export const blockV1FromNode = (
 ): BlockNodeV2 => ({
   baseFeePerGas: Number(blockNode.baseFeePerGas),
   baseFeePerGasBI: BigInt(blockNode.baseFeePerGas),
+  blobGasUsed: blockNode.blobGasUsed
+    ? Number(blockNode.blobGasUsed)
+    : undefined,
+  blobGasUsedBI: blockNode.blobGasUsed
+    ? BigInt(blockNode.blobGasUsed)
+    : undefined,
+  excessBlobGas: blockNode.excessBlobGas
+    ? Number(blockNode.excessBlobGas)
+    : undefined,
+  excessBlobGasBI: blockNode.excessBlobGas
+    ? BigInt(blockNode.excessBlobGas)
+    : undefined,
   difficulty: BigInt(blockNode.difficulty),
   gasLimit: Hexadecimal.numberFromHex(blockNode.gasLimit),
   gasLimitBI: BigInt(blockNode.gasLimit),
@@ -64,6 +80,10 @@ export const blockV1FromNode = (
 });
 
 export type BlockDbInsertable = {
+  blob_gas_used?: string;
+  excess_blob_gas?: string;
+  blob_base_fee?: string;
+  blob_fee_sum?: string;
   base_fee_per_gas: string;
   base_fee_sum: number;
   base_fee_sum_256: string;
@@ -81,6 +101,10 @@ export type BlockDbInsertable = {
 export type BlockV1 = {
   baseFeePerGas: bigint;
   baseFeeSum: bigint;
+  blobGasUsed?: bigint;
+  excessBlobGas?: bigint;
+  blobBaseFee?: bigint;
+  blobFeeSum?: bigint;
   contractCreationSum: number;
   difficulty: bigint | undefined;
   ethPrice: number;
@@ -93,20 +117,36 @@ export type BlockV1 = {
   tips: number;
 };
 
-export const insertableFromBlock = (block: BlockV1): BlockDbInsertable => ({
-  base_fee_per_gas: String(block.baseFeePerGas),
-  base_fee_sum: Number(block.baseFeeSum),
-  base_fee_sum_256: String(block.baseFeeSum),
-  contract_creation_sum: block.contractCreationSum,
-  difficulty: String(block.difficulty),
-  eth_price: block.ethPrice,
-  eth_transfer_sum: block.ethTransferSum,
-  gas_used: String(block.gasUsed),
-  hash: block.hash,
-  mined_at: block.minedAt,
-  number: block.number,
-  tips: block.tips,
-});
+export const insertableFromBlock = (block: BlockV1): BlockDbInsertable => {
+  let insertable: BlockDbInsertable = {
+    base_fee_per_gas: String(block.baseFeePerGas),
+    base_fee_sum: Number(block.baseFeeSum),
+    base_fee_sum_256: String(block.baseFeeSum),
+    contract_creation_sum: block.contractCreationSum,
+    difficulty: String(block.difficulty),
+    eth_price: block.ethPrice,
+    eth_transfer_sum: block.ethTransferSum,
+    gas_used: String(block.gasUsed),
+    hash: block.hash,
+    mined_at: block.minedAt,
+    number: block.number,
+    tips: block.tips,
+  };
+  if (block.blobGasUsed != null) {
+    insertable = {
+      ...insertable,
+      blob_gas_used:
+        block.blobGasUsed != null ? String(block.blobGasUsed) : undefined,
+      excess_blob_gas:
+        block.excessBlobGas != null ? String(block.excessBlobGas) : undefined,
+      blob_base_fee:
+        block.blobBaseFee != null ? String(block.blobBaseFee) : undefined,
+      blob_fee_sum:
+        block.blobFeeSum != null ? String(block.blobFeeSum) : undefined,
+    };
+  }
+  return insertable;
+};
 
 export type ContractBaseFeesInsertable = {
   base_fees: number;
@@ -148,19 +188,65 @@ export const blockDbFromAnalysis = (
   feeSegments: FeeSegments,
   tips: number,
   ethPrice: number,
-): BlockV1 => ({
-  baseFeePerGas: BigInt(block.baseFeePerGas),
-  baseFeeSum: calcBlockBaseFeeSum(block),
-  contractCreationSum: feeSegments.creationsSum,
-  difficulty: block.difficulty,
-  ethPrice,
-  ethTransferSum: feeSegments.transfersSum,
-  gasUsed: BigInt(block.gasUsed),
-  hash: block.hash,
-  minedAt: block.timestamp,
-  number: block.number,
-  tips,
-});
+): BlockV1 => {
+  const blobBaseFee =
+    block.excessBlobGas != null
+      ? calcBlobBaseFee(block.excessBlobGas)
+      : undefined;
+  const blobFeeSum =
+    blobBaseFee != null && block.blobGasUsed != null
+      ? BigInt(blobBaseFee * block.blobGasUsed)
+      : undefined;
+  return {
+    baseFeePerGas: BigInt(block.baseFeePerGas),
+    baseFeeSum: calcBlockBaseFeeSum(block),
+    blobGasUsed:
+      block.blobGasUsed != null ? BigInt(block.blobGasUsed) : undefined,
+    excessBlobGas:
+      block.excessBlobGas != null ? BigInt(block.excessBlobGas) : undefined,
+    blobBaseFee: blobBaseFee != null ? BigInt(blobBaseFee) : undefined,
+    blobFeeSum: blobFeeSum,
+    contractCreationSum: feeSegments.creationsSum,
+    difficulty: block.difficulty,
+    ethPrice,
+    ethTransferSum: feeSegments.transfersSum,
+    gasUsed: BigInt(block.gasUsed),
+    hash: block.hash,
+    minedAt: block.timestamp,
+    number: block.number,
+    tips,
+  };
+};
+
+function calcBlobBaseFee(excessBlobGas: number) {
+  const MIN_BLOB_BASE_FEE = 1;
+  const BLOB_BASE_FEE_UPDATE_FRACTION = 3338477;
+  return fakeExponential(
+    MIN_BLOB_BASE_FEE,
+    excessBlobGas,
+    BLOB_BASE_FEE_UPDATE_FRACTION,
+  );
+}
+
+function fakeExponential(
+  factor: number,
+  numerator: number,
+  denominator: number,
+): number {
+  let i = 1;
+  let output = 0;
+  let numeratorAccum = factor * denominator;
+
+  while (numeratorAccum > 0) {
+    output += numeratorAccum;
+    numeratorAccum = Math.floor(
+      (numeratorAccum * numerator) / (denominator * i),
+    );
+    i += 1;
+  }
+
+  return Math.floor(output / denominator);
+}
 
 export const countTransactionsPerContract = (
   transactionReceipts: Transactions.TransactionReceiptV1[],
@@ -198,7 +284,6 @@ export const storeBlock = async (
   );
   const blockInsertable = insertableFromBlock(blockDb);
 
-  Log.debug(`storing block: ${block.number}, ${block.hash}`);
   const storeBlockTask = sqlT`
     INSERT INTO blocks ${sql(blockInsertable)}
   `;
@@ -270,6 +355,10 @@ export const getLatestBaseFeePerGas = (): T.Task<number> =>
   );
 
 type BlockDbRow = {
+  blobGasUsed: string | null;
+  blobBaseFee: string | null;
+  blobFeeSum: string | null;
+  excessBlobGas: string | null;
   baseFeePerGas: string;
   contractCreationSum: number;
   difficulty: string | null;
@@ -285,6 +374,11 @@ type BlockDbRow = {
 const blockDbFromRow = (row: BlockDbRow): BlockV1 => ({
   baseFeePerGas: BigInt(row.baseFeePerGas),
   baseFeeSum: BigInt(row.baseFeePerGas) * BigInt(row.gasUsed),
+  blobGasUsed: row.blobGasUsed != null ? BigInt(row.blobGasUsed) : undefined,
+  blobFeeSum: row.blobFeeSum != null ? BigInt(row.blobFeeSum) : undefined,
+  blobBaseFee: row.blobBaseFee != null ? BigInt(row.blobBaseFee) : undefined,
+  excessBlobGas:
+    row.excessBlobGas != null ? BigInt(row.excessBlobGas) : undefined,
   contractCreationSum: row.contractCreationSum,
   difficulty: row.difficulty !== null ? BigInt(row.difficulty) : undefined,
   ethPrice: row.ethPrice,

@@ -396,11 +396,20 @@ const calcLeaderboardForLimitedTimeframe = (
         ),
       ),
     ),
-    T.map(({ topBaseFeeContracts, ethTransfer, contractCreation }) =>
+    T.bind("blobFees", () =>
+      pipe(
+        () => Leaderboards.getBlobBaseFeesForTimeframe(timeFrame),
+        Performance.measureTaskPerf(
+          `    add blob fees for time frame ${timeFrame}`,
+        ),
+      ),
+    ),
+    T.map(({ topBaseFeeContracts, ethTransfer, contractCreation, blobFees }) =>
       Leaderboards.buildLeaderboard(
         topBaseFeeContracts,
         ethTransfer,
         contractCreation,
+        blobFees,
       ),
     ),
   );

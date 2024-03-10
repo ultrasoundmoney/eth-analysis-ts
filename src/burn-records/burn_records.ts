@@ -72,14 +72,14 @@ export const addRecordsFromBlockAndIncluding = (
 ) =>
   Db.sqlT`
     WITH new_records AS (
-      SELECT number, base_fee_sum FROM blocks
+      SELECT number, base_fee_sum + COALESCE(blob_fee_sum, 0) as base_fee_sum, blob_fee_sum FROM blocks
       WHERE number >= ${blockNumber}
       ORDER BY base_fee_sum DESC
       LIMIT ${maxRank}
     )
     INSERT INTO burn_records
-      (time_frame, block_number, base_fee_sum)
-      SELECT ${timeFrame}, number, base_fee_sum FROM new_records
+      (time_frame, block_number, base_fee_sum, blob_fee_sum)
+      SELECT ${timeFrame}, number, base_fee_sum, blob_fee_sum FROM new_records
     ON CONFLICT DO NOTHING
   `;
 
@@ -100,6 +100,7 @@ export const pruneRecordsBeyondRank = (
 export type BurnRecord = {
   blockNumber: number;
   baseFeeSum: number;
+  blobFeeSum: number;
   minedAt: Date;
 };
 
@@ -110,6 +111,7 @@ export const getBurnRecords = (
   SELECT
     block_number,
     burn_records.base_fee_sum,
+    burn_records.blob_fee_sum,
     mined_at
   FROM burn_records
   JOIN blocks ON number = block_number
