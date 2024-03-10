@@ -86,10 +86,22 @@ type ContractCreationsEntry = {
   id: string;
 };
 
+type BlobsEntry = {
+  type: "blob-fees";
+  name: string;
+  fees: number;
+  feesUsd: number;
+  /**
+   * @deprecated
+   */
+  id: string;
+};
+
 // Name is undefined because we don't always know the name for a contract. Image is undefined because we don't always have an image for a contract. Address is undefined because base fees paid for ETH transfers are shared between many addresses.
 export type LeaderboardEntry =
   | ContractEntry
   | EthTransfersEntry
+  | BlobsEntry
   | ContractCreationsEntry;
 
 export type LeaderboardEntries = {
@@ -204,6 +216,41 @@ export const getEthTransferFeesForTimeframe = async (
   return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
 };
 
+export const getBlobBaseFeesForTimeframe = async (
+  timeframe: TimeFrame,
+): Promise<BaseFees> => {
+  if (timeframe === "since_burn") {
+    const rows = await sql<{ eth: number; usd: number }[]>`
+      SELECT
+        SUM(blob_fee_sum) AS eth,
+        SUM(blob_fee_sum * eth_price / 1e18) AS usd
+      FROM blocks
+    `;
+    return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
+  }
+
+  if (timeframe === "since_merge") {
+    const rows = await sql<{ eth: number; usd: number }[]>`
+      SELECT
+        SUM(blob_fee_sum) AS eth,
+        SUM(blob_fee_sum * eth_price / 1e18) AS usd
+      FROM blocks
+      WHERE number >= ${Blocks.mergeBlockNumber}
+    `;
+    return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
+  }
+
+  const minutes = timeframeMinutesMap[timeframe];
+  const rows = await sql<{ eth: number; usd: number }[]>`
+      SELECT
+        SUM(blob_fee_sum) AS eth,
+        SUM(blob_fee_sum * eth_price / 1e18) AS usd
+      FROM blocks
+      WHERE mined_at >= NOW() - interval '${sql(String(minutes))} minutes'
+  `;
+  return { eth: rows[0]?.eth ?? 0, usd: rows[0]?.usd ?? 0 };
+};
+
 export const getContractCreationBaseFeesForTimeframe = async (
   timeframe: TimeFrame,
 ): Promise<BaseFees> => {
@@ -248,6 +295,7 @@ export const buildLeaderboard = (
   contractRows: LeaderboardRowWithTwitterDetails[],
   ethTransferBaseFees: BaseFees,
   contractCreationBaseFees: BaseFees,
+  blobBaseFees: BaseFees,
 ): LeaderboardEntry[] => {
   const contractEntries: ContractEntry[] = contractRows.map((row) => ({
     address: row.contractAddress,
@@ -274,6 +322,14 @@ export const buildLeaderboard = (
     type: "contract",
   }));
 
+  const blobsEntry: BlobsEntry = {
+    fees: blobBaseFees.eth,
+    feesUsd: blobBaseFees.usd,
+    id: "blob-fees",
+    name: "blob fees",
+    type: "blob-fees",
+  };
+
   const contractCreationEntry: ContractCreationsEntry = {
     fees: contractCreationBaseFees.eth,
     feesUsd: contractCreationBaseFees.usd,
@@ -291,7 +347,7 @@ export const buildLeaderboard = (
   };
 
   return pipe(
-    [...contractEntries, ethTransfersEntry, contractCreationEntry],
+    [...contractEntries, ethTransfersEntry, contractCreationEntry, blobsEntry],
     A.sort<LeaderboardEntry>({
       compare: (first, second) =>
         first.fees === second.fees ? 0 : first.fees > second.fees ? -1 : 1,

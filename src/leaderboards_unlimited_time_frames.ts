@@ -260,16 +260,27 @@ export const calcLeaderboard = (timeFrame: TimeFrame) => {
         ),
       ),
     ),
+    T.bind("blobBaseFees", () =>
+      pipe(
+        () =>
+          Leaderboards.getBlobBaseFeesForTimeframe(timeFrameNewWording),
+        Performance.measureTaskPerf(
+          "    add blob fees leaderboard all",
+        ),
+      ),
+    ),
     T.map(
       ({
         topBaseFeeContracts,
         ethTransferBaseFees,
         contractCreationBaseFees,
+        blobBaseFees,
       }) =>
         Leaderboards.buildLeaderboard(
           topBaseFeeContracts,
           ethTransferBaseFees,
           contractCreationBaseFees,
+          blobBaseFees
         ),
     ),
   );
