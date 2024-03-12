@@ -61,16 +61,22 @@ const getLeaderboards = () =>
         ),
       ),
     ),
-    T.map(([leaderboardAll, leaderboardSinceMerge, leaderboardLimitedTimeframes]) => ({
-      leaderboard5m: leaderboardLimitedTimeframes["5m"],
-      leaderboard1h: leaderboardLimitedTimeframes["1h"],
-      leaderboard24h: leaderboardLimitedTimeframes["24h"],
-      leaderboard7d: leaderboardLimitedTimeframes["7d"],
-      leaderboard30d: leaderboardLimitedTimeframes["30d"],
-      leaderboardAll: leaderboardAll,
-      leaderboardSinceBurn: leaderboardAll,
-      leaderboardSinceMerge,
-    })),
+    T.map(
+      ([
+        leaderboardAll,
+        leaderboardSinceMerge,
+        leaderboardLimitedTimeframes,
+      ]) => ({
+        leaderboard5m: leaderboardLimitedTimeframes["5m"],
+        leaderboard1h: leaderboardLimitedTimeframes["1h"],
+        leaderboard24h: leaderboardLimitedTimeframes["24h"],
+        leaderboard7d: leaderboardLimitedTimeframes["7d"],
+        leaderboard30d: leaderboardLimitedTimeframes["30d"],
+        leaderboardAll: leaderboardAll,
+        leaderboardSinceBurn: leaderboardAll,
+        leaderboardSinceMerge,
+      }),
+    ),
   );
 
 export const updateAnalysis = (block: Blocks.BlockV1) =>
