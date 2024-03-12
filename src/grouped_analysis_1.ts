@@ -3,6 +3,7 @@ import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
 import * as DeflationaryStreak from "./deflationary_streaks.js";
+import * as DeflationaryBlobStreak from "./deflationary_blob_streaks.js";
 import * as EthPrices from "./eth-prices/index.js";
 import * as FeeBurn from "./fee_burn.js";
 import { A, flow, O, OAlt, pipe, T, TAlt, TE } from "./fp.js";
@@ -24,6 +25,7 @@ export type GroupedAnalysis1 = {
   blobBurnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   deflationaryStreak: DeflationaryStreak.StreakForSite;
+  deflationaryBlobStreak: DeflationaryStreak.StreakForSite;
   ethPrice: EthPrices.EthStats | undefined;
   feeBurns: FeeBurn.FeesBurnedT;
   blobFeeBurns: FeeBurn.FeesBurnedT;
@@ -60,16 +62,22 @@ const getLeaderboards = () =>
         ),
       ),
     ),
-    T.map(([leaderboardAll, leaderboardSinceMerge, leaderboardLimitedTimeframes]) => ({
-      leaderboard5m: leaderboardLimitedTimeframes["5m"],
-      leaderboard1h: leaderboardLimitedTimeframes["1h"],
-      leaderboard24h: leaderboardLimitedTimeframes["24h"],
-      leaderboard7d: leaderboardLimitedTimeframes["7d"],
-      leaderboard30d: leaderboardLimitedTimeframes["30d"],
-      leaderboardAll: leaderboardAll,
-      leaderboardSinceBurn: leaderboardAll,
-      leaderboardSinceMerge,
-    })),
+    T.map(
+      ([
+        leaderboardAll,
+        leaderboardSinceMerge,
+        leaderboardLimitedTimeframes,
+      ]) => ({
+        leaderboard5m: leaderboardLimitedTimeframes["5m"],
+        leaderboard1h: leaderboardLimitedTimeframes["1h"],
+        leaderboard24h: leaderboardLimitedTimeframes["24h"],
+        leaderboard7d: leaderboardLimitedTimeframes["7d"],
+        leaderboard30d: leaderboardLimitedTimeframes["30d"],
+        leaderboardAll: leaderboardAll,
+        leaderboardSinceBurn: leaderboardAll,
+        leaderboardSinceMerge,
+      }),
+    ),
   );
 
 export const updateAnalysis = (block: Blocks.BlockV1) =>
@@ -144,12 +152,19 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         Performance.measureTaskPerf("  per-refresh deflationary streak"),
       ),
     ),
+    T.bind("deflationaryBlobStreak", () =>
+      pipe(
+        DeflationaryBlobStreak.getStreakForSite(block),
+        Performance.measureTaskPerf("  per-refresh deflationary blob streak"),
+      ),
+    ),
     T.map(
       ({
         burnRates,
         blobBurnRates,
         burnRecords,
         deflationaryStreak,
+        deflationaryBlobStreak,
         ethPrice,
         feeBurns,
         blobFeeBurns,
@@ -162,6 +177,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         blobBurnRates,
         burnRecords,
         deflationaryStreak,
+        deflationaryBlobStreak,
         ethPrice,
         feeBurns,
         blobFeeBurns,

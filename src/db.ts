@@ -47,8 +47,9 @@ export const sqlT =
     template: TemplateStringsArray,
     ...args: SerializableParameter[]
   ): (() => PendingQuery<AsRowList<A>>) =>
-  () =>
-    sql(template, ...args);
+  () => {
+    return sql(template, ...args);
+  }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export const sqlTVoid = flow(
