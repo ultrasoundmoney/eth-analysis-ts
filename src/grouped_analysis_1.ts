@@ -147,7 +147,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
     ),
     T.bind("deflationaryBlobStreak", () =>
       pipe(
-        DeflationaryStreak.getStreakForSite(block, false),
+        DeflationaryStreak.getStreakForSite(block, true),
         Performance.measureTaskPerf("  per-refresh deflationary streak"),
       ),
     ),

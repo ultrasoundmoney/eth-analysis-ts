@@ -11,7 +11,7 @@ export const sync = (_from: number, upToIncluding: number) =>
     T.apS(
       "deflationaryStreakNextBlockToAdd",
       pipe(
-        DeflationaryStreaks.getNextBlockToAdd(),
+        DeflationaryStreaks.getNextBlockToAdd(false),
         Performance.measureTaskPerf(
           "  get deflationary streak next block to add",
         ),

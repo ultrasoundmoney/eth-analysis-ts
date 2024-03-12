@@ -148,6 +148,7 @@ type BaseFeePerGasStats = {
 };
 
 const getBarrier = async (blobStreak: boolean) => {
+  Log.debug("getBarrier: ", blobStreak);
   const resE = await Fetch.fetchJson(
     "https://ultrasound.money/api/v2/fees/base-fee-per-gas-stats",
   )();
@@ -157,6 +158,7 @@ const getBarrier = async (blobStreak: boolean) => {
   }
 
   const baseFeePerGasStats = resE.right as BaseFeePerGasStats;
+  Log.debug("baseFeePerGasStats:", baseFeePerGasStats);
   return blobStreak
     ? baseFeePerGasStats.blob_barrier
     : baseFeePerGasStats.barrier;

@@ -33,7 +33,11 @@ const rollbackBlocks = (
     T.Do,
     T.apS(
       "rollbackDeflationaryStreaks",
-      DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
+      DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst, false),
+    ),
+    T.apS(
+      "rollbackDeflationaryBlobStreaks",
+      DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst, true),
     ),
     T.apS(
       "rollbackBurnRecords",

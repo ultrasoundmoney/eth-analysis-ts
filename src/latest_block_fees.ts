@@ -41,7 +41,6 @@ export const getLatestBlockFees = (
     `,
     T.map(
       A.map((row) => {
-        console.log("LatestBlockFeesRow", row);
         const parsed =  {
           number: row.number,
           fees: Number(row.baseFeeSum) + Number(row.blobFeeSum),
@@ -52,7 +51,6 @@ export const getLatestBlockFees = (
           blobBaseFee: row.blobBaseFee != null ? Number(row.blobBaseFee) : null,
           minedAt: row.minedAt,
         };
-          console.log("Parsed", parsed);
           return parsed;
       }),
     ),
