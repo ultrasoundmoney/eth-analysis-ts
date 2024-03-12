@@ -15,10 +15,13 @@ export type StreakForSite = {
 const getStreakForSiteWithMergeState = (
   block: Blocks.BlockV1,
   postMerge: boolean,
+  blobStreak: boolean,
 ) =>
   pipe(
     Db.sqlT<{ blockNumber: number; count: number | null }[]>`
-      SELECT block_number, count FROM deflationary_streaks
+      SELECT block_number, count FROM ${
+        blobStreak ? "deflationary_blob_streaks" : "deflationary_streaks"
+      }
       WHERE block_number = ${block.number}
       AND post_merge = ${postMerge}
     `,
@@ -61,17 +64,24 @@ const getStreakForSiteWithMergeState = (
 
 export const getStreakForSite = (
   block: Blocks.BlockV1,
+  blobStreak: boolean,
 ): T.Task<StreakForSite> =>
   pipe(
     T.Do,
-    T.apS("preMerge", getStreakForSiteWithMergeState(block, false)),
-    T.apS("postMerge", getStreakForSiteWithMergeState(block, true)),
+    T.apS("preMerge", getStreakForSiteWithMergeState(block, false, blobStreak)),
+    T.apS("postMerge", getStreakForSiteWithMergeState(block, true, blobStreak)),
   );
 
-export const getStreak = (blockNumber: number, postMerge: boolean) =>
+export const getStreak = (
+  blockNumber: number,
+  postMerge: boolean,
+  blobStreak: boolean,
+) =>
   pipe(
     Db.sqlT<{ count: number | null }[]>`
-      SELECT count FROM deflationary_streaks
+      SELECT count FROM ${
+        blobStreak ? "deflationary_blob_streaks" : "deflationary_streaks"
+      }
       WHERE block_number = ${blockNumber}
       AND post_merge = ${postMerge}
     `,
@@ -88,9 +98,12 @@ const storeStreak = (
   block: Blocks.BlockV1,
   postMerge: boolean,
   count: number,
+  blobStreak: boolean,
 ) =>
   Db.sqlTVoid`
-    INSERT INTO deflationary_streaks
+    INSERT INTO ${
+      blobStreak ? "deflationary_blob_streaks" : "deflationary_streaks"
+    }
       ${Db.values({
         block_number: block.number,
         count: count,
@@ -98,19 +111,21 @@ const storeStreak = (
       })}
   `;
 
-export const getLastAnalyzed = () =>
+export const getLastAnalyzed = (blobStreak: boolean) =>
   pipe(
     Db.sqlT<{ max: number }[]>`
-      SELECT MAX(block_number) FROM deflationary_streaks
+      SELECT MAX(block_number) FROM ${
+        blobStreak ? "deflationary_blob_streaks" : "deflationary_streaks"
+      }
     `,
     T.map(flow((rows) => rows[0]?.max, O.fromNullable)),
   );
 
-export const getNextBlockToAdd = () =>
+export const getNextBlockToAdd = (blobStreak: boolean) =>
   pipe(
     T.Do,
     T.apS("lastStoredBlock", Blocks.getLastStoredBlock()),
-    T.apS("lastAnalyzed", getLastAnalyzed()),
+    T.apS("lastAnalyzed", getLastAnalyzed(blobStreak)),
     T.map(({ lastStoredBlock, lastAnalyzed }) =>
       pipe(
         lastAnalyzed,
@@ -129,9 +144,10 @@ type GweiPerGas = number;
 
 type BaseFeePerGasStats = {
   barrier: GweiPerGas;
+  blob_barrier: GweiPerGas;
 };
 
-const getBarrier = async () => {
+const getBarrier = async (blobStreak: boolean) => {
   const resE = await Fetch.fetchJson(
     "https://ultrasound.money/api/v2/fees/base-fee-per-gas-stats",
   )();
@@ -141,7 +157,9 @@ const getBarrier = async () => {
   }
 
   const baseFeePerGasStats = resE.right as BaseFeePerGasStats;
-  return baseFeePerGasStats.barrier;
+  return blobStreak
+    ? baseFeePerGasStats.blob_barrier
+    : baseFeePerGasStats.barrier;
 };
 
 type GweiNumber = number;
@@ -153,6 +171,7 @@ const analyzeNewBlocksWithMergeState = (
   barrier: number,
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockV1>,
   postMerge: boolean,
+  blobStreak: boolean,
 ) =>
   pipe(
     blocksToAdd,
@@ -163,11 +182,11 @@ const analyzeNewBlocksWithMergeState = (
           () => T.of(0),
           () =>
             pipe(
-              getStreak(block.number - 1, postMerge),
+              getStreak(block.number - 1, postMerge, blobStreak),
               T.map((streak) => streak + 1),
             ),
         ),
-        T.chain((streak) => storeStreak(block, postMerge, streak)),
+        T.chain((streak) => storeStreak(block, postMerge, streak, blobStreak)),
       ),
     ),
     TAlt.concatAllVoid,
@@ -176,28 +195,46 @@ const analyzeNewBlocksWithMergeState = (
 export const analyzeNewBlocks = (
   blocksToAdd: NEA.NonEmptyArray<Blocks.BlockV1>,
 ) =>
-  pipe(
-    () => getBarrier(),
-    T.chainFirstIOK((barrier) => Log.debugIO(`barrier: ${barrier}`)),
-    T.chain((barrier) =>
-      pipe(
-        TAlt.seqTPar(
-          analyzeNewBlocksWithMergeState(barrier, blocksToAdd, false),
-          analyzeNewBlocksWithMergeState(barrier, blocksToAdd, true),
+  TAlt.seqTPar(
+    pipe(
+      () => getBarrier(false),
+      T.chainFirstIOK((barrier) => Log.debugIO(`barrier: ${barrier}`)),
+      T.chain((barrier) =>
+        pipe(
+          TAlt.seqTPar(
+            analyzeNewBlocksWithMergeState(barrier, blocksToAdd, false, false),
+            analyzeNewBlocksWithMergeState(barrier, blocksToAdd, true, false),
+          ),
+          TAlt.concatAllVoid,
         ),
-        TAlt.concatAllVoid,
+      ),
+    ),
+    pipe(
+      () => getBarrier(true),
+      T.chainFirstIOK((barrier) => Log.debugIO(`blob_barrier: ${barrier}`)),
+      T.chain((barrier) =>
+        pipe(
+          TAlt.seqTPar(
+            analyzeNewBlocksWithMergeState(barrier, blocksToAdd, false, true),
+            analyzeNewBlocksWithMergeState(barrier, blocksToAdd, true, true),
+          ),
+          TAlt.concatAllVoid,
+        ),
       ),
     ),
   );
 
 export const rollbackBlocks = (
   blocksToRollback: NEA.NonEmptyArray<Blocks.BlockV1>,
+  blobStreak: boolean,
 ) =>
   pipe(
     blocksToRollback,
     A.map((block) => block.number),
     (blockNumbers) => Db.sqlTVoid`
-      DELETE FROM deflationary_streaks
+      DELETE FROM ${
+        blobStreak ? "deflationary_blob_streaks" : "deflationary_streaks"
+      }
       WHERE block_number IN (${blockNumbers})
     `,
   );

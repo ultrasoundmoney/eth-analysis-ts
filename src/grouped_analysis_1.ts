@@ -24,6 +24,7 @@ export type GroupedAnalysis1 = {
   blobBurnRates: BurnRates.BurnRatesT;
   burnRecords: BurnRecordsCache.BurnRecordsCache["records"];
   deflationaryStreak: DeflationaryStreak.StreakForSite;
+  deflationaryBlobStreak: DeflationaryStreak.StreakForSite;
   ethPrice: EthPrices.EthStats | undefined;
   feeBurns: FeeBurn.FeesBurnedT;
   blobFeeBurns: FeeBurn.FeesBurnedT;
@@ -140,7 +141,13 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
     ),
     T.bind("deflationaryStreak", () =>
       pipe(
-        DeflationaryStreak.getStreakForSite(block),
+        DeflationaryStreak.getStreakForSite(block, false),
+        Performance.measureTaskPerf("  per-refresh deflationary streak"),
+      ),
+    ),
+    T.bind("deflationaryBlobStreak", () =>
+      pipe(
+        DeflationaryStreak.getStreakForSite(block, false),
         Performance.measureTaskPerf("  per-refresh deflationary streak"),
       ),
     ),
@@ -150,6 +157,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         blobBurnRates,
         burnRecords,
         deflationaryStreak,
+        deflationaryBlobStreak,
         ethPrice,
         feeBurns,
         blobFeeBurns,
@@ -162,6 +170,7 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
         blobBurnRates,
         burnRecords,
         deflationaryStreak,
+        deflationaryBlobStreak,
         ethPrice,
         feeBurns,
         blobFeeBurns,
