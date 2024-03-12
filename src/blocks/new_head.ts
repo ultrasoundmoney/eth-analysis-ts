@@ -7,6 +7,7 @@ import * as Contracts from "../contracts/contracts.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
 import { sqlTNotify } from "../db.js";
 import * as DeflationaryStreaks from "../deflationary_streaks.js";
+import * as DeflationaryBlobStreaks from "../deflationary_streaks.js";
 import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/index.js";
@@ -33,11 +34,11 @@ const rollbackBlocks = (
     T.Do,
     T.apS(
       "rollbackDeflationaryStreaks",
-      DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst, false),
+      DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
     ),
     T.apS(
       "rollbackDeflationaryBlobStreaks",
-      DeflationaryStreaks.rollbackBlocks(blocksToRollbackNewestFirst, true),
+      DeflationaryBlobStreaks.rollbackBlocks(blocksToRollbackNewestFirst),
     ),
     T.apS(
       "rollbackBurnRecords",
@@ -238,6 +239,11 @@ export const addBlock = async (head: Head): Promise<void> => {
 
   await pipe(
     DeflationaryStreaks.analyzeNewBlocks(NEA.of(blockDb)),
+    Performance.measureTaskPerf("DeflationaryStreaks.analyzeNewBlocks"),
+  )();
+
+  await pipe(
+    DeflationaryBlobStreaks.analyzeNewBlocks(NEA.of(blockDb)),
     Performance.measureTaskPerf("DeflationaryStreaks.analyzeNewBlocks"),
   )();
 

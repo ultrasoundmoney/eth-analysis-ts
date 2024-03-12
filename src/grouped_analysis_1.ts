@@ -3,6 +3,7 @@ import * as BurnRecordsCache from "./burn-records/cache.js";
 import * as BurnRates from "./burn_rates.js";
 import { sql, sqlT, sqlTNotify, sqlTVoid } from "./db.js";
 import * as DeflationaryStreak from "./deflationary_streaks.js";
+import * as DeflationaryBlobStreak from "./deflationary_blob_streaks.js";
 import * as EthPrices from "./eth-prices/index.js";
 import * as FeeBurn from "./fee_burn.js";
 import { A, flow, O, OAlt, pipe, T, TAlt, TE } from "./fp.js";
@@ -147,14 +148,14 @@ export const updateAnalysis = (block: Blocks.BlockV1) =>
     ),
     T.bind("deflationaryStreak", () =>
       pipe(
-        DeflationaryStreak.getStreakForSite(block, false),
+        DeflationaryStreak.getStreakForSite(block),
         Performance.measureTaskPerf("  per-refresh deflationary streak"),
       ),
     ),
     T.bind("deflationaryBlobStreak", () =>
       pipe(
-        DeflationaryStreak.getStreakForSite(block, true),
-        Performance.measureTaskPerf("  per-refresh deflationary streak"),
+        DeflationaryBlobStreak.getStreakForSite(block),
+        Performance.measureTaskPerf("  per-refresh deflationary blob streak"),
       ),
     ),
     T.map(

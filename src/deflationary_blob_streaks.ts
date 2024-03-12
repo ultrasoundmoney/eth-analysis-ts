@@ -18,7 +18,7 @@ const getStreakForSiteWithMergeState = (
 ) =>
   pipe(
     Db.sqlT<{ blockNumber: number; count: number | null }[]>`
-      SELECT block_number, count FROM deflationary_streaks
+      SELECT block_number, count FROM deflationary_blob_streaks
       WHERE block_number = ${block.number}
       AND post_merge = ${postMerge}
     `,
@@ -71,7 +71,7 @@ export const getStreakForSite = (
 export const getStreak = (blockNumber: number, postMerge: boolean) =>
   pipe(
     Db.sqlT<{ count: number | null }[]>`
-      SELECT count FROM deflationary_streaks
+      SELECT count FROM deflationary_blob_streaks
       WHERE block_number = ${blockNumber}
       AND post_merge = ${postMerge}
     `,
@@ -90,7 +90,7 @@ const storeStreak = (
   count: number,
 ) =>
   Db.sqlTVoid`
-    INSERT INTO deflationary_streaks
+    INSERT INTO deflationary_blob_streaks
       ${Db.values({
         block_number: block.number,
         count: count,
@@ -101,7 +101,7 @@ const storeStreak = (
 export const getLastAnalyzed = () =>
   pipe(
     Db.sqlT<{ max: number }[]>`
-      SELECT MAX(block_number) FROM deflationary_streaks
+      SELECT MAX(block_number) FROM deflationary_blob_streaks
     `,
     T.map(flow((rows) => rows[0]?.max, O.fromNullable)),
   );
@@ -197,7 +197,7 @@ export const rollbackBlocks = (
     blocksToRollback,
     A.map((block) => block.number),
     (blockNumbers) => Db.sqlTVoid`
-      DELETE FROM deflationary_streaks
+      DELETE FROM deflationary_blob_streaks
       WHERE block_number IN (${blockNumbers})
     `,
   );
