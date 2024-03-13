@@ -129,6 +129,7 @@ type GweiPerGas = number;
 
 type BaseFeePerGasStats = {
   barrier: GweiPerGas;
+  blob_barrier: GweiPerGas;
 };
 
 const getBarrier = async () => {
@@ -141,7 +142,7 @@ const getBarrier = async () => {
   }
 
   const baseFeePerGasStats = resE.right as BaseFeePerGasStats;
-  return baseFeePerGasStats.barrier;
+  return baseFeePerGasStats.blob_barrier;
 };
 
 type GweiNumber = number;
@@ -178,7 +179,7 @@ export const analyzeNewBlocks = (
 ) =>
   pipe(
     () => getBarrier(),
-    T.chainFirstIOK((barrier) => Log.debugIO(`barrier: ${barrier}`)),
+    T.chainFirstIOK((barrier) => Log.debugIO(`blobBarrier: ${barrier}`)),
     T.chain((barrier) =>
       pipe(
         TAlt.seqTPar(
