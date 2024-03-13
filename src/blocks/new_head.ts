@@ -7,7 +7,7 @@ import * as Contracts from "../contracts/contracts.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
 import { sqlTNotify } from "../db.js";
 import * as DeflationaryStreaks from "../deflationary_streaks.js";
-import * as DeflationaryBlobStreaks from "../deflationary_streaks.js";
+import * as DeflationaryBlobStreaks from "../deflationary_blob_streaks.js";
 import * as Duration from "../duration.js";
 import * as EthPricesAverages from "../eth-prices/averages.js";
 import * as EthPrices from "../eth-prices/index.js";
