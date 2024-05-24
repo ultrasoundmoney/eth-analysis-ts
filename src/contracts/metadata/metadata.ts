@@ -38,7 +38,8 @@ export const addMetadata = (address: string, forceRefetch = false) =>
       addDefiLlamaMetadata(address),
       // Turn off name tag as blockscan is returning 503 again.
       // Etherscan.checkForMetadata(address, forceRefetch),
-      addOpenseaMetadataMaybe(address, forceRefetch),
+      // Turn off opensea metadata, our API key doesn't work anymore.
+      // addOpenseaMetadataMaybe(address, forceRefetch),
       refreshWeb3Metadata(address, forceRefetch),
     ),
     // Adding twitter metadata requires a handle, the previous steps attempt to uncover said handle.
