@@ -32,8 +32,8 @@ const updateWithThrottle = (blockNumber: number): T.Task<void> =>
     ),
   );
 
-// 10 minutes when no slots are missed.
-const MIN_BLOCKS_UNTIL_NEXT_UPDATE = 50;
+// Roughly 1 day when no slots are missed (12s per block).
+const MIN_BLOCKS_UNTIL_NEXT_UPDATE = 7200;
 
 sql.listen("blocks-update", (update) => {
   pipe(
