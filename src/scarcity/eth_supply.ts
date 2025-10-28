@@ -1,7 +1,7 @@
 import { setInterval } from "timers/promises";
 import * as Duration from "../duration.js";
-import * as Etherscan from "../etherscan.js";
-import { O, OAlt, pipe, TE } from "../fp.js";
+import * as Db from "../db.js";
+import { E, O, OAlt, pipe, TE } from "../fp.js";
 import * as Log from "../log.js";
 
 export type EthSupply = {
@@ -12,11 +12,40 @@ export type EthSupply = {
 
 let lastEthSupply: O.Option<EthSupply> = O.none;
 
+const getLatestEthSupplyFromDb = (): TE.TaskEither<Error, bigint> =>
+  pipe(
+    TE.tryCatch(
+      () =>
+        Db.sqlT<{ supply: string }[]>`
+          SELECT
+              supply::TEXT AS supply
+          FROM
+              eth_supply
+          ORDER BY
+              timestamp DESC
+          LIMIT 1
+        `(),
+      (e) => new Error(String(e)),
+    ),
+    TE.chainEitherK((rows) => {
+      const supplyText = rows[0]?.supply;
+      if (supplyText === undefined || supplyText === null) {
+        return E.left(new Error("no rows in eth_supply"));
+      }
+
+      try {
+        return E.right(BigInt(supplyText));
+      } catch (e) {
+        return E.left(new Error("invalid bigint in eth_supply.supply"));
+      }
+    }),
+  );
+
 const updateEthSupply = () =>
   pipe(
-    Etherscan.getEthSupply(),
+    getLatestEthSupplyFromDb(),
     TE.chainFirstIOK((ethSupply) => () => {
-      Log.debug(`got eth supply from etherscan: ${ethSupply / 10n ** 18n} ETH`);
+      Log.debug(`got eth supply from db: ${ethSupply / 10n ** 18n} ETH`);
     }),
     TE.map(
       (ethSupply): EthSupply => ({
