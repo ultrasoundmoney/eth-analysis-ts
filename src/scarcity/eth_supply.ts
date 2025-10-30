@@ -14,19 +14,16 @@ let lastEthSupply: O.Option<EthSupply> = O.none;
 
 const getLatestEthSupplyFromDb = (): TE.TaskEither<Error, bigint> =>
   pipe(
-    TE.tryCatch(
-      () =>
-        Db.sqlT<{ supply: string }[]>`
-          SELECT
-              supply::TEXT AS supply
-          FROM
-              eth_supply
-          ORDER BY
-              timestamp DESC
-          LIMIT 1
-        `(),
-      (e) => new Error(String(e)),
-    ),
+    Db.sqlT<{ supply: string }[]>`
+      SELECT
+          supply::TEXT AS supply
+      FROM
+          eth_supply
+      ORDER BY
+          timestamp DESC
+      LIMIT 1
+    `,
+    TE.fromTask,
     TE.chainEitherK((rows) => {
       const supplyText = rows[0]?.supply;
       if (supplyText === undefined || supplyText === null) {
