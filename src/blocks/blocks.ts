@@ -191,7 +191,7 @@ export const blockDbFromAnalysis = (
 ): BlockV1 => {
   const blobBaseFee =
     block.excessBlobGas != null
-      ? calcBlobBaseFee(block.excessBlobGas)
+      ? calcBlobBaseFee(block.excessBlobGas, block.number)
       : undefined;
   const blobFeeSum =
     blobBaseFee != null && block.blobGasUsed != null
@@ -218,13 +218,24 @@ export const blockDbFromAnalysis = (
   };
 };
 
-function calcBlobBaseFee(excessBlobGas: number) {
+function blobUpdateFractionFromBlock(blockNumber: number): number {
+  const PRE_PECTRA_FRACTION = 3_338_477;
+  const POST_PECTRA_FRACTION = 5_007_716;
+  const PECTRA_FORK_BLOCK = 22_431_084;
+
+  return blockNumber >= PECTRA_FORK_BLOCK
+    ? POST_PECTRA_FRACTION
+    : PRE_PECTRA_FRACTION;
+}
+
+function calcBlobBaseFee(excessBlobGas: number, blockNumber: number): number {
   const MIN_BLOB_BASE_FEE = 1;
-  const BLOB_BASE_FEE_UPDATE_FRACTION = 3338477;
+  const blobBaseFeeUpdateFraction = blobUpdateFractionFromBlock(blockNumber);
+
   return fakeExponential(
     MIN_BLOB_BASE_FEE,
     excessBlobGas,
-    BLOB_BASE_FEE_UPDATE_FRACTION,
+    blobBaseFeeUpdateFraction,
   );
 }
 
