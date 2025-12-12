@@ -219,13 +219,26 @@ export const blockDbFromAnalysis = (
 };
 
 function blobUpdateFractionFromBlock(blockNumber: number): number {
-  const PRE_PECTRA_FRACTION = 3_338_477;
-  const POST_PECTRA_FRACTION = 5_007_716;
-  const PECTRA_FORK_BLOCK = 22_431_084;
+  // Blob schedule from Ethereum execution specs
+  // https://github.com/ethereum/execution-specs
+  const CANCUN_FRACTION = 3_338_477;
+  const PRAGUE_FRACTION = 5_007_716; // Also used for Osaka
+  const BPO1_FRACTION = 8_346_193;
+  const BPO2_FRACTION = 11_684_671;
 
-  return blockNumber >= PECTRA_FORK_BLOCK
-    ? POST_PECTRA_FRACTION
-    : PRE_PECTRA_FRACTION;
+  const PECTRA_FORK_BLOCK = 22_431_084;
+  const BPO1_FORK_BLOCK = 23_322_756;
+  const BPO2_FORK_BLOCK = 24_150_800; // Estimated
+
+  if (blockNumber >= BPO2_FORK_BLOCK) {
+    return BPO2_FRACTION;
+  } else if (blockNumber >= BPO1_FORK_BLOCK) {
+    return BPO1_FRACTION;
+  } else if (blockNumber >= PECTRA_FORK_BLOCK) {
+    return PRAGUE_FRACTION;
+  } else {
+    return CANCUN_FRACTION;
+  }
 }
 
 function calcBlobBaseFee(excessBlobGas: number, blockNumber: number): number {
