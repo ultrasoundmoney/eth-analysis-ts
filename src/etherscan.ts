@@ -6,7 +6,6 @@ import * as Retry from "retry-ts";
 import { retrying } from "retry-ts/lib/Task.js";
 import { formatUrl } from "url-sub";
 import type { AbiItem } from "web3-utils";
-import * as Config from "./config.js";
 import { getEtherscanApiKey } from "./config.js";
 import * as Duration from "./duration.js";
 import * as Fetch from "./fetch.js";
@@ -234,45 +233,38 @@ export const getMetaTitle = (
     }),
   );
 
-type EthSupplyResponse =
-  | { status: "0"; message: string }
-  | {
-      status: "1";
-      message: string;
-      result: string;
-    };
+const ETH_SUPPLY_URL = "https://ultrasound.money/api/fees/eth-supply";
+const executionBalancesSumNextRegex =
+  /"executionBalancesSumNext"\s*:\s*(?:"(\d+)"|(\d+))/;
+const executionBalancesSumRegex =
+  /"executionBalancesSum"\s*:\s*{[\s\S]*?"balancesSum"\s*:\s*"(\d+)"/;
 
-const makeEthSupplyUrl = () =>
-  formatUrl("https://api.etherscan.io", "/api", {
-    module: "stats",
-    action: "ethsupply",
-    apiKey: Config.getEtherscanApiKey(),
-  });
+const decodeExecutionBalancesSum = (rawPayload: string) => {
+  const nextMatch = rawPayload.match(executionBalancesSumNextRegex);
+  const fallbackMatch = rawPayload.match(executionBalancesSumRegex);
+  const rawSum =
+    nextMatch !== null
+      ? nextMatch[1] ?? nextMatch[2]
+      : fallbackMatch !== null
+      ? fallbackMatch[1]
+      : undefined;
 
-/**
- * Returns the current eth supply in Wei as a bigint.
- */
+  if (rawSum === undefined) {
+    return E.left(
+      new Error("eth supply response missing execution balance sum"),
+    );
+  }
+
+  return E.tryCatch(
+    () => BigInt(rawSum),
+    () => new Error("eth supply response contained an invalid balance sum"),
+  );
+};
+
 export const getEthSupply = () =>
   pipe(
-    Fetch.fetchWithRetry(makeEthSupplyUrl()),
+    Fetch.fetchWithRetry(ETH_SUPPLY_URL),
     queueOnQueueWithTimeoutTE(apiQueue),
-    TE.chain((res) =>
-      TE.tryCatch(
-        () => res.json() as Promise<EthSupplyResponse>,
-        TEAlt.decodeUnknownError,
-      ),
-    ),
-    TE.chainEitherK((body) => {
-      if (body.status === "1") {
-        return E.right(BigInt(body.result));
-      }
-
-      if (body.status === "0") {
-        Log.error("get etherescan eth supply error", body);
-        return E.left(new Error(body.message));
-      }
-
-      Log.error("get etherscan eth supply unexpected response", body);
-      return E.left(new Error("get etherscan eth supply, unexpected response"));
-    }),
+    TE.chain((res) => TE.tryCatch(() => res.text(), TEAlt.decodeUnknownError)),
+    TE.chainEitherK(decodeExecutionBalancesSum),
   );
