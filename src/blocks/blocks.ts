@@ -5,6 +5,7 @@ import {
   FeeSegments,
   sumFeeSegments,
 } from "../base_fees.js";
+import { calcBlobBaseFee } from "../blob_schedule.js";
 import * as Contracts from "../contracts/contracts.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Db from "../db.js";
@@ -191,7 +192,7 @@ export const blockDbFromAnalysis = (
 ): BlockV1 => {
   const blobBaseFee =
     block.excessBlobGas != null
-      ? calcBlobBaseFee(block.excessBlobGas, block.number)
+      ? calcBlobBaseFee(block.excessBlobGas, block.timestamp)
       : undefined;
   const blobFeeSum =
     blobBaseFee != null && block.blobGasUsed != null
@@ -217,60 +218,6 @@ export const blockDbFromAnalysis = (
     tips,
   };
 };
-
-function blobUpdateFractionFromBlock(blockNumber: number): number {
-  // Blob schedule from Ethereum execution specs
-  // https://github.com/ethereum/execution-specs
-  const CANCUN_FRACTION = 3_338_477;
-  const PRAGUE_FRACTION = 5_007_716; // Also used for Osaka
-  const BPO1_FRACTION = 8_346_193;
-  const BPO2_FRACTION = 11_684_671;
-
-  const PECTRA_FORK_BLOCK = 22_431_084;
-  const BPO1_FORK_BLOCK = 23_322_756;
-  const BPO2_FORK_BLOCK = 24_150_800; // Estimated
-
-  if (blockNumber >= BPO2_FORK_BLOCK) {
-    return BPO2_FRACTION;
-  } else if (blockNumber >= BPO1_FORK_BLOCK) {
-    return BPO1_FRACTION;
-  } else if (blockNumber >= PECTRA_FORK_BLOCK) {
-    return PRAGUE_FRACTION;
-  } else {
-    return CANCUN_FRACTION;
-  }
-}
-
-function calcBlobBaseFee(excessBlobGas: number, blockNumber: number): number {
-  const MIN_BLOB_BASE_FEE = 1;
-  const blobBaseFeeUpdateFraction = blobUpdateFractionFromBlock(blockNumber);
-
-  return fakeExponential(
-    MIN_BLOB_BASE_FEE,
-    excessBlobGas,
-    blobBaseFeeUpdateFraction,
-  );
-}
-
-function fakeExponential(
-  factor: number,
-  numerator: number,
-  denominator: number,
-): number {
-  let i = 1;
-  let output = 0;
-  let numeratorAccum = factor * denominator;
-
-  while (numeratorAccum > 0) {
-    output += numeratorAccum;
-    numeratorAccum = Math.floor(
-      (numeratorAccum * numerator) / (denominator * i),
-    );
-    i += 1;
-  }
-
-  return Math.floor(output / denominator);
-}
 
 export const countTransactionsPerContract = (
   transactionReceipts: Transactions.TransactionReceiptV1[],
