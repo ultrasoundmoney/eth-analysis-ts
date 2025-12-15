@@ -9,6 +9,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": false,
     "outDir": "build",
+    "resolveJsonModule": true,
     "rootDir": "src",
     "skipLibCheck": true,
     "target": "ES2021"
