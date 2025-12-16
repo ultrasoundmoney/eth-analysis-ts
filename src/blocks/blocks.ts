@@ -5,7 +5,7 @@ import {
   FeeSegments,
   sumFeeSegments,
 } from "../base_fees.js";
-import { calcBlobBaseFee } from "../blob_schedule.js";
+import { calcBlobBaseFee } from "../blob_fee.js";
 import * as Contracts from "../contracts/contracts.js";
 import * as ContractBaseFees from "../contract_base_fees.js";
 import * as Db from "../db.js";
