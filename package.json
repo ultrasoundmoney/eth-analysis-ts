@@ -17,7 +17,7 @@
     "fp-ts": "2.12.3",
     "io-ts": "2.2.18",
     "kleur": "4.1.5",
-    "koa": "2.13.4",
+    "koa": "2.16.1",
     "koa-bodyparser": "4.3.0",
     "koa-conditional-get": "3.0.0",
     "koa-etag": "4.0.0",
